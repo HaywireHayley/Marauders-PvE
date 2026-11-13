@@ -1,0 +1,3899 @@
+{
+"test": {
+"type": 3,
+"stackable": 1,
+"max": 5,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 100
+},
+"TestArmour": {
+"type": 9,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 102
+},
+"TestBackPack": {
+"type": 5,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 4,
+"price": 105
+},
+"TestBullet": {
+"type": 3,
+"stackable": 0,
+"max": 99,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 106
+},
+"TestCash": {
+"type": 13,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 104
+},
+"TestHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 107
+},
+"TestKnife": {
+"type": 2,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 103
+},
+"TestLegs": {
+"type": 11,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 3,
+"price": 102
+},
+"TestPistol": {
+"type": 1,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 10
+},
+"TestRifle": {
+"type": 0,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 4,
+"h": 2,
+"price": 1000
+},
+"TestRifle2": {
+"type": 0,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 4,
+"h": 2,
+"price": 0
+},
+"TestRig": {
+"type": 7,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 3,
+"h": 3,
+"price": 103
+},
+"TestWallet": {
+"type": 13,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 0
+},
+"TestAmmo": {
+"type": 18,
+"stackable": 1,
+"max": 100,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 0
+},
+"TestSight": {
+"type": 15,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 1
+},
+"TestMag": {
+"type": 15,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 1
+},
+"TestMuzzle": {
+"type": 15,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 1
+},
+"TestSpecial": {
+"type": 15,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 1
+},
+"TestStock": {
+"type": 15,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 1
+},
+"TestUnderRail": {
+"type": 15,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 1
+},
+"TestOverRail": {
+"type": 15,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 1
+},
+"TestAccessKey": {
+"type": 14,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 0
+},
+"45Ammo": {
+"type": 18,
+"stackable": 1,
+"max": 60,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 18
+},
+"9mmAmmo": {
+"type": 18,
+"stackable": 1,
+"max": 60,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 8
+},
+"300Ammo": {
+"type": 18,
+"stackable": 1,
+"max": 60,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 108
+},
+"762Ammo": {
+"type": 18,
+"stackable": 1,
+"max": 60,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 92
+},
+"1911Pistol": {
+"type": 1,
+"stackable": 0,
+"max": 7,
+"dur": 100,
+"w": 2,
+"h": 1,
+"price": 1525
+},
+"WelrodPistol": {
+"type": 1,
+"stackable": 0,
+"max": 6,
+"dur": 50,
+"w": 2,
+"h": 1,
+"price": 525
+},
+"P08Pistol": {
+"type": 1,
+"stackable": 0,
+"max": 8,
+"dur": 100,
+"w": 2,
+"h": 1,
+"price": 325
+},
+"MosinObrezPistol": {
+"type": 1,
+"stackable": 0,
+"max": 5,
+"dur": 50,
+"w": 3,
+"h": 1,
+"price": 1945
+},
+"M712Pistol": {
+"type": 1,
+"stackable": 0,
+"max": 10,
+"dur": 70,
+"w": 2,
+"h": 1,
+"price": 1125
+},
+"M712Stock": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 685
+},
+"BARRifle": {
+"type": 0,
+"stackable": 0,
+"max": 20,
+"dur": 100,
+"w": 6,
+"h": 2,
+"price": 9570
+},
+"JohnsonRifle": {
+"type": 0,
+"stackable": 0,
+"max": 10,
+"dur": 100,
+"w": 5,
+"h": 1,
+"price": 8055
+},
+"STG44Rifle": {
+"type": 0,
+"stackable": 0,
+"max": 30,
+"dur": 100,
+"w": 5,
+"h": 3,
+"price": 9760
+},
+"SVT40Rifle": {
+"type": 0,
+"stackable": 0,
+"max": 10,
+"dur": 100,
+"w": 6,
+"h": 2,
+"price": 5850
+},
+"MG42Rifle": {
+"type": 0,
+"stackable": 0,
+"max": 50,
+"dur": 100,
+"w": 6,
+"h": 3,
+"price": 13125
+},
+"UziSmg": {
+"type": 0,
+"stackable": 0,
+"max": 20,
+"dur": 70,
+"w": 4,
+"h": 2,
+"price": 1500
+},
+"UziWoodenStock": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 895
+},
+"UziMetalSock": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 755
+},
+"M45CarlSMG": {
+"type": 0,
+"stackable": 0,
+"max": 36,
+"dur": 65,
+"w": 4,
+"h": 2,
+"price": 6450
+},
+"PPSHSmg": {
+"type": 0,
+"stackable": 0,
+"max": 36,
+"dur": 60,
+"w": 4,
+"h": 2,
+"price": 3750
+},
+"ThompsonSMG": {
+"type": 0,
+"stackable": 0,
+"max": 30,
+"dur": 75,
+"w": 5,
+"h": 2,
+"price": 7750
+},
+"StenSMG": {
+"type": 0,
+"stackable": 0,
+"max": 32,
+"dur": 65,
+"w": 4,
+"h": 1,
+"price": 1400
+},
+"HuntingKnife": {
+"type": 2,
+"stackable": 0,
+"max": 0,
+"dur": 25,
+"w": 2,
+"h": 1,
+"price": 460
+},
+"BowieKnife": {
+"type": 2,
+"stackable": 0,
+"max": 0,
+"dur": 50,
+"w": 2,
+"h": 1,
+"price": 1450
+},
+"MacheteKnife": {
+"type": 2,
+"stackable": 0,
+"max": 0,
+"dur": 75,
+"w": 3,
+"h": 1,
+"price": 3100
+},
+"CombatKnife": {
+"type": 2,
+"stackable": 0,
+"max": 0,
+"dur": 35,
+"w": 2,
+"h": 1,
+"price": 1250
+},
+"WeldersMask": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 60,
+"w": 2,
+"h": 2,
+"price": 7965
+},
+"SafetyHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 50,
+"w": 2,
+"h": 2,
+"price": 1896
+},
+"BrodieHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 35,
+"w": 2,
+"h": 2,
+"price": 3875
+},
+"CivilianHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 5,
+"w": 2,
+"h": 2,
+"price": 925
+},
+"M1Helmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 45,
+"w": 2,
+"h": 2,
+"price": 4290
+},
+"M5Helmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 65,
+"w": 2,
+"h": 2,
+"price": 7150
+},
+"StahlhelmHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 40,
+"w": 2,
+"h": 2,
+"price": 2350
+},
+"SackBag": {
+"type": 5,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 3,
+"price": 325
+},
+"CommandoBag": {
+"type": 5,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 3,
+"price": 2015
+},
+"BarrelBag": {
+"type": 5,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 4,
+"h": 3,
+"price": 4500
+},
+"LeatherJerkinChest": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 10,
+"w": 2,
+"h": 3,
+"price": 855
+},
+"M1FlakChest": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 40,
+"w": 3,
+"h": 3,
+"price": 900
+},
+"M2FlakChest": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 75,
+"w": 3,
+"h": 4,
+"price": 1565
+},
+"HalfPlateChest": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 85,
+"w": 4,
+"h": 4,
+"price": 2975
+},
+"FullPlateChest": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 100,
+"w": 4,
+"h": 5,
+"price": 4350
+},
+"BandageAid": {
+"type": 3,
+"stackable": 1,
+"max": 3,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 225
+},
+"SmallFirstAid": {
+"type": 3,
+"stackable": 1,
+"max": 2,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1500
+},
+"LargeFirstAid": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 4030
+},
+"MetalScrap": {
+"type": 3,
+"stackable": 1,
+"max": 8,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 50
+},
+"Gunpowder": {
+"type": 3,
+"stackable": 1,
+"max": 5,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 45
+},
+"HiGunpowder": {
+"type": 3,
+"stackable": 1,
+"max": 5,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 95
+},
+"SyntheticScrap": {
+"type": 3,
+"stackable": 1,
+"max": 8,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 40
+},
+"CannedFood": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 8
+},
+"ChocolateBar": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 10
+},
+"WaterBottle": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 10
+},
+"M16Rifle": {
+"type": 0,
+"stackable": 0,
+"max": 20,
+"dur": 100,
+"w": 5,
+"h": 2,
+"price": 7725
+},
+"556Ammo": {
+"type": 18,
+"stackable": 1,
+"max": 60,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 64
+},
+"M1ParaRifle": {
+"type": 0,
+"stackable": 0,
+"max": 15,
+"dur": 100,
+"w": 5,
+"h": 1,
+"price": 1750
+},
+"SecurityHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 10,
+"w": 2,
+"h": 2,
+"price": 2785
+},
+"MP40Rifle": {
+"type": 0,
+"stackable": 0,
+"max": 30,
+"dur": 70,
+"w": 4,
+"h": 2,
+"price": 4655
+},
+"Mat49Rifle": {
+"type": 0,
+"stackable": 0,
+"max": 36,
+"dur": 60,
+"w": 4,
+"h": 2,
+"price": 2900
+},
+"MetalSheet": {
+"type": 3,
+"stackable": 1,
+"max": 5,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 55
+},
+"BrenMk2Rifle": {
+"type": 0,
+"stackable": 0,
+"max": 20,
+"dur": 100,
+"w": 5,
+"h": 3,
+"price": 11375
+},
+"PanzerChest": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 100,
+"w": 4,
+"h": 5,
+"price": 8575
+},
+"FullPanzerChest": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 200,
+"w": 5,
+"h": 5,
+"price": 12055
+},
+"HeavyStahlhelmHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 65,
+"w": 2,
+"h": 2,
+"price": 10750
+},
+"FrigateCapitalShip_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"FrigateVIP_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"FrigateStarter_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"FrigateFast_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"UziSupressor": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 915
+},
+"Mat49Stock": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1325
+},
+"StenMK2Stock01": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 0
+},
+"StenMK2Stock02": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 0
+},
+"StenMK2Supressor01": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 825
+},
+"FrigateHeavy_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"TurretSingular": {
+"type": 16,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 765
+},
+"TurretRocketArtillery": {
+"type": 16,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 2,
+"price": 5965
+},
+"TurretTorpedoLauncher": {
+"type": 16,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 2,
+"price": 2865
+},
+"TurretTriple": {
+"type": 16,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 4,
+"h": 2,
+"price": 8655
+},
+"TurretFlakCannon": {
+"type": 16,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 4,
+"h": 2,
+"price": 6455
+},
+"TurretNuclearLauncher": {
+"type": 16,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 4,
+"h": 2,
+"price": 11255
+},
+"TurretHowitzer": {
+"type": 16,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 4,
+"h": 2,
+"price": 10155
+},
+"FrigateScout_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"FuelBottle": {
+"type": 3,
+"stackable": 1,
+"max": 3,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 145
+},
+"BowGun50cal": {
+"type": 16,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 605
+},
+"BowGunBazooka": {
+"type": 16,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 605
+},
+"MP40MetalStock": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 945
+},
+"Fabric": {
+"type": 3,
+"stackable": 1,
+"max": 5,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 42
+},
+"M712Magazine": {
+"type": 15,
+"stackable": 0,
+"max": 20,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 730
+},
+"Cable": {
+"type": 3,
+"stackable": 1,
+"max": 8,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 56
+},
+"ToolKit": {
+"type": 3,
+"stackable": 1,
+"max": 3,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 142
+},
+"Ration": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 425
+},
+"PSHHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 50,
+"w": 2,
+"h": 2,
+"price": 9375
+},
+"RadioBag": {
+"type": 5,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 4,
+"price": 2015
+},
+"Biscuit": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 14
+},
+"LargeWaterBottle": {
+"type": 3,
+"stackable": 1,
+"max": 3,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 10
+},
+"CopperCoin": {
+"type": 3,
+"stackable": 1,
+"max": 8,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 1000
+},
+"SilverCoin": {
+"type": 3,
+"stackable": 1,
+"max": 6,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 3250
+},
+"GoldCoin": {
+"type": 3,
+"stackable": 1,
+"max": 4,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 8500
+},
+"Warbond": {
+"type": 3,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 25000
+},
+"Mac10Rifle": {
+"type": 0,
+"stackable": 0,
+"max": 30,
+"dur": 70,
+"w": 3,
+"h": 2,
+"price": 7280
+},
+"DaewooK1Rifle": {
+"type": 0,
+"stackable": 0,
+"max": 20,
+"dur": 100,
+"w": 4,
+"h": 2,
+"price": 7280
+},
+"KrasaRifle": {
+"type": 0,
+"stackable": 0,
+"max": 20,
+"dur": 100,
+"w": 4,
+"h": 2,
+"price": 8280
+},
+"LiberatorShotgun": {
+"type": 0,
+"stackable": 0,
+"max": 4,
+"dur": 100,
+"w": 4,
+"h": 2,
+"price": 6280
+},
+"TerminatorShotgun": {
+"type": 0,
+"stackable": 0,
+"max": 1,
+"dur": 15,
+"w": 5,
+"h": 1,
+"price": 3150
+},
+"LPOFlamethrower": {
+"type": 0,
+"stackable": 0,
+"max": 100,
+"dur": 100,
+"w": 5,
+"h": 2,
+"price": 11755
+},
+"Flaregun01": {
+"type": 1,
+"stackable": 0,
+"max": 1,
+"dur": 10,
+"w": 2,
+"h": 1,
+"price": 3280
+},
+"12GaugeAmmo": {
+"type": 18,
+"stackable": 1,
+"max": 20,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 72
+},
+"AP_Mine": {
+"type": 1,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 3280
+},
+"FlameFuel": {
+"type": 18,
+"stackable": 1,
+"max": 100,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 2
+},
+"FlareAmmo": {
+"type": 18,
+"stackable": 1,
+"max": 5,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 255
+},
+"BAHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 55,
+"w": 2,
+"h": 2,
+"price": 1375
+},
+"BABeret": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 15,
+"w": 2,
+"h": 1,
+"price": 396
+},
+"SASBeret": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 15,
+"w": 2,
+"h": 1,
+"price": 900
+},
+"BAFlakVest": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 40,
+"w": 3,
+"h": 3,
+"price": 3650
+},
+"CommandoCap": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 15,
+"w": 2,
+"h": 2,
+"price": 3250
+},
+"PanzerRig": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 100,
+"w": 4,
+"h": 5,
+"price": 9105
+},
+"DeLisleRifle": {
+"type": 0,
+"stackable": 0,
+"max": 11,
+"dur": 100,
+"w": 4,
+"h": 2,
+"price": 6280
+},
+"M50ReisingRifle": {
+"type": 0,
+"stackable": 0,
+"max": 12,
+"dur": 100,
+"w": 4,
+"h": 2,
+"price": 6680
+},
+"M50Reising_magSmall": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 730
+},
+"M50Reising_magLarge": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 1250
+},
+"M50Reising_Supressor": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1125
+},
+"M50Reising_Compensator": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 950
+},
+"BatonMelee": {
+"type": 2,
+"stackable": 0,
+"max": 0,
+"dur": 25,
+"w": 3,
+"h": 1,
+"price": 1960
+},
+"TruncheonMelee": {
+"type": 2,
+"stackable": 0,
+"max": 0,
+"dur": 25,
+"w": 3,
+"h": 1,
+"price": 1960
+},
+"DP28Rifle": {
+"type": 0,
+"stackable": 0,
+"max": 47,
+"dur": 100,
+"w": 5,
+"h": 2,
+"price": 11550
+},
+"RiotHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 20,
+"w": 2,
+"h": 2,
+"price": 1575
+},
+"MK3FlakVest": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 85,
+"w": 4,
+"h": 4,
+"price": 2165
+},
+"PickAxeMelee": {
+"type": 2,
+"stackable": 0,
+"max": 0,
+"dur": 25,
+"w": 3,
+"h": 1,
+"price": 1960
+},
+"ViperMk1": {
+"type": 0,
+"stackable": 0,
+"max": 32,
+"dur": 75,
+"w": 4,
+"h": 1,
+"price": 7600
+},
+"BlowTorch": {
+"type": 0,
+"stackable": 0,
+"max": 250,
+"dur": 250,
+"w": 3,
+"h": 2,
+"price": 4055
+},
+"SawedOffDouble": {
+"type": 1,
+"stackable": 0,
+"max": 2,
+"dur": 40,
+"w": 3,
+"h": 1,
+"price": 3280
+},
+"Lockpick": {
+"type": 3,
+"stackable": 1,
+"max": 4,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 56
+},
+"Jackhammer": {
+"type": 0,
+"stackable": 0,
+"max": 10,
+"dur": 100,
+"w": 5,
+"h": 3,
+"price": 11280
+},
+"TrenchShotgun": {
+"type": 0,
+"stackable": 0,
+"max": 5,
+"dur": 50,
+"w": 5,
+"h": 1,
+"price": 5280
+},
+"SmallContainer": {
+"type": 19,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 3,
+"price": 3500
+},
+"NavyDocument": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 9000
+},
+"AlliedDocument": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 7750
+},
+"KingdomDocument": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 11250
+},
+"LargeContainer": {
+"type": 19,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 5,
+"h": 3,
+"price": 12250
+},
+"UAStrongbox": {
+"type": 20,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 4,
+"h": 3,
+"price": 12250
+},
+"CEStrongbox": {
+"type": 20,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 4,
+"h": 3,
+"price": 14125
+},
+"KAStrongbox": {
+"type": 20,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 4,
+"h": 3,
+"price": 11650
+},
+"SmallStrongbox": {
+"type": 20,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 3,
+"price": 21250
+},
+"LargeStrongbox": {
+"type": 20,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 4,
+"h": 3,
+"price": 28500
+},
+"HandTorch": {
+"type": 2,
+"stackable": 0,
+"max": 0,
+"dur": 25,
+"w": 1,
+"h": 2,
+"price": 2050
+},
+"KAWarbond": {
+"type": 3,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 16250
+},
+"CEWarbond": {
+"type": 3,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 19700
+},
+"UAWarbond": {
+"type": 3,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 21300
+},
+"JewelleryBox": {
+"type": 20,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 8550
+},
+"FireExtinguisher": {
+"type": 0,
+"stackable": 0,
+"max": 50,
+"dur": 50,
+"w": 3,
+"h": 2,
+"price": 350
+},
+"GoldBullion": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 82500
+},
+"LargeCable": {
+"type": 3,
+"stackable": 1,
+"max": 3,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 355
+},
+"ReinforcedMetalSheet": {
+"type": 3,
+"stackable": 1,
+"max": 3,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 625
+},
+"IndustrialAlcohol": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 825
+},
+"LeatherStrips": {
+"type": 3,
+"stackable": 1,
+"max": 3,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 215
+},
+"IndustrialPaper": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 1575
+},
+"Aspirin": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 750
+},
+"Morphine": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1125
+},
+"M712MagSmall": {
+"type": 15,
+"stackable": 0,
+"max": 10,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 730
+},
+"Methamphetamine": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 1005
+},
+"AmmoBox": {
+"type": 20,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 8550
+},
+"10mmAmmo": {
+"type": 18,
+"stackable": 1,
+"max": 60,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 14
+},
+"K1DefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 20,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 730
+},
+"556ExtendedMag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 3130
+},
+"K1Compensator": {
+"type": 15,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 1920
+},
+"K1WireStock": {
+"type": 15,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1875
+},
+"Mac10HeavyBarrel": {
+"type": 15,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 2380
+},
+"Mac10Suppressor": {
+"type": 15,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1925
+},
+"ThompsonDefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 730
+},
+"ThompsonWoodStock": {
+"type": 15,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 875
+},
+"ThompsonDrumMag": {
+"type": 15,
+"stackable": 0,
+"max": 50,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 3850
+},
+"M16DefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 20,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 730
+},
+"BARDefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 730
+},
+"BARExtendedMag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 730
+},
+"BARCompensator": {
+"type": 15,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 1200
+},
+"MP40Suppressor": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1050
+},
+"32Ammo": {
+"type": 18,
+"stackable": 1,
+"max": 60,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 16
+},
+"M1FlakRig": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 45,
+"w": 3,
+"h": 3,
+"price": 1320
+},
+"PlateRig": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 85,
+"w": 4,
+"h": 4,
+"price": 3065
+},
+"54RAmmo": {
+"type": 18,
+"stackable": 1,
+"max": 60,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 102
+},
+"M16ExtendedMag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 1130
+},
+"UziDefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 20,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 730
+},
+"UziExtendedMag": {
+"type": 15,
+"stackable": 0,
+"max": 20,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 640
+},
+"ClothCap": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 20,
+"w": 2,
+"h": 2,
+"price": 455
+},
+"LeatherCap": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 35,
+"w": 2,
+"h": 2,
+"price": 655
+},
+"LightBag": {
+"type": 5,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 2,
+"price": 1225
+},
+"PouchRig": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 30,
+"w": 3,
+"h": 3,
+"price": 390
+},
+"KEYCARD": {
+"type": 14,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 1200
+},
+"MotorOil": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 1365
+},
+"GoldRing": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 9250
+},
+"NickelOre": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 875
+},
+"Transmitter": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 2100
+},
+"Disinfectant": {
+"type": 3,
+"stackable": 1,
+"max": 3,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 215
+},
+"ScrapBomb": {
+"type": 1,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 1050
+},
+"PPSHDefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 730
+},
+"PPSHDrumMag": {
+"type": 15,
+"stackable": 0,
+"max": 56,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 1375
+},
+"FoldedLightBag": {
+"type": 6,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 2,
+"price": 1225
+},
+"FoldedSackBag": {
+"type": 6,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 3,
+"price": 325
+},
+"FoldedCommandoBag": {
+"type": 6,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 3,
+"price": 2015
+},
+"FoldedBarrelBag": {
+"type": 6,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 4,
+"h": 3,
+"price": 4500
+},
+"FoldedRadioBag": {
+"type": 6,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 4,
+"price": 2015
+},
+"CivilianHelmet_Test": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 5,
+"w": 2,
+"h": 2,
+"price": 725
+},
+"KlobbSMG": {
+"type": 1,
+"stackable": 0,
+"max": 20,
+"dur": 75,
+"w": 2,
+"h": 2,
+"price": 1450
+},
+"JunkScrap": {
+"type": 3,
+"stackable": 1,
+"max": 12,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 20
+},
+"HeavyThompsonSMG": {
+"type": 0,
+"stackable": 0,
+"max": 30,
+"dur": 75,
+"w": 6,
+"h": 3,
+"price": 12250
+},
+"Cracker": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 12
+},
+"RationCrate": {
+"type": 20,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 3500
+},
+"MedicalCrate": {
+"type": 20,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 2,
+"price": 6500
+},
+"BiscuitTin": {
+"type": 20,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 650
+},
+"HeavyMG42Rifle": {
+"type": 0,
+"stackable": 0,
+"max": 50,
+"dur": 100,
+"w": 6,
+"h": 3,
+"price": 15125
+},
+"SmallShieldMelee": {
+"type": 0,
+"stackable": 0,
+"max": 0,
+"dur": 50,
+"w": 3,
+"h": 3,
+"price": 2135
+},
+"1911GPistol": {
+"type": 1,
+"stackable": 0,
+"max": 8,
+"dur": 100,
+"w": 2,
+"h": 1,
+"price": 3525
+},
+"MineToken": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 3250
+},
+"PortToken": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 3250
+},
+"FlashBomb": {
+"type": 1,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 950
+},
+"SmokeBomb": {
+"type": 1,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 825
+},
+"HeavyShieldMelee": {
+"type": 0,
+"stackable": 0,
+"max": 0,
+"dur": 50,
+"w": 3,
+"h": 5,
+"price": 7135
+},
+"NuclearMaterial": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 3,
+"price": 65000
+},
+"Chemicals": {
+"type": 3,
+"stackable": 0,
+"max": 3,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 800
+},
+"CompactContainer": {
+"type": 19,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 3,
+"price": 16250
+},
+"RedStahlhelmHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 50,
+"w": 2,
+"h": 2,
+"price": 6150
+},
+"PirateHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 35,
+"w": 2,
+"h": 2,
+"price": 825
+},
+"TerraToken": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 3550
+},
+"EM2Rifle": {
+"type": 0,
+"stackable": 0,
+"max": 20,
+"dur": 100,
+"w": 5,
+"h": 2,
+"price": 9760
+},
+"OutpostToken": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 4150
+},
+"StenDefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 32,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 730
+},
+"StenDrumMag": {
+"type": 15,
+"stackable": 0,
+"max": 50,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 920
+},
+"StenWoodStock": {
+"type": 15,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 620
+},
+"StenCompensator": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 580
+},
+"WebleyPistol": {
+"type": 1,
+"stackable": 0,
+"max": 6,
+"dur": 50,
+"w": 2,
+"h": 1,
+"price": 1850
+},
+"PenalToken": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 4150
+},
+"M712SpecialSMG": {
+"type": 0,
+"stackable": 0,
+"max": 20,
+"dur": 70,
+"w": 3,
+"h": 2,
+"price": 5425
+},
+"M712Suppressor01": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1225
+},
+"StrikeFrigate_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"PilotHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 50,
+"w": 2,
+"h": 2,
+"price": 7350
+},
+"HeavyPilotHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 50,
+"w": 2,
+"h": 2,
+"price": 9350
+},
+"BaronCap": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 15,
+"w": 2,
+"h": 1,
+"price": 3250
+},
+"PilotArmourChest": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 85,
+"w": 3,
+"h": 3,
+"price": 6265
+},
+"HeavyPilotArmourChest": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 100,
+"w": 4,
+"h": 3,
+"price": 8265
+},
+"FALRifle": {
+"type": 0,
+"stackable": 0,
+"max": 20,
+"dur": 100,
+"w": 6,
+"h": 2,
+"price": 11250
+},
+"FALCompensator": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 915
+},
+"FALDefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 20,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 730
+},
+"FALExtendedMag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 1130
+},
+"BaronToken": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 5200
+},
+"FrigateScout_Proxy": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 3,
+"h": 3,
+"price": 18750
+},
+"CustomPSHHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 50,
+"w": 2,
+"h": 2,
+"price": 10295
+},
+"BankNotes": {
+"type": 3,
+"stackable": 1,
+"max": 20,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 825
+},
+"SilverRing": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 4800
+},
+"RedDiamond": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 10900
+},
+"HeavyM1Helmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 45,
+"w": 2,
+"h": 2,
+"price": 4290
+},
+"ShermanPlate": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 85,
+"w": 4,
+"h": 4,
+"price": 3850
+},
+"ShermanRig": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 85,
+"w": 4,
+"h": 4,
+"price": 4350
+},
+"FullShermanPlate": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 100,
+"w": 4,
+"h": 5,
+"price": 8575
+},
+"FullShermanRig": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 100,
+"w": 4,
+"h": 5,
+"price": 9105
+},
+"ColonyToken": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 3850
+},
+"GrenadeBox": {
+"type": 20,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 2,
+"price": 7500
+},
+"40mmAmmo": {
+"type": 18,
+"stackable": 1,
+"max": 3,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 600
+},
+"MiniThumper": {
+"type": 1,
+"stackable": 0,
+"max": 1,
+"dur": 10,
+"w": 3,
+"h": 1,
+"price": 5250
+},
+"ChinaLake": {
+"type": 0,
+"stackable": 0,
+"max": 3,
+"dur": 15,
+"w": 6,
+"h": 2,
+"price": 9180
+},
+"StonerRifle": {
+"type": 0,
+"stackable": 0,
+"max": 30,
+"dur": 100,
+"w": 6,
+"h": 2,
+"price": 8750
+},
+"CruiserScout_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"BreacherScout_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"CorvetteScout_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"AssaultScout_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"RaiderScout_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"MarauderScout_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"SolarInterceptor_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"StarInterceptor_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"GalaxyInterceptor_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"RaiderInterceptor_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"MarauderInterceptor_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"HeavyCruiser_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"HeavyDestroyer_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"HeavyWarship_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"HeavyRaider_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"HeavyMarauder_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"CapitalDreadnought_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"RaiderDreadnought_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"MarauderDreadnought_Ship": {
+"type": 17,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 0,
+"h": 0,
+"price": 0
+},
+"Cocaine": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 3005
+},
+"Mk3FlakRig": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 85,
+"w": 4,
+"h": 4,
+"price": 2750
+},
+"FullPanzerRig": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 100,
+"w": 5,
+"h": 5,
+"price": 14500
+},
+"CEPasscode": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 12500
+},
+"Body01": {
+"type": 21,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 0
+},
+"Head01": {
+"type": 21,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 0
+},
+"MedicBag": {
+"type": 5,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 2,
+"price": 1825
+},
+"FoldedMedicBag": {
+"type": 6,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 2,
+"price": 1825
+},
+"SVT40Scope": {
+"type": 15,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 3150
+},
+"Twitchvoicepack01": {
+"type": 21,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 1
+},
+"M16Scope": {
+"type": 15,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 3525
+},
+"Head02": {
+"type": 21,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 0
+},
+"PanzerChoc": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 410
+},
+"HeavyRiotHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 20,
+"w": 2,
+"h": 2,
+"price": 6525
+},
+"M1ParaDefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 730
+},
+"M1Para30Mag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 1600
+},
+"M1ParaCompensator": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 950
+},
+"M1ParaSuppressor": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1125
+},
+"SVT40DefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 730
+},
+"SVT4020Mag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 1735
+},
+"SVT40DrumMag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 2400
+},
+"SVT40Supressor": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 2750
+},
+"KrasaDefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 730
+},
+"Krasa30Mag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 2730
+},
+"KrasaCompensator": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 1350
+},
+"KrasaSuppressor": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 3150
+},
+"KrasaWireStock": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1420
+},
+"ViperMk1DrumMag": {
+"type": 15,
+"stackable": 0,
+"max": 50,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 1500
+},
+"BrenDefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 730
+},
+"Bren30Mag": {
+"type": 15,
+"stackable": 0,
+"max": 36,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 3730
+},
+"BrenDrumMag": {
+"type": 15,
+"stackable": 0,
+"max": 42,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 4150
+},
+"BrenSight": {
+"type": 15,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 1600
+},
+"Mas44Rifle": {
+"type": 0,
+"stackable": 0,
+"max": 10,
+"dur": 100,
+"w": 5,
+"h": 1,
+"price": 4950
+},
+"SPP1Pistol": {
+"type": 1,
+"stackable": 0,
+"max": 4,
+"dur": 50,
+"w": 2,
+"h": 1,
+"price": 1525
+},
+"DartAmmo": {
+"type": 18,
+"stackable": 1,
+"max": 40,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 86
+},
+"M16Suppressor": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1550
+},
+"WardenRiotHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 20,
+"w": 2,
+"h": 2,
+"price": 7750
+},
+"PrisonSecurityToken": {
+"type": 3,
+"stackable": 1,
+"max": 3,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 4850
+},
+"ThompsonSpecial": {
+"type": 0,
+"stackable": 0,
+"max": 30,
+"dur": 75,
+"w": 5,
+"h": 2,
+"price": 8525
+},
+"ViperSuppressor": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1375
+},
+"APSRifle": {
+"type": 0,
+"stackable": 0,
+"max": 20,
+"dur": 100,
+"w": 5,
+"h": 3,
+"price": 10760
+},
+"APSStock01": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1175
+},
+"SVURifle": {
+"type": 0,
+"stackable": 0,
+"max": 10,
+"dur": 100,
+"w": 6,
+"h": 2,
+"price": 12750
+},
+"FreebooterBag": {
+"type": 5,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 4,
+"h": 6,
+"price": 9015
+},
+"FoldedFreebooterBag": {
+"type": 6,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 4,
+"h": 6,
+"price": 9015
+},
+"ArmouryToken": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 2700
+},
+"Wrench": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 850
+},
+"Hammer": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 1070
+},
+"PirateBandageAid": {
+"type": 3,
+"stackable": 1,
+"max": 6,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 350
+},
+"PirateFirstAid": {
+"type": 3,
+"stackable": 1,
+"max": 3,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1700
+},
+"Flathead": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 750
+},
+"WorkBelt": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1280
+},
+"DieselEngine": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 2,
+"price": 31500
+},
+"DelisleDefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 10,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 730
+},
+"DelisleExtendedMag": {
+"type": 15,
+"stackable": 0,
+"max": 20,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 970
+},
+"TableFan": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 4200
+},
+"BottleCaps": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 650
+},
+"WorkGloves": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1580
+},
+"DieselDrill": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 4,
+"h": 2,
+"price": 27000
+},
+"WorkApron": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 2350
+},
+"LongDoubleBarrel": {
+"type": 0,
+"stackable": 0,
+"max": 2,
+"dur": 40,
+"w": 5,
+"h": 1,
+"price": 4950
+},
+"CustomMat49": {
+"type": 0,
+"stackable": 0,
+"max": 30,
+"dur": 60,
+"w": 4,
+"h": 2,
+"price": 2800
+},
+"SilverTankard": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 8200
+},
+"GoldCandelabra": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 24000
+},
+"CopperHorn": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 3250
+},
+"PortableRadio": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 3800
+},
+"FireBomb": {
+"type": 1,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 1425
+},
+"StickyBomb": {
+"type": 1,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 1200
+},
+"ImpactBomb": {
+"type": 1,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 1600
+},
+"HeavyMG42Blueprint": {
+"type": 3,
+"stackable": 1,
+"max": 8,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 15000
+},
+"HeavyThompsonBlueprint": {
+"type": 3,
+"stackable": 1,
+"max": 8,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 12500
+},
+"HeavyShieldBlueprint": {
+"type": 3,
+"stackable": 1,
+"max": 8,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 8000
+},
+"DartAmmoBlueprint": {
+"type": 3,
+"stackable": 1,
+"max": 10,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 2400
+},
+"KrasaSuppressorBlueprint": {
+"type": 3,
+"stackable": 1,
+"max": 12,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 3500
+},
+"SVT40DrumBlueprint": {
+"type": 3,
+"stackable": 1,
+"max": 12,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 2500
+},
+"BarrelBagBlueprint": {
+"type": 3,
+"stackable": 1,
+"max": 8,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 4500
+},
+"KrasaStockBlueprint": {
+"type": 3,
+"stackable": 1,
+"max": 12,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1550
+},
+"Krasa30MagBlueprint": {
+"type": 3,
+"stackable": 1,
+"max": 12,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 2800
+},
+"TrenchGunBlueprint": {
+"type": 3,
+"stackable": 1,
+"max": 12,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 6000
+},
+"1911GBlueprint": {
+"type": 3,
+"stackable": 1,
+"max": 12,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 5800
+},
+"PlanetKillerToken": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 3925
+},
+"GuildBadge": {
+"type": 22,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 5
+},
+"CEPlate": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 75,
+"w": 4,
+"h": 4,
+"price": 3150
+},
+"GuildBeret": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 15,
+"w": 2,
+"h": 1,
+"price": 700
+},
+"GuildHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 45,
+"w": 2,
+"h": 2,
+"price": 4290
+},
+"SilverBullion": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 45000
+},
+"KlobbSuppressor": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 785
+},
+"KlobbDefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 20,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 350
+},
+"KlobbExtendedMag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 650
+},
+"KlobbDrumMag": {
+"type": 15,
+"stackable": 0,
+"max": 42,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 1565
+},
+"HeavyLiberatorShotgun": {
+"type": 0,
+"stackable": 0,
+"max": 4,
+"dur": 100,
+"w": 5,
+"h": 3,
+"price": 8240
+},
+"Mat49DefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 20,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 350
+},
+"Mat49ExtendedMag": {
+"type": 15,
+"stackable": 0,
+"max": 45,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 1015
+},
+"Mat49Suppressor": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1850
+},
+"Mat49WoodenStock": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1525
+},
+"M45DefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 36,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 350
+},
+"M45DrumMag": {
+"type": 15,
+"stackable": 0,
+"max": 52,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 2155
+},
+"M45Suppressor": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1850
+},
+"M45Compensator": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 895
+},
+"JohnsonDefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 10,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 730
+},
+"JohnsonExtendedMag": {
+"type": 15,
+"stackable": 0,
+"max": 20,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 1330
+},
+"JohnsonCompensator": {
+"type": 15,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 1280
+},
+"TrenchgunDrumMag": {
+"type": 15,
+"stackable": 0,
+"max": 12,
+"dur": 0,
+"w": 2,
+"h": 2,
+"price": 1800
+},
+"Mat49SuppressorBlueprint": {
+"type": 3,
+"stackable": 1,
+"max": 12,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 2250
+},
+"Mat49MagBlueprint": {
+"type": 3,
+"stackable": 1,
+"max": 12,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 2100
+},
+"KlobbDrumBlueprint": {
+"type": 3,
+"stackable": 1,
+"max": 12,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 2350
+},
+"M45DrumBlueprint": {
+"type": 3,
+"stackable": 1,
+"max": 12,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 2700
+},
+"GreaseGun": {
+"type": 0,
+"stackable": 0,
+"max": 30,
+"dur": 70,
+"w": 4,
+"h": 2,
+"price": 7100
+},
+"GreaseGunStock01": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 820
+},
+"GreaseGunSuppressor01": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 1350
+},
+"BasicSupplyDrop": {
+"type": 20,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 3,
+"price": 11500
+},
+"Ale": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 15
+},
+"PirateHelmetBlue": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 35,
+"w": 2,
+"h": 2,
+"price": 825
+},
+"Fuse": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 3250
+},
+"SterlingRifle_Short": {
+"type": 1,
+"stackable": 0,
+"max": 20,
+"dur": 75,
+"w": 3,
+"h": 1,
+"price": 2450
+},
+"SterlingDefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 10,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 730
+},
+"SterlingRegularMag": {
+"type": 15,
+"stackable": 0,
+"max": 34,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 1250
+},
+"SterlingRifle": {
+"type": 0,
+"stackable": 0,
+"max": 20,
+"dur": 75,
+"w": 5,
+"h": 1,
+"price": 2850
+},
+"SterlingSpecial": {
+"type": 0,
+"stackable": 0,
+"max": 20,
+"dur": 75,
+"w": 5,
+"h": 1,
+"price": 3200
+},
+"BAHeavyVest": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 40,
+"w": 4,
+"h": 4,
+"price": 7650
+},
+"BAHeavyHelmet": {
+"type": 4,
+"stackable": 0,
+"max": 0,
+"dur": 55,
+"w": 2,
+"h": 2,
+"price": 3275
+},
+"MosinDefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 730
+},
+"MosinExtendedMag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 1655
+},
+"MosinExtendedBarrel": {
+"type": 15,
+"stackable": 0,
+"max": 0,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 2500
+},
+"FortressToken": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 1,
+"price": 4175
+},
+"AC14Rifle": {
+"type": 0,
+"stackable": 0,
+"max": 30,
+"dur": 100,
+"w": 5,
+"h": 2,
+"price": 4500
+},
+"AC14DefaultMag": {
+"type": 15,
+"stackable": 0,
+"max": 30,
+"dur": 0,
+"w": 1,
+"h": 2,
+"price": 1375
+},
+"TobaccoPouch": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 1,
+"price": 2150
+},
+"CableSpool": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 3,
+"price": 3250
+},
+"AAMissile": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 2,
+"h": 4,
+"price": 31500
+},
+"ClusterBomb": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 1,
+"h": 3,
+"price": 8900
+},
+"Lubricator": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 1,
+"price": 7500
+},
+"AirCompressor": {
+"type": 3,
+"stackable": 0,
+"max": 1,
+"dur": 0,
+"w": 3,
+"h": 2,
+"price": 19200
+},
+"CEFullPlate": {
+"type": 7,
+"stackable": 0,
+"max": 1,
+"dur": 75,
+"w": 4,
+"h": 5,
+"price": 3750
+}
+}

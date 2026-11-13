@@ -1,0 +1,142 @@
+-- Women's versions of outfits: every body, head, vest, rig and bag has a reshaped copy beside it (tools/female/make_female.py),
+-- which any character can wear by swapping the meshes it already has on. Used by all bots, and by your own body (F2).
+local PROJECT = require("pveproject") -- the install folder (".../MaraudersPvE/"), written by scripts/mode.ps1
+local M = {}
+local X -- context from main.lua: valid, lib, log, loadLoose, root
+
+local SWAPS = {
+    { "/MainPlayer/Meshes/Bodies/", "/MainPlayer/Meshes/BodieF/" },
+    { "/MainPlayer/Meshes/Heads/", "/MainPlayer/Meshes/HeadF/" },
+    { "/MainPlayer/Meshes/Accessories/", "/MainPlayer/Meshes/AccessorieF/" },
+    { "/MainPlayer/Meshes/", "/MainPlayer/MesheF/" }, -- the soldiers' one-piece outfits sit directly in Meshes
+}
+local SETTING = PROJECT .. "config/female_player.txt"
+local known = {} -- path -> mesh, or false when there's no such version
+
+local function other(path, on)
+    for _, s in ipairs(SWAPS) do
+        local from, to = s[1], s[2]
+        if not on then from, to = to, from end
+        local at, stop = path:find(from, 1, true)
+        if at then return path:sub(1, at - 1) .. to .. path:sub(stop + 1) end
+    end
+end
+
+local function load(path)
+    if known[path] ~= nil then return known[path] end
+    local mesh = X.lib(path)
+    if not X.valid(mesh) then
+        X.loadLoose(FName(path):GetComparisonIndex())
+        mesh = X.lib(path)
+    end
+    if not X.valid(mesh) then
+        known[path] = false
+        return false
+    end
+    X.root(math.tointeger(mesh:GetAddress())) -- the garbage collector can't see this table
+    known[path] = mesh
+    return mesh
+end
+
+-- The woman's (on) or man's version of a mesh; the mesh itself when it has none or is that already.
+function M.version(mesh, on)
+    if not X.valid(mesh) then return mesh end
+    local path = mesh:GetFullName():match("^%S+ (.+)$")
+    local to = path and other(path, on)
+    if not to then return mesh end
+    local out = load(to)
+    return out or mesh
+end
+
+local CLASS = "/Script/Engine.SkeletalMeshComponent"
+-- What the game remembers a character wearing: its corpse is dressed from these.
+local WORN = { CharacterBody0 = "R_BodyMesh", CharacterMesh0 = "R_FaceMesh", ChestSlot = "R_ChestSlot", Backpc = "R_BackPack" }
+
+-- Puts a character in the women's (on) or men's versions of everything it's wearing.
+function M.dress(actor, on)
+    local parts = actor:K2_GetComponentsByClass(X.lib(CLASS))
+    for i = 1, #parts do
+        local part = parts[i]:get()
+        local mesh = X.valid(part) and part.SkeletalMesh
+        if mesh and X.valid(mesh) then
+            local want = M.version(mesh, on)
+            if want:GetAddress() ~= mesh:GetAddress() then
+                part:SetSkeletalMesh(want, false)
+                local field = WORN[part:GetFName():ToString()]
+                if field then pcall(function() actor[field] = want end) end
+            end
+        end
+    end
+end
+
+-- Your own body -------------------------------------------------------------------------------------------------
+local playerOn, offUntil
+
+local function readSetting()
+    local f = io.open(SETTING, "r")
+    playerOn = false
+    if f then
+        playerOn = f:read("l") == "on"
+        f:close()
+    end
+end
+
+function M.playerOn()
+    if playerOn == nil then readSetting() end
+    return playerOn
+end
+
+-- Nothing to do for anyone who's never used it: a male body only needs dressing back for a while after switching off.
+function M.playerDue()
+    return M.playerOn() or os.clock() < (offUntil or 0)
+end
+
+function M.togglePlayer()
+    playerOn = not M.playerOn()
+    offUntil = playerOn and 0 or os.clock() + 10
+    local f = io.open(SETTING, "w")
+    if f then
+        f:write(playerOn and "on" or "off", "\n")
+        f:close()
+    end
+    X.log("female player model " .. (playerOn and "on" or "off"))
+end
+
+-- Seamless: whenever the game itself puts a mesh on your character (the lobby's MM_PlayerChar_C re-dresses on every
+-- menu change, your raid body on every gear change), the right version goes on straight after, in the same call, before
+-- anything is drawn. The 3 s lobby pass and the per-update raid check in main.lua stay as a fallback.
+local PLAYER_CLASSES = { MM_PlayerChar_C = true, PlayerPawn_C = true }
+local busy
+
+M.hookCalls = 0 -- read by main.lua's profiler
+
+local function afterSetMesh(ctx)
+    if busy then return end
+    M.hookCalls = M.hookCalls + 1
+    local part = ctx:get()
+    if not X.valid(part) then return end
+    local owner = part:GetOwner()
+    local cls = owner and X.valid(owner) and owner:GetClass():GetFName():ToString()
+    if not (cls and PLAYER_CLASSES[cls]) then return end
+    -- the lobby's other stands are your crew's (crewlobby.lua dresses them as themselves)
+    if cls == "MM_PlayerChar_C" and not owner.isPlayer then return end
+    local mesh = part.SkeletalMesh
+    if not (mesh and X.valid(mesh)) then return end
+    local want = M.version(mesh, M.playerOn())
+    if want:GetAddress() == mesh:GetAddress() then return end
+    busy = true
+    pcall(function()
+        part:SetSkeletalMesh(want, false)
+        local field = WORN[part:GetFName():ToString()]
+        if field then owner[field] = want end
+    end)
+    busy = false
+end
+
+function M.init(ctx)
+    X = ctx
+    local ok, err = pcall(RegisterHook, "/Script/Engine.SkinnedMeshComponent:SetSkeletalMesh", function() end, afterSetMesh)
+    if not ok then X.log("female: no SetSkeletalMesh hook (" .. tostring(err) .. "); only the timed re-dress") end
+end
+
+return M

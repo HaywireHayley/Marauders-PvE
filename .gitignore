@@ -1,0 +1,64 @@
+# What Git must never upload. Private, game-owned or generated files stay on your own PC.
+# (Comments must be on their own line in this file.)
+
+# --- PRIVATE: never share ---
+# capture: live login tokens and traffic from your account
+capture/
+# backup: includes the pak decryption key (backup/keys) and original game files
+backup/
+# dumps: data dumped out of the game itself
+dumps/
+tools/offline-audit/data/
+# edited game meshes / game assets (rebuild with tools/female/make_female.py)
+assets/female/pak/
+assets/female/src/
+# the loading video contains a song: this install only
+assets/intro/
+trailer/*.mkv
+trailer/*.mp4
+trailer/*.wav
+trailer/*.png
+trailer/footage/
+trailer/session/
+trailer/music/*.wav
+trailer/music/*.png
+
+# --- your own saves, settings and logs ---
+backend/state*.json
+backend/saves/
+backend/loadout.json
+backend/checkout.txt
+backend/ship_*.txt
+backend/*.log
+backend/crew*.lua
+config/game_path.txt
+config/female_player.txt
+config/female_share.txt
+config/window_mode.txt
+config/minimap.txt
+config/stash_rows.txt
+config/crew_meshes.lua
+*.log
+*.lnk
+
+# --- runtime scratch folders (the game reads/writes these while running) ---
+bridge/*
+!bridge/offline_backend
+!bridge/cine.lua
+bridge2/
+tmp2/
+
+# --- built or downloaded files ---
+release/
+tools/ue4ss/
+tools/repak/
+*.zip
+*.whl
+mods/*/Scripts/pveproject.lua
+native/*.exe
+native/*.dll
+# the two DLLs the mod needs at runtime are kept so contributors don't need a compiler
+!native/pvenet.dll
+!native/pvepatch.dll
+__pycache__/
+*.pyc

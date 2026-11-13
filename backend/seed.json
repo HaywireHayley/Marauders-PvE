@@ -1,0 +1,298 @@
+{
+ "account": {
+  "user": {
+   "id": "22caa945-0773-5d02-b84e-5d519a38b894",
+   "username": "offline",
+   "display_name": "Marauder",
+   "avatar_url": "",
+   "lang_tag": "en",
+   "metadata": "{}",
+   "steam_id": "",
+   "online": true,
+   "create_time": "2026-01-01T00:00:00Z",
+   "update_time": "2026-01-01T00:00:00Z"
+  },
+  "wallet": "{}"
+ },
+ "storage": {
+  "cosequipped": {
+   "body": {
+    "value": "48"
+   },
+   "head": {
+    "value": "1"
+   },
+   "voice": {
+    "value": "enM01"
+   }
+  },
+  "inventory": {
+   "13043956": {
+    "equip": false,
+    "value": "13043956-BandageAid-3-1-2-6-0-Stash"
+   },
+   "15665189": {
+    "equip": false,
+    "value": "15665189-32Ammo-60-1-1-7-0-Stash"
+   },
+   "16217226": {
+    "equip": false,
+    "value": "16217226-32Ammo-60-1-8-6-0-Stash"
+   },
+   "17117": {
+    "value": "17117-Body01-0-0-1-11-0-Stash",
+    "equip": false
+   },
+   "19097533": {
+    "equip": false,
+    "value": "19097533-Mat49WoodenStock-1-1-8-0-0-Stash"
+   },
+   "20411802": {
+    "equip": false,
+    "value": "20411802-BandageAid-3-1-1-6-0-Stash"
+   },
+   "20812362": {
+    "equip": false,
+    "value": "20812362-32Ammo-60-1-3-7-0-Stash"
+   },
+   "28318543": {
+    "equip": false,
+    "value": "28318543-Mat49WoodenStock-1-1-8-1-0-Stash"
+   },
+   "33269108": {
+    "equip": true,
+    "value": "33269108-M1FlakChest-1-40-0-0-0-Rig"
+   },
+   "34426805": {
+    "equip": false,
+    "value": "34426805-LightBag-1-1-3-5-0-Stash"
+   },
+   "35078182": {
+    "value": "35078182-BrodieHelmet-1-35-7-8-0-Stash",
+    "equip": false
+   },
+   "37892381": {
+    "equip": false,
+    "value": "37892381-BandageAid-3-1-3-4-0-Stash"
+   },
+   "38258": {
+    "value": "38258-Head01-0-0-3-8-0-Stash",
+    "equip": false
+   },
+   "42731301": {
+    "equip": true,
+    "value": "42731301-BrodieHelmet-1-35-0-0-0-Head"
+   },
+   "44056075": {
+    "equip": false,
+    "value": "44056075-32Ammo-60-1-7-6-0-Stash"
+   },
+   "50971673": {
+    "equip": false,
+    "value": "50971673-LeatherJerkinChest-1-10-6-2-0-Stash"
+   },
+   "51019949": {
+    "equip": false,
+    "value": "51019949-HuntingKnife-1-25-4-7-0-Stash"
+   },
+   "56548551": {
+    "equip": true,
+    "value": "56548551-Mat49Rifle-36-60-0-0-0-Prim-0!0!0!0!0!0!0"
+   },
+   "60231": {
+    "value": "60231-Twitchvoicepack01-1-0-3-11-0-Stash",
+    "equip": false
+   },
+   "61993150": {
+    "equip": false,
+    "value": "61993150-32Ammo-60-1-9-6-0-Stash"
+   },
+   "62637388": {
+    "equip": false,
+    "value": "62637388-LeatherJerkinChest-1-10-4-2-0-Stash"
+   },
+   "63748398": {
+    "equip": false,
+    "value": "63748398-KlobbSMG-20-75-8-2-0-Stash-0!0!0!0!0!0!0"
+   },
+   "63795253": {
+    "equip": false,
+    "value": "63795253-BandageAid-3-1-7-5-0-Stash"
+   },
+   "65763613": {
+    "value": "65763613-UziWoodenStock-1-0-5-10-0-Stash",
+    "equip": false
+   },
+   "67883599": {
+    "equip": false,
+    "value": "67883599-BrodieHelmet-1-35-0-2-0-Stash"
+   },
+   "74558403": {
+    "equip": false,
+    "value": "74558403-BasicSupplyDrop-1-1-0-8-0-Stash"
+   },
+   "76156769": {
+    "equip": true,
+    "value": "76156769-32Ammo-30-1-0-0-0-PocketLeft"
+   },
+   "77633185": {
+    "equip": false,
+    "value": "77633185-BandageAid-3-1-6-5-0-Stash"
+   },
+   "78618173": {
+    "equip": false,
+    "value": "78618173-BandageAid-3-1-0-6-0-Stash"
+   },
+   "80140495": {
+    "equip": false,
+    "value": "80140495-KlobbSMG-20-75-8-4-0-Stash-0!0!0!0!0!0!0"
+   },
+   "81073460": {
+    "equip": false,
+    "value": "81073460-Mat49Rifle-36-60-4-0-0-Stash-0!0!0!0!0!0!0"
+   },
+   "93540670": {
+    "equip": false,
+    "value": "93540670-32Ammo-60-1-2-7-0-Stash"
+   },
+   "95232412": {
+    "equip": false,
+    "value": "95232412-LightBag-1-1-0-4-0-Stash"
+   },
+   "97198142": {
+    "equip": false,
+    "value": "97198142-Mat49Rifle-36-60-0-0-0-Stash-0!0!0!0!0!0!0"
+   },
+   "97785707": {
+    "equip": false,
+    "value": "97785707-32Ammo-60-1-0-7-0-Stash"
+   },
+   "98256021": {
+    "equip": false,
+    "value": "98256021-32Ammo-60-1-6-6-0-Stash"
+   },
+   "98370263": {
+    "value": "98370263-SmallContainer-1-1-6-11-0-Stash",
+    "equip": false
+   }
+  },
+  "playerstats": {
+   "cash": {
+    "value": "57086"
+   },
+   "cosmeticsunlocked": {
+    "value": "48"
+   }
+  },
+  "public": {
+   "activeRegions": {
+    "value": "eu-west-1!ap-southeast-2!ap-northeast-2!eu-central-1!sa-east-1!eu-west-2!us-east-2!us-west-2!ap-northeast-1!ap-south-1!ap-east-1!af-south-1!eu-north-1!ap-southeast-1"
+   },
+   "permMessage": {
+    "value": ""
+   },
+   "titleNews": {
+    "value": "Welcome To Marauders!DEL!You may encounter bugs and performance issues as we continue to develop the game. Thank you for joining us, have fun!"
+   },
+   "titleNewsImage": {
+    "value": "https://www.youtube.com/embed/yMR4Sdkpvhg!DEL!How to play video by Psychoghost Gaming"
+   },
+   "titleType": {
+    "value": "development"
+   },
+   "titleVersion": {
+    "value": "1"
+   }
+  }
+ },
+ "rpcs": {
+  "masterstartfunction": {
+   "verb": "GET",
+   "request": null,
+   "response": {
+    "cosequip": [
+     {
+      "key": "body",
+      "value": {
+       "value": "6"
+      }
+     },
+     {
+      "key": "head",
+      "value": {
+       "value": "1"
+      }
+     }
+    ],
+    "gifts": [
+     {
+      "key": "17117",
+      "value": {
+       "value": "Body01"
+      }
+     },
+     {
+      "key": "38258",
+      "value": {
+       "value": "Head01"
+      }
+     },
+     {
+      "key": "60231",
+      "value": {
+       "value": "Twitchvoicepack01"
+      }
+     }
+    ],
+    "messages": {},
+    "playerstats": [
+     {
+      "key": "cash",
+      "value": {
+       "value": "65000"
+      }
+     },
+     {
+      "key": "chapterprogressions",
+      "value": {
+       "value": "A-0-0"
+      }
+     },
+     {
+      "key": "contracts",
+      "value": {
+       "value": "M25!M15!M23!M18!M1!M40-00-00"
+      }
+     },
+     {
+      "key": "contractstarttime",
+      "value": {
+       "value": "2026.10.30-07.37.36"
+      }
+     },
+     {
+      "key": "shiprotation",
+      "value": {
+       "value": "2026.10.30-18.03.32"
+      }
+     },
+     {
+      "key": "shipsleft",
+      "value": {
+       "value": "FrigateHeavy_Ship-StarInterceptor_Ship-HeavyWarship_Ship"
+      }
+     },
+     {
+      "key": "xp",
+      "value": {
+       "value": "10"
+      }
+     }
+    ],
+    "prestige": {},
+    "raidertime": 0,
+    "servertime": "1793383997"
+   }
+  }
+ }
+}

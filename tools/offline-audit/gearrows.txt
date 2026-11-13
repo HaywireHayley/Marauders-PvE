@@ -1,0 +1,2 @@
+gear.lua came from a one-off read of SIGIS_ExampleItemData rows in the running game (type at row+8, price +0x24, heal +0x140,
+ammo type +0x1c0): Rifle+Pistol rows minus test rows, tools, shields, bombs, mines and the flare gun; Helmet; Rig; BackPack; rows that heal.
