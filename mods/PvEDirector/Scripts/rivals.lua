@@ -149,6 +149,8 @@ local CFG = {
     -- maps' soldier types instead.
     PLACED = { "GOAPNodeBot_Raider_C", "GOAPNodeBot_Boss_C" },
     MIN_DEFENDERS = 14,
+    STRAY_EVERY = 8,        -- seconds between sweeps for placed NPCs the garrison missed (sweepStrays)
+    STRAY_RANGE = 6000,     -- ...counting those this near you even outside the station's box
     GEAR_SLOTS = { "CharacterBody0", "Helemt", "ChestSlot", "Backpc" },
     POST_RADIUS = 900,              -- defenders patrol this close to where the level placed them       -- two simulated crews in the same station: chance per minute they run into each other
     POD_RANGE = 4500,               -- in this close, each crew member launches a breaching pod at your hull
@@ -1797,6 +1799,45 @@ local function adoptQueued()
     end
 end
 
+-- Strays: the garrison sweep runs once, on your first step into a station, and only takes NPCs inside its box. A placed
+-- NPC outside the box (Spaceport's box misses most of it) or one that streams in later keeps its GOAP controller, which
+-- does nothing offline: it stands there, gun up, until shot. Every STRAY_EVERY s, any living, unmanaged placed NPC in the
+-- box or near you is queued for adoption, once it has gone unmanaged for two sweeps in a row (a body the director is
+-- still building is unmanaged for a few seconds too; GUN_WAIT is well under a sweep).
+local function sweepStrays(st, now)
+    if now < (S.nextStraySweep or 0) or (S.adoptQueue and #S.adoptQueue > 0) then return end
+    S.nextStraySweep = now + CFG.STRAY_EVERY
+    local managed = {}
+    for _, e in ipairs(X.raid().bots) do
+        if e.bot and valid(e.bot) then managed[e.bot:GetAddress()] = true end
+    end
+    for _, job in ipairs(S.building or {}) do
+        if job.b and valid(job.b.body) then managed[job.b.body:GetAddress()] = true end
+    end
+    for _, p in ipairs(S.pendingDefenders or {}) do
+        if valid(p.body) then managed[p.body:GetAddress()] = true end
+    end
+    local foot = valid(S.foot) and S.foot:K2_GetActorLocation() or nil
+    local seen, found = {}, 0
+    for _, cls in ipairs(CFG.PLACED) do
+        for _, b in ipairs(FindAllOf(cls) or {}) do
+            if valid(b) and (b.Health or 0) > 0 and not managed[b:GetAddress()] then
+                local at = b:K2_GetActorLocation()
+                if (inBox(st.box, at, 500) or (foot and dist(at, foot) <= CFG.STRAY_RANGE)) and not X.offLimits(at) then
+                    local key = b:GetAddress()
+                    seen[key] = true
+                    if S.strays and S.strays[key] then
+                        table.insert(S.adoptQueue, { bot = b, st = st })
+                        found = found + 1
+                    end
+                end
+            end
+        end
+    end
+    S.strays = seen
+    if found > 0 then X.log(("[rivals] %s: %d stray NPC(s) the garrison missed, adopting"):format(st.name, found)) end
+end
+
 -- Defenders' guns: equipping puts the gun on the head mesh (invisible); keep it in the body's hand (like rivals).
 local function keepDefendersArmed()
     for i = #(S.adopted or {}), 1, -1 do
@@ -3069,6 +3110,11 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
     end
     local okS, errS = pcall(skirmishStep, pc, now)
     if not okS then X.log("[rivals] skirmish failed: " .. tostring(errS)) end
+    if type(place) == "table" and place.garrisoned then
+        S.adoptQueue = S.adoptQueue or {}
+        local okA, errA = pcall(sweepStrays, place, now)
+        if not okA and not S.strayErr then S.strayErr = true X.log("[rivals] stray sweep failed: " .. tostring(errA)) end
+    end
     adoptQueued()
     topUpStep(pc)
     keepDefendersArmed()
