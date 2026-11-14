@@ -23,7 +23,9 @@ ITEMS = os.path.join(ROOT, "assets", "saves", "items.json")
 START_CASH = 10000
 CHEAT_CASH = 999999999       # the stand-in also puts it back after every purchase (cheat saves)
 STASH_W, STASH_H = 10, 15
-STASH_MIN, STASH_MAX = 10, 100  # rows a new save may ask for (the width is the game's own 10)
+# Rows a new save may ask for (the width is the game's own 10). The game indexes stash cells with a byte, so past
+# 256 cells (25 full rows) slots wrap onto the top rows: wrong drop highlights and clashing spaces. 25 is the most.
+STASH_MIN, STASH_MAX = 10, 25
 STASH_ROWS = os.path.join(ROOT, "config", "stash_rows.txt")  # read by the mod in the menu; absent = the normal stash
 
 
@@ -217,7 +219,8 @@ def settle():
 
 def stash_rows(meta):
     """The stash height a save was made with. Saves from before the typed size had a double-stash switch."""
-    return int(meta.get("stash_rows") or (STASH_H * 2 if meta.get("double_stash") else STASH_H))
+    rows = int(meta.get("stash_rows") or (STASH_H * 2 if meta.get("double_stash") else STASH_H))
+    return min(rows, STASH_MAX)  # saves made when up to 100 rows were allowed
 
 
 def activate(sid):

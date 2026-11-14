@@ -2179,6 +2179,9 @@ local MENU_FLAG = PROJECT .. "bridge/menu_toggle"
 local DEBUG_FLAG = PROJECT .. "bridge/debug_cmd"
 local FEMALE_FLAG = PROJECT .. "bridge/female_toggle"
 local STASH_ROWS = PROJECT .. "config/stash_rows.txt"
+local STASH_ROWS_MAX = 25
+local STASH_UNLOCKS = { i1 = true, i2 = true, i3 = true, i4 = true } -- DT_PrestigeUnlockInfo, InventorySpace
+local STASH_UNLOCK_ROWS = 2 -- each one's StashSizeIncrease
 
 -- Your ship's key card. The game puts it in the KeyCard slot at the start of a raid (row KEYCARD, Attachments
 -- "<captain>!<ship name>!<KeyCardUUID of the ship interior>!<ship type>"), and a station airlock only lets you back
@@ -2510,26 +2513,50 @@ update = function(pc)
         Hire.leftLobby()
     end
     if worldName:find("/Maps/MainMenu", 1, true) then
-        -- A save with the double stash (launcher). Once per menu, as soon as the inventory exists.
-        if not raid.stashSized then
+        -- A save with its own stash height (launcher), plus the prestige stash upgrades you own, at most STASH_ROWS_MAX.
+        -- The game indexes stash cells with a byte: past 256 cells (25 rows of 10) slots wrap onto the top rows, so the
+        -- highlights land 25 rows off and spaces clash. Rechecked every 2 s, so an upgrade bought in the menu counts too.
+        if raid.stashFile == nil then
             local f = io.open(STASH_ROWS, "r")
-            local rows = f and tonumber(f:read("l"))
+            raid.stashFile = f and tonumber(f:read("l")) or false
             if f then f:close() end
-            local inv = rows and FindFirstOf("SIGISInventoryComponent")
-            if not rows then
-                raid.stashSized = true
-            elseif valid(inv) then
-                raid.stashSized = rows
-                pveStashRows(math.tointeger(inv:GetAddress()), rows)
-            end
         end
-        -- The stash grid keeps its own size and has built its slots by the time it exists: rebuilt once, before items land.
-        if raid.stashSized and raid.stashSized ~= true then
-            for _, w in ipairs(FindAllOf("InventoryContainerWidget") or {}) do
-                if valid(w) and w:GetFullName():find("Transient", 1, true) and w:GetFullName():find("InventoryStashGrid", 1, true)
-                    and w.InventorySlots:GetArrayNum() > 0 then
-                    local rows = raid.stashSized
-                    raid.stashSized = true
+        if raid.stashFile and age >= (raid.stashCheck or 0) then
+            raid.stashCheck = age + 2
+            if not valid(raid.stashInv) then raid.stashInv = FindFirstOf("SIGISInventoryComponent") end
+            if not valid(raid.stashPc) then raid.stashPc = FindFirstOf("SIGISPlayerController") end
+            local inv, pc = raid.stashInv, raid.stashPc
+            if valid(inv) then
+                local bought = 0
+                if valid(pc) then
+                    pcall(function()
+                        pc.PrestigeUnlocks:ForEach(function(_, e)
+                            if STASH_UNLOCKS[e:get():ToString()] then bought = bought + 1 end
+                        end)
+                    end)
+                end
+                local asked = raid.stashFile + bought * STASH_UNLOCK_ROWS
+                local rows = math.min(asked, STASH_ROWS_MAX)
+                if raid.stashAsked ~= asked then
+                    raid.stashAsked = asked
+                    log(("stash: %d rows (save %d, %d prestige upgrade(s))%s"):format(rows, raid.stashFile, bought,
+                        asked > rows and (", capped from %d: the game's grid can't index more"):format(asked) or ""))
+                end
+                -- Written every check: the game adds an upgrade's rows to the size itself when you buy one.
+                pveStashRows(math.tointeger(inv:GetAddress()), rows)
+                -- The stash grid keeps its own size and builds its slots when the menu does: rebuilt when they differ.
+                local w = raid.stashGrid
+                if not valid(w) then
+                    w = nil
+                    for _, x in ipairs(FindAllOf("InventoryContainerWidget") or {}) do
+                        if valid(x) and x:GetFullName():find("Transient", 1, true)
+                            and x:GetFullName():find("InventoryStashGrid", 1, true) and x.InventorySlots:GetArrayNum() > 0 then
+                            w = x
+                        end
+                    end
+                    raid.stashGrid = w
+                end
+                if w and w.InventoryGridSize.Row ~= rows then
                     w.InventoryGridSize.Row = rows
                     w.InventoryGrid:ClearChildren()
                     w.InventorySlots:Empty()
