@@ -2107,8 +2107,6 @@ it doesn't fit, or the ragdoll of a pod-spawned body; check rollKit leg pieces v
 - Guards: MIN_DEFENDERS is for a STATION_AREA_MID (35k m2) station; small ones get as few as half, big ones up to
   DEFENDERS_MAX_SCALE (1.5x). STATION_AREA_PER_CREW and STATION_CROWD are in the AI menu.
 
-## Frozen guards in station wings (2026-11-14, untested)
+## Asleep guards at stations you haven't entered (2026-11-14)
 
-On Space_Delta, 6 placed raiders stood frozen all raid, 250–300 m from the player in Moon Base: no controller, time dilation 0, ticking off. They were in NavMeshBoundsVolume6, a second wing of Moon Base 31 m from the main volume (8). The second wing has no airlock and no name, so it was never part of the station's box. garrison and the stray sweep only adopt NPCs in the box or within 60 m of you, so these guards were never woken.
-
-The survey now grows a station's box over any unnamed navmesh volume within WING_GAP (40 m) of it, and logs "[rivals] Moon Base: joined NavMeshBoundsVolume6 (unnamed) as a wing". The station's area, and with it how many crews and guards it gets, now counts the wing too. Next run, check for that log line, and use bridge/t_idlebots.lua to confirm there are 0 uncontrolled soldiers once you've been inside.
+The soldiers that stand still with no AI controller, frozen until shot, are the placed guards of a station you haven't walked into yet. That's by design: garrisonStation takes a station's guards over the first time you enter it. On Space_Beta and Space_Delta the volume at about 61000,-5000 is the Asteroid Mine (LevelStreamingVolume_AsteriodWhitebox_1), not part of Moon Base. bridge/t_volnames.lua prints, for each navmesh volume, its streaming volume, its area, and its raiders with and without AI. A "join the station's wing" fix based on the wrong reading went into 21fab81 and was taken out again.

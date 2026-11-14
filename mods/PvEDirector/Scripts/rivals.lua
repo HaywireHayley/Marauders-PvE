@@ -186,7 +186,6 @@ local CFG = {
     STATION_AREA_PER_CREW = 15000,
     STATION_CROWD = 0.35,
     STRAY_EVERY = 8,        -- seconds between sweeps for placed NPCs the garrison missed (sweepStrays)
-    WING_GAP = 4000,        -- an unnamed navmesh volume this close to a station is part of it (its guards included)
     STRAY_RANGE = 6000,     -- ...counting those this near you even outside the station's box
     GEAR_SLOTS = { "CharacterBody0", "Helemt", "ChestSlot", "Backpc" },
     POST_RADIUS = 900,              -- defenders walk about this close to where they are (until roamGuards sends them on)
@@ -580,7 +579,7 @@ local function survey(pc, shipActor)
             local o, e = {}, {}
             Out.call(v, "GetActorBounds", false, o, e, false)
             table.insert(interiors, { box = { c = { X = o.X, Y = o.Y, Z = o.Z }, e = { X = e.X, Y = e.Y, Z = e.Z } },
-                entries = {}, vol = v:GetFName():ToString() })
+                entries = {} })
         end
     end
     local function interiorAt(l, margin)
@@ -689,32 +688,6 @@ local function survey(pc, shipActor)
             end
             if #it.entries == 0 then table.insert(it.entries, it.box.c) end
             table.insert(stations, it)
-        end
-    end
-    -- A station's second wing can have a navmesh volume of its own with no airlock or name (Moon Base on Space_Delta:
-    -- volume 6, 31 m past the main one). Its placed guards were never adopted, so they stood frozen, gun up, all raid
-    -- (2026-11-14). Grow the station's box over any unclaimed interior that close.
-    for _, st in ipairs(stations) do
-        if not st.frigate then
-            for _, it in ipairs(interiors) do
-                if not it.berths and not it.name and not it.wingOf then
-                    local a, b, near = st.box, it.box, true
-                    for _, k in ipairs({ "X", "Y", "Z" }) do
-                        if math.abs(a.c[k] - b.c[k]) - a.e[k] - b.e[k] > CFG.WING_GAP then near = false end
-                    end
-                    if near then
-                        it.wingOf = st.name
-                        local c, e = {}, {}
-                        for _, k in ipairs({ "X", "Y", "Z" }) do
-                            local lo = math.min(a.c[k] - a.e[k], b.c[k] - b.e[k])
-                            local hi = math.max(a.c[k] + a.e[k], b.c[k] + b.e[k])
-                            c[k], e[k] = (lo + hi) / 2, (hi - lo) / 2
-                        end
-                        st.box = { c = c, e = e }
-                        X.log(("[rivals] %s: joined %s (%s) as a wing"):format(st.name, it.vol, it.name or "unnamed"))
-                    end
-                end
-            end
         end
     end
     -- Station airlocks: the chamber a docked ship's crew comes through (floor point) and its button on the station side.
