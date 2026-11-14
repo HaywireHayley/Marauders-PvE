@@ -185,6 +185,7 @@ local CFG = {
     STATION_AREA_MID = 35000, DEFENDERS_MAX_SCALE = 1.5,
     STATION_AREA_PER_CREW = 25000,
     STATION_CROWD = 0.35,
+    SWING_UNHOOK_AFTER = 5, -- seconds with no turret aimed before the turret swing hooks come off (swingHooksIdle)
     STRAY_EVERY = 8,        -- seconds between sweeps for placed NPCs the garrison missed (sweepStrays)
     STRAY_RANGE = 6000,     -- ...counting those this near you even outside the station's box
     GEAR_SLOTS = { "CharacterBody0", "Helemt", "ChestSlot", "Backpc" },
@@ -338,6 +339,12 @@ local SHIP_NAMES = { "Rusty Mule", "Widowmaker", "Lucky Strike", "Iron Gull", "B
     "Red Herring", "Slow Burn", "Sea Hag", "Dead Reckoning", "Ill Wind", "Tin Can" }
 
 local S -- per-raid state
+
+-- Placed NPCs, as the game makes them: a spawn hook on their native class (masterNodeBot_C and the GOAPNodeBot_*_C
+-- blueprints derive from RaidNodeBot), so the stray sweep doesn't need a FindAllOf. That walks every object in the
+-- game, ~46 ms on a space map, and a sweep every few seconds was a steady hitch in fights (profile.txt, Space_Solo_02,
+-- 2026-11-14). Entries: { o = object, placed = nil until its class is checked, then true/false }.
+local NodeBots = { list = {}, hooked = false }
 
 local AI = require("ai")
 local Gear = require("gear")
@@ -913,7 +920,7 @@ local TURRET_ANIMS = { "11_Dual25mmTurret/AnimBP_Dual_25mm_Turret01.AnimBP_Dual_
     "02_LightTurret01/AnimBP_LightTurret01.AnimBP_LightTurret01_C",
     "07_TorpedoLauncher01/AnimBP_TorpedoLauncher01.AnimBP_TorpedoLauncher01_C" }
 local AIMED = {}      -- AnimBP address -> fireTurrets entry
-local animHooked = {}
+local animHooked = {} -- TURRET_ANIMS entry -> { pre, post } hook ids (or { skip = true })
 
 local function swingStep(cur, want, speed, dt)
     local m = speed * CFG.TURRET_SWING * dt
@@ -949,9 +956,13 @@ local function aimTurret(e, on)
     for _, p in ipairs(TURRET_ANIMS) do
         local fn = "/Game/Ships_Extras/" .. p .. ":CameraRotation"
         local off = io.open(PROJECT .. "bridge/no_swing_hook", "r") -- testing: measure the game without this hook
-        if off then off:close() animHooked[p] = true end
-        if not animHooked[p] and StaticFindObject(fn):IsValid() then animHooked[p] = pcall(RegisterHook, fn, swingBarrel) end
+        if off then off:close() animHooked[p] = { skip = true } end
+        if not animHooked[p] and StaticFindObject(fn):IsValid() then
+            local ok, pre, post = pcall(RegisterHook, fn, swingBarrel)
+            if ok then animHooked[p] = { fn = fn, pre = pre, post = post } end
+        end
     end
+    S.turretAimedAt = os.clock()
     e.yaw, e.pitch = 0, 0
     pcall(function() e.yaw, e.pitch = ab.Yaw_Delayed, ab.NewPitch end)
     e.wantYaw, e.wantPitch = 0, 0
@@ -959,6 +970,29 @@ local function aimTurret(e, on)
     pcall(function() e.yawSpeed, e.pitchSpeed = e.actor.TurretYawSpeed, e.actor.TurretPitchSpeed end)
     e.aimed = true
     AIMED[addr] = e
+end
+
+-- The swing hook runs for every turret AnimBP in the world each frame whether or not one is aimed (~5000 calls a
+-- second in a station fight, with ships docked), and UE4SS builds a context object for each call: ~5 MB of garbage
+-- a second, a good part of the collector's 0.5-2.4 s per 10 s in fights (profile.txt, 2026-11-14). With no turret
+-- aimed for SWING_UNHOOK_AFTER s, the hooks come off; aimTurret puts them back.
+local function swingHooksIdle(now)
+    if now < (S.swingCheckAt or 0) then return end
+    S.swingCheckAt = now + 1
+    -- a turret that went with its world (or its ship) stays in AIMED until its own AnimBP calls the hook: drop it here
+    for addr, e in pairs(AIMED) do
+        if not valid(e.actor) then AIMED[addr] = nil end
+    end
+    if next(AIMED) ~= nil or next(animHooked) == nil then return end
+    if now - (S.turretAimedAt or 0) < CFG.SWING_UNHOOK_AFTER then return end
+    local n = 0
+    for p, h in pairs(animHooked) do
+        if h.fn then
+            if pcall(UnregisterHook, h.fn, h.pre, h.post) then n = n + 1 end
+        end
+        if not h.skip then animHooked[p] = nil end
+    end
+    if n > 0 then X.log(("[rivals] no turret aimed for %d s: %d turret swing hook(s) off"):format(CFG.SWING_UNHOOK_AFTER, n)) end
 end
 
 -- Turrets: the design's turret actors attached to the hull's Soc_Turret01/02, fired by fireTurrets (nobody mans them).
@@ -2125,6 +2159,14 @@ end
 -- First visit to a station: queue its own NPCs for adoption (one per update), then top it up to MIN_DEFENDERS.
 local function garrisonStation(pc, st)
     local list = placedDefenders(st)
+    if NodeBots.hooked then
+        local inside = 0
+        for _, b in ipairs(hookedPlaced()) do
+            if (b.Health or 0) > 0 and inBox(st.box, b:K2_GetActorLocation(), 500) then inside = inside + 1 end
+        end
+        X.log(("[rivals] %s: spawn hook knows %d live placed NPC(s) in the box, FindAllOf found %d unmanaged"):format(
+            st.name, inside, #list))
+    end
     S.adoptQueue = S.adoptQueue or {}
     for _, b in ipairs(list) do table.insert(S.adoptQueue, { bot = b, st = st }) end
     -- MIN_DEFENDERS is for a mid-size station: a small one gets as few as half, a big one up to DEFENDERS_MAX_SCALE x.
@@ -2283,6 +2325,26 @@ end
 -- still building is unmanaged for a few seconds too; GUN_WAIT is well under a sweep).
 -- Each sweep scans one of the PLACED classes in turn: a FindAllOf walks every object in the game, ~50 ms each on a
 -- space map, and both at once were a 100+ ms hitch every 8 s (profile.txt, Moon Base, 2026-11-14).
+-- Live placed NPCs (CFG.PLACED classes) from the spawn hook; dead and destroyed entries are dropped as it goes.
+local function hookedPlaced()
+    local placed, list, out = {}, NodeBots.list, {}
+    for _, c in ipairs(CFG.PLACED) do placed[c] = true end
+    for i = #list, 1, -1 do
+        local n = list[i]
+        if not valid(n.o) or n.placed == false then
+            list[i] = list[#list]
+            list[#list] = nil
+        else
+            if n.placed == nil then
+                local ok, name = pcall(function() return n.o:GetClass():GetFName():ToString() end)
+                n.placed = ok and placed[name] == true and not n.o:GetFName():ToString():find("^Default__")
+            end
+            if n.placed then out[#out + 1] = n.o end
+        end
+    end
+    return out
+end
+
 local function sweepStrays(st, now)
     if now < (S.nextStraySweep or 0) or (S.adoptQueue and #S.adoptQueue > 0) then return end
     S.nextStraySweep = now + CFG.STRAY_EVERY
@@ -2298,12 +2360,19 @@ local function sweepStrays(st, now)
     end
     local foot = valid(S.foot) and S.foot:K2_GetActorLocation() or nil
     local seen, found = {}, 0
-    S.strayClass = (S.strayClass or 0) % #CFG.PLACED + 1
-    local cls = CFG.PLACED[S.strayClass]
+    -- Without the spawn hook: one of the PLACED classes per sweep, by FindAllOf (both at once was a 100+ ms hitch).
+    local cls, bots = "hooked", nil
+    if NodeBots.hooked then
+        bots = hookedPlaced()
+    else
+        S.strayClass = (S.strayClass or 0) % #CFG.PLACED + 1
+        cls = CFG.PLACED[S.strayClass]
+        bots = FindAllOf(cls) or {}
+    end
     S.strays = S.strays or {}
     local before = S.strays[cls] or {}
     do
-        for _, b in ipairs(FindAllOf(cls) or {}) do
+        for _, b in ipairs(bots) do
             if valid(b) and (b.Health or 0) > 0 and not managed[b:GetAddress()] then
                 local at = b:K2_GetActorLocation()
                 if (inBox(st.box, at, 500) or (foot and dist(at, foot) <= CFG.STRAY_RANGE)) and not X.offLimits(at) then
@@ -3666,6 +3735,10 @@ function R.init(ctx)
     end
     pcall(RegisterHook, "/Script/RaidGame.RaidWeapon:ServerStartFire", gunFired)
     pcall(RegisterHook, "/Script/RaidGame.RaidWeapon:BurstStartFireEvent", gunFired)
+    NodeBots.hooked = pcall(NotifyOnNewObject, "/Script/RaidGame.RaidNodeBot", function(o)
+        table.insert(NodeBots.list, { o = o })
+    end)
+    X.log("[rivals] placed NPC spawn hook " .. (NodeBots.hooked and "on" or "failed: the stray sweep uses FindAllOf"))
 end
 
 -- Every frame (from the director's tick), for the current raid's state only.
@@ -3677,6 +3750,7 @@ function R.frame(worldKey)
     if not S or S.key ~= worldKey then return end
     glideShips(now)
     fireControl(now, dt)
+    pcall(swingHooksIdle, now)
     if #S.pods > 0 then flyPods(dt) end
     if valid(S.pc) then
         pcall(rescueFromVoid, now)

@@ -2233,3 +2233,16 @@ problem is real); the rescan on boarding ran ("rescanned on boarding PenalColony
 being fought on had no loot or AI node within 18 m on its level (nearest ~12 m higher), so offLimits ruled the whole
 floor out though the soldiers stood on it. Fix: findCover only filters baked spots by offLimits when the soldier's own
 spot passes it (untested). bridge/t_off.lua checks the rule on baked spots around the player.
+
+## Fight hitches and garbage: stray sweep, turret swing hook, per-frame aim (2026-11-14, untested)
+Space_Solo_02 at Penal Colony and Moon Base, 17-21 bots. profile.txt showed a ~50 ms FindAllOf every stray sweep (a
+steady hitch every few seconds). The Lua collector was stepping 0.5-2.4 s per 10 s, fed by the aim section (~31-34 MB per
+10 s, 1.2-1.3 s of Lua) and by hook garbage between ticks (54-75 MB per 10 s, with ~50k turret swing hook calls).
+- rivals.lua: placed NPCs come from a NotifyOnNewObject hook on /Script/RaidGame.RaidNodeBot (NodeBots, hookedPlaced).
+  The stray sweep no longer calls FindAllOf; without the hook it falls back to the old one-class-per-sweep scan. The
+  garrison sweep keeps its FindAllOf and logs "spawn hook knows N live placed NPC(s) in the box, FindAllOf found M
+  unmanaged" as a cross-check.
+- rivals.lua: the turret CameraRotation hooks come off after SWING_UNHOOK_AFTER (5) s with no turret aimed
+  (swingHooksIdle, "turret swing hook(s) off"); aimTurret registers them again.
+- main.lua: animate() and the aim upkeep (targeting pose, focus) run ANIM_HZ (30) times a second per bot instead of
+  every frame; a change in what the bot should do applies at once. Hide/peek timing is still checked every frame.

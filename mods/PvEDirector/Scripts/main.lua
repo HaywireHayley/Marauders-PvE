@@ -27,6 +27,7 @@ local CFG = {
     ANIM_FAR = 6000,         -- bots farther than this from the camera animate the engine's cheap way (not drawn = no pose)
     ANIM_SLOW_FAR = 4000,    -- bots at peace farther than this from the camera run animate() ANIM_SLOW_HZ a second, not every frame
     ANIM_SLOW_HZ = 10,
+    ANIM_HZ = 30,            -- every other bot (and every fighting one) runs animate() and its aim upkeep this often
     RETARGET_EVERY = 1.0,    -- while fighting, how often (s) a bot looks for a much closer enemy to switch to
     RETARGET_NEAR = 1500,    -- ...within this range
     RETARGET_RATIO = 0.5,    -- ...and at most this share of the current foe's distance
@@ -1740,7 +1741,7 @@ local function animate(e)
     if not (rate and rate > 0) then rate = 1.1 end
     local natural = running and CFG.SPRINT_SPEED or bot.bIsCrouched and CROUCH_ANIM_SPEED or SPEED_PER_LEG_RATE * rate
     local want = speed > 30 and math.max(0.6, math.min(CFG.LEG_RATE_MAX, speed / natural)) or 1
-    e.animScale = (e.animScale or 1) + (want - (e.animScale or 1)) * 0.25
+    e.animScale = (e.animScale or 1) + (want - (e.animScale or 1)) * 0.5 -- at ANIM_HZ: settles in ~0.1 s
     mesh.GlobalAnimRateScale = e.animScale
     -- That scale is for the legs. The gun's own montage (bolt, pump, recoil) plays at 1.0 on its mesh, so the arms'
     -- matching montage is held at 1.0 too or the two drift apart while the bot moves.
@@ -1790,23 +1791,24 @@ trackTargets = function()
     -- Bots past ANIM_SLOW_FAR from the camera (where updateBots last saw them) animate ANIM_SLOW_HZ times a second, not
     -- every frame: animate() is ~a dozen engine reads and writes a bot, and with 20-30 bots in a station it was most of
     -- the director's 2-3 ms a frame. Posture, speed caps and leg rates a tenth of a second late don't show at that range.
+    -- The rest animate ANIM_HZ times a second: every frame was ~1.2 ms a frame and 3 MB of garbage a second in a
+    -- 20-bot fight (the aim section, profile.txt, 2026-11-14), and the collector stepping through that was worse.
     local now = os.clock()
     local cam = raid.camAt
     for _, e in ipairs(raid.bots) do
         if valid(e.bot) and (e.bot.Health or 0) > 0 then
             local far = cam and e.lastAt and not e.fighting and dist(e.lastAt, cam) > CFG.ANIM_SLOW_FAR
-            if not far or now >= (e.animNext or 0) then
-                e.animNext = now + 1 / CFG.ANIM_SLOW_HZ
+            if now >= (e.animNext or 0) then
+                e.animNext = now + 1 / (far and CFG.ANIM_SLOW_HZ or CFG.ANIM_HZ)
                 animate(e)
             end
         end
     end
     for _, e in ipairs(raid.bots) do
-        local pawn = foeOf(e)
         -- Hide / lean out on time to the frame, not on the 0.5 s update.
         local c = e.cover
-        if c and e.fighting and valid(e.ctrl) and valid(e.bot) and (e.bot.Health or 0) > 0 and c["until"]
-            and now >= c["until"] then
+        local alive = valid(e.bot) and (e.bot.Health or 0) > 0
+        if c and e.fighting and alive and valid(e.ctrl) and c["until"] and now >= c["until"] then
             if c.state == "hiding" then peek(e, c, now) elseif c.state == "peeking" then hide(e, c, now) end
         end
         local state = e.cover and e.cover.state
@@ -1814,20 +1816,26 @@ trackTargets = function()
         -- Reaction time over: open fire, unless cover says hold it (running to cover, hiding).
         if e.holdUntil and now >= e.holdUntil and valid(e.ctrl) then
             e.holdUntil = nil
+            local pawn = foeOf(e)
             if e.inCombat and pawn and state ~= "hiding" and not sprinting then setEnemy(e, pawn) end
         end
-        -- Only the aiming pose follows the aim up and down, and only it plays the arms' firing montage. The native
-        -- shooting code turns it on now and then: from the hip a bot shoots at you with its gun level or pointing down.
-        if valid(e.bot) and (e.bot.Health or 0) > 0 then
-            local aiming = (e.fighting and pawn and not sprinting and state ~= "hiding") and true or false
+        -- Aim upkeep, ANIM_HZ a second (focus is kept by the controller between calls), or at once when what the bot
+        -- should be doing changes. Only the aiming pose follows the aim up and down, and only it plays the arms' firing
+        -- montage. The native shooting code turns it on now and then: from the hip a bot shoots at you with its gun
+        -- level or pointing down.
+        local want = (e.fighting and not sprinting and state ~= "hiding") and true or false
+        if alive and (now >= (e.aimNext or 0) or want ~= e.aimWant) then
+            e.aimNext, e.aimWant = now + 1 / CFG.ANIM_HZ, want
+            local pawn = foeOf(e)
+            local aiming = (want and pawn) and true or false
             if e.bot:IsTargeting() ~= aiming then e.bot:ServerSetTargeting(aiming) end
-        end
-        if e.fighting and pawn and valid(e.ctrl) and not sprinting then
-            if e.los then
-                e.ctrl:K2_SetFocus(pawn)
-                e.ctrl.LastKnownPlayerPosition = pawn:K2_GetActorLocation()
-            elseif e.lastSeen then
-                e.ctrl:K2_SetFocalPoint(e.lastSeen)
+            if e.fighting and pawn and valid(e.ctrl) and not sprinting then
+                if e.los then
+                    e.ctrl:K2_SetFocus(pawn)
+                    e.ctrl.LastKnownPlayerPosition = pawn:K2_GetActorLocation()
+                elseif e.lastSeen then
+                    e.ctrl:K2_SetFocalPoint(e.lastSeen)
+                end
             end
         end
     end
