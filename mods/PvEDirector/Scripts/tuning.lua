@@ -180,7 +180,7 @@ local function define()
     -- reached), so a change shows from the next raid or station.
     local spawns = { name = "How many", id = "Spawns" }
     add(spawns, X.RCFG, {
-        { "CREWS", "Rival crews in each raid", 0, 30, 1, "0 = automatic (11). Takes effect next raid" },
+        { "CREWS", "Rival crews in each raid", 0, 30, 1, "0 = every free player slot (11). Takes effect next raid" },
         { "CREW_SIZE", 1, "People in a rival crew, fewest", 1, 6, 1, "Takes effect next raid" },
         { "CREW_SIZE", 2, "People in a rival crew, most", 1, 6, 1, "" },
         { "STATIONS_PER_RAID", 1, "Stations a crew raids before leaving, fewest", 1, 6, 1, "Takes effect next raid" },

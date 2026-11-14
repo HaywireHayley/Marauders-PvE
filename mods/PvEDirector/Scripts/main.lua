@@ -20,7 +20,7 @@ local Interiors = require("interiors") -- interiors seen from open space: hidden
 local CFG = {
     BOTS = 8,                -- soldiers per raid (0 = use the game mode's NumberNormal/Guard/MilitaryAI)
     MIN_SPAWN_DIST = 2500,   -- don't spawn closer than this to the player
-    GARRISON = 14,           -- soldiers per station on space maps (spawned when you first walk in)
+    GARRISON = 6,            -- soldiers per station on space maps (fallback: rivals passes MIN_DEFENDERS)
     -- Senses, spotting time, reaction and accuracy come from ai.lua's profiles (soldiers "soldier"/"guard").
     POINT_BLANK = 300,       -- a noise this close starts a fight at once
     PERCEIVE_RANGE = 7000,   -- bots size up hostile bodies (you, other factions) within this range

@@ -1966,3 +1966,21 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
 - Fixed: Personalities rows used to share one id per setting (`Personalities:aggression`), so a saved value landed on
   every personality. Now `Personalities:<AI name>:<setting>`; the old id is still read (`stored`, `r.oldId`) from settings,
   presets and `set` commands, and the next save writes the new ids. Checked offline with lupa.
+
+## Station NPCs spread out; live-like spawn counts (2026-11-14)
+- User: station NPCs often got into one big fight at once and all died. Cause: every "random" station spot (stationPoint)
+  is within 30 m of an airlock or a guard's post, so guards (POST_RADIUS 9 m around where the level put them), crews
+  spawning in and crews picking an area to search all ended up in the same few rooms, within PERCEIVE_RANGE (70 m).
+- rivals.lua spreadPoint: each station keeps a pool of walkable points (st.spots, up to SPREAD_POOL 160, SPREAD_GROW 4 per
+  update) that creeps outward: each new point is searched for SPREAD_STEP 25 m around the earlier point furthest from the
+  airlocks/posts (best of 3), kept within SPREAD_REACH 150 m of one. A pick scores SPREAD_TRIES 16 pooled points by distance
+  to the nearest other living bot (and where it's headed), plus `visited`, and takes the best.
+- Used for: top-up guard spawns (defenderSpot), crews already inside when you arrive (stationSpawnSpots), crews picking a
+  new area every ROAM_SECONDS (crewmates excluded, c.searched avoided).
+- roamGuards (every update in a garrisoned station): idle station-faction bots (adopted, top-ups, garrison soldiers; not
+  crewmates) leave their posts within GUARD_FIRST_ROAM 10 s, then move to a new spread point every GUARD_ROAM 60-150 s,
+  walking about within ROAM_PATROL 12 m of it. A bot is tied to the station it was near when first seen (e.roamSt).
+- Spawn defaults lowered to a typical live solo raid (estimate, not measured): CREWS 0 (11) -> 5, CREW_SIZE 2-3 -> 1-4,
+  MIN_DEFENDERS 14 -> 6 (the levels place 25 across Space_Solo_01's stations, Navy Outpost 7), SKIRMISH_MAX 6 -> 3,
+  main.lua GARRISON fallback 14 -> 6. CREWS 0 still means every free slot.
+- Not tested in game yet. Look for guards walking away from posts and fewer "spotted ... at N m" lines right after arrival.

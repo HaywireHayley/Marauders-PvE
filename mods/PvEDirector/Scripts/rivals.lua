@@ -29,9 +29,11 @@ local X -- context from main.lua: log, valid, lib, navLib, navMesh, queryFilter,
 local CFG = {
     -- Population: a live raid filled the map's frigate interior slots (FrigInteriorSpawn): one player per ship on
     -- solo maps, crews of 2-4 on crew maps. You take one slot.
-    CREW_SIZE = { 2, 3 },           -- people per rival crew (live crew maps had 3-4, but offline you only get solo maps)
+    -- Defaults are set to what a live solo raid usually had, not a full server: a handful of other ships, mostly solo
+    -- players up to full crews. The F3 "How many" tab (and CREWS = 0, every free slot filled) turns it up.
+    CREW_SIZE = { 1, 4 },           -- people per rival crew (solo maps were one player per ship; live crew maps had 3-4)
     MAX_CREWS = 15,
-    CREWS = 0,                      -- rival crews per raid; 0 = one per free player slot (up to MAX_CREWS), as live
+    CREWS = 5,                      -- rival crews per raid; 0 = one per free player slot (up to MAX_CREWS: 11 on solo maps)
     ARRIVAL_SPREAD = { 5, 60 },     -- crews launch from their spawn points this many seconds after you are aboard
     STATIONS_PER_RAID = { 2, 4 },   -- each crew raids this many places before extracting
     DOCK_SECONDS = { 200, 450 },    -- time spent inside a station
@@ -141,18 +143,27 @@ local CFG = {
     BREACH_HULL = 0.5,              -- ...or sooner once the target's hull is below this fraction
     -- End of the raid: crews head out when this much time is left (per crew, so they don't all go at once)
     EXTRACT_REMAINING = { 150, 420 },
-    SIM_CLASH_PER_MIN = 0.25,
+    SIM_CLASH_PER_MIN = 0.25,       -- two simulated crews in the same station: chance per minute they run into each other
     -- Station defenders: the raiders/bosses the station levels place themselves (GOAPNodeBot_Raider_C / _Boss_C, the
     -- live server's station NPCs; asleep offline with a GOAP brain that doesn't run). Taken over when you first enter
     -- the station. Every station gets at least MIN_DEFENDERS: more raiders like its own (same body, gear and look as
     -- one of them, a gun of a class one of them carries, same side); a station with none of its own gets the raid
     -- maps' soldier types instead.
     PLACED = { "GOAPNodeBot_Raider_C", "GOAPNodeBot_Boss_C" },
-    MIN_DEFENDERS = 14,
+    MIN_DEFENDERS = 6,      -- (about what the levels place: Space_Solo_01 has 25 across its stations, Navy Outpost 7)
     STRAY_EVERY = 8,        -- seconds between sweeps for placed NPCs the garrison missed (sweepStrays)
     STRAY_RANGE = 6000,     -- ...counting those this near you even outside the station's box
     GEAR_SLOTS = { "CharacterBody0", "Helemt", "ChestSlot", "Backpc" },
-    POST_RADIUS = 900,              -- defenders patrol this close to where the level placed them       -- two simulated crews in the same station: chance per minute they run into each other
+    POST_RADIUS = 900,              -- defenders walk about this close to where they are (until roamGuards sends them on)
+    -- Spreading out (spreadPoint): idle guards and rival crews head for the part of the station furthest from everyone else
+    SPREAD_POOL = 160,              -- walkable points kept per station, gathered outward from its airlocks and posts...
+    SPREAD_GROW = 4,                -- ...this many more each update until full
+    SPREAD_STEP = 2500,             -- each new point is searched for this far around an earlier one
+    SPREAD_REACH = 15000,           -- ...and kept only this close to an airlock or a post (the navmesh runs on past stations)
+    SPREAD_TRIES = 16,              -- pooled points scored per pick
+    GUARD_FIRST_ROAM = 10,          -- guards leave their posts within this many seconds of being taken over...
+    GUARD_ROAM = { 60, 150 },       -- ...then move on to another part of the station this often
+    ROAM_PATROL = 1200,             -- walking about within this radius of it in between
     POD_RANGE = 4500,               -- in this close, each crew member launches a breaching pod at your hull
     POD = "/Game/Blueprints/Ships/Ship_DropPod_Pawn",
     POD_SPEED = { 900, 3200 },      -- pods accelerate from this to this (units/s) over POD_ACCEL seconds
@@ -188,7 +199,7 @@ local CFG = {
     SKIRMISH_SIDE = 7000,           -- up to this far to either side of that line
     SKIRMISH_GAP = { 4000, 7000 },  -- the two ships start this far apart, closing on each other
     SKIRMISH_CLEAR = 9000,          -- not this close to a station or to any other ship
-    SKIRMISH_MAX = 6,               -- per raid
+    SKIRMISH_MAX = 3,               -- per raid
     PROVOKE_SECONDS = 4,            -- hit within this long of you firing (and within 1.5 x gun range of you)...
     PROVOKE_CONE = 20,              -- ...while within this many degrees of where you're aiming: they turn on you
     SKIRMISH_HULL = 1.5,            -- ambient ships' hull x this: guns only, about 2-3 minutes a fight (3 ran past 5)
@@ -1348,6 +1359,93 @@ local function stationPoint(st, radius)
     end
 end
 
+-- Spreading out --------------------------------------------------------------------------------------------------
+-- stationPoint only searches within 30 m of the airlocks and guards' posts, so everyone sent somewhere "random" (guards,
+-- crews spawning in, crews picking an area to search) ended up in the same few rooms and fought on arrival. Each station
+-- keeps a pool of walkable points that creeps outward instead: every new point is searched for around an earlier one
+-- (the furthest from the airlocks and posts of a few), so within seconds of you arriving it covers the whole station.
+-- Idle bodies are sent to the pooled point furthest from everyone else.
+local function anchorDist(st, p)
+    local best = math.huge
+    for _, list in ipairs({ st.entries or {}, st.posts or {} }) do
+        for _, q in ipairs(list) do best = math.min(best, dist(p, q)) end
+    end
+    return best
+end
+
+local function nearStation(st, p)
+    return inBox(st.box, p, CFG.MATERIALIZE_MARGIN) or anchorDist(st, p) <= CFG.SPREAD_REACH
+end
+
+local function growSpots(st, n)
+    st.spots = st.spots or {}
+    local pool = st.spots
+    for _ = 1, n do
+        if #pool >= CFG.SPREAD_POOL then return end
+        local p
+        if #pool < 4 then
+            p = stationPoint(st)
+        else
+            local o, od
+            for _ = 1, 3 do
+                local q = pool[math.random(#pool)]
+                local d = anchorDist(st, q)
+                if not od or d > od then o, od = q, d end
+            end
+            p = reachableNear(o, CFG.SPREAD_STEP)
+        end
+        if p and nearStation(st, p) then table.insert(pool, { X = p.X, Y = p.Y, Z = p.Z }) end
+    end
+end
+
+-- The pooled point furthest from every other living body (and where each is headed), skipping `self` and anyone in
+-- `mates` (a rival's own crew: they search together). `visited`: places this one (or its crew) went lately, avoided
+-- too. `awayFrom`: a point the result must be at least SPAWN_AWAY from (you, when spawning someone in).
+local function spreadPoint(st, self, mates, visited, awayFrom)
+    growSpots(st, CFG.SPREAD_GROW)
+    local pool = st.spots
+    if #pool == 0 then return nil end -- callers fall back to stationPoint
+    local others = {}
+    for _, o in ipairs(X.raid().bots) do
+        if o ~= self and not o.dead and o.bot and valid(o.bot) and not (mates and mates[o]) then
+            others[#others + 1] = o.bot:K2_GetActorLocation()
+            if o.home then others[#others + 1] = o.home end
+        end
+    end
+    for _, v in ipairs(visited or {}) do others[#others + 1] = v end
+    local best, bestScore
+    for _ = 1, CFG.SPREAD_TRIES do
+        local p = pool[math.random(#pool)]
+        if not awayFrom or dist(p, awayFrom) >= CFG.SPAWN_AWAY then
+            local score = math.huge
+            for _, q in ipairs(others) do score = math.min(score, dist(p, q)) end
+            if not bestScore or score > bestScore then best, bestScore = p, score end
+        end
+    end
+    return best and { X = best.X, Y = best.Y, Z = best.Z } or nil
+end
+
+-- Idle station guards (the level's own, top-ups and the director's garrison soldiers) don't hold their posts: every
+-- GUARD_ROAM seconds each moves on to the part of the station furthest from everyone, and walks about there.
+local function roamGuards(st, now)
+    growSpots(st, CFG.SPREAD_GROW)
+    for _, e in ipairs(X.raid().bots) do
+        if not e.faction and not e.crewmate and not e.follow and not e.dead and e.bot and valid(e.bot)
+            and not e.fighting and not e.inCombat and not e.investigate and not e.alert then
+            if e.roamSt == nil then e.roamSt = nearStation(st, e.bot:K2_GetActorLocation()) and st or false end
+            if e.roamSt == st then
+                if not e.rehome then
+                    e.rehome = now + math.random() * CFG.GUARD_FIRST_ROAM -- not all at once
+                elseif now >= e.rehome then
+                    local p = spreadPoint(st, e)
+                    if p then e.home, e.patrolRadius, e.nextPatrol = p, CFG.ROAM_PATROL, now end
+                    e.rehome = now + rnd(CFG.GUARD_ROAM)
+                end
+            end
+        end
+    end
+end
+
 -- Queue bodies for a crew's living members at the given spots (one spot per member, reused if fewer).
 local function materialize(c, spots, mode, members)
     if c.bodies or #spots == 0 then return end
@@ -1518,8 +1616,12 @@ local function stationSpawnSpots(c, st, playerLoc)
         if not p or X.offLimits(p) then p = reachableNear(e, 600) end
         if p then table.insert(spots, p) end
     else
+        -- Already inside: somewhere well away from you and from everyone else in the station.
+        local p = spreadPoint(st, nil, nil, nil, playerLoc)
+        if p then table.insert(spots, p) end
         for _ = 1, 12 do
-            local p = stationPoint(st)
+            if #spots > 0 then break end
+            p = stationPoint(st)
             if p and (not playerLoc or dist(p, playerLoc) >= CFG.SPAWN_AWAY) then table.insert(spots, p) break end
         end
     end
@@ -1674,6 +1776,9 @@ end
 -- Top-ups: a raider body like one of the station's own, with a kit of its own. Two steps, like rival bodies: spawn the body
 -- and roll the kit, then on a later update, once the gun has arrived, arm it.
 local function defenderSpot(st)
+    local you = valid(S.foot) and S.foot:K2_GetActorLocation() or nil
+    local spread = spreadPoint(st, nil, nil, nil, you)
+    if spread then return spread end
     local found, near = 0, 0
     for _ = 1, 8 do
         local p = stationPoint(st)
@@ -2735,16 +2840,12 @@ local function updateCrew(c, now, place, playerLoc)
                             -- Search the station like a player: a new area every minute or two, preferring parts
                             -- the crew hasn't been through lately. Nobody knows where anyone is; they find you,
                             -- other crews and the station's soldiers by seeing or hearing them (gunfights carry).
+                            -- Also away from everyone outside the crew, so crews spread over the station instead
+                            -- of all walking into the same rooms.
                             c.searched = c.searched or {}
-                            local best, bestScore
-                            for _ = 1, 5 do
-                                local p = stationPoint(st)
-                                if p then
-                                    local score = math.huge
-                                    for _, v in ipairs(c.searched) do score = math.min(score, dist(p, v)) end
-                                    if not bestScore or score > bestScore then best, bestScore = p, score end
-                                end
-                            end
+                            local mates = {}
+                            for _, o in ipairs(c.bodies) do mates[o] = true end
+                            local best = spreadPoint(st, e, mates, c.searched)
                             if best then
                                 e.home = best
                                 table.insert(c.searched, best)
@@ -3114,6 +3215,8 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
         S.adoptQueue = S.adoptQueue or {}
         local okA, errA = pcall(sweepStrays, place, now)
         if not okA and not S.strayErr then S.strayErr = true X.log("[rivals] stray sweep failed: " .. tostring(errA)) end
+        local okR, errR = pcall(roamGuards, place, now)
+        if not okR and not S.roamErr then S.roamErr = true X.log("[rivals] guard roaming failed: " .. tostring(errR)) end
     end
     adoptQueued()
     topUpStep(pc)
