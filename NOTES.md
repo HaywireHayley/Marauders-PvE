@@ -2022,7 +2022,16 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
 - Another way to see a ship jump up: shipnav lifts a ship stuck 3 times 2500 away (up-weighted) when it's NUDGE_FAR
   25000 from your ship, but a trailer camera can be right there. Now it must be that far from your ship and from the
   camera (`S.watchers`: your ship, PlayerCameraManager location).
-- NOT yet confirmed in game: the game was in use for trailer recording. To test: copy mods/PvEDirector/Scripts/rivals.lua
-  and shipnav.lua into the game's Mods folder, start a raid, and look in UE4SS.log for "berth at Node_CapitalShip... moved"
-  at the survey and "steering: detours N" above 0. Then film a rival docking (CINE.chase on its ship) at the Capital Ship
-  and at the Rebel Base.
+- In game (01:48-01:51, hot-swapped into the running director, S kept): two leaving ScoutFrigates were sent back in.
+  Bad Penny went to the Capital Ship from far out along its lane, never inside the bounds, and the glide started on
+  the lane. Moored at the moved berth: 0-1 off in Z, sitting in open space between the station's turret towers, nose to
+  the hull. Brass Monkey came at the Rebel Base from behind, took a waypoint round the station, came onto the lane,
+  glided in and sat centred in the docking tunnel (dz 0). The steering line went from "detours 0" to "detours 32"
+  in 3 minutes. Stucks went on (mostly Grey Mare and Iron Gull, as before the swap: Red Herring was stuck 41 times
+  before): not looked into.
+- The game process vanished at about 01:51:10, when the raid timer ran out: the log just stops, there's no crash
+  report, and the hot-swapped code and two test crews held back from extracting were live. Cause unknown; watch the
+  end of the next raid with this code installed.
+- Hot-swap tool (scratch, not in the repo): load the new rivals.lua/shipnav.lua with loadfile in dir_eval,
+  debug.upvaluejoin every non-function upvalue to the old module's cell (S, X, Nav, CFG...), add new CFG keys to the
+  old table (the tuning menu keeps a reference to it), and copy the new functions into the module table.
