@@ -2116,3 +2116,9 @@ The soldiers that stand still with no AI controller, frozen until shot, are the 
 After undocking from Penal Colony on Space_Beta, the player's ship took thrust (CurrentThrust 1) but didn't move. It wasn't disabled: bDocked was false, the controller was the player, and input wasn't ignored. Its CharacterMovement component had simply stopped ticking. Nothing in the mod turns that off, so it's the game's own docking. Turning the tick back on from the bridge freed the ship at once. rivals.lua's keepShipMoving now does this automatically: if you're flying, undocked, and the tick has been off for 2 s, it turns it back on and logs "your ship's movement had stopped ticking after undocking". This isn't tested on a fresh run yet.
 
 The tuning menu also failed to open ("bad argument #2 to 'format' (number expected, got table)"). FLEE_HULL had become a per-crew range { 0.1, 0.25 }, but the menu row still treated it as a single number. It's now two rows, one for each end of the range.
+
+## Guards ignoring your fire while fighting through a wall (2026-11-14)
+
+In Penal Colony a guard kept shooting a rival through a wall while the player shot it. Mid-fight retargeting only looked at foes much closer than the current one (RETARGET_NEAR, RETARGET_RATIO), and only counted rivals and crewmates as "shooting at me", never the player. Now, in main.lua, a soldier that takes damage while its current foe is out of its line of sight turns on the nearest hostile it can see, within PERCEIVE_RANGE. Not tested in game yet.
+
+Kill list check from the same raid: KILLS showed Commando, Commando, Prisoner. Both Commandos were stray guards adopted at 17:36:10, not rivals, so the names were right. A rival you kill is renamed "Marauder" (killstats.lua, logs "[kills] a rival's kill moved").
