@@ -103,6 +103,11 @@ local CFG = {
     SHIP_TREE = "/Game/Blueprints/Pawns/BotBehaviorShip.BotBehaviorShip",
     DOCK_ARRIVE = 1500,             -- a ship this close to its berth's approach point starts docking
     BERTH_APPROACH = 3500,          -- ships line up this far out from their berth, then glide in nose first
+    HULL_MARGIN = 2000,             -- docking: ships keep this far outside the station's bounds till they're on the lane:
+    LANE_WIDTH = 1500,              -- ...the berth's approach line, this close to it and out past BERTH_APPROACH / 2
+    DOCK_LANE = 900,                -- the glide in only starts this close to the lane's line (and DOCK_ARRIVE of its point)
+    BERTH_CLEAR = 500,              -- a dock volume's middle (nodes with no berth transform) is moved out of the hull
+    BERTH_CLEAR_MAX = 3000,         -- ...till a sphere this big fits there, at most this far
     HOLD_OUT = 2500, HOLD_SPACING = 1500, -- every berth taken: wait this far beyond the approach point, crews spread out
     DOCK_GLIDE = 7,                 -- seconds to glide into the berth...
     UNDOCK_GLIDE = 5,               -- ...and back out to the approach point when leaving
@@ -326,6 +331,43 @@ local function quatYaw(q)
     return math.deg(math.atan(2 * (q.W * q.Z + q.X * q.Y), 1 - 2 * (q.Y * q.Y + q.Z * q.Z)))
 end
 
+-- A dock volume's middle can lie in the hull (the Capital Ship's is 1.3 m off its side, by a rocket turret: a docked
+-- frigate sat half inside it). Moved sideways, out of the station, till a ship-sized sphere fits; the height is kept.
+-- Only for nodes with no berth transform: the game's own berths (Rebel Base, Spaceport) hold your ship in docking
+-- clamps that any sphere overlaps on purpose. Run at the survey, before any rival ship is out: the sweep's ignore list
+-- doesn't get through from Lua, only its world context (your ship, as `ctx`) is left out.
+local CLEAR_COLOR = { R = 0, G = 0, B = 0, A = 0 }
+local function clearOfHull(ctx, owner, at, yaw)
+    local sys = lib("/Script/Engine.Default__KismetSystemLibrary")
+    local moved, px, py, lane = 0, nil, nil, false
+    while moved < CFG.BERTH_CLEAR_MAX do
+        local h = {}
+        local ok, r = pcall(function()
+            return Out.call(sys, "SphereTraceSingle", ctx, at, { X = at.X, Y = at.Y, Z = at.Z + 1 }, CFG.BERTH_CLEAR, 0, false,
+                {}, 0, h, true, CLEAR_COLOR, CLEAR_COLOR, 0)
+        end)
+        if not (ok and r and h.Normal) then break end
+        local a = h.Actor and h.Actor:Get()
+        -- the hull, its turrets, a rock; not a ship (an AI frigate passing by)
+        if not (a and a:IsValid()) or a:GetClass():GetFName():ToString():find("^Ship_") then break end
+        local nx, ny = h.Normal.X, h.Normal.Y
+        local n = math.sqrt(nx * nx + ny * ny)
+        if not lane and n < 0.3 then break end -- a floor or a roof
+        nx, ny = nx / math.max(n, 1e-6), ny / math.max(n, 1e-6)
+        -- pushed back the way it came (wedged between the hull and a turret): straight out along the lane instead
+        if not lane and px and nx * px + ny * py < 0 then lane = true end
+        if lane then nx, ny = -math.cos(math.rad(yaw)), -math.sin(math.rad(yaw)) end
+        px, py = nx, ny
+        local step = math.max(50, math.min(250, (h.PenetrationDepth or 200) + 50))
+        at = { X = at.X + nx * step, Y = at.Y + ny * step, Z = at.Z }
+        moved = moved + step
+    end
+    if moved > 0 then
+        X.log(("[rivals]   berth at %s moved %.0f out of its hull"):format(owner:GetFName():ToString(), moved))
+    end
+    return at
+end
+
 local function stationBerth(comp, shipActor)
     local owner = comp:GetOwner()
     local loc = comp:K2_GetComponentLocation()
@@ -342,8 +384,15 @@ local function stationBerth(comp, shipActor)
         local e, r, o = comp:GetScaledBoxExtent(), comp:K2_GetComponentRotation(), owner:K2_GetActorLocation()
         local yaw = r.Yaw + (e.Y > e.X and 90 or 0)
         if (o.X - loc.X) * math.cos(math.rad(yaw)) + (o.Y - loc.Y) * math.sin(math.rad(yaw)) < 0 then yaw = yaw + 180 end
-        b.at, b.yaw = { X = loc.X, Y = loc.Y, Z = loc.Z }, yaw
+        b.at, b.yaw = clearOfHull(shipActor, owner, { X = loc.X, Y = loc.Y, Z = loc.Z }, yaw), yaw
     end
+    -- The node's bounds (with the berth): docking ships stay outside them till they're on the approach lane.
+    local o, x = {}, {}
+    Out.call(owner, "GetActorBounds", false, o, x, false)
+    local lo = { X = math.min(o.X - x.X, b.at.X), Y = math.min(o.Y - x.Y, b.at.Y), Z = math.min(o.Z - x.Z, b.at.Z) }
+    local hi = { X = math.max(o.X + x.X, b.at.X), Y = math.max(o.Y + x.Y, b.at.Y), Z = math.max(o.Z + x.Z, b.at.Z) }
+    b.hull = { c = { X = (lo.X + hi.X) / 2, Y = (lo.Y + hi.Y) / 2, Z = (lo.Z + hi.Z) / 2 },
+        e = { X = (hi.X - lo.X) / 2, Y = (hi.Y - lo.Y) / 2, Z = (hi.Z - lo.Z) / 2 } }
     local rad = math.rad(b.yaw)
     b.approach = { X = b.at.X - math.cos(rad) * CFG.BERTH_APPROACH, Y = b.at.Y - math.sin(rad) * CFG.BERTH_APPROACH,
         Z = b.at.Z }
@@ -358,6 +407,113 @@ local function berthPose(st, b)
     local rx, ry = math.cos(math.rad(yaw + 90)) * b.side, math.sin(math.rad(yaw + 90)) * b.side
     local at = { X = f.X + rx * CFG.ALONGSIDE, Y = f.Y + ry * CFG.ALONGSIDE, Z = f.Z }
     return at, yaw, { X = at.X + rx * CFG.BERTH_APPROACH, Y = at.Y + ry * CFG.BERTH_APPROACH, Z = at.Z }
+end
+
+-- Docking route --------------------------------------------------------------------------------------------------
+-- A direct move knows nothing of the station: from its far side a ship flew into the hull and scraped along it to the
+-- approach point. A docking ship stays outside the station's bounds (+ HULL_MARGIN) till it's on the berth's approach
+-- lane, coming onto it at its entry (where the lane leaves the bounds), round the bounds' corners and edges if need be.
+local function grow(box, m) return { c = box.c, e = { X = box.e.X + m, Y = box.e.Y + m, Z = box.e.Z + m } } end
+
+-- Whether the segment a-b passes through an axis-aligned box (slab test).
+local function crossesBox(a, b, box)
+    local t0, t1 = 0, 1
+    for _, k in ipairs({ "X", "Y", "Z" }) do
+        local d, lo, hi = b[k] - a[k], box.c[k] - box.e[k], box.c[k] + box.e[k]
+        if math.abs(d) < 1e-6 then
+            if a[k] < lo or a[k] > hi then return false end
+        else
+            local u0, u1 = (lo - a[k]) / d, (hi - a[k]) / d
+            if u0 > u1 then u0, u1 = u1, u0 end
+            t0, t1 = math.max(t0, u0), math.min(t1, u1)
+            if t0 > t1 then return false end
+        end
+    end
+    return true
+end
+
+-- The station's bounds for this berth now (an AI frigate's move with it).
+local function hullOf(st, b)
+    if not b.side then return b.hull end
+    if not (st.frigate and valid(st.frigate)) then return nil end
+    local o, x = {}, {}
+    Out.call(st.frigate, "GetActorBounds", true, o, x, false)
+    return { c = { X = o.X, Y = o.Y, Z = o.Z }, e = { X = x.X, Y = x.Y, Z = x.Z } }
+end
+
+-- The lane out from a berth: its unit vector, and how far a point p is along it (t) and off its line (off).
+local function laneOf(at, approach, p)
+    local u = { X = approach.X - at.X, Y = approach.Y - at.Y, Z = approach.Z - at.Z }
+    local n = math.max(1, math.sqrt(u.X * u.X + u.Y * u.Y + u.Z * u.Z))
+    u = { X = u.X / n, Y = u.Y / n, Z = u.Z / n }
+    local t = (p.X - at.X) * u.X + (p.Y - at.Y) * u.Y + (p.Z - at.Z) * u.Z
+    return u, t, dist(p, { X = at.X + u.X * t, Y = at.Y + u.Y * t, Z = at.Z + u.Z * t })
+end
+
+-- Where a ship docking at berth b flies now: the approach point, the lane's entry, or a way round the station.
+local function dockRoute(c, st, b, at, approach, here)
+    local hull = hullOf(st, b)
+    if not hull then return approach, 300 end
+    local box, inner = grow(hull, CFG.HULL_MARGIN), grow(hull, CFG.HULL_MARGIN * 0.8)
+    local u, t, off = laneOf(at, approach, here)
+    -- the entry: out along the lane to where it first leaves the bounds
+    local exitT = math.huge
+    for _, k in ipairs({ "X", "Y", "Z" }) do
+        if math.abs(u[k]) > 1e-6 then
+            exitT = math.min(exitT, (box.c[k] + (u[k] > 0 and box.e[k] or -box.e[k]) - at[k]) / u[k])
+        end
+    end
+    local out = math.max(CFG.BERTH_APPROACH, math.min(exitT + 500, 30000))
+    local entry = { X = at.X + u.X * out, Y = at.Y + u.Y * out, Z = at.Z + u.Z * out }
+    if t >= CFG.BERTH_APPROACH * 0.5 and t <= out + CFG.LANE_WIDTH and off < CFG.LANE_WIDTH then
+        c.route = nil
+        return approach, 300 -- on the lane: straight in
+    end
+    if not crossesBox(here, entry, inner) then
+        c.route = nil
+        return entry, 800
+    end
+    local r = c.route
+    if r and r.berth == b and dist(here, r.at) > CFG.DOCK_ARRIVE and not crossesBox(here, r.at, inner) then
+        return r.at, 800
+    end
+    local cands = {}
+    if inBox(inner, here) then
+        -- inside the bounds (under a hull, in a gap): straight out through the nearest face first
+        local bd
+        for _, k in ipairs({ "X", "Y", "Z" }) do
+            for _, sgn in ipairs({ 1, -1 }) do
+                local d = box.c[k] + sgn * box.e[k] - here[k]
+                if not bd or math.abs(d) < bd then
+                    bd = math.abs(d)
+                    cands[1] = { X = here.X, Y = here.Y, Z = here.Z }
+                    cands[1][k] = here[k] + d + sgn * 500
+                end
+            end
+        end
+    else
+        -- the corners, edge middles and face middles of the bounds
+        for _, i in ipairs({ -1, 0, 1 }) do
+            for _, j in ipairs({ -1, 0, 1 }) do
+                for _, k in ipairs({ -1, 0, 1 }) do
+                    if i ~= 0 or j ~= 0 or k ~= 0 then
+                        cands[#cands + 1] = { X = box.c.X + i * box.e.X, Y = box.c.Y + j * box.e.Y, Z = box.c.Z + k * box.e.Z }
+                    end
+                end
+            end
+        end
+    end
+    -- the shortest way on, a waypoint that can't see the entry counting double for the rest of the way
+    local pickW, pickScore
+    for _, w in ipairs(cands) do
+        if #cands == 1 or not crossesBox(here, w, inner) then
+            local score = dist(here, w) + dist(w, entry) * (crossesBox(w, entry, inner) and 2 or 1)
+            if not pickScore or score < pickScore then pickW, pickScore = w, score end
+        end
+    end
+    if not pickW then return entry, 800 end
+    c.route = { at = pickW, berth = b }
+    return pickW, 800
 end
 
 -- A berth is taken while its crew holds it (docking, docked, backing out) and their ship still exists.
@@ -967,7 +1123,7 @@ local function flyTo(c, at, accept)
     if c.glide then return end -- docking/undocking: R.frame moves the ship
     local ctrl = c.shipCtrl
     -- around anything in the way, and out again when stuck (shipnav.lua)
-    local ok0, wp, acc, fresh = pcall(Nav.steer, c, c.ship, at, accept or 300, os.clock(), navIgnore(c), S.playerShipLoc)
+    local ok0, wp, acc, fresh = pcall(Nav.steer, c, c.ship, at, accept or 300, os.clock(), navIgnore(c), S.watchers)
     if ok0 then
         at, accept = wp, acc
     elseif not c.navErr then
@@ -2750,8 +2906,10 @@ local function updateCrew(c, now, place, playerLoc)
         c.berthWait = nil
         local at, _, approach = berthPose(st, c.berth)
         if not at then c.berth, c.station = nil, chooseStation(c) return end -- that AI frigate sank
-        flyTo(c, approach, 300)
-        if dist(shipLoc, approach) < CFG.DOCK_ARRIVE then
+        flyTo(c, dockRoute(c, st, c.berth, at, approach, shipLoc))
+        -- The glide in is a straight line: it starts only out on the lane, never from beside or under the station.
+        local _, _, off = laneOf(at, approach, shipLoc)
+        if dist(shipLoc, approach) < CFG.DOCK_ARRIVE and off < CFG.DOCK_LANE then
             c.state, c.dockedAt = "docked", now
             c.lock = pickLock(st, c)
             setWatch(c)
@@ -3191,6 +3349,9 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
     S.pc = pc
     S.foot = foot
     if valid(S.playerShip) then S.playerShipLoc = S.playerShip:K2_GetActorLocation() end
+    -- Where you are and where you look from (a trailer camera can be far from your ship): no ship is lifted in sight.
+    S.watchers = { S.playerShipLoc }
+    pcall(function() S.watchers[#S.watchers + 1] = pc.PlayerCameraManager:GetCameraLocation() end)
     -- Seconds left in the raid (the space gate timer): crews head out near the end.
     pcall(function() S.remaining = pc:GetWorld().GameState.RemainingTime end)
     if S.armPending or (valid(S.playerShip) and not valid(S.playerShip.CurrentWeapon)) then

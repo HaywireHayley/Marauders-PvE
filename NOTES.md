@@ -1984,3 +1984,45 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
   MIN_DEFENDERS 14 -> 6 (the levels place 25 across Space_Solo_01's stations, Navy Outpost 7), SKIRMISH_MAX 6 -> 3,
   main.lua GARRISON fallback 14 -> 6. CREWS 0 still means every free slot.
 - Not tested in game yet. Look for guards walking away from posts and fewer "spotted ... at N m" lines right after arrival.
+
+## Rivals scraping stations and docking inside hulls (2026-11-14; shipnav.lua, rivals.lua)
+- Seen live (asteroid-field raid): a ScoutFrigate rival flew into a station, dragged along its underside, turned, slid into
+  its berth and then showed above it. Probably Widowmaker at the Capital Ship (docked 01:29:04 in that run, no stuck or
+  lifted lines in the log).
+- Cause 1, the scraping: shipnav's obstacle sweeps never hit anything. `SphereTraceSingleForObjects` with an object-type
+  list from Lua returns false every time, even through a BlockAll rock (the enum array doesn't get through; cover.lua had
+  found this for line traces). The status line always read "detours 0". `ActorsToIgnore` arrays don't get through either:
+  only the world-context actor is skipped (bIgnoreSelf). Checked with dir_eval probes: by channel (Visibility, 0) the same
+  sweeps hit rocks, the Rebel Base, the Capital Ship node and its turrets, and other ships.
+  Fix (shipnav.lua `blocked`): `SphereTraceSingle` on CFG.TRACE_CHANNEL 0, ship as world context; a hit on an actor in the
+  ignore list (target, turrets, gun) counts as clear; a sweep that starts touching something counts as blocked only when
+  heading into it, so a ship along a hull can still be steered off.
+- Cause 2, no idea of the station: the move goes straight to the berth's approach point. rivals.lua `dockRoute`: each
+  station berth keeps its node's bounds (`b.hull`: owner GetActorBounds plus the berth; an AI frigate's live bounds).
+  A docking ship flies to the lane's entry (out along the approach lane to where it leaves the bounds + HULL_MARGIN 2000),
+  going round the bounds' corners/edges/faces when the way is blocked (straight out the nearest face first when it's
+  inside them), and only heads for the approach point once it's on the lane (within LANE_WIDTH 1500 of its line, past
+  BERTH_APPROACH / 2). The glide in starts only within DOCK_ARRIVE of the approach point AND DOCK_LANE 900 of the lane's
+  line, never beside or under the station. Checked offline (lupa, rivals.lua's own functions): from 12 points around
+  each of Rebel Base berths 1 and 3, the Capital Ship and the Mini Mine every ship docked without entering the bounds;
+  from under the hull it leaves through the nearest face first.
+- Cause 3, sitting in the hull: nodes with no berth transform (Capital Ship, Mini Mine, Merchant, Fortress) dock at the
+  volume's middle. The Capital Ship's is 1.3 m off the hull's side, beside a rocket turret: a sphere of 500 there
+  penetrates the node by about 290, so a ScoutFrigate (bounds 737 x 737 x 600) sat half inside the hull and stuck out of
+  its top. A sweep from the docked Bad Penny's middle started inside the Capital Ship node. `clearOfHull` (survey, volume
+  berths only) moves the berth sideways along the hit normal, in steps, till a BERTH_CLEAR 500 sphere fits (at most
+  BERTH_CLEAR_MAX 3000; height kept; stops at a ship or a floor or roof). Once it's pushed back the way it came (wedged
+  between hull and turret), it moves straight out along the lane. Dry run on the live map: the Capital Ship berth moved
+  from -101564,17395 to -102132,18815 (15 m out along its lane), its other dock 724, Mini Mine 0. Game berths (ReturnAreaEntranceMoveToLocation: Rebel Base, Spaceport) are
+  kept: they put your ship in docking clamps that any sphere overlaps (Rebel Base berth 1: 684 deep, normal straight up).
+  Pushing those out would lift ships above their berths.
+- The glide and the hold agree: both use berthPose's `at`. Three moored ships measured 0 from it (one 28, under the
+  hold's 30 tolerance), with zero velocity and the actor, capsule and mesh all at one point. No Z offset between them;
+  station nodes don't move.
+- Another way to see a ship jump up: shipnav lifts a ship stuck 3 times 2500 away (up-weighted) when it's NUDGE_FAR
+  25000 from your ship, but a trailer camera can be right there. Now it must be that far from your ship and from the
+  camera (`S.watchers`: your ship, PlayerCameraManager location).
+- NOT yet confirmed in game: the game was in use for trailer recording. To test: copy mods/PvEDirector/Scripts/rivals.lua
+  and shipnav.lua into the game's Mods folder, start a raid, and look in UE4SS.log for "berth at Node_CapitalShip... moved"
+  at the survey and "steering: detours N" above 0. Then film a rival docking (CINE.chase on its ship) at the Capital Ship
+  and at the Rebel Base.
