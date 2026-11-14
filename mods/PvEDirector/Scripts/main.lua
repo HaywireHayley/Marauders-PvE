@@ -29,6 +29,8 @@ local CFG = {
     RETARGET_NEAR = 1500,    -- ...within this range
     RETARGET_RATIO = 0.5,    -- ...and at most this share of the current foe's distance
     GUNSHOT_RANGE = 10000,   -- gunshots carry this far (at hearing 1.0)
+    BOT_GUNSHOT_SCALE = 0.4, -- a bot's own shots carry this share of that: at 100 m every bot in a station heard every
+                             -- firefight, went to look and died in the first two minutes (2026-11-14, Moon Base)
     LOOK_AROUND = { 3, 6 },  -- seconds spent looking around where a noise came from
     UPDATE_SECONDS = 0.5,
     INTERACT_SECONDS = 0.1,  -- how often to look for what the player can use (see onTick)
@@ -82,6 +84,8 @@ local CFG = {
     STRAFE_SECONDS = { 2.5, 4.5 }, -- ...this often
     STRAFE_ANIM_SCALE = 2.2, -- the same while strafing in a fight (aiming legs 0.65): ~290
     AIM_SLOWDOWN = 0.5,      -- the game's own speed factor on an aiming bot (animate divides it back out)
+    LEG_RATE_MAX = 1.6,      -- legs never cycle faster than this x their natural rate; top speed is held to match
+                             -- (strafing at 2.2x and peek steps at up to 3.4x had "very silly rapid leg movement")
     COVER_PLAYER_DIST = { 350, 4000 }, -- only cover this far from the player
     COVER_BLIND_PEEKS = 2,   -- a cover spot is kept as long as it works: it's only left when flanked, or after this many
                              -- peeks in a row that couldn't see the player (they moved to an angle it doesn't cover)
@@ -1594,7 +1598,7 @@ local function animate(e)
     local rate = anim.Standing_LegsPlayrate
     if not (rate and rate > 0) then rate = 1.1 end
     local natural = running and CFG.SPRINT_SPEED or bot.bIsCrouched and CROUCH_ANIM_SPEED or SPEED_PER_LEG_RATE * rate
-    local want = speed > 30 and math.max(0.6, math.min(2.4, speed / natural)) or 1
+    local want = speed > 30 and math.max(0.6, math.min(CFG.LEG_RATE_MAX, speed / natural)) or 1
     e.animScale = (e.animScale or 1) + (want - (e.animScale or 1)) * 0.25
     mesh.GlobalAnimRateScale = e.animScale
     -- That scale is for the legs. The gun's own montage (bolt, pump, recoil) plays at 1.0 on its mesh, so the arms'
@@ -1629,6 +1633,11 @@ local function animate(e)
     -- real one. Crouched speed isn't set here each frame, so it's left alone.
     if not running and not bot.bIsCrouched and bot:IsTargeting() then
         move.MaxWalkSpeed = move.MaxWalkSpeed / CFG.AIM_SLOWDOWN
+    end
+    -- No faster than the legs can carry them at LEG_RATE_MAX (the aim slowdown is divided out the same way).
+    if not running and not bot.bIsCrouched then
+        local cap = natural * CFG.LEG_RATE_MAX / (bot:IsTargeting() and CFG.AIM_SLOWDOWN or 1)
+        if move.MaxWalkSpeed > cap then move.MaxWalkSpeed = cap end
     end
 end
 
@@ -2677,13 +2686,15 @@ local botClass
 RegisterHook("/Script/RaidGame.RaidWeapon:ServerMultiSimulateWeaponFire", function(ctx)
     local w = ctx:get()
     local owner = w.MyPawn
+    botClass = botClass or lib("/Script/RaidGame.RaidBot")
+    local isBot = valid(owner) and owner:IsA(botClass)
     if valid(owner) then
-        local ok, err = pcall(AI.noise, owner:K2_GetActorLocation(), CFG.GUNSHOT_RANGE, "gunshot", owner:GetAddress())
+        local range = CFG.GUNSHOT_RANGE * (isBot and CFG.BOT_GUNSHOT_SCALE or 1)
+        local ok, err = pcall(AI.noise, owner:K2_GetActorLocation(), range, "gunshot", owner:GetAddress())
         if not ok then log("gunshot noise failed: " .. tostring(err)) end
     end
     if nativeFireFx then return end
-    botClass = botClass or lib("/Script/RaidGame.RaidBot")
-    if not (valid(owner) and owner:IsA(botClass)) then return end
+    if not isBot then return end
     if valid(w.MuzzleFX) then
         lib("/Script/Engine.Default__GameplayStatics"):SpawnEmitterAttached(w.MuzzleFX, w.Mesh1P,
             w.MuzzleAttachPoint, { X = 0, Y = 0, Z = 0 }, { Pitch = 0, Yaw = 0, Roll = 0 }, { X = 1, Y = 1, Z = 1 },

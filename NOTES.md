@@ -1597,6 +1597,16 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
   b_HullIsDamaged turned true (was always false). At 0 hull (life support destroyed): Audio_ShipAlarm and P_Damage_TurretComp went
   active (were off at 48%). P_Damage_LifeSupportComp / Audio_LifeSupportFlames_Part1 were already active at 48% (baseline unknown).
   Screenshots showed only a subtle lighting change from the corridor. Engine/turret/helm-gun destruction and rival ships not tested.
+- Rival hulls (2026-11-14): they still looked pristine when disabled. The hull pawn BPs (Ship_*Frigate01_Pawn_C) carry their own
+  exterior emitters P_HullDamage01-04, P_EngineDamage, P_TurretDamage, P_HelmGunDamage and events DamageEffects_ShipHull(DamageAmount_Percent)
+  / DamageEffects_Engine/Turret/HelmGun(TurnOn), also only reached from replication, and damageFxStep only covered ships with an interior.
+  FIX: rivals.lua hullDamageFx runs on every crew's c.ship and your hull: one more P_HullDamage emitter lit per quarter of hull lost, all four
+  plus engine/turret/helm-gun fires at 0 hull (or life support destroyed), a destroyed system lights its own fire. Activate(true) +
+  SetVisibility after comp:IsValid(). Also calls DamageEffects_* (scale of DamageAmount_Percent unknown; we pass hull left 0-100).
+  Verified (Space_Delta, Patrol Scout, bridge/t_hullfx.lua via ApplyDamage): 650 pristine, 450 -> 1 emitter, 250 -> 2, 0 -> all 7 on and
+  "[rivals] hull fx: ... disabled" logged; screenshots show the wreck burning. Not moving at 0 hull is the game's own disabled state.
+- Testing note: a bare `open <map>` from the menu has no PID and asserts "Couldn't spawn player: PlayerID is null" (or crashes in UE4SS
+  at the splash). Start test raids with bridge/mm_launch.sh (waits for login, Play, lobby launch).
 
 ## Manning a turret yourself; crew gunner owns the turrets (2026-11-08, gunseat.lua + crew.lua)
 - What works natively offline: F on a gunner seat (RaidUseable_TurretControl01; the camera turret seats too) moves your view to
@@ -2035,3 +2045,70 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
 - Hot-swap tool (scratch, not in the repo): load the new rivals.lua/shipnav.lua with loadfile in dir_eval,
   debug.upvaluejoin every non-function upvalue to the old module's cell (S, X, Nav, CFG...), add new CFG keys to the
   old table (the tuning menu keeps a reference to it), and copy the new functions into the module table.
+
+## TODO: boarder corpse legs explode into spikes (seen 2026-11-14, not investigated)
+A Rusty Mule boarder killed on your ship (Space_Alpha, MG42) lay with its legs/feet stretched into a fan of black spikes
+(skinned mesh blowing up on the ragdoll). Torso, pack and helmet fine. Probably a rival kit's lower-body part on a body
+it doesn't fit, or the ragdoll of a pod-spawned body; check rollKit leg pieces vs the female/male body. Bad for footage.
+
+## Pod breach input lock (2026-11-14, fix untested)
+- After a pod breach into the Rusty Mule you could pitch and shoot but not turn or walk. ResetIgnoreInputFlags,
+  EnableInput, SetInputMode_GameOnly and SetCinematicMode(false) from the bridge gave back pitch and fire only.
+- breachInto now logs which flight-state fields your body still has after the pod ("breach: your body after the pod: ...")
+  and clears IsFlyingShip, HelmControlUsing, TurretControlUsing and MYTurret, then resets input and walking mode.
+  Check the log line on the next breach to see which one it was.
+- Do NOT run bridge/t_props.lua props() on the player pawn or its CharacterMovement: reading every property crashed
+  the game outright (05:13:26, no UE4SS error). Read named fields only.
+
+## TODO: stray geometry floating in open space on Space_Solo_02 (user, 2026-11-14, not investigated)
+- Seen from the open middle of the map: long flat girder/hull-like pieces and a dark flat shape, in view from a ship.
+  Possibly interior levels at the free interior slots (makeInterior) or station parts out of place; check what actors
+  sit there before deciding. Keep it out of trailer shots meanwhile.
+
+## Pod boarding rework (2026-11-14, tested)
+- Tested in game: after a pod, your body is fixed by afterPod (log "your body after the pod had yaw=false tick=false
+  grav=0.0: walking again"); the old teleport breach and the void rescue both left you able to walk and look.
+- PLAYER_BOARD_GAME = true: the game's own breach (F prompt near a hull, or ramming) does the boarding; the mod only
+  preloads and pairs the interior as your pod heads for a ship. The old proximity teleport fired the moment a pod
+  launched beside a ship pulled alongside. Not yet seen working on a rival: the one try hit a wreck (no interior) and
+  the void rescue sent the user home.
+- Wrecks (hull shot to 0, crew dead with it) are state "wreck" and boardable while the hull actor exists (hullThere).
+  Ships whose crew is wiped out are "derelict" and boardable with or without an interior already in.
+- Void wait: the camera looks at the hull you hit (or your own ship) instead of the dark, and the check runs every
+  frame. Untested.
+- Confirmed in game 05:50: pod + the game's breach into the Long Odds with its interior preloaded; no void, no void
+  camera needed, walking and looking fine. User: "it worked perfectly".
+- TODO: the status line said "you: in space" while the user was inside the Long Odds; it should say aboard a rival.
+- TODO: "no breach point joins up with the inside: boarders come in nearer the middle" fired for the Long Odds.
+
+## Station fights end too fast; AI legs too fast (2026-11-14, fix untested)
+- Footage station_fight2.mkv, Moon Base: three rival crews (10) and 8 defenders appeared within 6 s of arriving; two
+  crews came out of neighbouring airlocks (Moon_11, Moon_12) at the same moment and fought on the spot. Gunshots carried
+  100 m, so every bot heard every fight and went to look. All 10 rivals were dead in two minutes.
+- Fix: ARRIVAL_STAGGER (rivals.lua, 45 s): one crew through a station's airlocks at a time. BOT_GUNSHOT_SCALE
+  (main.lua, 0.4): bots' own shots carry 40 m; the player's still carry the full GUNSHOT_RANGE.
+- Legs: animate() sped the whole body up to 2.4x to match speed (strafing 2.2x, peek steps 450 = 3.4x of the aiming
+  walk's 130). User: "very silly rapid leg movement". Now LEG_RATE_MAX = 1.6 caps the rate and holds top speed to
+  match, so strafing and peeking are a bit slower. Both new settings are in the AI menu.
+- Second cause (station_fight4, Rebel Base, CREWS 0 = 11 crews): three crews that had docked before you arrived all
+  materialized in the same update you walked in, before the station's guards were adopted (spreadPoint only avoids
+  bodies that exist), and 5 of 7 died within 9 s. Fix: MATERIALIZE_GAP (3 s): one crew at a time, and only once the
+  adopt queue, top-ups and every earlier body are done.
+- Blue gaps at corners in that footage line up with hitches (18 freezes of 4+ frames a minute with 11 crews, 3 with
+  the default 5): after a freeze the view jumps and occlusion culling is a frame behind. Not fixed; fewer crews helps.
+- Launch crash at Play (twice, same stack hash, null read): Play pressed before the login reached the stand-in.
+  mm_launch.sh now waits for "rpc getbuildinfo" in backend/server.log instead of a fixed 12 s.
+
+## Crews and guards by station size (2026-11-14, untested)
+- User: bigger stations should have more people, and fewer crews should go to the small ones. Station size = its
+  navmesh box floor area, logged in "[rivals] stations:" (Space_Solo_01: ~4k to ~107k m2).
+- chooseStation is a weighted pick: capacity = area / STATION_AREA_PER_CREW (15k m2, at least 1), weight =
+  capacity x STATION_CROWD (0.35) ^ (crews docked/heading there / capacity).
+- Guards: MIN_DEFENDERS is for a STATION_AREA_MID (35k m2) station; small ones get as few as half, big ones up to
+  DEFENDERS_MAX_SCALE (1.5x). STATION_AREA_PER_CREW and STATION_CROWD are in the AI menu.
+
+## Frozen guards in station wings (2026-11-14, untested)
+
+On Space_Delta, 6 placed raiders stood frozen all raid, 250–300 m from the player in Moon Base: no controller, time dilation 0, ticking off. They were in NavMeshBoundsVolume6, a second wing of Moon Base 31 m from the main volume (8). The second wing has no airlock and no name, so it was never part of the station's box. garrison and the stray sweep only adopt NPCs in the box or within 60 m of you, so these guards were never woken.
+
+The survey now grows a station's box over any unnamed navmesh volume within WING_GAP (40 m) of it, and logs "[rivals] Moon Base: joined NavMeshBoundsVolume6 (unnamed) as a wing". The station's area, and with it how many crews and guards it gets, now counts the wing too. Next run, check for that log line, and use bridge/t_idlebots.lua to confirm there are 0 uncontrolled soldiers once you've been inside.

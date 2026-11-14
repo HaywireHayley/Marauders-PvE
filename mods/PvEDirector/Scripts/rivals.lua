@@ -178,7 +178,15 @@ local CFG = {
     -- maps' soldier types instead.
     PLACED = { "GOAPNodeBot_Raider_C", "GOAPNodeBot_Boss_C" },
     MIN_DEFENDERS = 6,      -- (about what the levels place: Space_Solo_01 has 25 across its stations, Navy Outpost 7)
+    -- Station size: its navmesh box's floor area (Space_Solo_01's run from ~4,000 m2 to ~107,000 m2). Guards scale
+    -- with it (MIN_DEFENDERS is for a STATION_AREA_MID station, between half and DEFENDERS_MAX_SCALE x that), and so
+    -- does how many crews pick it (chooseStation): every STATION_AREA_PER_CREW m2 holds one crew before it counts
+    -- as busy, and each busy station's pull falls by STATION_CROWD per crew-load it already holds.
+    STATION_AREA_MID = 35000, DEFENDERS_MAX_SCALE = 1.5,
+    STATION_AREA_PER_CREW = 15000,
+    STATION_CROWD = 0.35,
     STRAY_EVERY = 8,        -- seconds between sweeps for placed NPCs the garrison missed (sweepStrays)
+    WING_GAP = 4000,        -- an unnamed navmesh volume this close to a station is part of it (its guards included)
     STRAY_RANGE = 6000,     -- ...counting those this near you even outside the station's box
     GEAR_SLOTS = { "CharacterBody0", "Helemt", "ChestSlot", "Backpc" },
     POST_RADIUS = 900,              -- defenders walk about this close to where they are (until roamGuards sends them on)
@@ -212,7 +220,13 @@ local CFG = {
     PLAYER_BOARD_CLOSE = 4000,      -- ...or this close, whichever way the pod points
     PLAYER_BOARD_RANGE = 1800,      -- this close to its centre: you're through the hull
     PLAYER_BOARD_TOUCH = 600,       -- or this close to its hull's surface (a pod rammed into a big hull stops far from the centre)
-    PLAYER_BOARD_FORCE = 250,       -- this close to the hull the breach can't wait for the interior's navmesh any longer
+    PLAYER_BOARD_FORCE = 250,
+    -- The game's own breach (its F prompt near a hull, or flying into it) moves the pod to one of the ship's breach
+    -- sockets and brings you in by a wall. It failed on rival hulls only while they had no interior; now that the
+    -- interior is loaded and paired as your pod heads for a ship, the game does the breach and ours (an instant teleport
+    -- once you're near, which fired the moment the user's pod launched beside a ship pulled alongside) is off.
+    -- The void rescue below still catches a breach that leaves you at 0,0,0. false: the old proximity teleport.
+    PLAYER_BOARD_GAME = true,       -- this close to the hull the breach can't wait for the interior's navmesh any longer
     VOID_NEAR = 3000, VOID_RESCUE = 3, -- on foot this close to 0,0,0 for this long: rescued into your own ship
     -- The pod hit a hull before the breach was ready (interior still loading, or the hit came between two looks): the
     -- game then drops you at 0,0,0. The ship the pod was last seen at, this close and this recently, is boarded from there.
@@ -243,10 +257,13 @@ local CFG = {
     MATERIALIZE_MARGIN = 1500,      -- you count as in a station within this margin of its navmesh volume
     DEMATERIALIZE_AFTER = 20,       -- seconds outside a station before its rivals go back to being simulated
     FRESH_DOCK = 25,                -- a crew that docked this recently enters through the airlock
+    MATERIALIZE_GAP = 3,            -- seconds between crews appearing in a station you walk into
     -- Arriving through an airlock (stations with RaidFrigateStationDock airlocks): built in the closed chamber, the door
     -- opens once they're all armed (or after ARRIVAL_WAIT), they walk out, and it closes again after ARRIVAL_CLOSE.
     ARRIVAL_WAIT = 12, ARRIVAL_CLOSE = 10,
     ARRIVAL_MIN = 6,                -- the airlock cycles at least this long before the door opens
+    ARRIVAL_STAGGER = 45,           -- one crew in through a station's airlocks at a time, this many seconds apart: two crews
+                                    -- out of neighbouring airlocks at once fought on the spot and were dead in two minutes
     DOOR_OPENING = 7,               -- seconds the hatch takes to open (wheel, steam, swing): they wait for it
     LOCK_YOU = 700,                 -- not in a chamber you're standing in
     SPAWN_AWAY = 2500,              -- crews already inside appear at least this far from you
@@ -563,7 +580,7 @@ local function survey(pc, shipActor)
             local o, e = {}, {}
             Out.call(v, "GetActorBounds", false, o, e, false)
             table.insert(interiors, { box = { c = { X = o.X, Y = o.Y, Z = o.Z }, e = { X = e.X, Y = e.Y, Z = e.Z } },
-                entries = {} })
+                entries = {}, vol = v:GetFName():ToString() })
         end
     end
     local function interiorAt(l, margin)
@@ -674,6 +691,32 @@ local function survey(pc, shipActor)
             table.insert(stations, it)
         end
     end
+    -- A station's second wing can have a navmesh volume of its own with no airlock or name (Moon Base on Space_Delta:
+    -- volume 6, 31 m past the main one). Its placed guards were never adopted, so they stood frozen, gun up, all raid
+    -- (2026-11-14). Grow the station's box over any unclaimed interior that close.
+    for _, st in ipairs(stations) do
+        if not st.frigate then
+            for _, it in ipairs(interiors) do
+                if not it.berths and not it.name and not it.wingOf then
+                    local a, b, near = st.box, it.box, true
+                    for _, k in ipairs({ "X", "Y", "Z" }) do
+                        if math.abs(a.c[k] - b.c[k]) - a.e[k] - b.e[k] > CFG.WING_GAP then near = false end
+                    end
+                    if near then
+                        it.wingOf = st.name
+                        local c, e = {}, {}
+                        for _, k in ipairs({ "X", "Y", "Z" }) do
+                            local lo = math.min(a.c[k] - a.e[k], b.c[k] - b.e[k])
+                            local hi = math.max(a.c[k] + a.e[k], b.c[k] + b.e[k])
+                            c[k], e[k] = (lo + hi) / 2, (hi - lo) / 2
+                        end
+                        st.box = { c = c, e = e }
+                        X.log(("[rivals] %s: joined %s (%s) as a wing"):format(st.name, it.vol, it.name or "unnamed"))
+                    end
+                end
+            end
+        end
+    end
     -- Station airlocks: the chamber a docked ship's crew comes through (floor point) and its button on the station side.
     for _, d in ipairs(FindAllOf("RaidFrigateStationDock") or {}) do
         if valid(d) and valid(d.InSideComp) and valid(d.OpenButton) then
@@ -696,7 +739,8 @@ local function survey(pc, shipActor)
     end
     local names = {}
     for _, st in ipairs(stations) do
-        table.insert(names, ("%s (%d entries, %d berths%s)"):format(st.name, #st.entries, #st.berths,
+        st.area = st.box and 4 * st.box.e.X * st.box.e.Y / 1e4 or CFG.STATION_AREA_MID
+        table.insert(names, ("%s (%.0fk m2, %d entries, %d berths%s)"):format(st.name, st.area / 1000, #st.entries, #st.berths,
             st.locks and (", %d airlocks"):format(#st.locks) or ""))
         for i, b in ipairs(st.berths) do
             if b.at then
@@ -1197,7 +1241,21 @@ local function setShipEnemy(c, target)
     end
 end
 
--- Somewhere new with a free berth if possible. An AI frigate that sank can't be reached any more.
+-- How many crews a station holds before it counts as busy (its size), and how many it has: docked there or on the way.
+local function stationCapacity(st) return math.max(1, (st.area or CFG.STATION_AREA_MID) / CFG.STATION_AREA_PER_CREW) end
+local function stationLoad(st, except)
+    local n = 0
+    for _, o in ipairs(S.crews) do
+        if o ~= except and o.station == st and (o.state == "travel" or o.state == "docked" or o.state == "waiting") then
+            n = n + 1
+        end
+    end
+    return n
+end
+
+-- Somewhere new with a free berth if possible, picked by size: a big station draws more crews than a small one, and
+-- each draws less the more crews it already has (so the small ones still see the odd crew, and the big ones fill
+-- up first). An AI frigate that sank can't be reached any more.
 local function chooseStation(c)
     local free, any = {}, {}
     for _, st in ipairs(S.stations) do
@@ -1208,7 +1266,19 @@ local function chooseStation(c)
         end
     end
     local options = #free > 0 and free or any
-    return #options > 0 and pick(options) or nil
+    if #options == 0 then return nil end
+    local total, weights = 0, {}
+    for i, st in ipairs(options) do
+        local cap = stationCapacity(st)
+        weights[i] = cap * CFG.STATION_CROWD ^ (stationLoad(st, c) / cap)
+        total = total + weights[i]
+    end
+    local r = math.random() * total
+    for i, st in ipairs(options) do
+        r = r - weights[i]
+        if r <= 0 then return st end
+    end
+    return options[#options]
 end
 
 -- Docking and undocking are a smooth glide between the approach point and the berth (R.frame), with the ship's
@@ -1770,12 +1840,16 @@ local function crewArrival(c, now)
             if pending == 0 then c.arrival = nil end
             return
         end
+        -- Another crew came in here not long ago: this one waits its turn in the closed chamber.
+        local st = c.station
+        if st and st.lastArrival and now - st.lastArrival < CFG.ARRIVAL_STAGGER then return end
         local inside = 0
         for _, e in ipairs(c.bodies) do
             if valid(e.bot) and dist(e.bot:K2_GetActorLocation(), a.lock.floor) < 600 then inside = inside + 1 end
         end
         pcall(function() a.lock.dock:StartDoorEvent(true) end)
         a.openedAt = now
+        if st then st.lastArrival = now end
         for _, e in ipairs(c.bodies) do
             e.home, e.patrolRadius = a.lock.floor, 100
             pcall(function() e.ctrl:StopMovement() end)
@@ -1961,7 +2035,9 @@ local function garrisonStation(pc, st)
     local list = placedDefenders(st)
     S.adoptQueue = S.adoptQueue or {}
     for _, b in ipairs(list) do table.insert(S.adoptQueue, { bot = b, st = st }) end
-    local extra = math.max(0, CFG.MIN_DEFENDERS - #list)
+    -- MIN_DEFENDERS is for a mid-size station: a small one gets as few as half, a big one up to DEFENDERS_MAX_SCALE x.
+    local scale = math.max(0.5, math.min(CFG.DEFENDERS_MAX_SCALE, (st.area or CFG.STATION_AREA_MID) / CFG.STATION_AREA_MID))
+    local extra = math.max(0, math.floor(CFG.MIN_DEFENDERS * scale + 0.5) - #list)
     if #list > 0 then
         X.log(("[rivals] %s: %d of its own defenders%s"):format(st.name, #list,
             extra > 0 and (", plus %d more like them"):format(extra) or ""))
@@ -2836,6 +2912,44 @@ local function breachLanding(inside)
     return { X = anchor.X, Y = anchor.Y, Z = anchor.Z + 100 }
 end
 
+-- The camera back on your body after the void wait (see rescueFromVoid).
+local function voidCamOff(pawn)
+    if not S.voidCam then return end
+    S.voidCam = nil
+    pcall(function() S.pc:SetViewTargetWithBlend(pawn, 0, 0, 0, false) end)
+end
+
+-- Your body after a pod flight. The game parks it for the flight (hidden, movement component not ticking, no gravity,
+-- not turned by the mouse) and its own breach ability undoes that; ours and the void rescue skip that ability, so you
+-- could pitch and shoot but not turn or walk (2026-11-14, read off the body and fixed live from the bridge).
+local function afterPod(foot)
+    local cdo
+    pcall(function() cdo = foot:GetClass():GetCDO() end)
+    local cm = foot.CharacterMovement
+    local grav = 1.0
+    pcall(function() if valid(cdo.CharacterMovement) then grav = cdo.CharacterMovement.GravityScale end end)
+    local was = ("yaw=%s tick=%s grav=%s"):format(tostring(foot.bUseControllerRotationYaw),
+        tostring(valid(cm) and cm:IsComponentTickEnabled()), tostring(valid(cm) and cm.GravityScale))
+    pcall(function() foot.bUseControllerRotationYaw = cdo and cdo.bUseControllerRotationYaw ~= false end)
+    if valid(cm) then
+        pcall(function() cm:SetComponentTickEnabled(true) end)
+        pcall(function() cm.GravityScale = grav end)
+        pcall(function() cm:SetMovementMode(1, 0) end)
+    end
+    pcall(function() foot:SetActorHiddenInGame(false) end)
+    -- and the controller's input, which the body's fix alone didn't give back (all of these were needed live)
+    pcall(function() S.pc:ResetIgnoreInputFlags() end)
+    pcall(function() foot:EnableInput(S.pc) end)
+    pcall(function() S.pc:EnableInput(S.pc) end)
+    pcall(function() StaticFindObject("/Script/UMG.Default__WidgetBlueprintLibrary"):SetInputMode_GameOnly(S.pc) end)
+    pcall(function() S.pc:SetCinematicMode(false, false, false, true, true) end)
+    pcall(function() S.pc.bShowMouseCursor = false end)
+    pcall(function() S.pc:FlushPressedKeys() end)
+    S.voidCam = true
+    voidCamOff(foot)
+    X.log("[rivals] your body after the pod had " .. was .. ": walking again")
+end
+
 -- force: the pod is at the hull (or already gone), so with no navmesh yet you come in at a dock start (made to be stood
 -- at) rather than not at all. Returns whether you're in.
 local function breachInto(c, force)
@@ -2854,6 +2968,7 @@ local function breachInto(c, force)
     if not (spot and valid(foot)) then return false end
     local inPod = valid(pod) and pod:GetAddress() ~= foot:GetAddress()
     if inPod then S.pc:Possess(foot) end
+    afterPod(foot)
     foot:SetActorHiddenInGame(false)
     foot:SetActorEnableCollision(true)
     Out.call(foot, "K2_SetActorLocation", spot, false, {}, true)
@@ -2870,8 +2985,19 @@ local function breachInto(c, force)
     return true
 end
 
+-- A wreck (hull shot to 0, crew dead with it) still floats where it died, and the user expects to board it like any
+-- other ship: its hull only has to still exist (shipOk wants hull and controller).
+local function hullThere(c)
+    if c.state == "wreck" then
+        if c.ship and not valid(c.ship) then c.ship = nil end
+        return c.ship ~= nil
+    end
+    return shipOk(c)
+end
+
 local function boardable(c)
-    return (c.state == "travel" or c.state == "attack" or c.state == "leaving" or c.state == "docked") and shipOk(c)
+    return (c.state == "travel" or c.state == "attack" or c.state == "leaving" or c.state == "docked"
+        or c.state == "derelict" or c.state == "wreck") and hullThere(c)
 end
 
 -- How far a point is from a hull's collision surface (its centre distance if that can't be read). Measured only when
@@ -2889,14 +3015,25 @@ end
 -- A pod's breach (or anything else) that left you on foot in the dark at the map origin, where the game parks your body
 -- during a pod flight. If the pod was last seen at a rival's hull, that's the ship you hit: you come out inside it, once
 -- its interior is in (VOID_BOARD_*). Otherwise back into your own ship after VOID_RESCUE seconds.
+-- While you wait in the void the camera looks at the hull you hit (or your own ship), not at the dark (user: "I was in a black
+-- void for a moment while the interior loaded which doesn't look great"). Looked at every frame (R.frame) as well as
+-- from the update, so the dark doesn't show for the half second between two updates.
 local function rescueFromVoid(now)
     local pawn = S.pc.Pawn
     if not (valid(pawn) and pawn:GetClass():GetFName():ToString() == "PlayerPawn_C") then S.voidSince = nil return end
     local l = pawn:K2_GetActorLocation()
-    if math.abs(l.X) + math.abs(l.Y) + math.abs(l.Z) > CFG.VOID_NEAR then S.voidSince = nil return end
+    if math.abs(l.X) + math.abs(l.Y) + math.abs(l.Z) > CFG.VOID_NEAR then
+        S.voidSince = nil
+        voidCamOff(pawn)
+        return
+    end
     S.voidSince = S.voidSince or now
     local waited = now - S.voidSince
     local c = S.podShip
+    if not S.voidCam then
+        local look = (c and hullThere(c) and c.ship) or (valid(S.playerShip) and S.playerShip) or nil
+        if look and pcall(function() S.pc:SetViewTargetWithBlend(look, 0, 0, 0, false) end) then S.voidCam = true end
+    end
     if c and S.podSeen and S.voidSince - S.podSeen < CFG.VOID_BOARD_RECENT and waited < CFG.VOID_BOARD_WAIT
         and boardable(c) then
         if not c.inside and (S.interiors or 0) < CFG.PLAYER_BOARD_MAX then
@@ -2918,6 +3055,7 @@ local function rescueFromVoid(now)
         spot = { X = spot.X, Y = spot.Y, Z = spot.Z + 100 }
     end
     Out.call(pawn, "K2_SetActorLocation", spot, false, {}, true)
+    afterPod(pawn)
     say(S.pc, "That hull had no way in: you made it back to your ship")
     X.log("[rivals] you were left in the void after a breach: moved back into your ship")
 end
@@ -2926,7 +3064,25 @@ end
 -- of range to into the hull between two looks, and then the game's own impact left you in the void).
 local function playerBoarding(now)
     local pawn = S.pc.Pawn
-    if not valid(pawn) or not pawn.bADropPod then return end
+    if not valid(pawn) then return end
+    if not pawn.bADropPod then
+        -- Just out of a pod: if the game's breach put you inside a rival's ship, your crewmates follow you in (crew.lua)
+        -- and your body gets the same check as after ours.
+        if S.podSeen and now - S.podSeen < CFG.VOID_BOARD_RECENT then
+            local l = pawn:K2_GetActorLocation()
+            for _, c in ipairs(S.crews) do
+                if c.insideBox and inBox(c.insideBox, l, 300) then
+                    S.podSeen, S.podAt, S.voidSince = nil, nil, nil
+                    afterPod(pawn)
+                    S.breach = { at = { X = l.X, Y = l.Y, Z = l.Z }, time = os.clock(), ship = c.shipName,
+                        spots = breachSpots(c.inside) }
+                    X.log(("[rivals] the game's breach brought you into the %s at %.0f,%.0f,%.0f"):format(c.shipName, l.X, l.Y, l.Z))
+                    break
+                end
+            end
+        end
+        return
+    end
     local here = pawn:K2_GetActorLocation()
     -- the pod's course: its velocity, or its nose while it's barely moving
     local v = pawn:GetVelocity()
@@ -2946,7 +3102,7 @@ local function playerBoarding(now)
             local gap = hullGap(c.ship, here, d)
             if not nd or gap < nd then nearest, nd = c, gap end
             if c.insideBox then
-                if (d < CFG.PLAYER_BOARD_RANGE or gap < CFG.PLAYER_BOARD_TOUCH) and breachInto(c, gap < CFG.PLAYER_BOARD_FORCE) then
+                if not CFG.PLAYER_BOARD_GAME and (d < CFG.PLAYER_BOARD_RANGE or gap < CFG.PLAYER_BOARD_TOUCH) and breachInto(c, gap < CFG.PLAYER_BOARD_FORCE) then
                     return
                 end
             elseif not c.inside and d < CFG.PLAYER_BOARD_PREP then
@@ -3015,14 +3171,18 @@ end
 
 -- Crew brain -----------------------------------------------------------------------------------------------------
 local function updateCrew(c, now, place, playerLoc)
-    if c.state == "gone" or c.state == "derelict" then return end
-    if c.inside and not c.insideBox and valid(c.inside) and shipOk(c) then pairInterior(c) end
+    if c.state == "gone" then return end
+    -- (a derelict's or wreck's interior can still be loading: your pod asked for it on the way in)
+    if c.inside and not c.insideBox and valid(c.inside) and hullThere(c) then pairInterior(c) end
+    if c.state == "derelict" or c.state == "wreck" then return end
     if c.bodies then bodiesAlive(c) end
     if not crewAlive(c) then
         dematerialize(c)
         X.log("[rivals] " .. crewLabel(c) .. " wiped out")
-        -- A ship whose crew you killed waits for you at its helm.
-        if c.insideBox and shipOk(c) then
+        -- A ship whose crew you killed waits for you at its helm, boardable like any other: with its interior already in,
+        -- or loaded when your pod heads for it (the user: ships with dead crews must stay fully boardable; the Iron
+        -- Gull's crew died boarding you before it had an interior, and was dropped as "gone" with its hull still there).
+        if shipOk(c) then
             Nav.halt(c)
             c.state = "derelict"
         else
@@ -3069,7 +3229,7 @@ local function updateCrew(c, now, place, playerLoc)
     if flying and not shipOk(c) then
         X.log("[rivals] " .. crewLabel(c) .. " went down with their ship")
         for _, m in ipairs(c.members) do m.alive = false end
-        c.state = "gone"
+        c.state = valid(c.ship) and "wreck" or "gone"
         return
     end
     local shipLoc = shipOk(c) and c.ship:K2_GetActorLocation() or nil
@@ -3211,7 +3371,15 @@ local function updateCrew(c, now, place, playerLoc)
         if shipOk(c) and not c.glide and not c.moored then Nav.halt(c) end
         if place == st then
             c.lastInside = now
-            if not c.bodies then materialize(c, stationSpawnSpots(c, st, playerLoc), "station") end
+            -- One crew at a time, and only once the station's guards are in and every earlier body is built: spread
+            -- points steer clear of bodies that exist, so three crews spawned in one update (before Rebel Base's
+            -- guards were adopted) landed among the guards and lost 5 of 7 in nine seconds (2026-11-14).
+            local settling = #S.building > 0 or (S.adoptQueue and #S.adoptQueue > 0) or (S.topUps and #S.topUps > 0)
+                or now - (S.lastMaterialize or -99) < CFG.MATERIALIZE_GAP
+            if not c.bodies and not settling then
+                materialize(c, stationSpawnSpots(c, st, playerLoc), "station")
+                if c.bodies then S.lastMaterialize = now end
+            end
             if c.arrival then crewArrival(c, now) end
             if c.bodies then
                 for _, e in ipairs(c.bodies) do
@@ -3386,6 +3554,7 @@ function R.frame(worldKey)
     fireControl(now, dt)
     if #S.pods > 0 then flyPods(dt) end
     if valid(S.pc) then
+        pcall(rescueFromVoid, now)
         local ok, err = pcall(playerBoarding, now)
         if not ok and not S.boardErr then S.boardErr = true X.log("[rivals] boarding failed: " .. tostring(err)) end
     end
@@ -3550,11 +3719,71 @@ local function shipDamageFx(ins)
     end
 end
 
+-- The hull's own exterior effects (smoke and fire emitters P_HullDamage01-04, P_EngineDamage, P_TurretDamage,
+-- P_HelmGunDamage, and the pawn BP's DamageEffects_* events that drive them) are also only reached from replication
+-- callbacks, so a rival ship at 0 hull sat in space looking brand new. Drive them from the hull itself, for every ship,
+-- interior or not. Thresholds: one more smoke/fire emitter per quarter of hull lost; all systems burn at 0 hull.
+local HULL_EMITTERS = { "P_HullDamage01", "P_HullDamage02", "P_HullDamage03", "P_HullDamage04" }
+local HULL_SYSTEMS = {
+    { "bEngineDestroyed", "DamageEffects_Engine", "P_EngineDamage" },
+    { "bTurretDestroyed", "DamageEffects_Turret", "P_TurretDamage" },
+    { "bHelmGunDestroyed", "DamageEffects_HelmGun", "P_HelmGunDamage" },
+}
+
+local function emitter(hull, name, on)
+    local comp = hull[name]
+    if not (comp and comp:IsValid()) then return end -- never touch a missing component (probe crash, see NOTES)
+    pcall(function()
+        if on then
+            comp:SetVisibility(true, true)
+            comp:Activate(true)
+        else
+            comp:Deactivate()
+        end
+    end)
+end
+
+local function hullDamageFx(hull, maxHull)
+    if not valid(hull) then return end
+    local key = hull:GetAddress()
+    local seen = S.hullSeen[key]
+    if not seen then
+        seen = { level = 0 }
+        S.hullSeen[key] = seen
+    end
+    local hp = hull.MainHullHealth or 0
+    local frac = math.max(0, math.min(1, hp / math.max(1, maxHull or hp)))
+    local dead = hp <= 0 or hull.bLifeSupportDestroyed == true
+    -- 0 = pristine, 1-4 = emitters lit (lost 1/4, 1/2, 3/4 of the hull; 4 = disabled).
+    local level = dead and 4 or math.min(3, math.floor((1 - frac) * 4 + 0.0001))
+    if level ~= seen.level then
+        local was = seen.level
+        seen.level = level
+        for i, n in ipairs(HULL_EMITTERS) do emitter(hull, n, i <= level) end
+        pcall(function() hull:DamageEffects_ShipHull(frac * 100) end)
+        if (level > 0) ~= (was > 0) then tellAnims(hull, "Frigate_Damage_Hull", level > 0) end
+        if dead and was < 4 then
+            X.log(("[rivals] hull fx: %s disabled"):format(hull:GetFName():ToString()))
+        end
+    end
+    for _, s in ipairs(HULL_SYSTEMS) do
+        local on = dead or hull[s[1]] == true
+        if on ~= (seen[s[1]] or false) then
+            seen[s[1]] = on
+            pcall(function() hull[s[2]](hull, on) end)
+            emitter(hull, s[3], on)
+        end
+    end
+end
+
 local function damageFxStep()
     S.damageSeen = S.damageSeen or {}
+    S.hullSeen = S.hullSeen or {}
     pcall(shipDamageFx, S.homeInside)
+    pcall(hullDamageFx, S.playerShip, S.playerShipMaxHull)
     for _, c in ipairs(S.crews) do
         if c.inside then pcall(shipDamageFx, c.inside) end
+        if c.ship and c.ship ~= S.playerShip then pcall(hullDamageFx, c.ship, c.maxHull) end
     end
 end
 
@@ -3766,6 +3995,8 @@ function R.skirmishNow(size)
     if not S then return end
     S.nextSkirmish = 0
     S.skirmishSize = tonumber(size)
+    -- asked for (bridge/rivals_skirmish, filming and tests): not held back by the per-raid cap
+    S.skirmishes = math.min(S.skirmishes or 0, CFG.SKIRMISH_MAX - 1)
 end
 
 function R.clash()
