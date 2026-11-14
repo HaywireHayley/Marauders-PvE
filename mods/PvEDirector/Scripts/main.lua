@@ -71,6 +71,9 @@ local CFG = {
     COVER_AGGRESSION_PULL = 0.3, -- per point of aggression over 1: spots nearer the player score better (under 1: farther)
     SPRINT_EXPOSED_CHANCE = 0.15, -- going to cover in the enemy's sight: chance to sprint with the weapon down;
     SPRINT_UNSEEN_CHANCE = 0.5,   -- out of sight. Otherwise it walks there, facing the enemy and firing.
+    COVER_BACK_RUN = 0.3,    -- ...unless the spot is behind it (cosine to the enemy below minus this): that walk is a
+                             -- slow backpedal (backwards is capped at the strafe factor, ~0.6), so it turns and runs
+    COVER_MOVE_RETRIES = 2,  -- a move to cover that ends short is sent again this often, while it still gains ground
     HURT_DUCK_SECONDS = 0.6, -- shot this recently: duck back into cover / look for cover now
     -- Aim (AI.aimFor): the profile's miss rate, varied per bot and per moment. Multipliers unless noted.
     AIM_SKILL_SPREAD = 0.3,  -- a bot's lifelong skill: up to this share better or worse than the profile
@@ -1315,8 +1318,19 @@ local function coverCycle(e, pawn, playerLoc, now)
     if not e.cover then -- a new spot: go there
         c.started = now
         c.state = "moving"
+        local here = e.bot:K2_GetActorLocation()
+        local far = dist2d(here, c.pos)
         c.run = math.random() < (e.los and CFG.SPRINT_EXPOSED_CHANCE or CFG.SPRINT_UNSEEN_CHANCE)
-            and dist2d(e.bot:K2_GetActorLocation(), c.pos) > CFG.COVER_MOVE_MIN -- no sprinting a couple of steps
+            and far > CFG.COVER_MOVE_MIN -- no sprinting a couple of steps
+        -- A spot behind it, walked to while facing the enemy, was a long slow backpedal that rarely got there
+        -- (2026-11-14): turn and run instead.
+        local toP = dist2d(here, playerLoc)
+        if not c.run and far > CFG.COVER_MOVE_MIN and toP > 1 then
+            local cos = ((c.pos.X - here.X) * (playerLoc.X - here.X) + (c.pos.Y - here.Y) * (playerLoc.Y - here.Y))
+                / (far * toP)
+            if cos < -CFG.COVER_BACK_RUN then c.run, c.back = true, true end
+        end
+        c.left, c.retries = far, 0
         e.cover = c
         -- Sprinting: weapon down, no shooting on the way, facing the path. Otherwise it walks there, still focused on
         -- its enemy, so the tree keeps shooting and the move stays a strafe (trackTargets keeps the focus).
@@ -1324,9 +1338,9 @@ local function coverCycle(e, pawn, playerLoc, now)
             holdFire(e)
             e.ctrl:K2_ClearFocus()
         end
-        log(("%s %s to %s %s cover %.0f away"):format(e.bot:GetFName():ToString(), c.run and "sprinting" or "firing on the way",
-            c.baked and "baked" or "random", c.low and "low" or (c.side == LEAN_LEFT and "lean-left" or "lean-right"),
-            dist2d(e.bot:K2_GetActorLocation(), c.pos)))
+        log(("%s %s to %s %s cover %.0f away"):format(e.bot:GetFName():ToString(),
+            c.back and "turning to run back" or c.run and "sprinting" or "firing on the way",
+            c.baked and "baked" or "random", c.low and "low" or (c.side == LEAN_LEFT and "lean-left" or "lean-right"), far))
         e.bot:UnCrouch(false)
         e.ctrl:MoveToLocation(c.pos, 30, false, true, true, true, queryFilter(), true)
         return true
@@ -1340,7 +1354,20 @@ local function coverCycle(e, pawn, playerLoc, now)
         end
         if e.ctrl:GetMoveStatus() ~= 3 then -- arrived, or the move ended
             local off = dist2d(e.bot:K2_GetActorLocation(), c.pos)
-            if off > 150 then releaseCover(e, ("move ended %.0f short"):format(off)) return false end
+            -- Moves to cover often ended hundreds of units short (the tree, or the stuck check below), and the soldier
+            -- gave up and started over somewhere else. Send it again while it's still gaining ground.
+            local stuck = e.stuckAt and now - e.stuckAt < 0.5
+            if off > 150 and c.retries < CFG.COVER_MOVE_RETRIES and c.left - off > 100 then
+                c.retries, c.left = c.retries + 1, off
+                log(("%s move to cover ended %.0f short%s: sent again"):format(e.bot:GetFName():ToString(), off,
+                    stuck and " (stuck)" or ""))
+                e.ctrl:MoveToLocation(c.pos, 30, false, true, true, true, queryFilter(), true)
+                return true
+            end
+            if off > 150 then
+                releaseCover(e, ("move ended %.0f short%s"):format(off, stuck and ", stuck" or ""))
+                return false
+            end
             hide(e, c, now)
         end
         return true
@@ -1421,7 +1448,7 @@ local function combatHints(e, pawn, playerLoc)
         e.slowSince = e.slowSince or now
         if now - e.slowSince >= CFG.STUCK_SECONDS then
             ctrl:StopMovement()
-            e.slowSince, e.nextHint = nil, now + 0.5
+            e.slowSince, e.nextHint, e.stuckAt = nil, now + 0.5, now
         end
     else
         e.slowSince = nil

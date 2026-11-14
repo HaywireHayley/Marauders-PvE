@@ -2253,3 +2253,17 @@ After 12ffc4a soldiers in Rebel Base (Space_Alpha, 101 markers) still fought in 
 near it passed. The difference was the play-area cell key: offLimits built it with //, which gives a float for a float
 ("26.0", the engine's marker and soldier positions) and an integer for an integer ("26", baked spots loaded from
 cover/*.txt). Baked spots never found their markers. Both keys now use math.floor (an integer either way).
+
+## Soldiers backpedalling instead of taking cover (2026-11-14)
+
+In a Space_Beta fight a soldier mostly walked backwards away from the player and rarely reached cover. The log showed
+"firing on the way to ... cover ~600-800 away" followed seconds later by "left cover (move ended 500-2278 short)", and
+the fighting samples were mostly "moving" (335) against hiding 17. Two causes:
+
+- Walking to cover keeps the focus on the enemy so it can shoot on the way. For a spot behind the soldier that's a
+  backwards walk, and backwards is capped at the strafe factor (~0.6) on top of the aiming slowdown: a slow backpedal.
+  Now a spot whose direction is more than ~107 degrees from the enemy (cosine below -COVER_BACK_RUN, 0.3) and farther
+  than COVER_MOVE_MIN is run to, weapon down ("turning to run back to ... cover").
+- Moves to cover ended early (the tree, or the stuck check's StopMovement) and the soldier dropped the spot and
+  started over. Now the move is sent again up to COVER_MOVE_RETRIES (2) times while it still gains 100+ units
+  ("move to cover ended N short: sent again", with "(stuck)" when the stuck check stopped it).
