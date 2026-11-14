@@ -2156,6 +2156,28 @@ local function adopt(b)
     return e, profile, row
 end
 
+-- Live placed NPCs (CFG.PLACED classes) from the spawn hook; dead and destroyed entries are dropped as it goes.
+-- (Defined before garrisonStation, which uses it too: defined after, it was a nil global there and the garrison of
+-- the first station you boarded failed, 2026-11-14.)
+local function hookedPlaced()
+    local placed, list, out = {}, NodeBots.list, {}
+    for _, c in ipairs(CFG.PLACED) do placed[c] = true end
+    for i = #list, 1, -1 do
+        local n = list[i]
+        if not valid(n.o) or n.placed == false then
+            list[i] = list[#list]
+            list[#list] = nil
+        else
+            if n.placed == nil then
+                local ok, name = pcall(function() return n.o:GetClass():GetFName():ToString() end)
+                n.placed = ok and placed[name] == true and not n.o:GetFName():ToString():find("^Default__")
+            end
+            if n.placed then out[#out + 1] = n.o end
+        end
+    end
+    return out
+end
+
 -- First visit to a station: queue its own NPCs for adoption (one per update), then top it up to MIN_DEFENDERS.
 local function garrisonStation(pc, st)
     local list = placedDefenders(st)
@@ -2325,26 +2347,6 @@ end
 -- still building is unmanaged for a few seconds too; GUN_WAIT is well under a sweep).
 -- Each sweep scans one of the PLACED classes in turn: a FindAllOf walks every object in the game, ~50 ms each on a
 -- space map, and both at once were a 100+ ms hitch every 8 s (profile.txt, Moon Base, 2026-11-14).
--- Live placed NPCs (CFG.PLACED classes) from the spawn hook; dead and destroyed entries are dropped as it goes.
-local function hookedPlaced()
-    local placed, list, out = {}, NodeBots.list, {}
-    for _, c in ipairs(CFG.PLACED) do placed[c] = true end
-    for i = #list, 1, -1 do
-        local n = list[i]
-        if not valid(n.o) or n.placed == false then
-            list[i] = list[#list]
-            list[#list] = nil
-        else
-            if n.placed == nil then
-                local ok, name = pcall(function() return n.o:GetClass():GetFName():ToString() end)
-                n.placed = ok and placed[name] == true and not n.o:GetFName():ToString():find("^Default__")
-            end
-            if n.placed then out[#out + 1] = n.o end
-        end
-    end
-    return out
-end
-
 local function sweepStrays(st, now)
     if now < (S.nextStraySweep or 0) or (S.adoptQueue and #S.adoptQueue > 0) then return end
     S.nextStraySweep = now + CFG.STRAY_EVERY
