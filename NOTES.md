@@ -2227,3 +2227,9 @@ Fix (main.lua, untested in game):
   nearer than where it stands; otherwise it holds and watches.
 To check: the per-box counts at raid start and after boarding, whether "cover probes of baked spots" keeps rising
 inside the station, and "sprinting to baked ..." lines.
+First test (Space_Solo_02, Penal Colony, 2026-11-14): at raid start Asteroid and Moon Base boxes had 0 markers (so the
+problem is real); the rescan on boarding ran ("rescanned on boarding PenalColony"). 9 of 53 cover picks were baked
+(none the raid before), but most searches still dropped every baked spot as off limits ("baked 40, off 40"). The floor
+being fought on had no loot or AI node within 18 m on its level (nearest ~12 m higher), so offLimits ruled the whole
+floor out though the soldiers stood on it. Fix: findCover only filters baked spots by offLimits when the soldier's own
+spot passes it (untested). bridge/t_off.lua checks the rule on baked spots around the player.

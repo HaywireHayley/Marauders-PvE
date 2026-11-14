@@ -1143,9 +1143,13 @@ local function findCover(e, pawn, playerLoc, radius, tries)
     local list = {}
     -- what the search turned down, for the log when it finds nothing (coverCycle's Aux.openLog)
     local st = { baked = 0, off = 0, ["out of range"] = 0, random = 0 }
+    -- offLimits keeps soldiers off roofs and hull shells, but it judges by loot and AI nodes nearby on the same level,
+    -- and some played floors have none within reach (Penal Colony, 2026-11-14: the nearest 12 m up). A soldier
+    -- already standing somewhere it calls off limits is on such a floor: don't filter the spots around it.
+    local filter = not offLimits(here)
     for _, c in ipairs(raid.coverNoBake and {} or Cover.candidates(here, playerLoc, radius, CFG.COVER_BAKED_POOL)) do
         st.baked = st.baked + 1
-        if not offLimits(c.pos) then
+        if not (filter and offLimits(c.pos)) then
             c.score = score(c.pos, c.low)
             list[#list + 1] = c
         else
