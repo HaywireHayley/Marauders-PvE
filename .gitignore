@@ -22,6 +22,7 @@ trailer/footage/
 trailer/session/
 trailer/music/*.wav
 trailer/music/*.png
+trailer/music/*/
 
 # --- your own saves, settings and logs ---
 backend/state*.json
