@@ -2129,3 +2129,56 @@ On a 50-row save, the green drop highlights never lined up, and once (17:45, whi
 
 Fix: 25 rows at most (250 cells). launcher/saves.py STASH_MAX = 25, and stash_rows() caps saves made when up to 100 was allowed. main.lua caps config/stash_rows.txt at STASH_ROWS_MAX and logs "stash: N rows asked for". Live check after shrinking to 25: 250 slots, none out of place, 26 items kept. A save with items below row 25 would need them moved up first. None of the current saves have any (the lowest is row 21).
 - Prestige stash upgrades: DT_PrestigeUnlockInfo rows i1 to i4 (InventorySpace, costs 1 to 4 prestige) each have StashSizeIncrease 0x2: 2 rows, 8 for all four. Owned unlocks are in SIGISPlayerController.PrestigeUnlocks (FStrings). On a 25-row save they would push the stash to 33 rows, past the wrap. main.lua now counts them: rows = min(save rows + 2 x owned, STASH_ROWS_MAX). It rewrites the component size every 2 s in the menu and rebuilds the grid widget when its height differs. It logs "stash: N rows (save S, B prestige upgrade(s))", plus ", capped from X" when it caps. Saves without config/stash_rows.txt are left to the game: 15 + 8 = 23 fits. Buying an upgrade isn't tested yet (no prestige on the test save). It's unknown whether the game adds the rows to the current size or recomputes 15 + 2n; the absolute rewrite covers both.
+
+## Rival crews dying in a heap at one airlock; rivals' edge over station guards (2026-11-14)
+
+Walking into Penal Colony with four crews docked there: the director spawned all of them (8 guard top-ups too) within
+ten seconds, each 1-6 m from guards and from each other, and 14 rivals died in about 20 s by one airlock door. Causes:
+
+- A station's spread pool (the walkable points spawns and roaming pick from) starts as a few points by the airlocks and
+  grew 4 per update, so on arrival every "far from everyone" pick was in the same few rooms.
+- Guard top-ups spawned but not yet armed (S.pendingDefenders) and rival bodies still being built weren't counted as
+  "everyone", and crews didn't wait for the top-ups to finish.
+- Nothing kept a spawn away from a body that already stood near the best spot.
+- Freshly docked crews used the airlock tied to their berth, so successive crews came through the same door.
+
+Fixes (rivals.lua):
+- Crews already inside wait until the pool holds SPAWN_POOL_READY (60) points, grown SPAWN_POOL_BURST (16) a update;
+  top-ups grow it the same way before picking.
+- spreadPoint counts bodies being built and pending top-ups; a crew spawns only SPAWN_CLEAR (20 m) from everyone,
+  waiting up to SPAWN_WAIT_MAX (20 s), then takes the best spot and logs
+  "[rivals] <crew>: no clear spot in <station> after 20 s, spawning N m from the nearest body".
+- Crews don't materialize while top-ups are still arming.
+- pickLock: the free airlock used longest ago, not the berth's own.
+- STATION_AREA_PER_CREW 15000 -> 25000: big stations count as busy sooner, so crews spread over more of the map.
+- The pool grown outward from the airlocks clustered anyway (Asteroid Mine: 112 of its 160 points within 5 m of
+  another, the first test's 30 m clearance found 1 of 160), so it's now seeded first from the level's own markers
+  (loot spawners, AI start nodes, contract actors) inside the station, spread 208 x 168 m there, and pooled points keep
+  SPREAD_GAP (6 m) apart. Look for "[rivals] <station>: spread pool seeded with N points (M candidates)".
+- Too many crews in one place: Colony Cruiser (30k m2) is the only station on its map, so 11 crews docked there; walking
+  in, all of them spawned inside at once, every one fell back to 10-16 m from someone, and 23 rivals died in about three
+  minutes, mostly shooting each other at 2-13 m (guards got about 4). Now at most insideCap crews walk a station at once,
+  one per INSIDE_AREA_PER_CREW (10,000 m2, at least INSIDE_MIN 2); the rest wait aboard ("[rivals] <crew> waits aboard:
+  <station> already holds N crews") and, as a place frees, come in through the airlock furthest from everyone (their
+  berth's chamber if they have one, else the station entry furthest from any body). Waiting crews still undock on time.
+
+Rivals' edge (main.lua CFG, ai.lua perceive's new spotMul): against station guards and soldiers only, never against each
+other, you or your crew. A guard aiming at a rival misses EDGE_GUARD_MISS (1.6x) more and spots one EDGE_GUARD_SPOT
+(1.8x) slower; a rival aiming at a guard misses EDGE_RIVAL_MISS (0.7x) as much.
+
+Docked ships hidden (rivals.lua showShip, run from glideShips): ships held in a berth showed wedged into the airlock
+frame, and breached-in crews' ships (no free berth) idled in a clump at their hold points while Colony Cruiser flew on.
+A docked ship and its turrets are now hidden with collision off from the end of the glide in until it glides out,
+leaves, or you're aboard it. Trade-off: you can no longer see a docked rival ship to pod-breach it and raid its watch.
+
+Tested (2026-11-14, Moon Base, 3 crews): pool seeded with 36 points (69 candidates); no "no clear spot" fallbacks; the
+two late crews came in through different airlocks (Moon_7, Moon_8); docked ships read bHidden. The cap didn't trigger
+there (Moon Base allows 10); the "waits aboard" path is untested in game.
+
+Performance: on Colony Cruiser with 27 bots inside the director ran over 5 ms on 416 of 433 frames in 10 s (aim 1.2 s,
+update 1.1 s, cover 0.9 s and 64 MB allocated, single FindAllOf calls ~55 ms); the user saw ~20 fps with stutters. With
+~20 bots at Moon Base it's 64-80 fps, still over 5 ms on a third of frames. Per-bot aim and cover cost is the next thing
+to cut.
+
+Also seen this session: the load crash at RaidGame+0x1a605d0 (UE4SS hook dispatch, see 2026-11-09) again, once, loading
+Space_Charlie after a bridge launch; the relaunch was fine.

@@ -80,6 +80,11 @@ local CFG = {
     AIM_UNDER_FIRE_SECONDS = 1.5, -- ...for this long
     AIM_RANGE_PER_10M = 0.04,-- added to the multiplier per 10 m of range
     AIM_MISS_MAX = 1.0,      -- the worst AIMissRate allowed (past ~0.9 the game's aim doesn't get any worse)
+    -- Rival crews against the station's guards and soldiers only (not each other, you or your crew): they came in to
+    -- raid the place and know their business; the guards are bored conscripts.
+    EDGE_GUARD_MISS = 1.6,   -- a guard shooting at a rival misses this much more...
+    EDGE_GUARD_SPOT = 1.8,   -- ...and takes this much longer to spot one
+    EDGE_RIVAL_MISS = 0.7,   -- a rival shooting at a guard misses this much less
     STRAFE_DIST = { 100, 250 }, -- open fighting (no cover found): side-step this far across the player's line of fire...
     STRAFE_SECONDS = { 2.5, 4.5 }, -- ...this often
     STRAFE_ANIM_SCALE = 2.2, -- the same while strafing in a fight (aiming legs 0.65): ~290
@@ -788,6 +793,11 @@ local function targetPawn() return valid(raid.target) and raid.target or raid.pa
 -- reapDead clears a dead bot's entry.bot, so a foe that died reads as gone instead of a freed object.
 local PLAYER = { player = true }
 local function factionOf(e) return e.faction or "station" end
+-- The rivals' edge over station guards (CFG.EDGE_*): which side of it `mine` is on against `theirs`.
+local function edge(mine, theirs)
+    if mine == "station" and theirs:sub(1, 4) == "crew" then return "guard" end
+    if theirs == "station" and mine:sub(1, 4) == "crew" then return "rival" end
+end
 local function foeOf(e)
     local f = e.foeEntry
     if f == PLAYER then
@@ -1284,6 +1294,12 @@ local function combatHints(e, pawn, playerLoc)
             hurtSeconds = CFG.AIM_UNDER_FIRE_SECONDS, rangePer10m = CFG.AIM_RANGE_PER_10M, maxMiss = CFG.AIM_MISS_MAX,
             moving = v.X * v.X + v.Y * v.Y > 2500, targetMoving = tv.X * tv.X + tv.Y * tv.Y > 2500,
             distance = dist2d(e.bot:K2_GetActorLocation(), playerLoc), losSince = e.losSince, hurtAt = e.hurtAt })
+        local f = e.foeEntry
+        local side = f and f ~= PLAYER and edge(factionOf(e), factionOf(f))
+        if side then
+            e.bot.AIMissRate = math.min(CFG.AIM_MISS_MAX,
+                e.bot.AIMissRate * (side == "guard" and CFG.EDGE_GUARD_MISS or CFG.EDGE_RIVAL_MISS))
+        end
     end
 
     -- A move that barely progresses (blocked by geometry or another soldier) looks like walking on the spot.
@@ -1422,7 +1438,8 @@ local function updateBots(pc)
                 table.sort(cands, function(x, y) return x.d < y.d end)
                 for _, k in ipairs(cands) do
                     if hurt then AI.hurt(e, k.b.pawn, now) end
-                    local what, d, heardAt, kind = AI.perceive(e, k.b.pawn, k.b.at, now, dt)
+                    local spotMul = edge(mine, k.b.faction) == "guard" and CFG.EDGE_GUARD_SPOT or nil
+                    local what, d, heardAt, kind = AI.perceive(e, k.b.pawn, k.b.at, now, dt, spotMul)
                     if what == "spotted" then spotted = { b = k.b, d = d } break end
                     if what == "heard" and not heard then heard = { b = k.b, d = d, at = heardAt, kind = kind } end
                 end

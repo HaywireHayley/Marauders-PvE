@@ -183,7 +183,7 @@ local CFG = {
     -- does how many crews pick it (chooseStation): every STATION_AREA_PER_CREW m2 holds one crew before it counts
     -- as busy, and each busy station's pull falls by STATION_CROWD per crew-load it already holds.
     STATION_AREA_MID = 35000, DEFENDERS_MAX_SCALE = 1.5,
-    STATION_AREA_PER_CREW = 15000,
+    STATION_AREA_PER_CREW = 25000,
     STATION_CROWD = 0.35,
     STRAY_EVERY = 8,        -- seconds between sweeps for placed NPCs the garrison missed (sweepStrays)
     STRAY_RANGE = 6000,     -- ...counting those this near you even outside the station's box
@@ -195,6 +195,9 @@ local CFG = {
     SPREAD_STEP = 2500,             -- each new point is searched for this far around an earlier one
     SPREAD_REACH = 15000,           -- ...and kept only this close to an airlock or a post (the navmesh runs on past stations)
     SPREAD_TRIES = 16,              -- pooled points scored per pick
+    SPREAD_GAP = 600,               -- pooled points keep this far apart (without it 112 of Asteroid Mine's 160 sat in a
+                                    -- few rooms, each within 5 m of a guard, 2026-11-14)
+    SPREAD_SEEDS = { "SIGISLootSingleSpawner", "RaidAINodeStart", "SIGISContractActor" }, -- the pool starts at these
     GUARD_FIRST_ROAM = 10,          -- guards leave their posts within this many seconds of being taken over...
     GUARD_ROAM = { 60, 150 },       -- ...then move on to another part of the station this often
     ROAM_PATROL = 1200,             -- walking about within this radius of it in between
@@ -257,6 +260,10 @@ local CFG = {
     DEMATERIALIZE_AFTER = 20,       -- seconds outside a station before its rivals go back to being simulated
     FRESH_DOCK = 25,                -- a crew that docked this recently enters through the airlock
     MATERIALIZE_GAP = 3,            -- seconds between crews appearing in a station you walk into
+    INSIDE_AREA_PER_CREW = 10000,   -- crews walking a station at once: one per this many m2 (at least INSIDE_MIN).
+    INSIDE_MIN = 2,                 -- The rest wait aboard and come in through an airlock as a place frees up: 11 crews
+                                    -- docked at Colony Cruiser (30k m2, the map's only station) all appeared inside at
+                                    -- once and every one spawned 10-16 m from someone (2026-11-14)
     -- Arriving through an airlock (stations with RaidFrigateStationDock airlocks): built in the closed chamber, the door
     -- opens once they're all armed (or after ARRIVAL_WAIT), they walk out, and it closes again after ARRIVAL_CLOSE.
     ARRIVAL_WAIT = 12, ARRIVAL_CLOSE = 10,
@@ -266,6 +273,11 @@ local CFG = {
     DOOR_OPENING = 7,               -- seconds the hatch takes to open (wheel, steam, swing): they wait for it
     LOCK_YOU = 700,                 -- not in a chamber you're standing in
     SPAWN_AWAY = 2500,              -- crews already inside appear at least this far from you
+    SPAWN_CLEAR = 2000,             -- ...and this far from anyone else, built or still being built (all 4 crews in Penal
+                                    -- Colony spawned 1-6 m from guards and each other and were dead in 20 s, 2026-11-14)
+    SPAWN_POOL_READY = 60,          -- a station's spread pool holds this many points before anyone spawns into it...
+    SPAWN_POOL_BURST = 16,          -- ...grown this many a update while it's short
+    SPAWN_WAIT_MAX = 20,            -- seconds a crew waits for a clear spot before taking the best there is
     PATROL_RADIUS = 1500,           -- station rivals walk between points this far apart around an area...
     ROAM_SECONDS = { 50, 110 },     -- ...and move on to another area of the station this often
     BODY = "/Game/AI/GOAPNodeBot_Raider",
@@ -1215,6 +1227,18 @@ local function setShipEnemy(c, target)
 end
 
 -- How many crews a station holds before it counts as busy (its size), and how many it has: docked there or on the way.
+local function insideCap(st) return math.max(CFG.INSIDE_MIN, math.floor((st.area or CFG.STATION_AREA_MID) / CFG.INSIDE_AREA_PER_CREW)) end
+local function crewsInside(st)
+    local n = 0
+    for _, o in ipairs(S.crews) do
+        if o.station == st and o.state == "docked" and o.bodies then
+            for _, e in ipairs(o.bodies) do
+                if valid(e.bot) and (e.bot.Health or 0) > 0 then n = n + 1 break end
+            end
+        end
+    end
+    return n
+end
 local function stationCapacity(st) return math.max(1, (st.area or CFG.STATION_AREA_MID) / CFG.STATION_AREA_PER_CREW) end
 local function stationLoad(st, except)
     local n = 0
@@ -1271,8 +1295,25 @@ local function undock(c)
     if c.undockBerth and shipOk(c) then startGlide(c, "out") end
 end
 
+-- Docked ships are hidden (and don't collide): a ship held in its berth sat visibly wedged into the station's
+-- airlock frame, and ships of crews that breached in (no free berth) idled in a clump beside a station that flies on,
+-- like Colony Cruiser (2026-11-14). Shown again once they glide out, leave or you're aboard one. Their turrets too.
+local function showShip(c, show)
+    for _, a in ipairs({ c.ship }) do
+        pcall(function() a:SetActorHiddenInGame(not show) a:SetActorEnableCollision(show) end)
+    end
+    for _, t in ipairs(c.turrets or {}) do
+        if valid(t.actor) then pcall(function() t.actor:SetActorHiddenInGame(not show) end) end
+    end
+    c.hidden = not show
+end
+
 local function glideShips(now)
     for _, c in ipairs(S.crews) do
+        if c.ship and valid(c.ship) then
+            local hide = c.state == "docked" and not c.glide and S.aboard ~= c
+            if hide ~= (c.hidden or false) then showShip(c, not hide) end
+        end
         local g = c.glide
         if g and not (c.ship and valid(c.ship)) then
             c.glide, c.undockBerth = nil, nil
@@ -1622,9 +1663,46 @@ local function nearStation(st, p)
     return inBox(st.box, p, CFG.MATERIALIZE_MARGIN) or anchorDist(st, p) <= CFG.SPREAD_REACH
 end
 
+local function spotTaken(pool, p)
+    for _, q in ipairs(pool) do if dist(p, q) < CFG.SPREAD_GAP then return true end end
+end
+
+-- First: the station's loot spawners, AI spawn spots and contract objects, which the level designers spread over every
+-- room you're meant to play in (a few hundred in a big station), on the navmesh and in random order.
+local function seedSpots(st)
+    local pool, seeds = st.spots, {}
+    for _, cls in ipairs(CFG.SPREAD_SEEDS) do
+        for _, a in ipairs(FindAllOf(cls) or {}) do
+            if valid(a) then
+                local l = a:K2_GetActorLocation()
+                if nearStation(st, l) then seeds[#seeds + 1] = l end
+            end
+        end
+    end
+    for i = #seeds, 2, -1 do local j = math.random(i) seeds[i], seeds[j] = seeds[j], seeds[i] end
+    local n = 0
+    for _, l in ipairs(seeds) do
+        if #pool >= CFG.SPREAD_POOL then break end
+        local p = projected(l)
+        if p and not X.offLimits(p) and not spotTaken(pool, p) then
+            table.insert(pool, { X = p.X, Y = p.Y, Z = p.Z })
+            n = n + 1
+        end
+    end
+    X.log(("[rivals] %s: spread pool seeded with %d points (%d candidates)"):format(st.name, n, #seeds))
+    return n, #seeds
+end
+
 local function growSpots(st, n)
     st.spots = st.spots or {}
     local pool = st.spots
+    -- (again in 10 s if hardly any landed on the navmesh: the station's may not have streamed in yet)
+    if st.box and os.clock() >= (st.seedAt or 0) and not st.seeded then
+        local ok, got, of = pcall(seedSpots, st)
+        if not ok then X.log("[rivals] seeding " .. st.name .. "'s spread pool failed: " .. tostring(got)) end
+        if ok and (got >= 10 or got * 2 >= of or #pool >= CFG.SPREAD_POOL) then st.seeded = true
+        else st.seedAt = os.clock() + 10 end
+    end
     for _ = 1, n do
         if #pool >= CFG.SPREAD_POOL then return end
         local p
@@ -1639,7 +1717,7 @@ local function growSpots(st, n)
             end
             p = reachableNear(o, CFG.SPREAD_STEP)
         end
-        if p and nearStation(st, p) then table.insert(pool, { X = p.X, Y = p.Y, Z = p.Z }) end
+        if p and nearStation(st, p) and not spotTaken(pool, p) then table.insert(pool, { X = p.X, Y = p.Y, Z = p.Z }) end
     end
 end
 
@@ -1658,6 +1736,13 @@ local function spreadPoint(st, self, mates, visited, awayFrom)
         end
     end
     for _, v in ipairs(visited or {}) do others[#others + 1] = v end
+    -- bodies spawned but not yet armed aren't in the director's list yet: a rival body or a guard top-up
+    for _, job in ipairs(S.building or {}) do
+        if job.b and valid(job.b.body) then others[#others + 1] = job.b.body:K2_GetActorLocation() end
+    end
+    for _, d in ipairs(S.pendingDefenders or {}) do
+        if valid(d.body) then others[#others + 1] = d.body:K2_GetActorLocation() end
+    end
     local best, bestScore
     for _ = 1, CFG.SPREAD_TRIES do
         local p = pool[math.random(#pool)]
@@ -1667,7 +1752,8 @@ local function spreadPoint(st, self, mates, visited, awayFrom)
             if not bestScore or score > bestScore then best, bestScore = p, score end
         end
     end
-    return best and { X = best.X, Y = best.Y, Z = best.Z } or nil
+    if not best then return nil end
+    return { X = best.X, Y = best.Y, Z = best.Z }, bestScore
 end
 
 -- Idle station guards (the level's own, top-ups and the director's garrison soldiers) don't hold their posts: every
@@ -1776,12 +1862,16 @@ end
 local function pickLock(st, c)
     local locks = st.locks
     if not locks or #locks == 0 then return nil end
-    local first = 1
-    for i, b in ipairs(st.berths or {}) do if b == c.berth then first = i end end
-    for k = 0, #locks - 1 do
-        local l = locks[(first - 1 + k) % #locks + 1]
-        if lockFree(st, l, c) then return l end
+    -- the free one used longest ago (never used: oldest), ties at random: crews docking one after another came in
+    -- through the same airlock and died in a heap at its door
+    local best
+    for _, l in ipairs(locks) do
+        if lockFree(st, l, c) then
+            local t = (l.usedAt or -1e9) + math.random()
+            if not best or t < best.t then best = { l = l, t = t } end
+        end
     end
+    if best then best.l.usedAt = os.clock() return best.l end
 end
 
 -- Walking out once the door is open: a point on the station side, past the button.
@@ -1851,23 +1941,52 @@ end
 local function stationSpawnSpots(c, st, playerLoc)
     local spots = {}
     local l = c.lock
-    if os.clock() - (c.dockedAt or 0) <= CFG.FRESH_DOCK and l and valid(l.dock)
+    local fresh = os.clock() - (c.dockedAt or 0) <= CFG.FRESH_DOCK or c.lateEntry
+    if fresh and l and valid(l.dock)
         and not (playerLoc and dist(playerLoc, l.floor) < CFG.LOCK_YOU) then
         -- Just docked: built in their airlock's closed chamber, then the door opens (crewArrival).
         c.arrival = { lock = l, started = os.clock() }
         table.insert(spots, l.floor)
         return spots
     end
-    if os.clock() - (c.dockedAt or 0) <= CFG.FRESH_DOCK then
-        -- Just docked: they come in through an airlock / arrival point.
-        local e = pick(st.entries)
+    if fresh then
+        -- Just docked (or waited aboard for room): they come in through the airlock / arrival point furthest from
+        -- everyone already inside.
+        local e, far = pick(st.entries), -1
+        for _, q in ipairs(st.entries or {}) do
+            local near = math.huge
+            for _, o in ipairs(X.raid().bots) do
+                if not o.dead and o.bot and valid(o.bot) then near = math.min(near, dist(q, o.bot:K2_GetActorLocation())) end
+            end
+            if playerLoc then near = math.min(near, dist(q, playerLoc)) end
+            near = near * (0.8 + 0.4 * math.random())
+            if near > far then e, far = q, near end
+        end
         local p = projected(e)
         if not p or X.offLimits(p) then p = reachableNear(e, 600) end
         if p then table.insert(spots, p) end
     else
-        -- Already inside: somewhere well away from you and from everyone else in the station.
-        local p = spreadPoint(st, nil, nil, nil, playerLoc)
-        if p then table.insert(spots, p) end
+        -- Already inside: somewhere well away from you and from everyone else in the station. Not until the
+        -- station's spread pool covers it (it starts as a few points by the airlocks), and not next to anyone: wait
+        -- for a clear spot (an empty list: materialize tries again next update), up to SPAWN_WAIT_MAX.
+        local now = os.clock()
+        c.spawnWait = c.spawnWait or now
+        local patient = now - c.spawnWait < CFG.SPAWN_WAIT_MAX
+        st.spots = st.spots or {}
+        if #st.spots < CFG.SPAWN_POOL_READY then
+            growSpots(st, CFG.SPAWN_POOL_BURST)
+            if patient and #st.spots < CFG.SPAWN_POOL_READY then return spots end
+        end
+        local p, clear = spreadPoint(st, nil, nil, nil, playerLoc)
+        if p and patient and clear < CFG.SPAWN_CLEAR then return spots end
+        if p then
+            if not patient then
+                X.log(("[rivals] %s: no clear spot in %s after %d s, spawning %.0f m from the nearest body"):format(
+                    crewLabel(c), st.name, CFG.SPAWN_WAIT_MAX, clear / 100))
+            end
+            table.insert(spots, p)
+            c.spawnWait = nil
+        end
         for _ = 1, 12 do
             if #spots > 0 then break end
             p = stationPoint(st)
@@ -2028,6 +2147,8 @@ end
 -- and roll the kit, then on a later update, once the gun has arrived, arm it.
 local function defenderSpot(st)
     local you = valid(S.foot) and S.foot:K2_GetActorLocation() or nil
+    -- the pool starts as a few points by the airlocks: grow it first, so top-ups spread over the whole station
+    if #(st.spots or {}) < CFG.SPAWN_POOL_READY then growSpots(st, CFG.SPAWN_POOL_BURST) end
     local spread = spreadPoint(st, nil, nil, nil, you)
     if spread then return spread end
     local found, near = 0, 0
@@ -3365,10 +3486,18 @@ local function updateCrew(c, now, place, playerLoc)
             -- points steer clear of bodies that exist, so three crews spawned in one update (before Rebel Base's
             -- guards were adopted) landed among the guards and lost 5 of 7 in nine seconds (2026-11-14).
             local settling = #S.building > 0 or (S.adoptQueue and #S.adoptQueue > 0) or (S.topUps and #S.topUps > 0)
+                or (S.pendingDefenders and #S.pendingDefenders > 0)
                 or now - (S.lastMaterialize or -99) < CFG.MATERIALIZE_GAP
-            if not c.bodies and not settling then
+            -- Room for so many crews at once (insideCap); the rest wait aboard, and come in through an airlock later.
+            local full = not c.bodies and crewsInside(st) >= insideCap(st)
+            if full and not c.waitingRoom then
+                c.waitingRoom = true
+                X.log(("[rivals] %s waits aboard: %s already holds %d crews"):format(crewLabel(c), st.name, crewsInside(st)))
+            end
+            if not c.bodies and not settling and not full then
+                if c.waitingRoom then c.lateEntry, c.waitingRoom = true, nil end
                 materialize(c, stationSpawnSpots(c, st, playerLoc), "station")
-                if c.bodies then S.lastMaterialize = now end
+                if c.bodies then S.lastMaterialize, c.lateEntry = now, nil end
             end
             if c.arrival then crewArrival(c, now) end
             if c.bodies then

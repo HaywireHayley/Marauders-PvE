@@ -164,7 +164,7 @@ end
 
 -- What the bot noticed about the target this update. Returns "spotted", "heard" (with the heard position and
 -- the kind of noise) or nil. dt = seconds since the last call for this bot.
-function AI.perceive(e, target, targetLoc, now, dt)
+function AI.perceive(e, target, targetLoc, now, dt, spotMul)
     local mind, bot, ctrl = e.mind, e.bot, e.ctrl
     local prof = mind.profile
     local k = knowledge(mind, target)
@@ -210,6 +210,7 @@ function AI.perceive(e, target, targetLoc, now, dt)
         -- the target looking away from the bot
         local tf = target:GetActorForwardVector()
         if d > 1 and -(tf.X * dx + tf.Y * dy + tf.Z * dz) / d < 0.7 then m = m * 1.1 end
+        if spotMul then m = m * spotMul end -- caller's own: guards are slow to spot rival crews (main.lua EDGE_*)
         k.progress = k.progress + dt / (baseSpotTime(d) * m)
         if k.progress >= 1 then
             k.progress, k.seenAt, k.seenTime, k.spottedIn = 1, targetLoc, now, now - (k.viewSince or now)
