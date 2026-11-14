@@ -1458,7 +1458,15 @@ local function updateBots(pc)
             -- enemy standing beside it (a crewmate and a soldier side by side, each shooting someone across the room).
             -- About once a second, switch to a hostile that is much closer than the current foe and either in sight
             -- or shooting at this bot.
-            if fighting and now >= (e.nextRetarget or 0) then
+            -- Hurt while its foe is out of sight (behind a wall), the shot came from someone else: turn on the nearest
+            -- hostile it can see, however far. Without this a guard locked on a rival through a wall took the
+            -- player's fire and kept shooting the wall (Penal Colony, 2026-11-14): the player never counts as "onMe".
+            local hitBlind = false
+            if fighting and hurt then
+                local cur = foeOf(e)
+                hitBlind = not (cur and e.ctrl:LineOfSightTo(cur, { X = 0, Y = 0, Z = 0 }, false))
+            end
+            if fighting and (hitBlind or now >= (e.nextRetarget or 0)) then
                 e.nextRetarget = now + CFG.RETARGET_EVERY
                 local cur = foeOf(e)
                 local df = cur and dist(here, cur:K2_GetActorLocation()) or math.huge
@@ -1466,7 +1474,9 @@ local function updateBots(pc)
                 for _, b in ipairs(bodies) do
                     if b.faction ~= mine and b.pawn ~= cur then
                         local d = dist(here, b.at)
-                        if d < CFG.RETARGET_NEAR and d < df * CFG.RETARGET_RATIO and (not bd or d < bd) then
+                        local inReach = hitBlind and d < CFG.PERCEIVE_RANGE
+                            or d < CFG.RETARGET_NEAR and d < df * CFG.RETARGET_RATIO
+                        if inReach and (not bd or d < bd) then
                             local onMe = b.entry ~= PLAYER and b.entry.inCombat and b.entry.foeEntry == e
                             if onMe or e.ctrl:LineOfSightTo(b.pawn, { X = 0, Y = 0, Z = 0 }, false) then
                                 best, bd = b, d
