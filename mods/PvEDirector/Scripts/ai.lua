@@ -152,11 +152,10 @@ local function disperse(mind, here, fwd, at, d)
 end
 
 -- Footstep radius (cm at hearing 1.0) from the target's speed and posture.
-local function footsteps(target)
-    local v = target:GetVelocity()
+local function footsteps(v, crouched)
     local s = len2(v.X, v.Y)
     if s < 50 then return 0 end
-    if target.bIsCrouched then return 500 end
+    if crouched then return 500 end
     if s > 450 then return 3500 end
     if s > 200 then return 2000 end
     return 1000
@@ -164,18 +163,33 @@ end
 
 -- What the bot noticed about the target this update. Returns "spotted", "heard" (with the heard position and
 -- the kind of noise) or nil. dt = seconds since the last call for this bot.
-function AI.perceive(e, target, targetLoc, now, dt, spotMul)
+-- t (optional): the caller's record for the target, shared by every bot sizing it up this update; the target's
+-- velocity, facing, crouch and address are read from the game once and kept on it (main.lua updateBots: ~25 bots
+-- each sizing up ~25 bodies made ~5000 engine reads an update, the 50 ms stutter twice a second). The bot's own
+-- location and facing are kept on the entry for the same `now`.
+local function targetInfo(t, target)
+    if not t.vel then
+        t.vel, t.fwd, t.crouched, t.key = target:GetVelocity(), target:GetActorForwardVector(), target.bIsCrouched,
+            target:GetAddress()
+    end
+    return t
+end
+function AI.perceive(e, target, targetLoc, now, dt, spotMul, t)
     local mind, bot, ctrl = e.mind, e.bot, e.ctrl
     local prof = mind.profile
-    local k = knowledge(mind, target)
-    local here = bot:K2_GetActorLocation()
+    t = targetInfo(t or {}, target)
+    local k = mind.known[t.key]
+    if not k then k = { progress = 0 } mind.known[t.key] = k end
+    if e.perceiveNow ~= now then
+        e.perceiveNow, e.perceiveHere, e.perceiveFwd = now, bot:K2_GetActorLocation(), bot:GetActorForwardVector()
+    end
+    local here, fwd = e.perceiveHere, e.perceiveFwd
     local dx, dy, dz = targetLoc.X - here.X, targetLoc.Y - here.Y, targetLoc.Z - here.Z
     local flat = len2(dx, dy)
     local d = math.sqrt(flat * flat + dz * dz)
-    local fwd = bot:GetActorForwardVector()
 
     -- Sight: progress toward "spotted" while in view, faded while not.
-    local tv = target:GetVelocity()
+    local tv = t.vel
     local moving = len2(tv.X, tv.Y) > 100
     local range = prof.sight * (moving and 1.5 or 1)
     local inView = false
@@ -187,7 +201,7 @@ function AI.perceive(e, target, targetLoc, now, dt, spotMul)
     if inView then
         local m = prof.spotTime
         if moving then m = m * 0.5 end
-        if target.bIsCrouched then m = m * 1.25 end
+        if t.crouched then m = m * 1.25 end
         -- peripheral vision: faster dead ahead, up to 2x slower toward the edge of the cone
         if angle <= 3 then m = m * 0.66
         elseif angle <= 6 then m = m * 0.8
@@ -208,7 +222,7 @@ function AI.perceive(e, target, targetLoc, now, dt, spotMul)
             if dh < 2000 then m = m * (0.2 + 0.8 * dh / 2000) end
         end
         -- the target looking away from the bot
-        local tf = target:GetActorForwardVector()
+        local tf = t.fwd
         if d > 1 and -(tf.X * dx + tf.Y * dy + tf.Z * dz) / d < 0.7 then m = m * 1.1 end
         if spotMul then m = m * spotMul end -- caller's own: guards are slow to spot rival crews (main.lua EDGE_*)
         k.progress = k.progress + dt / (baseSpotTime(d) * m)
@@ -225,9 +239,9 @@ function AI.perceive(e, target, targetLoc, now, dt, spotMul)
     -- Hearing: footsteps (this update) and recent noises the bot hasn't processed yet.
     local blocked = not inView
     local heard, kind
-    local r = footsteps(target) * prof.hearing * (blocked and 0.6 or 1)
+    local r = footsteps(tv, t.crouched) * prof.hearing * (blocked and 0.6 or 1)
     if d <= r then heard, kind = targetLoc, "footsteps" end
-    local key = target:GetAddress()
+    local key = t.key
     for i = #noises, 1, -1 do
         local n = noises[i]
         if n.time <= (k.heardUpTo or 0) then break end

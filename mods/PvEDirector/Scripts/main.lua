@@ -25,6 +25,8 @@ local CFG = {
     POINT_BLANK = 300,       -- a noise this close starts a fight at once
     PERCEIVE_RANGE = 7000,   -- bots size up hostile bodies (you, other factions) within this range
     ANIM_FAR = 6000,         -- bots farther than this from the camera animate the engine's cheap way (not drawn = no pose)
+    ANIM_SLOW_FAR = 4000,    -- bots at peace farther than this from the camera run animate() ANIM_SLOW_HZ a second, not every frame
+    ANIM_SLOW_HZ = 10,
     RETARGET_EVERY = 1.0,    -- while fighting, how often (s) a bot looks for a much closer enemy to switch to
     RETARGET_NEAR = 1500,    -- ...within this range
     RETARGET_RATIO = 0.5,    -- ...and at most this share of the current foe's distance
@@ -250,17 +252,24 @@ do
     if gen then gen:close() collectgarbage("generational", 20, 100) gc.gen = true
     else collectgarbage("incremental", 200, 400) end
 end
+-- A new cycle starts only once the heap is START x the last live size (a cycle under way is always stepped on): stepping
+-- every frame regardless began a new cycle the frame after one ended, ~43 full cycles a second re-marking ~14 MB live,
+-- ~2.5 ms of every frame (profile.txt "stepping 2483 ms" per 10 s at Moon Base, 2026-11-14).
+gc.START = 1.25
 function gc.frame()
     if gc.gen then return end
+    local heap = collectgarbage("count")
+    if not gc.running and heap < gc.live * gc.START then return end
+    gc.running = true
     local t0 = os.clock()
-    local stop = t0 + ((collectgarbage("count") > gc.live * 2) and gc.BEHIND_MS or gc.BUDGET_MS) / 1000
+    local stop = t0 + ((heap > gc.live * 2) and gc.BEHIND_MS or gc.BUDGET_MS) / 1000
     repeat
         local t = os.clock()
         local done = collectgarbage("step", 32) -- 32 KB of "allocation" worth of work per step
         local ms = (os.clock() - t) * 1000
         if ms > gc.stepMax then gc.stepMax = ms end
         if done then
-            gc.live, gc.cycles = collectgarbage("count"), gc.cycles + 1
+            gc.live, gc.cycles, gc.running = collectgarbage("count"), gc.cycles + 1, false
             if gc.live > gc.liveHi then gc.liveHi = gc.live end
             break
         end
@@ -1370,6 +1379,7 @@ local function updateBots(pc)
     reapDead()
     local cam
     pcall(function() cam = pc.PlayerCameraManager:GetCameraLocation() end)
+    raid.camAt = cam or playerLoc
     local farOn = false
     local ff = io.open(ANIM_FAR_FLAG, "r")
     if ff then ff:close() farOn = true end
@@ -1423,6 +1433,7 @@ local function updateBots(pc)
             local dt = math.min(1, now - (e.perceivedAt or now))
             e.perceivedAt = now
             local here = e.bot:K2_GetActorLocation()
+            e.lastAt = here -- trackTargets: how far from the camera (ANIM_SLOW_FAR)
             local mine = factionOf(e)
             -- Size up every hostile body within range: the first spotted (nearest first) is the foe; otherwise
             -- the nearest one heard.
@@ -1439,15 +1450,15 @@ local function updateBots(pc)
                 for _, k in ipairs(cands) do
                     if hurt then AI.hurt(e, k.b.pawn, now) end
                     local spotMul = edge(mine, k.b.faction) == "guard" and CFG.EDGE_GUARD_SPOT or nil
-                    local what, d, heardAt, kind = AI.perceive(e, k.b.pawn, k.b.at, now, dt, spotMul)
+                    local what, d, heardAt, kind = AI.perceive(e, k.b.pawn, k.b.at, now, dt, spotMul, k.b)
                     if what == "spotted" then spotted = { b = k.b, d = d } break end
                     if what == "heard" and not heard then heard = { b = k.b, d = d, at = heardAt, kind = kind } end
                 end
                 -- Shot by someone it didn't see: turn on the nearest hostile.
                 if hurt and not spotted and cands[1] then spotted = { b = cands[1].b, d = cands[1].d, shot = true } end
             end
-            local who = ("%s (%s)"):format(e.rival and e.rival.name or e.crewmate and ("your " .. e.crewmate.name)
-                or e.bot:GetFName():ToString(), AI.describe(e))
+            local function who() return ("%s (%s)"):format(e.rival and e.rival.name or e.crewmate and ("your " .. e.crewmate.name)
+                or e.bot:GetFName():ToString(), AI.describe(e)) end
             local function name(b)
                 local o = b.entry
                 return o == PLAYER and "the player" or (o.rival and o.rival.name
@@ -1456,14 +1467,14 @@ local function updateBots(pc)
             if not fighting and e.alert and alive then
                 engage(e, pawn, PLAYER)
                 fighting, e.lastSeen, e.alert = true, playerLoc, nil -- boarders know where you are
-                log(who .. " knows where the player is")
+                log(who() .. " knows where the player is")
             elseif spotted or (heard and heard.d < CFG.POINT_BLANK) then
                 local b = spotted and spotted.b or heard.b
                 engage(e, b.pawn, b.entry)
                 fighting = true
                 e.lastSeen = spotted and b.at or heard.at
                 pcall(Voice.say, e, spotted and spotted.shot and "CoverMe" or "EnemySpotted")
-                log(who .. (spotted and spotted.shot and (" was shot, fighting " .. name(b))
+                log(who() .. (spotted and spotted.shot and (" was shot, fighting " .. name(b))
                     or spotted and (" spotted %s at %.0f m"):format(name(b), spotted.d / 100)
                     or (" heard %s point-blank"):format(name(b))))
             elseif heard then
@@ -1504,7 +1515,7 @@ local function updateBots(pc)
                 if best then
                     engage(e, best.pawn, best.entry)
                     e.lastSeen = best.at
-                    log(("%s turns on %s at %.0f m (was fighting someone %.0f m off)"):format(who, name(best), bd / 100,
+                    log(("%s turns on %s at %.0f m (was fighting someone %.0f m off)"):format(who(), name(best), bd / 100,
                         df == math.huge and 0 or df / 100))
                 end
             end
@@ -1658,12 +1669,14 @@ local function animate(e)
     -- The game slows an aiming bot to half its top speed (measured: forward x 0.5, sideways x 0.5 x the strafe cap),
     -- so fights were walked at 75-95 and strafed at 115-145 while you walk at 280. Every speed above is meant as the
     -- real one. Crouched speed isn't set here each frame, so it's left alone.
-    if not running and not bot.bIsCrouched and bot:IsTargeting() then
+    local crouched = bot.bIsCrouched
+    local targeting = not running and not crouched and bot:IsTargeting()
+    if targeting then
         move.MaxWalkSpeed = move.MaxWalkSpeed / CFG.AIM_SLOWDOWN
     end
     -- No faster than the legs can carry them at LEG_RATE_MAX (the aim slowdown is divided out the same way).
-    if not running and not bot.bIsCrouched then
-        local cap = natural * CFG.LEG_RATE_MAX / (bot:IsTargeting() and CFG.AIM_SLOWDOWN or 1)
+    if not running and not crouched then
+        local cap = natural * CFG.LEG_RATE_MAX / (targeting and CFG.AIM_SLOWDOWN or 1)
         if move.MaxWalkSpeed > cap then move.MaxWalkSpeed = cap end
     end
 end
@@ -1671,10 +1684,20 @@ end
 trackTargets = function()
     if not raid.spawned then return end
     reapDead()
-    for _, e in ipairs(raid.bots) do
-        if valid(e.bot) and (e.bot.Health or 0) > 0 then animate(e) end
-    end
+    -- Bots past ANIM_SLOW_FAR from the camera (where updateBots last saw them) animate ANIM_SLOW_HZ times a second, not
+    -- every frame: animate() is ~a dozen engine reads and writes a bot, and with 20-30 bots in a station it was most of
+    -- the director's 2-3 ms a frame. Posture, speed caps and leg rates a tenth of a second late don't show at that range.
     local now = os.clock()
+    local cam = raid.camAt
+    for _, e in ipairs(raid.bots) do
+        if valid(e.bot) and (e.bot.Health or 0) > 0 then
+            local far = cam and e.lastAt and not e.fighting and dist(e.lastAt, cam) > CFG.ANIM_SLOW_FAR
+            if not far or now >= (e.animNext or 0) then
+                e.animNext = now + 1 / CFG.ANIM_SLOW_HZ
+                animate(e)
+            end
+        end
+    end
     for _, e in ipairs(raid.bots) do
         local pawn = foeOf(e)
         -- Hide / lean out on time to the frame, not on the 0.5 s update.

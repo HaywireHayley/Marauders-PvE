@@ -2281,6 +2281,8 @@ end
 -- does nothing offline: it stands there, gun up, until shot. Every STRAY_EVERY s, any living, unmanaged placed NPC in the
 -- box or near you is queued for adoption, once it has gone unmanaged for two sweeps in a row (a body the director is
 -- still building is unmanaged for a few seconds too; GUN_WAIT is well under a sweep).
+-- Each sweep scans one of the PLACED classes in turn: a FindAllOf walks every object in the game, ~50 ms each on a
+-- space map, and both at once were a 100+ ms hitch every 8 s (profile.txt, Moon Base, 2026-11-14).
 local function sweepStrays(st, now)
     if now < (S.nextStraySweep or 0) or (S.adoptQueue and #S.adoptQueue > 0) then return end
     S.nextStraySweep = now + CFG.STRAY_EVERY
@@ -2296,14 +2298,18 @@ local function sweepStrays(st, now)
     end
     local foot = valid(S.foot) and S.foot:K2_GetActorLocation() or nil
     local seen, found = {}, 0
-    for _, cls in ipairs(CFG.PLACED) do
+    S.strayClass = (S.strayClass or 0) % #CFG.PLACED + 1
+    local cls = CFG.PLACED[S.strayClass]
+    S.strays = S.strays or {}
+    local before = S.strays[cls] or {}
+    do
         for _, b in ipairs(FindAllOf(cls) or {}) do
             if valid(b) and (b.Health or 0) > 0 and not managed[b:GetAddress()] then
                 local at = b:K2_GetActorLocation()
                 if (inBox(st.box, at, 500) or (foot and dist(at, foot) <= CFG.STRAY_RANGE)) and not X.offLimits(at) then
                     local key = b:GetAddress()
                     seen[key] = true
-                    if S.strays and S.strays[key] then
+                    if before[key] then
                         table.insert(S.adoptQueue, { bot = b, st = st })
                         found = found + 1
                     end
@@ -2311,7 +2317,7 @@ local function sweepStrays(st, now)
             end
         end
     end
-    S.strays = seen
+    S.strays[cls] = seen
     if found > 0 then X.log(("[rivals] %s: %d stray NPC(s) the garrison missed, adopting"):format(st.name, found)) end
 end
 

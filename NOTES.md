@@ -2182,3 +2182,36 @@ to cut.
 
 Also seen this session: the load crash at RaidGame+0x1a605d0 (UE4SS hook dispatch, see 2026-11-09) again, once, loading
 Space_Charlie after a bridge launch; the relaunch was fine.
+
+## Director frame cost: perception, garbage collector, far animation, stray sweep (2026-11-14, tested)
+
+Follow-up to the Colony Cruiser numbers above (27 bots, ~20 fps with stutters):
+- ai.lua AI.perceive: the target's velocity, facing, crouch and address are read once per body record (targetInfo), and
+  the bot's own position and facing once per frame, instead of again for every check (each read is an engine call and
+  garbage).
+- main.lua gc.frame: incremental collection only starts once the heap is gc.START (1.25x) over the live size after the
+  last cycle, instead of stepping every frame. The stepping went from ~2480 ms to ~360-500 ms per 10 s.
+- main.lua trackTargets: bots that aren't fighting and are over ANIM_SLOW_FAR (4000) from the camera animate at
+  ANIM_SLOW_HZ (10) instead of every frame. animate() reads crouch and targeting once.
+- main.lua updateBots: the soldier's log name is built only when a line is logged.
+- rivals.lua sweepStrays: one PLACED class per pass in rotation (~43 ms) instead of all of them (~100 ms).
+
+Tested (Space_Alpha, Rebel Base, 8-11 bots, recording at the same time): 100-130 fps inside the station (88-92 at Moon
+Base with 11 bots before, without recording); the user says it seemed good. Still there: a one-off hitch on entering a
+station (worst frame 212 ms, the entry FindAllOf scans). Not yet tried with 20-27 bots.
+
+## TODO: baked cover never used inside Rebel Base; soldiers out of sight backpedal (seen 2026-11-14, not fixed)
+
+Watching the footage, the user saw a soldier slowly backstrafing that never went for cover. In the log, every cover pick
+that raid was "random", and the baked-spot probe count stopped at 39 (all "no peek") after 18:49:15, so no baked spot
+was even tried for the rest of the raid, with 6978 baked points on the map. From 18:51:36 to 18:52:16 the two fighting
+soldiers spent every sample "open unseen": fighting a target their LineOfSightTo said they couldn't see.
+- Likely why baked spots were dropped: findCover filters baked candidates with offLimits, and offLimits treats a point
+  inside a station's box as off limits unless a play marker (loot spawner, contract object, AI node, airlock) is within
+  18 m. mapPlayAreas scans for markers once, when the raid is ready, while you're still 430 m out; Rebel Base streams in
+  later, so its loot and AI nodes may be missing. Random cover points skip offLimits, which is why those still worked.
+  Not confirmed: check how many markers mapPlayAreas found per station box.
+- Out of sight, probeCover can't find a spot either: it needs a step out that sees the target, and nothing nearby does.
+  So the soldier fights in the open, walking to a random point within ADVANCE_RADIUS (400) of where it last saw its
+  target while keeping its focus on the target. When that point is behind it, it's a slow walk backwards.
+- The "no cover" and "chose not to" paths log nothing, which is why this was hard to see.
