@@ -883,7 +883,7 @@ function Aux.scan(cls, cells, boxes)
         if valid(a) then
             local l = cls == "RaidUseableAirLockComponent" and a:K2_GetComponentLocation() or a:K2_GetActorLocation()
             if not sealed(l) then
-                local key = (l.X // PLAY_CELL) .. "," .. (l.Y // PLAY_CELL)
+                local key = math.floor(l.X / PLAY_CELL) .. "," .. math.floor(l.Y / PLAY_CELL) -- integer keys: see offLimits
                 cells[key] = cells[key] or {}
                 table.insert(cells[key], { X = l.X, Y = l.Y, Z = l.Z })
                 if cls ~= "RaidUseableAirLockComponent" then
@@ -958,7 +958,10 @@ local function offLimits(p)
     end
     if not inside then return false end -- ships and everything else off the stations
     if inside.marks == 0 then return false end -- not streamed in when scanned: can't tell, so nothing is ruled out
-    local cx, cy = p.X // PLAY_CELL, p.Y // PLAY_CELL
+    -- math.floor, not //: a float's // is a float ("26.0") and an integer's an integer ("26"), so a baked cover spot
+    -- (whole numbers from cover/*.txt) never found the markers filed under the engine's float positions. Every baked
+    -- spot was off limits on every station (Rebel Base, Space_Alpha, 2026-11-14: "off 40" of 40).
+    local cx, cy = math.floor(p.X / PLAY_CELL), math.floor(p.Y / PLAY_CELL)
     for gx = cx - 1, cx + 1 do
         for gy = cy - 1, cy + 1 do
             for _, m in ipairs(raid.play.cells[gx .. "," .. gy] or {}) do

@@ -2246,3 +2246,10 @@ steady hitch every few seconds). The Lua collector was stepping 0.5-2.4 s per 10
   (swingHooksIdle, "turret swing hook(s) off"); aimTurret registers them again.
 - main.lua: animate() and the aim upkeep (targeting pose, focus) run ANIM_HZ (30) times a second per bot instead of
   every frame; a change in what the bot should do applies at once. Hide/peek timing is still checked every frame.
+
+## Every baked cover spot "off limits": integer vs float cell keys (2026-11-14, fix untested)
+After 12ffc4a soldiers in Rebel Base (Space_Alpha, 101 markers) still fought in the open: every cover search logged
+"baked 40, off 40". bridge/t_off2.lua ran the same rule from the bridge on one of those soldiers: all 97 baked spots
+near it passed. The difference was the play-area cell key: offLimits built it with //, which gives a float for a float
+("26.0", the engine's marker and soldier positions) and an integer for an integer ("26", baked spots loaded from
+cover/*.txt). Baked spots never found their markers. Both keys now use math.floor (an integer either way).
