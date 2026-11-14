@@ -234,6 +234,10 @@ local CFG = {
     -- The pod hit a hull before the breach was ready (interior still loading, or the hit came between two looks): the
     -- game then drops you at 0,0,0. The ship the pod was last seen at, this close and this recently, is boarded from there.
     VOID_BOARD_NEAR = 9000, VOID_BOARD_RECENT = 6, VOID_BOARD_WAIT = 12,
+    -- Out of a pod anywhere else (a station's docking arm): this long after, a body still parked for the flight is
+    -- given back, and one left off any floor (Fortress's Pod_Spawner_Fortress6 sits in a shaft between decks) is put on
+    -- the nearest floor below.
+    POD_EXIT_CHECK = 1.5,
     SHIP_WATCH = { 1, 2 },          -- a docked crew leaves this many aboard (their team, their kind of kit) while they raid
     -- Ambient fights: while you fly, now and then two extra crews meet somewhere ahead of you and fight to the death. They
     -- leave you alone unless you hit them; the winner limps off and extracts.
@@ -3138,6 +3142,32 @@ local function afterPod(foot)
     X.log("[rivals] your body after the pod had " .. was .. ": walking again")
 end
 
+-- Just out of a pod that didn't bring you into a rival's ship (see POD_EXIT_CHECK). The game's station docking left the
+-- body parked, in a sealed shaft at Fortress (2026-11-14: "stuck inside what looks to be a tube"), fixed live from the bridge.
+local function podExitCheck(foot)
+    local l = foot:K2_GetActorLocation()
+    local cm = foot.CharacterMovement
+    local parked = valid(cm) and not cm:IsComponentTickEnabled()
+    local floor = projected({ X = l.X, Y = l.Y, Z = l.Z - 100 }, { X = 80, Y = 80, Z = 120 })
+    if floor and not parked then return end
+    if not floor then
+        local spot
+        for dz = 300, 1500, 300 do
+            spot = projected({ X = l.X, Y = l.Y, Z = l.Z - dz }, { X = 200, Y = 200, Z = 200 })
+            if spot then break end
+        end
+        spot = spot or projected(l)
+        if spot then
+            Out.call(foot, "K2_SetActorLocation", { X = spot.X, Y = spot.Y, Z = spot.Z + 100 }, false, {}, true)
+            X.log(("[rivals] out of the pod with no floor under you at %.0f,%.0f,%.0f: moved to the floor at %.0f,%.0f,%.0f")
+                :format(l.X, l.Y, l.Z, spot.X, spot.Y, spot.Z))
+        else
+            X.log(("[rivals] out of the pod with no floor under you at %.0f,%.0f,%.0f, and no floor found near"):format(l.X, l.Y, l.Z))
+        end
+    end
+    if parked then afterPod(foot) end
+end
+
 -- force: the pod is at the hull (or already gone), so with no navmesh yet you come in at a dock start (made to be stood
 -- at) rather than not at all. Returns whether you're in.
 local function breachInto(c, force)
@@ -3268,6 +3298,13 @@ local function playerBoarding(now)
                     break
                 end
             end
+        end
+        local l = pawn:K2_GetActorLocation()
+        if S.podSeen and now - S.podSeen >= CFG.POD_EXIT_CHECK and now - S.podSeen < CFG.VOID_BOARD_RECENT
+            and math.abs(l.X) + math.abs(l.Y) + math.abs(l.Z) > CFG.VOID_NEAR then -- (in the void: rescueFromVoid's)
+            S.podSeen, S.podAt = nil, nil
+            local ok, err = pcall(podExitCheck, pawn)
+            if not ok then X.log("[rivals] pod exit check: " .. tostring(err)) end
         end
         return
     end

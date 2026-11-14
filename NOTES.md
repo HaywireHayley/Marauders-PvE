@@ -2282,3 +2282,16 @@ gunman's hints: cover and strafing, with an Enemy set, and the tree swings at it
 around swinging at the air. Aux.isMelee walks the held weapon's class chain (cached per weapon); Aux.meleeHints makes
 them charge the target (or where it was last seen), running past MELEE_RUN (450), with no Enemy set (setEnemy returns
 early) until within MELEE_REACH (230), and it lets go past MELEE_LET_GO (330).
+
+## Stuck in a shaft after docking at Fortress by pod (2026-11-14)
+
+Flying a pod into Fortress's docking arm put the player at the game's Pod_Spawner_Fortress6 (57354,119225,-914), inside
+a sealed vertical shaft between two decks (rounded wall pieces from -1179 up to a lid at -745; no navmesh at that level;
+floors at -1532 below). The body was also still parked for the flight: CharacterMovement not ticking, so "falling"
+with no velocity. afterPod only ran after a pod brought you into a rival's ship. Fixed live from the bridge: moved
+to the floor below and unparked the body (afterPod's steps).
+
+playerBoarding now runs podExitCheck POD_EXIT_CHECK (1.5 s) after any other pod exit (not in the void, which
+rescueFromVoid handles): no navmesh under your feet means a search downwards (then around) for floor and a move there
+("out of the pod with no floor under you at ...: moved to the floor at ..."), and a parked body gets afterPod
+("your body after the pod had ...: walking again").
