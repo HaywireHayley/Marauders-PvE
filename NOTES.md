@@ -2267,3 +2267,18 @@ the fighting samples were mostly "moving" (335) against hiding 17. Two causes:
 - Moves to cover ended early (the tree, or the stuck check's StopMovement) and the soldier dropped the spot and
   started over. Now the move is sent again up to COVER_MOVE_RETRIES (2) times while it still gains 100+ units
   ("move to cover ended N short: sent again", with "(stuck)" when the stuck check stopped it).
+
+## Cover a long walk away; melee soldiers swinging at nothing (2026-11-14)
+
+Cover on Space_Beta was still rare. One soldier was "sprinting to baked lean-right cover 611 away" and "move ended
+2727 short" six seconds later: the spot was near in a straight line but the navmesh route went round through other
+rooms, so he ran away from the fight. findCover now asks the navigation system for the walk's length
+(FindPathToLocationSynchronously, about 1 ms) on the spot it picks, and skips it when the path is partial or longer
+than COVER_PATH_STRETCH (1.8) x the straight line + COVER_PATH_SLACK (300). These show as "long way round" (baked)
+and "random long way round" in the probe counts and "fighting in the open" lines.
+
+Knife and truncheon soldiers (weapons under Weap_Knife_C; Penal Colony top-ups copy guards that carry them) got the
+gunman's hints: cover and strafing, with an Enemy set, and the tree swings at its Enemy at any range. They walked
+around swinging at the air. Aux.isMelee walks the held weapon's class chain (cached per weapon); Aux.meleeHints makes
+them charge the target (or where it was last seen), running past MELEE_RUN (450), with no Enemy set (setEnemy returns
+early) until within MELEE_REACH (230), and it lets go past MELEE_LET_GO (330).

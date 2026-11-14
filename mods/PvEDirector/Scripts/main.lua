@@ -74,6 +74,11 @@ local CFG = {
     COVER_BACK_RUN = 0.3,    -- ...unless the spot is behind it (cosine to the enemy below minus this): that walk is a
                              -- slow backpedal (backwards is capped at the strafe factor, ~0.6), so it turns and runs
     COVER_MOVE_RETRIES = 2,  -- a move to cover that ends short is sent again this often, while it still gains ground
+    COVER_PATH_STRETCH = 1.8,-- a cover spot whose walk there is longer than this x the straight line (+ COVER_PATH_SLACK)
+    COVER_PATH_SLACK = 300,  -- is the long way round (another room, or another floor): skipped
+    MELEE_REACH = 230,       -- knife / truncheon soldiers (Weap_Knife_C) charge you and only swing this close...
+    MELEE_LET_GO = 330,      -- ...and stop swinging past this
+    MELEE_RUN = 450,         -- they run (sprint animation) when farther than this
     HURT_DUCK_SECONDS = 0.6, -- shot this recently: duck back into cover / look for cover now
     -- Aim (AI.aimFor): the profile's miss rate, varied per bot and per moment. Multipliers unless noted.
     AIM_SKILL_SPREAD = 0.3,  -- a bot's lifelong skill: up to this share better or worse than the profile
@@ -841,6 +846,8 @@ local function reapDead()
     end
 end
 
+local Aux = {} -- helpers (main.lua is at Lua's 200-locals limit)
+
 local function setEnemy(e, pawn)
     local ctrl = e.ctrl
     -- The controller snaps its rotation (and the body, bUseControllerRotationYaw) to its focal point every
@@ -849,6 +856,8 @@ local function setEnemy(e, pawn)
     -- Reaction time (ai.lua profile): facing the target already, but no shooting until it's over
     -- (trackTargets sets the enemy then).
     if e.holdUntil and os.clock() < e.holdUntil then return end
+    -- A knife or truncheon only swings once it's in reach (Aux.meleeHints): with an enemy set the tree swings at any range.
+    if Aux.isMelee(e) and not e.meleeClose then return end
     ctrl.BlackboardComp:SetValueAsObject(FName("Enemy"), pawn)
     ctrl.MyEnemy = pawn
 end
@@ -876,7 +885,6 @@ local function sealed(p)
 end
 
 -- Aux: helpers kept in one table, because main.lua is at Lua's limit of 200 locals in a chunk.
-local Aux = {}
 function Aux.inBox(b, p) return math.abs(p.X - b.at.X) <= b.ext.X and math.abs(p.Y - b.at.Y) <= b.ext.Y end
 
 -- One marker class into a cell table. Airlocks don't count towards a box being mapped: they're on the hull and load
@@ -1171,6 +1179,7 @@ local function findCover(e, pawn, playerLoc, radius, tries)
         if d >= CFG.COVER_PLAYER_DIST[1] and d <= CFG.COVER_PLAYER_DIST[2] and not claimed(e, c.pos) then
             probes = probes + 1
             local got, why = probeCover(e, pawn, playerLoc, c.pos)
+            if got and Aux.longWay(e, here, c.pos) then got, why = nil, "long way round" end
             local pr = raid.coverProbe or {}
             raid.coverProbe = pr
             local k = got and "ok" or why or "?"
@@ -1194,6 +1203,10 @@ local function findCover(e, pawn, playerLoc, radius, tries)
                 st[k] = (st[k] or 0) + 1
             end
         end
+    end
+    if best and Aux.longWay(e, here, best.pos) then
+        best = nil
+        st["random long way round"] = (st["random long way round"] or 0) + 1
     end
     return best, st
 end
@@ -1415,6 +1428,74 @@ function Aux.advancePoint(e, goal)
     return nil
 end
 
+-- Knife and truncheon soldiers (weapons on Weap_Knife_C): cached per held weapon.
+function Aux.isMelee(e)
+    local w = e.bot and e.bot.CurrentWeapon
+    if not valid(w) then return e.melee end
+    local a = w:GetAddress()
+    if a ~= e.meleeW then
+        e.meleeW, e.melee = a, false
+        pcall(function()
+            local c = w:GetClass()
+            for _ = 1, 10 do
+                if not valid(c) then break end
+                if c:GetFName():ToString() == "Weap_Knife_C" then e.melee = true break end
+                c = c:GetSuperStruct()
+            end
+        end)
+    end
+    return e.melee
+end
+
+-- The tree swings at its Enemy at any range, and the gunman's hints (cover, strafing) only walked melee soldiers
+-- around swinging at the air (seen 2026-11-14). They charge instead: run at the target (or where it was last seen),
+-- with no Enemy set until within CFG.MELEE_REACH. Returns true when it handled the soldier.
+function Aux.meleeHints(e, pawn, playerLoc, los, now)
+    if not Aux.isMelee(e) then
+        e.meleeClose, e.meleeRun = nil, nil
+        return false
+    end
+    if e.cover then releaseCover(e, "melee") end
+    local here = e.bot:K2_GetActorLocation()
+    local d = dist2d(here, playerLoc)
+    local close = math.abs(here.Z - playerLoc.Z) < 200 and d < (e.meleeClose and CFG.MELEE_LET_GO or CFG.MELEE_REACH)
+    if close and not e.meleeClose then
+        e.meleeClose = true
+        setEnemy(e, pawn)
+    elseif not close then
+        e.meleeClose = false
+    end
+    e.meleeRun = d > CFG.MELEE_RUN
+    e.standUntil, e.crouchSince = now + 1, nil
+    if now >= (e.nextHint or 0) then
+        e.nextHint = now + 0.4
+        if not close then
+            holdFire(e) -- trackTargets or the tree may have set it again
+            e.ctrl:MoveToLocation(los and playerLoc or e.lastSeen or playerLoc, 60, false, true, true, true, queryFilter(), true)
+        end
+    end
+    return true
+end
+
+-- Length of the walk from one point to another (nil when unknown), and whether the path stops short.
+function Aux.pathLen(e, from, to)
+    local ok, len, partial = pcall(function()
+        local p = navLib():FindPathToLocationSynchronously(e.ctrl, from, to, e.bot, nil)
+        if not valid(p) then return nil end
+        return p:GetPathLength(), p:IsPartial()
+    end)
+    if ok then return len, partial end
+    return nil
+end
+
+-- A cover spot near in a straight line can be a long walk round (another room or floor): the soldier then ran away
+-- from the fight towards it (seen 2026-11-14: a spot 611 away, the move ended 2727 short).
+function Aux.longWay(e, here, to)
+    local len, partial = Aux.pathLen(e, here, to)
+    if not len then return false end
+    return partial or len > dist2d(here, to) * CFG.COVER_PATH_STRETCH + CFG.COVER_PATH_SLACK
+end
+
 local function combatHints(e, pawn, playerLoc)
     local bb, ctrl = e.ctrl.BlackboardComp, e.ctrl
     local los = soldierSees(e, pawn)
@@ -1454,6 +1535,7 @@ local function combatHints(e, pawn, playerLoc)
         e.slowSince = nil
     end
 
+    if Aux.meleeHints(e, pawn, playerLoc, los, now) then return end
     Cover.want(e.bot:K2_GetActorLocation(), CFG.COVER_SEARCH_FAR)
     if coverCycle(e, pawn, playerLoc, now) then
         e.standUntil, e.crouchSince = nil, nil -- cover decides the posture
@@ -1751,7 +1833,7 @@ local function animate(e)
     -- FullBodyCinematic slot (combat montages use DefaultSlot and would cut it off).
     local inv = e.investigate
     local running = (c and c.state == "moving" and c.run) or (inv and inv.state == "go" and inv.run)
-        or (e.followRun and not e.fighting)
+        or (e.followRun and not e.fighting) or (e.meleeRun and e.fighting)
     local sprinting = running and speed > 150
     if sprinting and not e.sprintAnim then
         local seq = lib(CFG.SPRINT_ANIM)
