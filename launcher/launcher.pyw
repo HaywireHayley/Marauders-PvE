@@ -148,19 +148,6 @@ class App(tk.Tk):
 
     # Layout ---------------------------------------------------------------------------------------------------------
     def build(self):
-        canvas = tk.Canvas(self, width=W, height=H, bg=INK, highlightthickness=0)
-        canvas.place(x=0, y=0)
-        back = Image.open(os.path.join(ROOT, "assets", "loading", "backdrop.png")).convert("RGB")
-        scale = max(W / back.width, H / back.height)
-        back = back.resize((int(back.width * scale) + 1, int(back.height * scale) + 1))
-        back = back.crop((0, 0, W, H))
-        back = ImageEnhance.Brightness(back).enhance(0.28)
-        logo = Image.open(os.path.join(ROOT, "assets", "menu", "logo.png")).convert("RGBA")
-        logo.thumbnail((400, 100))
-        back.paste(logo, (36, 26), logo)
-        self.back_art = ImageTk.PhotoImage(back)
-        canvas.create_image(0, 0, image=self.back_art, anchor="nw")
-
         left = tk.Frame(self, bg=INK)
         left.place(x=36, y=130, width=620, height=474)
         head = tk.Frame(left, bg=INK)
@@ -175,6 +162,9 @@ class App(tk.Tk):
         right.place(x=656, y=130, width=368, height=474)
         self.right = tk.Frame(right, bg=PANEL, padx=22, pady=18)
         self.right.pack(fill="both", expand=True)
+        # PLAY first, so it keeps its place at the bottom whatever else the panel holds
+        self.play = Button(self.right, "PLAY", self.launch, "main", 20, (10, 12))
+        self.play.pack(side="bottom", fill="x", pady=(12, 0))
         self.d_name = tk.Label(self.right, bg=PANEL, fg=TEXT, font=font(18, "SemiBold"), anchor="w", wraplength=310, justify="left")
         self.d_name.pack(fill="x")
         self.d_mode = tk.Label(self.right, bg=PANEL, fg=ORANGE, font=font(11), anchor="w")
@@ -213,16 +203,42 @@ class App(tk.Tk):
         self.borderless_var = tk.BooleanVar(value=self.read_borderless())
         self.toggle("Borderless fullscreen", self.borderless_var, self.toggle_borderless)
 
-        self.play = Button(self.right, "PLAY", self.launch, "main", 20, (10, 12))
-        self.play.pack(side="bottom", fill="x")
-
         self.status = tk.Label(self, text="", bg=INK, fg=MUTED, font=font(11), anchor="w", bd=0)
-        self.status.place(x=36, y=622, width=800)
-        tk.Label(self, text="OFFLINE  PvE", bg=INK, fg=ORANGE_DIM, font=font(11, "SemiBold")).place(x=W - 36, y=622, anchor="ne")
+        tag = tk.Label(self, text="OFFLINE  PvE", bg=INK, fg=ORANGE_DIM, font=font(11, "SemiBold"))
+
+        # Fonts grow with Windows display scaling (the launcher is DPI aware) but these pixel sizes don't: make the panels
+        # as tall as the details panel needs, and the window to match.
+        self.d_name.config(text="Save")  # stand-ins as tall as what refresh() writes there
+        self.d_mode.config(text="Save")
+        self.d_info.config(text="Cash\nXP\nStash\nStarted")
+        self.update_idletasks()
+        ph =max(474, right.winfo_reqheight(), self.right.winfo_reqheight())
+        left.place_configure(height=ph)
+        right.place_configure(height=ph)
+        y = 130 + ph + 18
+        h = max(H, y + self.status.winfo_reqheight() + 18)
+        self.status.place(x=36, y=y, width=800)
+        tag.place(x=W - 36, y=y, anchor="ne")
+        self.geometry(f"{W}x{h}")
+
+        canvas = tk.Canvas(self, width=W, height=h, bg=INK, highlightthickness=0)
+        canvas.place(x=0, y=0)
+        tk.Misc.lower(canvas)  # behind the panels (Canvas.lower is for its own items)
+        back = Image.open(os.path.join(ROOT, "assets", "loading", "backdrop.png")).convert("RGB")
+        scale = max(W / back.width, h / back.height)
+        back = back.resize((int(back.width * scale) + 1, int(back.height * scale) + 1))
+        back = back.crop((0, 0, W, h))
+        back = ImageEnhance.Brightness(back).enhance(0.28)
+        logo = Image.open(os.path.join(ROOT, "assets", "menu", "logo.png")).convert("RGBA")
+        logo.thumbnail((400, 100))
+        back.paste(logo, (36, 26), logo)
+        self.back_art = ImageTk.PhotoImage(back)
+        canvas.create_image(0, 0, image=self.back_art, anchor="nw")
 
     def toggle(self, text, var, command):
         tk.Checkbutton(self.right, text=text, variable=var, command=command, bg=PANEL, fg=TEXT, selectcolor=INK, activebackground=PANEL,
-                       activeforeground=TEXT, font=font(12), anchor="w", bd=0, highlightthickness=0, cursor="hand2").pack(fill="x")
+                       activeforeground=TEXT, font=font(12), anchor="w", justify="left", wraplength=300, bd=0, highlightthickness=0,
+                       cursor="hand2").pack(fill="x")
 
     def refresh(self):
         for w in self.list_box.winfo_children():
