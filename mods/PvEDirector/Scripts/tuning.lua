@@ -204,7 +204,8 @@ local function define()
         { "BOARD_ONE", "Chance one crew member boards", 0, 1, 0.01, "Only for crews of 2 or more" },
         { "BOARD_ALL", "Chance the whole crew boards", 0, 1, 0.01, "" },
         { "BREACH_HULL", "Board once the target's hull is below", 0, 1, 0.01, "0.5 = half health" },
-        { "FLEE_HULL", "Run away once their own hull is below", 0, 1, 0.01, "0.5 = half health" },
+        { "FLEE_HULL", 1, "Run away once their own hull is below, boldest crews", 0, 1, 0.01, "0.5 = half health. Each crew rolls between these two" },
+        { "FLEE_HULL", 2, "Run away once their own hull is below, most careful crews", 0, 1, 0.01, "" },
         { "GUN_RANGE", "Range of their ship guns (cm)", 1000, 20000, 100, "" },
         { "GUN_CONE", "How far off the nose they fire (degrees)", 5, 90, 1, "" },
     })

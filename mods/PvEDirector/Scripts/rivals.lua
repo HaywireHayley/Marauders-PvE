@@ -2194,6 +2194,23 @@ local function sweepStrays(st, now)
     if found > 0 then X.log(("[rivals] %s: %d stray NPC(s) the garrison missed, adopting"):format(st.name, found)) end
 end
 
+-- Your ship, flown and undocked, with its movement component not ticking: it takes thrust (CurrentThrust 1) and goes
+-- nowhere, though nothing looks disabled. Seen once, after undocking from Penal Colony on Space_Beta (2026-11-14);
+-- turning the tick back on from the bridge freed it at once. Two seconds' grace so the game's own undock can finish.
+local function keepShipMoving(now)
+    local ship = S.playerShip
+    if not (valid(ship) and valid(S.pc) and valid(S.pc.Pawn) and S.pc.Pawn:GetAddress() == ship:GetAddress()) then
+        S.shipStillSince = nil return
+    end
+    local cm = ship.CharacterMovement
+    if not valid(cm) or ship.bDocked or cm:IsComponentTickEnabled() then S.shipStillSince = nil return end
+    S.shipStillSince = S.shipStillSince or now
+    if now - S.shipStillSince < 2 then return end
+    S.shipStillSince = nil
+    cm:SetComponentTickEnabled(true)
+    X.log("[rivals] your ship's movement had stopped ticking after undocking: turned it back on")
+end
+
 -- Defenders' guns: equipping puts the gun on the head mesh (invisible); keep it in the body's hand (like rivals).
 local function keepDefendersArmed()
     for i = #(S.adopted or {}), 1, -1 do
@@ -3843,6 +3860,8 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
     adoptQueued()
     topUpStep(pc)
     keepDefendersArmed()
+    local okM, errM = pcall(keepShipMoving, now)
+    if not okM and not S.shipMoveErr then S.shipMoveErr = true X.log("[rivals] ship movement check failed: " .. tostring(errM)) end
     for _, c in ipairs(S.crews) do
         local ok, err = xpcall(updateCrew, function(e) return { e = e, tb = debug.traceback() } end, c, now, place, playerLoc)
         if not ok then

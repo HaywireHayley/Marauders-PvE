@@ -2110,3 +2110,9 @@ it doesn't fit, or the ragdoll of a pod-spawned body; check rollKit leg pieces v
 ## Asleep guards at stations you haven't entered (2026-11-14)
 
 The soldiers that stand still with no AI controller, frozen until shot, are the placed guards of a station you haven't walked into yet. That's by design: garrisonStation takes a station's guards over the first time you enter it. On Space_Beta and Space_Delta the volume at about 61000,-5000 is the Asteroid Mine (LevelStreamingVolume_AsteriodWhitebox_1), not part of Moon Base. bridge/t_volnames.lua prints, for each navmesh volume, its streaming volume, its area, and its raiders with and without AI. A "join the station's wing" fix based on the wrong reading went into 21fab81 and was taken out again.
+
+## Ship stuck after undocking (2026-11-14)
+
+After undocking from Penal Colony on Space_Beta, the player's ship took thrust (CurrentThrust 1) but didn't move. It wasn't disabled: bDocked was false, the controller was the player, and input wasn't ignored. Its CharacterMovement component had simply stopped ticking. Nothing in the mod turns that off, so it's the game's own docking. Turning the tick back on from the bridge freed the ship at once. rivals.lua's keepShipMoving now does this automatically: if you're flying, undocked, and the tick has been off for 2 s, it turns it back on and logs "your ship's movement had stopped ticking after undocking". This isn't tested on a fresh run yet.
+
+The tuning menu also failed to open ("bad argument #2 to 'format' (number expected, got table)"). FLEE_HULL had become a per-crew range { 0.1, 0.25 }, but the menu row still treated it as a single number. It's now two rows, one for each end of the range.
