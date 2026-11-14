@@ -89,6 +89,8 @@ local CFG = {
     TURRET_PITCH = { -15, 10 },     -- deg the barrels dip and lift (what every type's anim shows; some lift further)
     TURRET_SWING = 3,               -- x the turret's own traverse speed (20 deg/s yaw, 10 pitch) the gunners swing it at
     TURRET_ON_AIM = 2,              -- deg: a turret fires once its barrel is this close to where its gunner aims
+    TURRET_PITCH_SLACK = 6,         -- deg: a target this far past the barrels' lift/dip limit is still fired at (near
+                                    -- misses); further than that the turret holds
     -- Ship gunnery (fireTurrets; your crew's gunner too, with a skill from their level, crew.lua). Each crew's gunnery
     -- skill (0 = green, 1 = crack) is rolled once; it scales every error below between its worst (skill 0) and best.
     GUN_SKILL = { 0.3, 0.9 },       -- rival crews' gunnery skill, least and most
@@ -121,8 +123,28 @@ local CFG = {
     ORBIT = { 2500, 4500 },         -- boarding: the ship holds this far off while its pods go in
     -- Attack runs (the bow gun only fires forward): fly at the target firing, overshoot past it, swing out, come round.
     RUN_OVERSHOOT = 2500,           -- past the target, off to one side by RUN_OFFSET so they don't ram it
-    RUN_OFFSET = 900,
-    RUN_EXTEND = { 5000, 7000 },    -- then swing out this far before the next run
+    RUN_OFFSET = 1600,              -- at least (the two hulls' sizes plus PASS_CLEAR, if more)
+    RUN_EXTEND = { 3500, 5000 },    -- then swing out this far before the next run
+    -- Dogfighting (manoeuvre()): a fight is a string of manoeuvres picked by the crew's style (rolled per crew):
+    -- passes (in firing, by the target to one side, out the far side and on), circling it, closing to short range
+    -- and holding there, getting on its tail, breaking away when hit. The turrets only swing TURRET_ARC either side of
+    -- the nose, so every manoeuvre but the short swing-outs keeps the target ahead (wider than that, nobody fires).
+    -- Ships never fly into each other: one heading for another hull within the next SEP_LOOK seconds (closer than
+    -- SEP_CLEAR plus both sizes) breaks off first.
+    PASS_CLEAR = 600,               -- a pass goes by this far clear of the target's hull...
+    PASS_LIFT = 600,                -- ...and up to this far above or below it
+    CIRCLE_R = { 1800, 2800 }, CIRCLE_SECONDS = { 10, 16 }, -- plus both sizes
+    CIRCLE_LEAD = 80,               -- degrees ahead on the circle: the chord there keeps the target ~50 deg off the nose
+    STANDOFF_R = { 2600, 3600 }, STANDOFF_SECONDS = { 7, 11 }, -- plus both sizes; drifting sideways STANDOFF_DRIFT
+    STANDOFF_DRIFT = 1500,
+    TAIL_BACK = 1600, TAIL_SECONDS = { 8, 12 },    -- plus both sizes
+    BREAK_DIST = { 3000, 4500 }, BREAK_SECONDS = { 3, 5 }, BREAK_WHEN_HIT = 0.3,
+    SEP_LOOK = 2.5, SEP_CLEAR = 400, SEP_HOLD = 2.0,
+    STYLES = {
+        jouster = { pass = 5, circle = 1, standoff = 1, tail = 2 },
+        brawler = { pass = 2, circle = 4, standoff = 1, tail = 3 },
+        sniper = { pass = 1, circle = 2, standoff = 5, tail = 1 },
+    },
     NOSE_TURN = 50,                 -- deg/s: while approaching, the nose is turned onto the target (aiming)
     ENGAGE_MAX = { 80, 160 },       -- seconds a crew keeps a fight going before breaking off
     DIEHARD = 0.35,                 -- share of crews that fight to the death: never run, never break off a fight
@@ -205,9 +227,12 @@ local CFG = {
     SKIRMISH_GAP = { 4000, 7000 },  -- the two ships start this far apart, closing on each other
     SKIRMISH_CLEAR = 9000,          -- not this close to a station or to any other ship
     SKIRMISH_MAX = 3,               -- per raid
+    SKIRMISH_SHIPS = { 1, 3 },      -- ships on each side (two sides; bridge/rivals_skirmish holding a number sets it)
+    SKIRMISH_SPACING = 3500,        -- a side's ships start this far apart
+    SKIRMISH_ROCKS = 2500,          -- nothing solid this close to a ship's starting point (twice that round the middle)
     PROVOKE_SECONDS = 4,            -- hit within this long of you firing (and within 1.5 x gun range of you)...
     PROVOKE_CONE = 20,              -- ...while within this many degrees of where you're aiming: they turn on you
-    SKIRMISH_HULL = 1.5,            -- ambient ships' hull x this: guns only, about 2-3 minutes a fight (3 ran past 5)
+    SKIRMISH_HULL = 1,              -- ambient ships' hull x this: their real hull, as when you fight them yourself
     PLAYER_BOARD_MAX = 6,           -- interiors spawned per raid (each is a level in memory)
     POD_ALONG = { -300, 1000 },     -- pods aim for the hull's side, this far ahead of the ship's centre: never the engines
     POD_SIDE = 3000,                -- from this far out to the side
@@ -992,6 +1017,19 @@ end
 -- Swings each turret whose arc covers the target onto it (leading it by the shell's flight time, as well as the crew's
 -- gunnery manages: gunAim) and fires the loaded ones whose barrel is there, along the barrel, through the turret's own
 -- ServerFireProjectile: its shells, effects and damage. Called every frame while a crew engages.
+-- For the status line: per turret-frame, why turrets held fire since the last report (range / arc / pitch / swing / reload).
+local function turretWhy()
+    local w = S.turretWhy
+    S.turretWhy = nil
+    if not w then return "" end
+    local n, t = 0, {}
+    for _, v in pairs(w) do n = n + v end
+    for _, k in ipairs({ "range", "arc", "pitch", "swing", "reload" }) do
+        if w[k] then t[#t + 1] = ("%s %d%%"):format(k, math.floor(w[k] * 100 / n + 0.5)) end
+    end
+    return " (held: " .. table.concat(t, ", ") .. ")"
+end
+
 local function fireTurrets(c, tgt, now)
     if not c.turrets or #c.turrets == 0 then return false end
     local sl, tl = c.ship:K2_GetActorLocation(), tgt:K2_GetActorLocation()
@@ -1006,12 +1044,15 @@ local function fireTurrets(c, tgt, now)
             aimTurret(t, true)
         end
         local d = dist(sl, tl)
+        local why = "range"
         if valid(t.actor) and d < t.range then
+            why = "arc"
             local tof = d / t.speed * a.lead
             local aim = { X = tl.X + tv.X * tof, Y = tl.Y + tv.Y * tof, Z = tl.Z + tv.Z * tof }
             local yaw = math.deg(math.atan(aim.Y - sl.Y, aim.X - sl.X))
             local rel = (yaw - r.Yaw + 180) % 360 - 180
             if math.abs(rel) <= arc then
+                why = nil
                 local sock = t.socks[t.si] or "Soc_Barrel01"
                 local o = t.actor.TurretBarrelMesh:GetSocketLocation(FName(sock))
                 local dx, dy, dz = aim.X - o.X, aim.Y - o.Y, aim.Z - o.Z
@@ -1022,9 +1063,13 @@ local function fireTurrets(c, tgt, now)
                 t.wantYaw = math.max(-arc, math.min(arc, wy))
                 t.wantPitch = math.max(CFG.TURRET_PITCH[1], math.min(CFG.TURRET_PITCH[2], wp))
                 -- the barrel's own heading once it's ours and swinging (no AnimBP hook: straight along the aim)
-                local on = true
-                if t.aimed and t.swungAt and now - t.swungAt < 0.5 then
-                    on = math.abs(t.yaw - wy) <= CFG.TURRET_ON_AIM and math.abs(t.pitch - wp) <= CFG.TURRET_ON_AIM
+                -- (the barrel is checked against where it can point: comparing it with an aim past its lift/dip limit
+                -- used to hold every turret whose target was a little above or below)
+                local on = math.abs(wp - t.wantPitch) <= CFG.TURRET_PITCH_SLACK
+                if not on then why = "pitch" end
+                if on and t.aimed and t.swungAt and now - t.swungAt < 0.5 then
+                    on = math.abs(t.yaw - t.wantYaw) <= CFG.TURRET_ON_AIM and math.abs(t.pitch - t.wantPitch) <= CFG.TURRET_ON_AIM
+                    if not on then why = "swing" end
                     ay, ap = r.Yaw + t.yaw, r.Pitch + t.pitch
                 end
                 if on and now >= t.next then
@@ -1040,9 +1085,10 @@ local function fireTurrets(c, tgt, now)
                     t.left = t.left - 1
                     if t.left <= 0 then t.left, t.next = t.ammo, now + t.reload else t.next = now + t.rate end
                     fired = true
-                end
+                elseif on then why = "reload" end
             end
         end
+        if why then S.turretWhy = S.turretWhy or {} S.turretWhy[why] = (S.turretWhy[why] or 0) + 1 end
     end
     if fired then gunSettle(a, skill) end
     return fired
@@ -2121,6 +2167,188 @@ local function holdOff(shipLoc, target)
     return { X = target.X + dx / n * CFG.HOLD_OFF, Y = target.Y + dy / n * CFG.HOLD_OFF, Z = target.Z + 300 }
 end
 
+-- A hull's size: its colliding bounds' larger flat half-extent (the frigates' capsules are only 50-100 across; the
+-- hulls run 500-1200), read once per ship. o = a crew, or nil for your ship.
+local function boundsRadius(ship)
+    local r = 900
+    pcall(function()
+        local o, e = {}, {}
+        Out.call(ship, "GetActorBounds", true, o, e, false)
+        if e.X and e.Y then r = math.max(400, math.min(2000, math.max(e.X, e.Y) * 0.85)) end
+    end)
+    return r
+end
+local function hullRadius(o)
+    if not o then
+        if not S.playerRadius and valid(S.playerShip) then S.playerRadius = boundsRadius(S.playerShip) end
+        return S.playerRadius or 1200
+    end
+    if o.hullR and o.hullFor == o.ship then return o.hullR end
+    if o.ship and valid(o.ship) then o.hullR, o.hullFor = boundsRadius(o.ship), o.ship return o.hullR end
+    return 900
+end
+
+-- Every flying ship's place, read once per director update (separation checks all of them for every fighter).
+local function shipsFlying(now)
+    if S.posAt == now and S.pos then return S.pos end
+    local list = {}
+    for _, o in ipairs(S.crews) do
+        if o.state ~= "docked" and o.state ~= "gone" and o.state ~= "waiting" and shipOk(o) then
+            list[#list + 1] = { c = o, ship = o.ship, at = o.ship:K2_GetActorLocation(), r = hullRadius(o) }
+        end
+    end
+    if valid(S.playerShip) then list[#list + 1] = { ship = S.playerShip, at = S.playerShip:K2_GetActorLocation(), r = hullRadius(nil) } end
+    S.pos, S.posAt = list, now
+    return list
+end
+
+-- About to fly into another ship (closest approach in the next SEP_LOOK seconds, at the two ships' velocities, closer
+-- than SEP_CLEAR between the hulls): a point to break away to, held SEP_HOLD seconds. Away from it, and off to the side
+-- of our own heading so the two don't back apart and close again.
+local function separation(c, here, now)
+    if c.sep and now < c.sep.untilT then return c.sep.at end
+    c.sep = nil
+    local v = c.ship:GetVelocity()
+    local myR = hullRadius(c)
+    local worst, wgap
+    for _, p in ipairs(shipsFlying(now)) do
+        if p.c ~= c and p.ship:IsValid() then
+            local rx, ry, rz = here.X - p.at.X, here.Y - p.at.Y, here.Z - p.at.Z
+            local d = math.sqrt(rx * rx + ry * ry + rz * rz)
+            if d - myR - p.r < CFG.SEP_CLEAR + 6000 then
+                local ov = p.ship:GetVelocity()
+                local wx, wy, wz = v.X - ov.X, v.Y - ov.Y, v.Z - ov.Z
+                local ww = wx * wx + wy * wy + wz * wz
+                local t = ww > 1 and math.max(0, math.min(CFG.SEP_LOOK, -(rx * wx + ry * wy + rz * wz) / ww)) or 0
+                local cx, cy, cz = rx + wx * t, ry + wy * t, rz + wz * t
+                local gap = math.sqrt(cx * cx + cy * cy + cz * cz) - myR - p.r
+                if gap < CFG.SEP_CLEAR and (not wgap or gap < wgap) then worst, wgap = { x = rx, y = ry, z = rz, d = d }, gap end
+            end
+        end
+    end
+    if not worst then return nil end
+    local n = math.max(1, worst.d)
+    local ax, ay, az = worst.x / n, worst.y / n, worst.z / n
+    local sp = math.max(1, math.sqrt(v.X * v.X + v.Y * v.Y))
+    local sx, sy = -v.Y / sp, v.X / sp
+    if sx * ax + sy * ay < 0 then sx, sy = -sx, -sy end
+    local dx, dy, dz = ax + sx * 0.8, ay + sy * 0.8, az + (az >= 0 and 0.5 or -0.5)
+    local m = math.max(1e-3, math.sqrt(dx * dx + dy * dy + dz * dz))
+    c.sep = { at = { X = here.X + dx / m * 4000, Y = here.Y + dy / m * 4000, Z = here.Z + dz / m * 4000 }, untilT = now + CFG.SEP_HOLD }
+    c.man = { kind = "break", untilT = now + CFG.SEP_HOLD, at = c.sep.at, phase = "out" }
+    S.seps = (S.seps or 0) + 1
+    return c.sep.at
+end
+
+local function weighted(w)
+    local total = 0
+    for _, v in pairs(w) do total = total + v end
+    local r = math.random() * total
+    for k, v in pairs(w) do
+        r = r - v
+        if r <= 0 then return k end
+    end
+    return next(w)
+end
+
+-- The next manoeuvre against the target: after a pass, out the far side (or a break); hit hard, maybe break away;
+-- otherwise by the crew's style. Tailing only on a target flying away from us.
+local function nextManoeuvre(c, tl, bx, by, now, last, tgt)
+    c.style = c.style or weighted({ jouster = 1, brawler = 1, sniper = 1 })
+    if last == "pass" then return math.random() < 0.75 and "extend" or "break" end
+    if c.hurtAt and now - c.hurtAt < 1.5 and last ~= "break" and math.random() < CFG.BREAK_WHEN_HIT then return "break" end
+    local w = {}
+    for k, v in pairs(CFG.STYLES[c.style] or CFG.STYLES.jouster) do w[k] = v end
+    local away = false
+    pcall(function()
+        local f = tgt:GetActorForwardVector()
+        away = f.X * bx + f.Y * by > 0.3
+    end)
+    if not away then w.tail = nil end
+    if last == "circle" or last == "standoff" then w[last] = (w[last] or 0) * 0.3 end
+    return weighted(w)
+end
+
+-- Where a ship in a fight flies now, and whether its nose is on the target (fireControl aims and fires the bow gun
+-- for phase "in"). The pass works as the old attack run, but keeps its side offset all the way in (re-aiming at the
+-- target each update used to drop it and fly straight at the hull) and swings out on the far side (it used to come
+-- back through the target).
+local function manoeuvre(c, here, tgt, tl, now)
+    local dx, dy, dz = tl.X - here.X, tl.Y - here.Y, tl.Z - here.Z
+    local d = math.max(1, math.sqrt(dx * dx + dy * dy + dz * dz))
+    local h = math.max(1, math.sqrt(dx * dx + dy * dy))
+    local bx, by = dx / h, dy / h -- bearing to the target, flat
+    local px, py = -by, bx        -- and square to it
+    local myR, tR = hullRadius(c), hullRadius(c.target and c.target.crew)
+    local m = c.man
+    local done = not m or now > m.untilT or (m.at and m.fixed and dist(here, m.at) < 1200)
+    if m and m.kind == "pass" and not done then
+        -- past the target (it's behind us) and clear: the pass is over
+        local f = c.ship:GetActorForwardVector()
+        if (f.X * dx + f.Y * dy + f.Z * dz) / d < -0.2 and d > myR + tR + 800 then done = true end
+    end
+    if done then
+        local kind = nextManoeuvre(c, tl, bx, by, now, m and m.kind, tgt)
+        m = { kind = kind, t0 = now, sgn = math.random() < 0.5 and -1 or 1 }
+        if kind == "pass" then
+            m.side = m.sgn * math.max(CFG.RUN_OFFSET, myR + tR + CFG.PASS_CLEAR)
+            m.lift = (math.random() * 2 - 1) * CFG.PASS_LIFT
+            m.untilT, m.phase = now + 20, "in"
+        elseif kind == "extend" then
+            -- on out the side we're on now, swinging off the line
+            local a = math.atan(-by, -bx) + math.rad(math.random(-60, 60))
+            local r = rnd(CFG.RUN_EXTEND)
+            m.at = { X = tl.X + math.cos(a) * r, Y = tl.Y + math.sin(a) * r, Z = tl.Z + math.random(-1200, 1200) }
+            m.fixed, m.untilT, m.phase = true, now + 15, "out"
+        elseif kind == "break" then
+            local r = rnd(CFG.BREAK_DIST)
+            local ux, uy, uz = px * m.sgn - bx * 0.4, py * m.sgn - by * 0.4, (math.random() < 0.5 and -0.6 or 0.6)
+            local n = math.sqrt(ux * ux + uy * uy + uz * uz)
+            m.at = { X = here.X + ux / n * r, Y = here.Y + uy / n * r, Z = here.Z + uz / n * r }
+            m.fixed, m.untilT, m.phase = true, now + rnd(CFG.BREAK_SECONDS), "out"
+        elseif kind == "circle" then
+            m.r = rnd(CFG.CIRCLE_R) + myR + tR
+            m.z = math.random(-400, 400)
+            m.untilT, m.phase = now + rnd(CFG.CIRCLE_SECONDS), "in"
+        elseif kind == "standoff" then
+            m.r = rnd(CFG.STANDOFF_R) + myR + tR
+            m.z = math.random(-300, 300)
+            m.dur = rnd(CFG.STANDOFF_SECONDS)
+            m.untilT, m.phase = now + m.dur, "in"
+        else -- tail
+            m.untilT, m.phase = now + rnd(CFG.TAIL_SECONDS), "in"
+        end
+        c.man = m
+    end
+    local at, accept = m.at, 600
+    if m.kind == "pass" then
+        if not m.locked and d < CFG.RUN_OVERSHOOT * 1.2 + myR + tR then
+            m.locked = { X = tl.X + bx * CFG.RUN_OVERSHOOT + px * m.side, Y = tl.Y + by * CFG.RUN_OVERSHOOT + py * m.side,
+                Z = tl.Z + m.lift }
+        end
+        at = m.locked or { X = tl.X + bx * CFG.RUN_OVERSHOOT + px * m.side, Y = tl.Y + by * CFG.RUN_OVERSHOOT + py * m.side,
+            Z = tl.Z + m.lift }
+        if m.locked and dist(here, m.locked) < 1200 then m.untilT = now end
+    elseif m.kind == "circle" then
+        local a = math.atan(here.Y - tl.Y, here.X - tl.X) + m.sgn * math.rad(CFG.CIRCLE_LEAD)
+        at, accept = { X = tl.X + math.cos(a) * m.r, Y = tl.Y + math.sin(a) * m.r, Z = tl.Z + m.z }, 300
+    elseif m.kind == "standoff" then
+        -- close to short range on our side of it, nose on, and hold there drifting slowly sideways
+        local drift = m.sgn * CFG.STANDOFF_DRIFT * math.min(1, (now - m.t0) / m.dur)
+        at, accept = { X = tl.X - bx * m.r + px * drift, Y = tl.Y - by * m.r + py * drift, Z = tl.Z + m.z }, 400
+    elseif m.kind == "tail" then
+        local f = { X = bx, Y = by, Z = 0 }
+        pcall(function() f = tgt:GetActorForwardVector() end)
+        local back = CFG.TAIL_BACK + myR + tR
+        at, accept = { X = tl.X - f.X * back - f.Y * 700 * m.sgn, Y = tl.Y - f.Y * back + f.X * 700 * m.sgn,
+            Z = tl.Z - f.Z * back + 300 }, 300
+    end
+    local sep = separation(c, here, now)
+    if sep then at, accept, m = sep, 600, c.man end
+    c.runPhase = m.phase
+    return at, accept
+end
+
 local function launchPods(c, party, ship)
     local cls = loadClass(CFG.POD)
     if not (cls and shipOk(c)) then return end
@@ -2254,7 +2482,7 @@ local function engage(c, t, now, why)
     c.engageUntil = now + rnd(CFG.ENGAGE_MAX)
     c.orbitAngle, c.orbitDir = math.random() * 2 * math.pi, math.random() < 0.5 and -1 or 1
     c.orbitR = rnd(CFG.ORBIT)
-    c.boardPlan, c.boardAt, c.boarded, c.run = nil, now + rnd(CFG.BREACH_AFTER), nil, nil
+    c.boardPlan, c.boardAt, c.boarded, c.man, c.sep = nil, now + rnd(CFG.BREACH_AFTER), nil, nil, nil
     local alive = 0
     for _, m in ipairs(c.members) do if m.alive then alive = alive + 1 end end
     local all, one = CFG.RIVAL_BOARD_ALL, CFG.RIVAL_BOARD_ONE
@@ -2849,6 +3077,7 @@ local function updateCrew(c, now, place, playerLoc)
 
     local hurt = c.lastHull and shipOk(c) and c.ship.MainHullHealth < c.lastHull - 1
     c.lastHull = shipOk(c) and c.ship.MainHullHealth or nil
+    if hurt then c.hurtAt = now end
     -- An ambient fighter hit while you're shooting from close by turns on you (its foe's shots can't be told apart from
     -- yours, so it's the timing: you fired in the last few seconds).
     if c.ambient and hurt and c.state == "attack" and not (c.target and c.target.player) and shipLoc
@@ -2921,6 +3150,23 @@ local function updateCrew(c, now, place, playerLoc)
 
     elseif c.state == "attack" then
         local tgt = targetShip(c.target)
+        if not tgt and c.foes then
+            -- a battle: on to the enemy ship fewest are on, nearest first
+            local best, bn, bd
+            for _, f in ipairs(c.foes) do
+                if f.state ~= "gone" and f.state ~= "derelict" and shipOk(f) then
+                    local n = attackersOn({ crew = f })
+                    local fd = dist(shipLoc, f.ship:K2_GetActorLocation())
+                    if not best or n < bn or (n == bn and fd < bd) then best, bn, bd = f, n, fd end
+                end
+            end
+            if best then
+                local foes = c.foes
+                engage(c, { crew = best }, now, "next target")
+                c.foes, c.boardPlan = foes, nil
+                tgt = targetShip(c.target)
+            end
+        end
         if not tgt then
             disengage(c, now, "target gone")
             if c.ambient then startLeaving(c, "won their fight") end
@@ -2933,30 +3179,8 @@ local function updateCrew(c, now, place, playerLoc)
         setShipEnemy(c, tgt)
         c.fireAt = tgt
         if crewOnShip(c) and not (c.boardPlan and now >= c.boardAt and not c.boarded) then
-            -- Attack run: "in" = at the target and past it, "out" = swing out for the next run.
-            if not c.run or dist(shipLoc, c.run.at) < 1200 or now > c.run.untilT then
-                local dx, dy = tl.X - shipLoc.X, tl.Y - shipLoc.Y
-                local n = math.max(1, math.sqrt(dx * dx + dy * dy))
-                dx, dy = dx / n, dy / n
-                if not c.run or c.run.phase == "out" then
-                    local side = (math.random() < 0.5 and -1 or 1) * CFG.RUN_OFFSET
-                    c.run = { phase = "in", untilT = now + 25, at = { X = tl.X + dx * CFG.RUN_OVERSHOOT - dy * side,
-                        Y = tl.Y + dy * CFG.RUN_OVERSHOOT + dx * side, Z = tl.Z + math.random(-400, 400) } }
-                else
-                    local a = math.atan(dy, dx) + math.rad(math.random(-70, 70))
-                    local r = rnd(CFG.RUN_EXTEND)
-                    c.run = { phase = "out", untilT = now + 20, at = { X = tl.X + math.cos(a) * r,
-                        Y = tl.Y + math.sin(a) * r, Z = tl.Z + math.random(-1200, 1200) } }
-                end
-            end
-            -- the target moves: keep the run's aim point on it while going in
-            if c.run.phase == "in" and dist(shipLoc, tl) > CFG.RUN_OVERSHOOT then
-                local dx, dy = tl.X - shipLoc.X, tl.Y - shipLoc.Y
-                local n = math.max(1, math.sqrt(dx * dx + dy * dy))
-                c.run.at = { X = tl.X + dx / n * CFG.RUN_OVERSHOOT, Y = tl.Y + dy / n * CFG.RUN_OVERSHOOT, Z = tl.Z }
-            end
-            c.runPhase = c.run.phase
-            flyTo(c, c.run.at, 600)
+            local at, accept = manoeuvre(c, shipLoc, tgt, tl, now)
+            flyTo(c, at, accept)
         elseif crewOnShip(c) then
             -- boarding: close in and hold off so the pods can go
             c.runPhase = nil
@@ -3201,33 +3425,68 @@ local function skirmishStep(pc, now)
     local here = S.playerShip:K2_GetActorLocation()
     local v = S.playerShip:GetVelocity()
     local yaw = (v.X * v.X + v.Y * v.Y > 300 * 300) and math.deg(math.atan(v.Y, v.X)) or nil
-    local spot = skirmishSpot(here, yaw)
     S.nextSkirmish = now + rnd(CFG.SKIRMISH_EVERY)
-    if not spot then return end
+    -- two sides of `per` ships each, in a line abreast facing each other across the gap
+    local per = S.skirmishSize or math.random(CFG.SKIRMISH_SHIPS[1], math.max(CFG.SKIRMISH_SHIPS[1], CFG.SKIRMISH_SHIPS[2]))
+    per = math.max(1, math.min(8, math.floor(per)))
+    S.skirmishSize = nil
+    -- every ship's starting point clear of rocks (an asteroid field had them spawn scraping along one), in open space
+    -- for the fight itself; a few tries, then no fight this time
+    local spot, places
+    for _ = 1, 8 do
+        spot = skirmishSpot(here, yaw)
+        if not spot then return end
+        local gap, a = rnd(CFG.SKIRMISH_GAP) + (per - 1) * 1500, math.random() * 2 * math.pi
+        local ax, ay = math.cos(a), math.sin(a)
+        places = { {}, {} }
+        local clear = Nav.clearAt(S.playerShip, spot, CFG.SKIRMISH_ROCKS * 2)
+        for k = 1, 2 do
+            local sgn = k == 1 and 1 or -1
+            for i = 1, per do
+                local off = (i - (per + 1) / 2) * CFG.SKIRMISH_SPACING
+                local stagger = (i % 2 == 0) and 1200 or 0
+                local at = { X = spot.X + ax * (gap / 2 + stagger) * sgn - ay * off,
+                    Y = spot.Y + ay * (gap / 2 + stagger) * sgn + ax * off, Z = spot.Z + math.random(-800, 800) }
+                clear = clear and Nav.clearAt(S.playerShip, at, CFG.SKIRMISH_ROCKS)
+                places[k][i] = at
+            end
+        end
+        if clear then break end
+        places, yaw = nil, nil
+    end
+    if not places then X.log("[rivals] skirmish: no open space near you") return end
     local used = {}
     for _, o in ipairs(S.crews) do for _, m in ipairs(o.members) do used[m.name] = true end end
-    local gap, a = rnd(CFG.SKIRMISH_GAP), math.random() * 2 * math.pi
-    local pair = {}
+    local sides = { {}, {} }
     for k = 1, 2 do
-        local c = newCrew(#S.crews + 1, used, CFG.CREW_SIZE)
-        c.ambient, c.diehard, c.rusher, c.stationsLeft = true, true, false, 0
-        local sgn = k == 1 and 1 or -1
-        local at = { X = spot.X + math.cos(a) * gap / 2 * sgn, Y = spot.Y + math.sin(a) * gap / 2 * sgn, Z = spot.Z }
-        if not spawnShip(pc, c, at) then return end
-        pcall(function()
-            c.ship.MainHullHealth = c.ship.MainHullHealth * CFG.SKIRMISH_HULL
-            c.maxHull = c.ship.MainHullHealth
-        end)
-        c.state = "travel"
-        table.insert(S.crews, c)
-        pair[k] = c
+        for i = 1, per do
+            local c = newCrew(#S.crews + 1, used, CFG.CREW_SIZE)
+            for _, mm in ipairs(c.members) do used[mm.name] = true end
+            c.ambient, c.diehard, c.rusher, c.stationsLeft = true, true, false, 0
+            if spawnShip(pc, c, places[k][i]) then
+                pcall(function()
+                    c.ship.MainHullHealth = c.ship.MainHullHealth * CFG.SKIRMISH_HULL
+                    c.maxHull = c.ship.MainHullHealth
+                end)
+                c.state = "travel"
+                table.insert(S.crews, c)
+                table.insert(sides[k], c)
+            end
+        end
     end
+    if #sides[1] == 0 or #sides[2] == 0 then return end
     S.skirmishes = (S.skirmishes or 0) + 1
-    -- guns only: a boarding fight is settled off screen in seconds, which is no show for you to come across
-    engage(pair[1], { crew = pair[2] }, now, "skirmish")
-    engage(pair[2], { crew = pair[1] }, now, "skirmish")
-    pair[1].boardPlan, pair[2].boardPlan = nil, nil
-    X.log(("[rivals] skirmish: the %s and the %s, %.0f m from you"):format(pair[1].shipName, pair[2].shipName, dist(here, spot) / 100))
+    -- guns only: a boarding fight is settled off screen in seconds, which is no show for you to come across.
+    -- Each ship takes the enemy across from it; when its target sinks it moves on to another (c.foes).
+    for k = 1, 2 do
+        local mine, theirs = sides[k], sides[3 - k]
+        for i, c in ipairs(mine) do
+            engage(c, { crew = theirs[(i - 1) % #theirs + 1] }, now, per > 1 and "battle" or "skirmish")
+            c.boardPlan, c.foes = nil, theirs
+        end
+    end
+    X.log(("[rivals] skirmish: %d against %d (the %s and the %s), %.0f m from you"):format(#sides[1], #sides[2],
+        sides[1][1].shipName, sides[2][1].shipName, dist(here, spot) / 100))
 end
 
 -- Ship damage effects (OFFLINE_AUDIT item 8): the interior's alarms, fire, flickering lights and hull screen, and the hull's
@@ -3405,7 +3664,7 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
         for k, v in pairs(counts) do table.insert(parts, k .. " " .. v) end
         X.log("[rivals] crews: " .. table.concat(parts, ", ") .. (place == "ship" and " | you: aboard your ship"
             or type(place) == "table" and (" | you: in " .. place.name) or " | you: in space")
-            .. " | turret shots " .. (S.turretShots or 0) .. " | steering: " .. Nav.report())
+            .. " | turret shots " .. (S.turretShots or 0) .. turretWhy() .. " | steering: " .. Nav.report() .. ", breakaways " .. (S.seps or 0))
     end
 end
 
@@ -3503,7 +3762,11 @@ end
 
 -- Testing: two flying crews meet near you and the first boards the second as soon as it's in pod range.
 function R.firedForTest() playerFired() end
-function R.skirmishNow() if S then S.nextSkirmish = 0 end end
+function R.skirmishNow(size)
+    if not S then return end
+    S.nextSkirmish = 0
+    S.skirmishSize = tonumber(size)
+end
 
 function R.clash()
     if not S or not valid(S.playerShip) then return end

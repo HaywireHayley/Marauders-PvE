@@ -220,6 +220,12 @@ function N.steer(c, ship, goal, accept, now, ignore, watchers)
     return goal, accept, reissue
 end
 
+-- Whether a sphere of `radius` at `at` is empty (no rock, wreck or hull in it): where to spawn ships. `ctx` is any actor
+-- in the world (the trace's world context; it is left out of the test itself).
+function N.clearAt(ctx, at, radius)
+    return not blocked(ctx, at, { X = at.X, Y = at.Y, Z = at.Z + 10 }, radius, {})
+end
+
 -- A ship that should hold still: its momentum gone too (StopMovement alone leaves it drifting on, in a straight line).
 function N.halt(c)
     if c.nav then c.nav.detour, c.nav.back, c.nav.slowSince = nil, nil, nil end

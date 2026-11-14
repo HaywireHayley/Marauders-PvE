@@ -2423,7 +2423,12 @@ local function updateSpace(pc, worldName)
     f = io.open(FIRED_FILE, "r")
     if f then f:close() os.remove(FIRED_FILE) Rivals.firedForTest() end
     f = io.open(SKIRMISH_FILE, "r")
-    if f then f:close() os.remove(SKIRMISH_FILE) Rivals.skirmishNow() end
+    if f then -- holding a number: that many ships on each side
+        local size = f:read("l")
+        f:close()
+        os.remove(SKIRMISH_FILE)
+        Rivals.skirmishNow(size and size:match("%d+"))
+    end
     updateBots(pc)
 end
 

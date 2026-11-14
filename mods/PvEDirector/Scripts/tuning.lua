@@ -189,6 +189,8 @@ local function define()
         { "SKIRMISH_MAX", "Fights between other crews per raid", 0, 20, 1, "Other crews fighting each other where you can see. 0 = none" },
         { "SKIRMISH_EVERY", 1, "Time between those fights, shortest (seconds)", 20, 600, 5, "" },
         { "SKIRMISH_EVERY", 2, "Time between those fights, longest (seconds)", 20, 900, 5, "" },
+        { "SKIRMISH_SHIPS", 1, "Ships on each side in those fights, fewest", 1, 8, 1, "1 = one on one; more = a battle" },
+        { "SKIRMISH_SHIPS", 2, "Ships on each side in those fights, most", 1, 8, 1, "Big battles cost frame rate" },
     })
     tabs[#tabs + 1] = spawns
     local ships = { name = "Rival ships", id = "Crews" }
