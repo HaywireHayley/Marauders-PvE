@@ -2200,7 +2200,7 @@ Tested (Space_Alpha, Rebel Base, 8-11 bots, recording at the same time): 100-130
 Base with 11 bots before, without recording); the user says it seemed good. Still there: a one-off hitch on entering a
 station (worst frame 212 ms, the entry FindAllOf scans). Not yet tried with 20-27 bots.
 
-## TODO: baked cover never used inside Rebel Base; soldiers out of sight backpedal (seen 2026-11-14, not fixed)
+## Baked cover never used inside Rebel Base; soldiers out of sight backpedal (2026-11-14, fix untested)
 
 Watching the footage, the user saw a soldier slowly backstrafing that never went for cover. In the log, every cover pick
 that raid was "random", and the baked-spot probe count stopped at 39 (all "no peek") after 18:49:15, so no baked spot
@@ -2215,3 +2215,15 @@ soldiers spent every sample "open unseen": fighting a target their LineOfSightTo
   So the soldier fights in the open, walking to a random point within ADVANCE_RADIUS (400) of where it last saw its
   target while keeping its focus on the target. When that point is behind it, it's a slow walk backwards.
 - The "no cover" and "chose not to" paths log nothing, which is why this was hard to see.
+Fix (main.lua, untested in game):
+- mapPlayAreas counts loot, contract and AI-node markers per station box and logs "play areas: markers per station
+  box: ...". offLimits treats a box with none as unmapped and rules nothing out in it.
+- Aux.rescan: the first time you're on foot inside a station box, the markers are scanned again, one class per frame,
+  and the new map swapped in: "play areas: rescanned on boarding <station>: ...".
+- Open fights are logged, per soldier at most every OPEN_LOG_SECONDS (10): "<bot> fighting in the open: <why>, in
+  sight / target unseen (baked N, off N, out of range N, no peek N, random N, random no peek N, ...)". Reasons: chose not
+  to look for cover, no cover found, nearest cover too far to run in sight. The status line adds "| open fights: ...".
+- Out of sight, a soldier picks the nearest of 3 points around the last-seen spot and moves only if that's at least 1 m
+  nearer than where it stands; otherwise it holds and watches.
+To check: the per-box counts at raid start and after boarding, whether "cover probes of baked spots" keeps rising
+inside the station, and "sprinting to baked ..." lines.

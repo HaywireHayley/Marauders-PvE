@@ -58,6 +58,7 @@ local CFG = {
     SPRINT_ANIM = "/Game/Characters/MainPlayer/Animations/00_BaseMovement/rc_Sprint_FW_New.rc_Sprint_FW_New",
     EXPOSED_COVER_DIST = 1200,-- while the player can see it, only run for cover this close...
     EXPOSED_RUN_SECONDS = 3, -- ...and give up on cover after this long running in sight
+    OPEN_LOG_SECONDS = 10,   -- log why a fighting soldier is in the open at most this often per soldier
     OPEN_FIGHT_SECONDS = 1.5,-- no cover or chose not to: fight in the open this long before thinking again (x holdGround)
     COVER_SEEK_CHANCE = 0.95,-- each look for cover: chance to bother at all (to the power of the personality's aggression)
     COVER_HURT_CHANCE = 0.99,-- ...the same right after being shot
@@ -870,8 +871,34 @@ local function sealed(p)
     return false
 end
 
--- Once per raid, under the loading veil: five object scans.
-local function mapPlayAreas()
+-- Aux: helpers kept in one table, because main.lua is at Lua's limit of 200 locals in a chunk.
+local Aux = {}
+function Aux.inBox(b, p) return math.abs(p.X - b.at.X) <= b.ext.X and math.abs(p.Y - b.at.Y) <= b.ext.Y end
+
+-- One marker class into a cell table. Airlocks don't count towards a box being mapped: they're on the hull and load
+-- with the outside of the station, before its insides.
+function Aux.scan(cls, cells, boxes)
+    for _, a in ipairs(FindAllOf(cls) or {}) do
+        if valid(a) then
+            local l = cls == "RaidUseableAirLockComponent" and a:K2_GetComponentLocation() or a:K2_GetActorLocation()
+            if not sealed(l) then
+                local key = (l.X // PLAY_CELL) .. "," .. (l.Y // PLAY_CELL)
+                cells[key] = cells[key] or {}
+                table.insert(cells[key], { X = l.X, Y = l.Y, Z = l.Z })
+                if cls ~= "RaidUseableAirLockComponent" then
+                    for _, b in ipairs(boxes) do
+                        if Aux.inBox(b, l) then b.marks = b.marks + 1 end
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Once per raid, under the loading veil: five object scans. In space a station's insides stream in only as you come
+-- close, so this first scan can miss its loot and AI nodes (Rebel Base, 2026-11-14: every baked cover spot in it was
+-- thrown out as off limits). A box with none counts as unmapped, and Aux.rescan() maps it again once you're aboard.
+function Aux.mapPlayAreas()
     local play = { boxes = {}, cells = {} }
     for _, v in ipairs(FindAllOf("LevelStreamingVolume") or {}) do
         if valid(v) then
@@ -880,33 +907,56 @@ local function mapPlayAreas()
                 if name:find(key, 1, true) then
                     local at, ext = {}, {}
                     Out.call(v, "GetActorBounds", false, at, ext, false)
-                    table.insert(play.boxes, { at = at, ext = ext })
+                    table.insert(play.boxes, { at = at, ext = ext, name = key, marks = 0 })
                 end
             end
         end
     end
-    for _, cls in ipairs(PLAY_MARKS) do
-        for _, a in ipairs(FindAllOf(cls) or {}) do
-            if valid(a) then
-                local l = cls == "RaidUseableAirLockComponent" and a:K2_GetComponentLocation() or a:K2_GetActorLocation()
-                if not sealed(l) then
-                    local key = (l.X // PLAY_CELL) .. "," .. (l.Y // PLAY_CELL)
-                    play.cells[key] = play.cells[key] or {}
-                    table.insert(play.cells[key], { X = l.X, Y = l.Y, Z = l.Z })
-                end
-            end
-        end
-    end
+    for _, cls in ipairs(PLAY_MARKS) do Aux.scan(cls, play.cells, play.boxes) end
     raid.play = play
+    local counts = {}
+    for _, b in ipairs(play.boxes) do counts[#counts + 1] = b.name .. " " .. b.marks end
+    log("play areas: markers per station box: " .. table.concat(counts, ", "))
+end
+
+-- On foot inside a station box for the first time: scan the markers again, one class per frame (each scan is a
+-- FindAllOf, ~50 ms on a big map), and swap the new cells in at the end.
+function Aux.rescan(at)
+    local play = raid.play
+    local job = play.job
+    if not job then
+        for _, b in ipairs(play.boxes) do
+            if not b.rescanned and Aux.inBox(b, at) then
+                b.rescanned = true
+                local boxes = {}
+                for i, o in ipairs(play.boxes) do boxes[i] = { at = o.at, ext = o.ext, marks = 0 } end
+                play.job = { name = b.name, i = 1, cells = {}, boxes = boxes }
+                return
+            end
+        end
+        return
+    end
+    Aux.scan(PLAY_MARKS[job.i], job.cells, job.boxes)
+    job.i = job.i + 1
+    if job.i > #PLAY_MARKS then
+        play.cells, play.job = job.cells, nil
+        local counts = {}
+        for i, b in ipairs(play.boxes) do
+            b.marks = job.boxes[i].marks
+            counts[#counts + 1] = b.name .. " " .. b.marks
+        end
+        log(("play areas: rescanned on boarding %s: %s"):format(job.name, table.concat(counts, ", ")))
+    end
 end
 
 local function offLimits(p)
     if not (raid.space and raid.play) or sealed(p) then return raid.space and sealed(p) or false end
-    local inside = false
+    local inside = nil
     for _, b in ipairs(raid.play.boxes) do
-        if math.abs(p.X - b.at.X) <= b.ext.X and math.abs(p.Y - b.at.Y) <= b.ext.Y then inside = true break end
+        if Aux.inBox(b, p) then inside = b break end
     end
     if not inside then return false end -- ships and everything else off the stations
+    if inside.marks == 0 then return false end -- not streamed in when scanned: can't tell, so nothing is ruled out
     local cx, cy = p.X // PLAY_CELL, p.Y // PLAY_CELL
     for gx = cx - 1, cx + 1 do
         for gy = cy - 1, cy + 1 do
@@ -1091,10 +1141,15 @@ local function findCover(e, pawn, playerLoc, radius, tries)
             + (aggr - 1) * CFG.COVER_AGGRESSION_PULL * dist2d(p, playerLoc)
     end
     local list = {}
+    -- what the search turned down, for the log when it finds nothing (coverCycle's Aux.openLog)
+    local st = { baked = 0, off = 0, ["out of range"] = 0, random = 0 }
     for _, c in ipairs(raid.coverNoBake and {} or Cover.candidates(here, playerLoc, radius, CFG.COVER_BAKED_POOL)) do
+        st.baked = st.baked + 1
         if not offLimits(c.pos) then
             c.score = score(c.pos, c.low)
             list[#list + 1] = c
+        else
+            st.off = st.off + 1
         end
     end
     table.sort(list, function(a, b) return a.score < b.score end)
@@ -1105,22 +1160,45 @@ local function findCover(e, pawn, playerLoc, radius, tries)
         if d >= CFG.COVER_PLAYER_DIST[1] and d <= CFG.COVER_PLAYER_DIST[2] and not claimed(e, c.pos) then
             probes = probes + 1
             local got, why = probeCover(e, pawn, playerLoc, c.pos)
-            local st = raid.coverProbe or {}
-            raid.coverProbe = st
-            st[got and "ok" or why or "?"] = (st[got and "ok" or why or "?"] or 0) + 1
+            local pr = raid.coverProbe or {}
+            raid.coverProbe = pr
+            local k = got and "ok" or why or "?"
+            pr[k] = (pr[k] or 0) + 1
+            st[k] = (st[k] or 0) + 1
             if got then got.baked = true return got end
+        else
+            st["out of range"] = st["out of range"] + 1
         end
     end
     local best, bestD
     for _ = 1, math.max(1, math.floor(tries * (#list > 0 and CFG.COVER_RANDOM_SHARE or 1))) do
         local p = reachableNear(e, here, radius)
         if p then
-            local c = probeCover(e, pawn, playerLoc, p)
+            st.random = st.random + 1
+            local c, why = probeCover(e, pawn, playerLoc, p)
             local d = c and score(p, c.low)
             if c and (not best or d < bestD) then best, bestD = c, d end
+            if not c then
+                local k = "random " .. (why or "out of range")
+                st[k] = (st[k] or 0) + 1
+            end
         end
     end
-    return best
+    return best, st
+end
+
+-- Why a fighting soldier is in the open: tallied for the status line, and logged per soldier at most every
+-- CFG.OPEN_LOG_SECONDS (st: findCover's counts, nil when it chose not to look).
+function Aux.openLog(e, now, why, st)
+    raid.openWhy = raid.openWhy or {}
+    raid.openWhy[why] = (raid.openWhy[why] or 0) + 1
+    if now < (e.openLogAt or 0) then return end
+    e.openLogAt = now + CFG.OPEN_LOG_SECONDS
+    local parts = {}
+    for k, v in pairs(st or {}) do if v > 0 then parts[#parts + 1] = k .. " " .. v end end
+    table.sort(parts)
+    log(("%s fighting in the open: %s, %s%s"):format(e.bot:GetFName():ToString(), why,
+        e.los and "in sight" or "target unseen", #parts > 0 and " (" .. table.concat(parts, ", ") .. ")" or ""))
 end
 
 -- Is the soldier at its cover spot exposed while it should be hidden (the player flanked it)?
@@ -1207,19 +1285,22 @@ local function coverCycle(e, pawn, playerLoc, now)
         -- chance ^ aggression: 0.95 is ~0.93 for a GigaChad (1.5) and ~0.86 for a Wreckless (3)
         if math.random() >= (justHurt and CFG.COVER_HURT_CHANCE or CFG.COVER_SEEK_CHANCE) ^ (p and p.aggression or 1) then
             e.openUntil = now + CFG.OPEN_FIGHT_SECONDS * hold
+            Aux.openLog(e, now, "chose not to look for cover")
             return false
         end
         -- Cover first, but a soldier in the player's sight only runs for cover close by; out of sight it can
         -- look further. With nothing quick, it strafes and shoots for a while (OPEN_FIGHT_SECONDS).
         local here = e.bot:K2_GetActorLocation()
-        c = findCover(e, pawn, playerLoc, CFG.COVER_SEARCH, CFG.COVER_CANDIDATES)
+        local st, why
+        c, st = findCover(e, pawn, playerLoc, CFG.COVER_SEARCH, CFG.COVER_CANDIDATES)
         if e.los then
-            if c and dist2d(here, c.pos) > CFG.EXPOSED_COVER_DIST then c = nil end
+            if c and dist2d(here, c.pos) > CFG.EXPOSED_COVER_DIST then c, why = nil, "nearest cover too far to run in sight" end
         elseif not c then
-            c = findCover(e, pawn, playerLoc, CFG.COVER_SEARCH_FAR, CFG.COVER_CANDIDATES_FAR)
+            c, st = findCover(e, pawn, playerLoc, CFG.COVER_SEARCH_FAR, CFG.COVER_CANDIDATES_FAR)
         end
         if not c then
             e.openUntil = now + CFG.OPEN_FIGHT_SECONDS * hold
+            Aux.openLog(e, now, why or "no cover found", st)
             return false
         end
     end
@@ -1283,6 +1364,22 @@ local function strafePoint(e, playerLoc)
     return reachableNear(e, here, CFG.STRAFE_DIST[2])
 end
 
+-- Out of sight: close in on where the target was last seen. The soldier keeps its focus on the target while it walks,
+-- so a point behind it is a slow walk backwards (seen 2026-11-14): of a few points near that spot take the nearest to
+-- it, and only if it's actually nearer than where the soldier stands; otherwise hold and watch.
+function Aux.advancePoint(e, goal)
+    local here = e.bot:K2_GetActorLocation()
+    local cur = dist2d(here, goal)
+    local best, bestD
+    for _ = 1, 3 do
+        local p = reachableNear(e, goal, CFG.ADVANCE_RADIUS)
+        local d = p and dist2d(p, goal)
+        if d and (not best or d < bestD) then best, bestD = p, d end
+    end
+    if best and bestD < cur - 100 then return best end
+    return nil
+end
+
 local function combatHints(e, pawn, playerLoc)
     local bb, ctrl = e.ctrl.BlackboardComp, e.ctrl
     local los = soldierSees(e, pawn)
@@ -1342,7 +1439,7 @@ local function combatHints(e, pawn, playerLoc)
         local here = e.bot:K2_GetActorLocation()
         -- Without sight of the player, close in on where they were last seen; with it, strafe quickly.
         local dest = los and strafePoint(e, playerLoc)
-            or reachableNear(e, e.lastSeen or playerLoc, CFG.ADVANCE_RADIUS)
+            or Aux.advancePoint(e, e.lastSeen or playerLoc)
         if dest then
             bb:SetValueAsVector(FName("destination"), dest)
             bb:SetValueAsVector(FName("CoverEQsResult"), dest)
@@ -1567,7 +1664,9 @@ local function updateBots(pc)
         end
         local pr = {}
         for k, v in pairs(raid.coverProbe or {}) do pr[#pr + 1] = k .. " " .. v end
-        log("cover probes of baked spots: " .. table.concat(pr, ", "))
+        local ow = {}
+        for k, v in pairs(raid.openWhy or {}) do ow[#ow + 1] = k .. " " .. v end
+        log("cover probes of baked spots: " .. table.concat(pr, ", ") .. " | open fights: " .. table.concat(ow, ", "))
         local t = raid.coverTally or {}
         log(("cover %s | fighting samples: hiding %d, peeking %d, moving %d, open in sight %d, open unseen %d"):format(
             Cover.stats(), t.hiding or 0, t.peeking or 0, t.moving or 0, t.open or 0, t.unseen or 0))
@@ -2706,7 +2805,8 @@ update = function(pc)
         end
         if onFoot then raid.target = pawn end
         if raid.readyAt then updateSun(onFoot) end
-        if raid.readyAt and not raid.play then mapPlayAreas() end
+        if raid.readyAt and not raid.play then Aux.mapPlayAreas() end
+        if raid.play and raid.space and onFoot then Aux.rescan(pawn:K2_GetActorLocation()) end
         -- the loadout's guns arrive unequipped: draw the first one once they've spawned
         if onFoot and raid.loadout and not raid.drawn and os.clock() - raid.loadout >= 2 then
             raid.drawn = true
