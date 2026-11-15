@@ -2064,6 +2064,12 @@ it doesn't fit, or the ragdoll of a pod-spawned body; check rollKit leg pieces v
 - Seen from the open middle of the map: long flat girder/hull-like pieces and a dark flat shape, in view from a ship.
   Possibly interior levels at the free interior slots (makeInterior) or station parts out of place; check what actors
   sit there before deciding. Keep it out of trailer shots meanwhile.
+- 2026-11-15 (also "dark flat slabs near stations"), still not reproduced. On Space_Charlie the user saw none; there a
+  probe found no stray visible meshes and your own ship interior (a level instance, no streaming volume) culls at
+  100 m with one far-drawn Cube. Streaming volumes whose interior hiding collects 0 parts (interiors.lua): MoonBaseWhitebox
+  and AsteriodWhitebox_1 on Space_Solo_02, NavyOutpost on Space_Alpha, Capital_Ai_Interior_2 on Space_Charlie.
+  Those two Solo_02 stations are the likeliest source (their shell/far meshes are never hidden). Next: on Space_Solo_02,
+  aim at a slab and list the largest visible meshes in view (material, level, owner, scale, draw distance).
 
 ## Pod boarding rework (2026-11-14, tested)
 - Tested in game: after a pod, your body is fixed by afterPod (log "your body after the pod had yaw=false tick=false
