@@ -394,6 +394,15 @@ local function ppcall(name, fn, ...)
 end
 
 local function onTick(ctx)
+    -- A new world, seen on its first frame: drop everything held from the old one now. update() notices too, but only
+    -- every UPDATE_SECONDS, and until then the per-frame work below (the crew menu, the lobby stands, menus) still held
+    -- the old world's freed objects. Keyed on the world's address and name: a new world can reuse the old one's address.
+    local w = ctx:get():GetWorld()
+    local wk = w and w:IsValid() and ("%x %s"):format(w:GetAddress(), w:GetFName():ToString()) or nil
+    if wk ~= PveTickWorld then
+        if PveTickWorld ~= nil and PveResetRaid then PveResetRaid(nil) end
+        PveTickWorld = wk
+    end
     -- Loading a sound crashes while a map travels, so voice lines only load in the menu with no match on the way. Lines
     -- not loaded yet are skipped by the bots, and the rest load next time you're in the menu.
     if Voice.pending() and not launching and not mm and ctx:get():GetClass():GetFName():ToString() ~= "MainPlayerController_C" then
@@ -610,8 +619,17 @@ local function resetRaid(worldKey)
     Minimap.reset()
     Loading.reset()
     pcall(Loading.disarm) -- back to the game's own screen for everything but raid launches
+    -- Every module's hold on the old world's objects goes too: their per-frame parts run before their own update has
+    -- rebuilt them for the new raid, and IsValid on a freed object reads freed memory (the UE4SS access violations while
+    -- a raid loaded: the crew's name-tag widget, the last raid's turrets).
+    Gunseat.reset()
+    if Rivals then Rivals.reset() end
+    if Crew then Crew.reset() end
+    if Missions then Missions.reset() end
+    if Hire then Hire.reset() end
     raid = { world = worldKey, navStarted = false, navReady = false, spawned = false, bots = {}, hp = {} }
 end
+PveResetRaid = resetRaid -- for onTick, which is above it (a global: main.lua is at the 200-locals limit)
 
 -- 1. Runtime navmesh --------------------------------------------------------------------------------
 local function startNav(pc)

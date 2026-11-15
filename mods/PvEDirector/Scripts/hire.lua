@@ -591,6 +591,13 @@ end
 
 function H.isOpen() return ui ~= nil and ui.open == true end
 
+-- A new world: the menu's widgets and the lobby's stands went with the old one; H.tick runs every frame, before the
+-- director's update has noticed (see main.lua onTick).
+function H.reset()
+    ui, inLobby = nil, false
+    if X and X.lobby and X.lobby.reset then X.lobby.reset() end
+end
+
 function H.close(pc)
     pc = owner(pc)
     if not H.isOpen() then return end

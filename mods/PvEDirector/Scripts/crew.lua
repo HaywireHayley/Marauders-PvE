@@ -616,6 +616,11 @@ function C.status()
     return #parts > 0 and table.concat(parts, ", ") or "no crew"
 end
 
+-- A new world: the last raid's crewmates, turrets and name tags went with it. C.frame and C.tags run every frame from the
+-- first update on, but C.update only rebuilds this once the raid's navmesh is ready, so without this they touched the
+-- freed name-tag widget and turrets (IsValid reads the object's memory: a crash on the next raid's load).
+function C.reset() S, roster = nil, {} end
+
 function C.init(ctx) X = ctx end
 
 return C

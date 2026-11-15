@@ -458,4 +458,8 @@ function L.init(ctx)
     loadCache()
 end
 
+-- A new world: the stands and slots were the lobby's, freed when it unloaded (W is keyed on the world's address, and a
+-- new world can land on the old one's address).
+function L.reset() W = nil end
+
 return L

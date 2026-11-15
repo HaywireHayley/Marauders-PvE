@@ -74,6 +74,9 @@ local function leave(pc, c)
     X.log("[missions] left " .. c.name)
 end
 
+-- A new world: the last raid's contract actors were freed with it (M.interact runs before M.update rescans).
+function M.reset() S = nil end
+
 -- Called from the director's update in raids and space maps. key = the director's per-raid key; pawn = your
 -- on-foot character.
 function M.update(pc, key, pawn)
