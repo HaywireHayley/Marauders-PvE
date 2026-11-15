@@ -786,6 +786,9 @@ local function hidePodGuns(foot, pod)
     for _, g in pairs(guns) do if valid(g) and not g.bHidden then g:SetActorHiddenInGame(true) end end
     pcall(function() foot.Inventory:ForEach(function(_, w) hide(w:get(), "carried") end) end)
     pcall(function() hide(foot.CurrentWeapon, "held") end)
+    -- the pod gets its own copy of your gun (MyPawn = the pod), drawn huge over it in the pod's camera
+    pcall(function() hide(pod.CurrentWeapon, "the pod's") end)
+    pcall(function() pod.Inventory:ForEach(function(_, w) hide(w:get(), "the pod's") end) end)
     local scan = POD_GUN_SCANS[raid.podScans.n + 1]
     if not scan or now - raid.podScans.at < scan then return end
     raid.podScans.n = raid.podScans.n + 1
@@ -793,7 +796,8 @@ local function hidePodGuns(foot, pod)
     for _, g in ipairs(FindAllOf("RaidWeapon") or {}) do
         if valid(g) then
             local owned = false
-            pcall(function() owned = valid(g.MyPawn) and g.MyPawn:GetAddress() == me end)
+            local podAt = pod:GetAddress()
+            pcall(function() owned = valid(g.MyPawn) and (g.MyPawn:GetAddress() == me or g.MyPawn:GetAddress() == podAt) end)
             if owned then
                 hide(g, "yours")
             else
@@ -2703,7 +2707,10 @@ local function updateSpace(pc, worldName)
         Rivals.prepBoard(want and want:match("%S") and want or nil)
     end
     f = io.open(CLASH_FILE, "r")
-    if f then f:close() os.remove(CLASH_FILE) Rivals.clash() end
+    if f then -- holding a number: that far apart (default 3000)
+        local apart = f:read("l")
+        f:close() os.remove(CLASH_FILE) Rivals.clash(tonumber(apart))
+    end
     -- bridge/rivals_fired: as if you'd just fired your ship's guns; bridge/rivals_skirmish: an ambient fight now.
     f = io.open(FIRED_FILE, "r")
     if f then f:close() os.remove(FIRED_FILE) Rivals.firedForTest() end
@@ -2718,6 +2725,7 @@ local function updateSpace(pc, worldName)
 end
 
 -- Main update ---------------------------------------------------------------------------------------
+local pgosOverlay = { w = nil, findAt = 0 } -- the PGOS social overlay, kept collapsed (see update)
 update = function(pc)
     if not valid(pc) then return end
     local world = pc:GetWorld()
@@ -2728,17 +2736,18 @@ update = function(pc)
     if not raid.footsteps then raid.footsteps = patchFootsteps() end
     if not raid.friendsRefresh then raid.friendsRefresh = patchFriendsRefresh() end
     raid.pcAddr = pc:GetAddress()
-    -- PGOS "social service unavailable" overlay, in the menu and in raids: hide (removing it crashes the next travel).
-    -- It shows while a map loads; the sweep scans every object (~45 ms), so only in a map's first 30 s, every 3 s, and
-    -- on space maps only behind the loading veil (after it, each sweep was a visible hitch).
-    local age = os.clock() - raid.startedAt
+    -- PGOS "social service unavailable" overlay, in the menu and in raids: keep it collapsed (removing it crashes the
+    -- next travel). It comes back on its own at any time, not only while a map loads (a sweep limited to a map's first
+    -- 30 s left it over the lobby). The overlay belongs to the game instance, so it lives as long as the game: it's
+    -- found once (FindFirstOf scans every object, so at most every 10 s while missing, and never in a space raid past
+    -- the veil, where a scan is a visible hitch), then this update checks the remembered widget every 0.5 s.
     local space = worldName:find("/Maps/Space_", 1, true) ~= nil
-    if age < 30 and age >= (raid.overlaySweep or 0) and not (space and raid.revealed) then
-        raid.overlaySweep = age + 3
-        for _, w in ipairs(FindAllOf("PgosOverlay_BP_C") or {}) do
-            if w:GetVisibility() ~= 1 then w:SetVisibility(1) end
-        end
+    local now = os.clock()
+    if not valid(pgosOverlay.w) and now >= pgosOverlay.findAt and not (space and raid.revealed) then
+        pgosOverlay.findAt = now + 10
+        pgosOverlay.w = FindFirstOf("PgosOverlay_BP_C")
     end
+    if valid(pgosOverlay.w) and pgosOverlay.w:GetVisibility() ~= 1 then pgosOverlay.w:SetVisibility(1) end
     -- bridge/female_toggle: F2 without the keyboard (testing, like bridge/god.txt).
     local toggle = io.open(FEMALE_FLAG, "r")
     if toggle then
