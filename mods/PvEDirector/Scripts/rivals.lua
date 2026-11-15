@@ -170,6 +170,9 @@ local CFG = {
     BREACH_HULL = 0.5,              -- ...or sooner once the target's hull is below this fraction
     -- End of the raid: crews head out when this much time is left (per crew, so they don't all go at once)
     EXTRACT_REMAINING = { 150, 420 },
+    -- A leaving ship that gets no closer to its exit (by EXIT_PROGRESS) extracts where it is: after EXIT_STALL_NEAR
+    -- seconds within EXIT_NEAR of it, EXIT_STALL anywhere else.
+    EXIT_PROGRESS = 1000, EXIT_NEAR = 12000, EXIT_STALL_NEAR = 15, EXIT_STALL = 45,
     SIM_CLASH_PER_MIN = 0.25,       -- two simulated crews in the same station: chance per minute they run into each other
     -- Station defenders: the raiders/bosses the station levels place themselves (GOAPNodeBot_Raider_C / _Boss_C, the
     -- live server's station NPCs; asleep offline with a GOAP brain that doesn't run). Taken over when you first enter
@@ -1373,9 +1376,30 @@ local function glideShips(now)
     end
 end
 
+-- Where a leaving ship heads: a ship spawn point, but not the one your frigate sits at, and the one fewest other
+-- leaving crews are heading for (nearest first). Leaving ships stalled 70-80 m off their exit, circling for minutes
+-- (2026-11-15): a hull parked at the point (yours, or another leaver's) sat in shipnav's sweep, so every approach
+-- turned into a detour away from it and back again.
+local function pickExit(c)
+    local here = shipOk(c) and c.ship:K2_GetActorLocation() or nil
+    local best, bn, bd
+    for _, s in ipairs(S.shipSpawns) do
+        if not S.playerShipLoc or dist(s, S.playerShipLoc) > 15000 or #S.shipSpawns == 1 then
+            local n = 0
+            for _, o in ipairs(S.crews) do
+                if o ~= c and o.state == "leaving" and o.exitAt and dist(o.exitAt, s) < 1 then n = n + 1 end
+            end
+            local d = here and dist(here, s) or math.random()
+            if not best or n < bn or (n == bn and d < bd) then best, bn, bd = s, n, d end
+        end
+    end
+    return best or pick(S.shipSpawns)
+end
+
 local function startLeaving(c, why)
     c.state, c.station, c.target, c.fireAt = "leaving", nil, nil, nil
-    c.exitAt = pick(S.shipSpawns)
+    c.exitAt = pickExit(c)
+    c.exitBest, c.exitBestAt = nil, nil
     X.log(("[rivals] %s extracting (%s)"):format(crewLabel(c), why))
 end
 
@@ -3681,7 +3705,16 @@ local function updateCrew(c, now, place, playerLoc)
 
     elseif c.state == "leaving" then
         if c.exitAt then flyTo(c, c.exitAt, 1000) end
-        if not c.exitAt or dist(shipLoc, c.exitAt) < 3000 then
+        -- Can't get stuck for good: the exit is only a point in space (no gate), so a ship that stops getting any
+        -- closer to it extracts where it is. Close in (circling a hull parked at the point), soon; anywhere else
+        -- (wedged in a station, as a CapitalShipFrigate was), after longer. Progress = a new best distance.
+        local d = c.exitAt and dist(shipLoc, c.exitAt) or 0
+        if not c.exitBest or d < c.exitBest - CFG.EXIT_PROGRESS then c.exitBest, c.exitBestAt = d, now end
+        local stalled = now - c.exitBestAt > (d < CFG.EXIT_NEAR and CFG.EXIT_STALL_NEAR or CFG.EXIT_STALL)
+        if stalled then
+            X.log(("[rivals] %s stalled %d m from their exit"):format(crewLabel(c), math.floor(d / 100)))
+        end
+        if not c.exitAt or d < 3000 or stalled then
             dropTurrets(c)
             c.ship:K2_DestroyActor()
             c.ship, c.state = nil, "gone"
