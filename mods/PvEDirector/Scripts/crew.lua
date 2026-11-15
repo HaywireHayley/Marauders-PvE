@@ -214,6 +214,9 @@ local function removeBody(m)
         m.hp = e.bot.Health
         e.bot:K2_DestroyActor()
     end
+    -- (out of the list, reapDead no longer drops these: a soldier fighting this crewmate still holds the entry)
+    e.bot, e.ctrl, e.hand, e.mesh, e.move = nil, nil, nil, nil, nil
+    e.fighting, e.inCombat, e.cover, e.investigate, e.foeEntry = false, false, nil, nil, nil
 end
 
 -- Anyone fighting you nearby (boarders come for you, not for them): the nearest is this crewmate's fight.

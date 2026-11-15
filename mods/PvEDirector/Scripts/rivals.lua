@@ -113,6 +113,8 @@ local CFG = {
     HOLD_OUT = 2500, HOLD_SPACING = 1500, -- every berth taken: wait this far beyond the approach point, crews spread out
     DOCK_GLIDE = 7,                 -- seconds to glide into the berth...
     UNDOCK_GLIDE = 5,               -- ...and back out to the approach point when leaving
+    DERELICT_CLEAR = 10000,         -- a docked crew wiped out: their ship drifts this far out past the approach point
+    DERELICT_GLIDE = 15,            -- (over this many seconds), clear of the berth, its lane and the ships holding off
     ALONGSIDE = 3000,               -- at a big AI frigate the berth is this far off its side, matching its heading
     BERTH_WAIT = 10,                -- with every berth taken, a crew holds off the station this long, then boards anyway
                                     -- (breaching in, as players do) with its ship parked where it holds
@@ -1303,19 +1305,31 @@ end
 
 -- Docking and undocking are a smooth glide between the approach point and the berth (R.frame), with the ship's
 -- own movement stopped; docked ships are held in their berth.
-local function startGlide(c, dir)
+local function startGlide(c, dir, beyond)
     local l, r = c.ship:K2_GetActorLocation(), c.ship:K2_GetActorRotation()
     c.ship.CharacterMovement:StopMovementImmediately()
-    c.shipCtrl:StopMovement()
-    c.shipCtrl:K2_ClearFocus()
-    c.glide = { dir = dir, t0 = os.clock(), dur = dir == "in" and CFG.DOCK_GLIDE or CFG.UNDOCK_GLIDE,
-        station = c.station, berth = c.berth or c.undockBerth,
+    pcall(function() c.shipCtrl:StopMovement() c.shipCtrl:K2_ClearFocus() end)
+    c.glide = { dir = dir, t0 = os.clock(), dur = beyond and CFG.DERELICT_GLIDE or dir == "in" and CFG.DOCK_GLIDE
+            or CFG.UNDOCK_GLIDE, beyond = beyond,
+        station = c.glide and c.glide.station or c.station, berth = c.berth or c.undockBerth,
         from = { X = l.X, Y = l.Y, Z = l.Z }, yaw = r.Yaw, pitch = r.Pitch, roll = r.Roll }
 end
 
-local function undock(c)
+local function undock(c, beyond)
+    if c.glide then c.berth = c.berth or c.glide.berth end
     c.undockBerth, c.berth, c.moored = c.berth, nil, nil
-    if c.undockBerth and shipOk(c) then startGlide(c, "out") end
+    if c.undockBerth and shipOk(c) then startGlide(c, "out", beyond) end
+end
+
+-- A docked crew wiped out (killed raiding the station, or by another crew in it) left their ship held in its berth for
+-- the rest of the raid, shown again as a derelict and still holding the berth: nobody else could dock there (user
+-- report 2026-11-15, the Rusty Mule at Spaceport). It drifts out, well past the approach lane, and waits there.
+local function clearBerth(c)
+    if c.moored or (c.glide and c.glide.dir == "in") then
+        undock(c, CFG.DERELICT_CLEAR)
+    else
+        c.berth = nil -- only on its way in: the berth it had reserved is free again
+    end
 end
 
 -- Docked ships are hidden (and don't collide): a ship held in its berth sat visibly wedged into the station's
@@ -1346,6 +1360,12 @@ local function glideShips(now)
                 c.glide, c.undockBerth = nil, nil -- the AI frigate it was docked at is gone
             else
                 local to = g.dir == "in" and at or approach
+                if g.beyond then
+                    local ox, oy, oz = approach.X - at.X, approach.Y - at.Y, approach.Z - at.Z
+                    local on = math.max(1, math.sqrt(ox * ox + oy * oy + oz * oz))
+                    to = { X = approach.X + ox / on * g.beyond, Y = approach.Y + oy / on * g.beyond,
+                        Z = approach.Z + oz / on * g.beyond }
+                end
                 local t = math.min(1, (now - g.t0) / g.dur)
                 local s = t * t * (3 - 2 * t)
                 local dy = (yaw - g.yaw + 180) % 360 - 180
@@ -1613,7 +1633,16 @@ local function finishBody(b)
     -- looks (crew.lua headPath/bodyPath): the catalog has already loaded and rooted those meshes.
     if m.headPath and not valid(m.look.head) then m.look.head = lib(m.headPath) end
     if m.bodyPath and not valid(m.look.body) then m.look.body = lib(m.bodyPath) end
-    if not m.look.head and #cat.heads > 0 then m.look.head = pick(cat.heads) end
+    -- A rival's head has to fit under the helmet it rolled (gear.lua fits; a new kit can bring another helmet).
+    local helmet = m.kit and m.kit.helmet
+    if not m.headPath and valid(m.look.head) and not Gear.fits(helmet, m.look.head:GetFName():ToString()) then
+        m.look.head = nil
+    end
+    if not m.look.head and #cat.heads > 0 then
+        local fit = {}
+        for _, h in ipairs(cat.heads) do if Gear.fits(helmet, h:GetFName():ToString()) then fit[#fit + 1] = h end end
+        m.look.head = pick(#fit > 0 and fit or cat.heads)
+    end
     if not m.look.body and #cat.bodies > 0 then m.look.body = pick(cat.bodies) end
     if valid(m.look.head) then body.Mesh:SetSkeletalMesh(m.look.head, false) end
     if mine.CharacterBody0 and valid(m.look.body) then mine.CharacterBody0:SetSkeletalMesh(m.look.body, false) end
@@ -1817,9 +1846,15 @@ local function materialize(c, spots, mode, members)
     end
 end
 
+-- Out of the director's list for good (the body is put away): its object references go too, as main.lua's reapDead
+-- does for the dead. Others can still hold the entry (a soldier's or crewmate's foeEntry), and once the actor is freed
+-- any look at it, even IsValid, reads freed memory: an access violation (the crash crossing an airlock after a fight
+-- at a station, 2026-11-15). Destroy the body before this.
 local function removeEntry(e)
     local bots = X.raid().bots
     for i = #bots, 1, -1 do if bots[i] == e then table.remove(bots, i) end end
+    e.bot, e.ctrl, e.hand, e.mesh, e.move = nil, nil, nil, nil, nil
+    e.fighting, e.inCombat, e.cover, e.investigate, e.foeEntry, e.holdUntil = false, false, nil, nil, nil, nil
 end
 
 -- Back to simulation: remember health, delete the bodies (their guns go with them; a new body rolls a new gun of
@@ -1827,12 +1862,12 @@ end
 local function dematerialize(c)
     if not c.bodies then return end
     for _, e in ipairs(c.bodies) do
-        removeEntry(e)
         -- Corpses stay where they fell (lootable); only the living go back into the simulation.
         if valid(e.bot) and (e.bot.Health or 0) > 0 then
             e.rival.hp = e.bot.Health
             e.bot:K2_DestroyActor()
         end
+        removeEntry(e)
     end
     c.bodies, c.exitAt, c.arrival = nil, nil, nil
 end
@@ -3395,6 +3430,7 @@ local function updateCrew(c, now, place, playerLoc)
         if shipOk(c) then
             Nav.halt(c)
             c.state = "derelict"
+            if c.berth or c.moored or c.glide then clearBerth(c) end
         else
             c.state = "gone"
         end
@@ -3719,8 +3755,8 @@ local function finishBuilding(now)
                     job.mode == "boarding" and (c.inside and "their ship" or "your ship") or c.station.name))
             else
                 -- The crew dematerialized while this one was being built.
-                removeEntry(entry)
                 entry.bot:K2_DestroyActor()
+                removeEntry(entry)
             end
         end
     end

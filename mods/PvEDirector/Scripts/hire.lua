@@ -96,6 +96,7 @@ end
 local function giveKit(r)
     local tier = H.tier(r.level, r.kitG)
     r.kit = X.rollKit(tier, math.random() < tier.helmet, math.random() < tier.chest, math.random() < tier.backpack)
+    r.kit.helmet = Gear.helmetFor(r.kit.helmet, r.head) -- one that fits over their face (gear.lua fits)
     r.kitTier = tier.name
     r.kitG = tier.g
 end
@@ -136,7 +137,14 @@ local function load()
     while #D.pool < CFG.POOL do D.pool[#D.pool + 1] = recruit() end
     local kitted = false
     for _, list in ipairs({ D.pool, D.crew }) do
-        for _, r in ipairs(list) do if not r.kit then giveKit(r) kitted = true end end
+        for _, r in ipairs(list) do
+            if not r.kit then giveKit(r) kitted = true
+            elseif not Gear.fits(r.kit.helmet, r.head) then
+                -- hired before helmets were matched to faces: the same grade of helmet, one that fits
+                r.kit.helmet = Gear.helmetFor(r.kit.helmet, r.head)
+                kitted = true
+            end
+        end
     end
     -- Recruits from before kits followed your level: the ones still looking for work get a kit that does (your crew keep
     -- theirs until a promotion).
