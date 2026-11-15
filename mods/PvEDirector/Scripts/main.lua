@@ -2741,6 +2741,7 @@ update = function(pc)
     -- 30 s left it over the lobby). The overlay belongs to the game instance, so it lives as long as the game: it's
     -- found once (FindFirstOf scans every object, so at most every 10 s while missing, and never in a space raid past
     -- the veil, where a scan is a visible hitch), then this update checks the remembered widget every 0.5 s.
+    local age = os.clock() - raid.startedAt -- this map's age (the stash check below uses it)
     local space = worldName:find("/Maps/Space_", 1, true) ~= nil
     local now = os.clock()
     if not valid(pgosOverlay.w) and now >= pgosOverlay.findAt and not (space and raid.revealed) then
