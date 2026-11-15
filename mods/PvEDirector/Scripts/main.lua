@@ -2879,6 +2879,21 @@ update = function(pc)
     if not (space or worldName:find("/Maps/Raids/", 1, true)) then return end
     raid.space = space
     if space and not raid.revealed then veilUntilAboard(pc, world) end
+    -- Arriving, the mouse didn't turn the camera until you'd opened and closed the inventory (Tab): the lobby's
+    -- mouse-screen input (cursor, game and UI) carried into the raid, and the loading screen sat over the viewport while
+    -- you spawned (user report 2026-11-15). Once the loading screen has faded: game-only input, as closing a menu gives.
+    if not raid.inputDone and valid(pc.Pawn) and (raid.revealed or not space) then
+        raid.inputAt = raid.inputAt or os.clock() + (space and 1.5 or 1)
+        if os.clock() >= raid.inputAt then
+            raid.inputDone = true
+            local ok, err = pcall(function()
+                pc:ResetIgnoreLookInput()
+                pc:ResetIgnoreMoveInput()
+                menuClosed(pc)
+            end)
+            log(ok and "your input: game only (arrived)" or ("your input on arrival failed: " .. tostring(err)))
+        end
+    end
     if space and raid.readyAt then
         local aff = io.open(PROJECT .. "bridge/autofly", "r") -- testing: "<station name>" or "x y z"; gone = stop
         if aff then

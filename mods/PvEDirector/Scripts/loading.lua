@@ -88,6 +88,7 @@ function L.show(pc)
     ui.fill = bar(1, 0.3, 0.02, 1)
     ui.fillSlot = place(ui.fill, BAR_X, BAR_Y, 1, BAR_H)
     for _, w in ipairs({ track, ui.fill }) do w:SetVisibility(4) end -- HitTestInvisible: nothing to click
+    host:SetVisibility(4) -- HitTestInvisible: never takes the mouse from the game under it
     host:AddToViewport(1000)
     L.stage("world", 0)
     return true
