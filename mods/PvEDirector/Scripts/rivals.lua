@@ -185,7 +185,6 @@ local CFG = {
     STATION_AREA_MID = 35000, DEFENDERS_MAX_SCALE = 1.5,
     STATION_AREA_PER_CREW = 25000,
     STATION_CROWD = 0.35,
-    SWING_UNHOOK_AFTER = 5, -- seconds with no turret aimed before the turret swing hooks come off (swingHooksIdle)
     STRAY_EVERY = 8,        -- seconds between sweeps for placed NPCs the garrison missed (sweepStrays)
     STRAY_RANGE = 6000,     -- ...counting those this near you even outside the station's box
     GEAR_SLOTS = { "CharacterBody0", "Helemt", "ChestSlot", "Backpc" },
@@ -913,41 +912,38 @@ local function equipGun(ship, g)
     ship:ServerEquipWeapon(g)
 end
 
--- Turret aim. A barrel follows its AnimBP's Yaw_Delayed / NewPitch (deg off the hull's nose), which the AnimBP's
--- CameraRotation event works out every frame from whoever the game thinks aims it: on your hull that's the pilot's
--- view, so from the helm your mouse swung the turret your gunner was firing (TurretLocalRot moves nothing). Turrets in
--- AIMED get both written back after every CameraRotation instead (BP hooks run after the event): their gunners' aim
--- (wantYaw/wantPitch), swung at TURRET_SWING x the turret's own speed. fireTurrets shoots along that barrel.
-local TURRET_ANIMS = { "11_Dual25mmTurret/AnimBP_Dual_25mm_Turret01.AnimBP_Dual_25mm_Turret01_C",
-    "03_FlakTurret01/AnimBP_FlakTurret01.AnimBP_FlakTurret01_C", "13_75mmTurret/AnimBP_75mm_Turret.AnimBP_75mm_Turret_C",
-    "06_RocketAtillery01/AnimBP_Artillery01.AnimBP_Artillery01_C", "01_LargeTurret01/AnimBP_LargeTurret01.AnimBP_LargeTurret01_C",
-    "02_LightTurret01/AnimBP_LightTurret01.AnimBP_LightTurret01_C",
-    "07_TorpedoLauncher01/AnimBP_TorpedoLauncher01.AnimBP_TorpedoLauncher01_C" }
-local AIMED = {}      -- AnimBP address -> fireTurrets entry
-local animHooked = {} -- TURRET_ANIMS entry -> { pre, post } hook ids (or { skip = true })
+-- Turret aim. A barrel follows its AnimBP's Yaw_Delayed / NewPitch (deg off the hull's nose), which the turret
+-- actor's tick (its CameraRotation) works out every frame from whoever the game thinks aims it: on your hull that's
+-- the pilot's view, so from the helm your mouse swung the turret your gunner was firing (TurretLocalRot moves
+-- nothing). Turrets in AIMED have their actor tick off instead, and swingAimed writes both every frame: their gunners'
+-- aim (wantYaw/wantPitch), swung at TURRET_SWING x the turret's own speed. fireTurrets shoots along that barrel.
+-- This used to be a hook on every turret AnimBP's CameraRotation: it ran for all of them each frame, aimed or not
+-- (~200 at a time late in a raid, wrecks included: 10k+ calls a second), and UE4SS makes garbage for every call:
+-- ~18 MB a second, the collector 0.8 s per 10 s with 13 ms steps, a stutter that got worse the longer the raid ran
+-- (profile.txt, 2026-11-15).
+local AIMED = {} -- AnimBP address -> fireTurrets entry
 
 local function swingStep(cur, want, speed, dt)
     local m = speed * CFG.TURRET_SWING * dt
     return cur + math.max(-m, math.min(m, want - cur))
 end
 
--- Called by every turret AnimBP in the world each frame (~3500 a second): keep it allocation-free past ctx:get().
-local function swingBarrel(ctx)
-    local P = _G.PVE_PROF
-    if P then P.swing = (P.swing or 0) + 1 end
+-- Every frame, from R.frame: swing each aimed barrel toward its gunners' aim.
+local function swingAimed(dt)
     if next(AIMED) == nil then return end
-    local a = ctx:get()
-    local addr = a:GetAddress()
-    local e = AIMED[addr]
-    if not e then return end
-    if not e.actor:IsValid() then AIMED[addr] = nil return end
-    local now = os.clock()
-    local dt = math.min(0.1, now - (e.swungAt or now))
-    e.swungAt = now
-    e.yaw = swingStep(e.yaw, e.wantYaw, e.yawSpeed, dt)
-    e.pitch = swingStep(e.pitch, e.wantPitch, e.pitchSpeed, dt)
-    a.Yaw_Delayed = e.yaw
-    a.NewPitch = e.pitch
+    local P = _G.PVE_PROF
+    for addr, e in pairs(AIMED) do
+        local a = e.anim
+        if not (valid(e.actor) and valid(a)) then
+            AIMED[addr] = nil
+        else
+            e.yaw = swingStep(e.yaw, e.wantYaw, e.yawSpeed, dt)
+            e.pitch = swingStep(e.pitch, e.wantPitch, e.pitchSpeed, dt)
+            a.Yaw_Delayed = e.yaw
+            a.NewPitch = e.pitch
+            if P then P.swing = (P.swing or 0) + 1 end
+        end
+    end
 end
 
 -- Puts a fireTurrets entry's barrel under its gunners (on) or gives it back to the game; it starts where it points now
@@ -956,47 +952,36 @@ local function aimTurret(e, on)
     local ok, ab = pcall(function() return e.actor.TurretBarrelMesh:GetAnimInstance() end)
     if not (ok and valid(ab)) then return end
     local addr = ab:GetAddress()
-    if not on then AIMED[addr], e.aimed, e.swungAt = nil, nil, nil return end
-    for _, p in ipairs(TURRET_ANIMS) do
-        local fn = "/Game/Ships_Extras/" .. p .. ":CameraRotation"
-        local off = io.open(PROJECT .. "bridge/no_swing_hook", "r") -- testing: measure the game without this hook
-        if off then off:close() animHooked[p] = { skip = true } end
-        if not animHooked[p] and StaticFindObject(fn):IsValid() then
-            local ok, pre, post = pcall(RegisterHook, fn, swingBarrel)
-            if ok then animHooked[p] = { fn = fn, pre = pre, post = post } end
-        end
+    if not on then
+        AIMED[addr], e.aimed, e.anim = nil, nil, nil
+        pcall(function() e.actor:SetActorTickEnabled(true) end)
+        return
     end
-    S.turretAimedAt = os.clock()
     e.yaw, e.pitch = 0, 0
     pcall(function() e.yaw, e.pitch = ab.Yaw_Delayed, ab.NewPitch end)
     e.wantYaw, e.wantPitch = 0, 0
     e.yawSpeed, e.pitchSpeed = 20, 10
     pcall(function() e.yawSpeed, e.pitchSpeed = e.actor.TurretYawSpeed, e.actor.TurretPitchSpeed end)
-    e.aimed = true
+    pcall(function() e.actor:SetActorTickEnabled(false) end)
+    e.aimed, e.anim = true, ab
     AIMED[addr] = e
 end
 
--- The swing hook runs for every turret AnimBP in the world each frame whether or not one is aimed (~5000 calls a
--- second in a station fight, with ships docked), and UE4SS builds a context object for each call: ~5 MB of garbage
--- a second, a good part of the collector's 0.5-2.4 s per 10 s in fights (profile.txt, 2026-11-14). With no turret
--- aimed for SWING_UNHOOK_AFTER s, the hooks come off; aimTurret puts them back.
-local function swingHooksIdle(now)
-    if now < (S.swingCheckAt or 0) then return end
-    S.swingCheckAt = now + 1
-    -- a turret that went with its world (or its ship) stays in AIMED until its own AnimBP calls the hook: drop it here
-    for addr, e in pairs(AIMED) do
-        if not valid(e.actor) then AIMED[addr] = nil end
-    end
-    if next(AIMED) ~= nil or next(animHooked) == nil then return end
-    if now - (S.turretAimedAt or 0) < CFG.SWING_UNHOOK_AFTER then return end
-    local n = 0
-    for p, h in pairs(animHooked) do
-        if h.fn then
-            if pcall(UnregisterHook, h.fn, h.pre, h.post) then n = n + 1 end
+-- A wreck's turrets (its camera turrets too) stop ticking: nobody aims them again, and dozens of wrecks build up.
+local function stillTurrets(c)
+    for _, t in ipairs(c.turrets or {}) do
+        if valid(t.actor) then
+            aimTurret(t, false)
+            pcall(function() t.actor:SetActorTickEnabled(false) end)
         end
-        if not h.skip then animHooked[p] = nil end
     end
-    if n > 0 then X.log(("[rivals] no turret aimed for %d s: %d turret swing hook(s) off"):format(CFG.SWING_UNHOOK_AFTER, n)) end
+    if not valid(c.ship) then return end
+    pcall(function()
+        c.ship.SpawnedTurretArray:ForEach(function(_, e)
+            local t = e:get()
+            if valid(t) then t:SetActorTickEnabled(false) end
+        end)
+    end)
 end
 
 -- Turrets: the design's turret actors attached to the hull's Soc_Turret01/02, fired by fireTurrets (nobody mans them).
@@ -3455,6 +3440,7 @@ local function updateCrew(c, now, place, playerLoc)
         X.log("[rivals] " .. crewLabel(c) .. " went down with their ship")
         for _, m in ipairs(c.members) do m.alive = false end
         c.state = valid(c.ship) and "wreck" or "gone"
+        if c.state == "wreck" then pcall(stillTurrets, c) end
         return
     end
     local shipLoc = shipOk(c) and c.ship:K2_GetActorLocation() or nil
@@ -3559,7 +3545,10 @@ local function updateCrew(c, now, place, playerLoc)
         end
         local tl = tgt:K2_GetActorLocation()
         local d = dist(shipLoc, tl)
-        if d > CFG.SHIP_SIGHT * (c.diehard and 4 or 1.5) then disengage(c, now, "lost them") return end
+        -- (a crew sent in by a test trigger is moved next to you a tick late: not "lost" for its first 30 s)
+        if d > CFG.SHIP_SIGHT * (c.diehard and 4 or 1.5) and not (c.testUntil and now < c.testUntil) then
+            disengage(c, now, "lost them") return
+        end
         if now >= c.engageUntil and not c.party and not c.diehard then disengage(c, now, "had enough") return end
         setShipEnemy(c, tgt)
         c.fireAt = tgt
@@ -3789,7 +3778,7 @@ function R.frame(worldKey)
     if not S or S.key ~= worldKey then return end
     glideShips(now)
     fireControl(now, dt)
-    pcall(swingHooksIdle, now)
+    pcall(swingAimed, dt)
     if #S.pods > 0 then flyPods(dt) end
     if valid(S.pc) then
         pcall(rescueFromVoid, now)
@@ -4208,7 +4197,7 @@ function R.provoke(board)
     if not S then return end
     local best, bd
     for _, c in ipairs(S.crews) do
-        if (c.state == "travel" or c.state == "waiting") and valid(S.playerShip) then
+        if (c.state == "travel" or c.state == "waiting" or c.state == "leaving") and valid(S.playerShip) then
             if c.state == "waiting" then c.launchAt = 0 end
             local d = shipOk(c) and dist(c.ship:K2_GetActorLocation(), S.playerShip:K2_GetActorLocation()) or 1e9
             if not bd or d < bd then best, bd = c, d end
@@ -4225,11 +4214,13 @@ function R.provoke(board)
             Out.call(best.ship, "K2_SetActorLocation", { X = pl.X + 12000, Y = pl.Y, Z = pl.Z }, false, {}, true)
             engage(best, { player = true }, os.clock(), "provoked")
             if board then best.boardPlan, best.boardAt = "all", 0 end -- bridge/rivals_board: boarders, whatever the roll
+            best.testUntil = os.clock() + 30
         end
     end
 end
 
--- Testing: two flying crews meet near you and the first boards the second as soon as it's in pod range.
+-- Testing and filming: two flying crews meet near you, `apart` units apart (default 3000), and the first boards the
+-- second as soon as it's in pod range.
 function R.firedForTest() playerFired() end
 function R.skirmishNow(size)
     if not S then return end
@@ -4239,7 +4230,7 @@ function R.skirmishNow(size)
     S.skirmishes = math.min(S.skirmishes or 0, CFG.SKIRMISH_MAX - 1)
 end
 
-function R.clash()
+function R.clash(apart)
     if not S or not valid(S.playerShip) then return end
     local pair = {}
     for _, c in ipairs(S.crews) do
@@ -4249,12 +4240,21 @@ function R.clash()
         end
         if c.state == "travel" and valid(c.ship) and #pair < 2 then table.insert(pair, c) end
     end
+    -- late in a raid nobody's travelling: crews heading home, or fighting each other, will do (for filming)
+    for _, c in ipairs(S.crews) do
+        if #pair < 2 and (c.state == "leaving" or (c.state == "attack" and not (c.target and c.target.player)))
+            and shipOk(c) and c ~= pair[1] then table.insert(pair, c) end
+    end
     if #pair < 2 then X.log("[rivals] clash: no two crews flying") return end
     local a, b, pl = pair[1], pair[2], S.playerShip:K2_GetActorLocation()
     Out.call(a.ship, "K2_SetActorLocation", { X = pl.X + 12000, Y = pl.Y, Z = pl.Z + 2000 }, false, {}, true)
-    Out.call(b.ship, "K2_SetActorLocation", { X = pl.X + 12000, Y = pl.Y + 3000, Z = pl.Z + 2000 }, false, {}, true)
+    Out.call(b.ship, "K2_SetActorLocation", { X = pl.X + 12000, Y = pl.Y + (apart or 3000), Z = pl.Z + 2000 }, false, {}, true)
     engage(a, { crew = b }, os.clock(), "clash test")
     a.boardPlan, a.boardAt = "all", 0
+    -- the target fights back (a crew heading home would otherwise extract before the pods arrive)
+    engage(b, { crew = a }, os.clock(), "clash test")
+    b.boardPlan = nil
+    a.testUntil, b.testUntil = os.clock() + 30, os.clock() + 30
 end
 
 -- Your own crew (crew.lua) is built from the same people, bodies and turrets as the rivals.
