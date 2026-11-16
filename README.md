@@ -9,6 +9,10 @@ Marauders servers.
 Marauders is made by a small UK team. This mod is not affiliated with the developer or publisher. You need your own copy
 of Marauders on Steam.
 
+> **Heads up:** this mod is vibe coded with [Claude Code](https://claude.com/claude-code). Some of it may not be fully
+> efficient or make complete sense. That's where your contributions come in: see [CONTRIBUTING.md](CONTRIBUTING.md), or
+> come and talk about it on the Discord.
+
 ## Play it: download the public test
 
 **[Download the latest release](https://github.com/HaywireHayley/Marauders-PvE/releases/latest)**: open the page and
