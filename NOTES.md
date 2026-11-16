@@ -2870,3 +2870,23 @@ visible (visibility 4) with bShowMouseCursor false. This is the game's own behav
   - Tab open/close and Esc in the inventory work as before. Esc outside the inventory still opens the pause menu.
   - Forcing InventoryMenu visible with the cursor off got it closed within 0.5 s, with the log line. The net never
     fired on its own.
+## Your look and voice in raids (2026-11-16, tested; nakama_standin.py write_cosmetics, main.lua applyLoadout)
+Tester report: "no voices or cosmetics actually appear to change in raid". The lobby showed the chosen head, body and
+voice (cosequipped), but raids always had Raider_Head_Skel_01, Raider_Body_Skel_01 and the English male voice.
+- Online, the raid server gets them as it gets the loadout:
+  SIGISPlayerController:Server_AwsN_EquippedplayerCosmeticsReturned(FString). Offline nobody calls it, so the
+  controller's EquippedHead/Body/Voice stay "". The pawn's ActiveVoice stays "" too, and PlayEmoteVoice falls back
+  to enM01 when GetInGameActiveVoice() is empty.
+- Shape: a JSON array of {"key": "head"|"body"|"voice", "value": "<row>"}. Passing the stored string as it is
+  ({"value":"20"}) put that whole string into EquippedHead. A {"collection",...} storage-list shape and a flat
+  object did nothing.
+- The call sets EquippedHead/Body/Voice and the pawn's ActiveVoice. It resolves the rows to meshes in the pawn's
+  replicated R_FaceMesh / R_BodyMesh (head 20 = Hunter_Head_Red_Skel_01, body 48 = Raider_Body_RedWhite_Skel_01;
+  R_HeadMesh stays null). Nothing replicates offline, so the character only changes after pawn:OnRep_SetHead(), which
+  applies both.
+- The stand-in writes backend/cosmetics.json (gitignored) next to loadout.json, on startup and every save. applyLoadout
+  feeds it to the controller right after the loadout, then calls OnRep_SetHead, and logs "cosmetics: [...]".
+- Tested: save set to head 20, body 48, voice frF01. The lobby showed the red Hunter head and the red/white body. On
+  Space_Charlie, CharacterMesh0 = Hunter_Head_Red_Skel_01, CharacterBody0 = Raider_Body_RedWhite_Skel_01,
+  ActiveVoice = frF01. A real F1 (Voice01) sent RunOnServerVoice with DT_VoiceSet_FrenchFemale01. Not watched in third
+  person.

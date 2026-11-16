@@ -137,6 +137,7 @@ local CFG = {
     MAP_POOL = { "Space_Solo_01", "Space_Solo_02", "Space_Alpha", "Space_Beta", "Space_Charlie", "Space_Delta" },
     -- The player starts with the stash loadout the local Nakama stand-in keeps (while OFFLINE_BACKEND_FLAG exists).
     LOADOUT_FILE = PROJECT .. "backend/loadout.json",
+    COSMETICS_FILE = PROJECT .. "backend/cosmetics.json", -- your head, body and voice (the stand-in's cosequipped)
     CHECKOUT_FILE = PROJECT .. "backend/checkout.txt",
     SHIP_LOST_FILE = PROJECT .. "backend/ship_lost.txt",
     SHIP_GATE_FILE = PROJECT .. "backend/ship_gate.txt",
@@ -2171,6 +2172,23 @@ local function applyLoadout(pc)
         os.rename(tmp, CFG.CHECKOUT_FILE)
     end
     log(("loadout: %d equipped item(s) from the stand-in stash, checked out of it"):format(#ids))
+    -- Your look and voice: the raid server gets them the same way (Server_AwsN_EquippedplayerCosmeticsReturned), and
+    -- offline nobody sent them, so raids had the default head, body and English voice whatever the lobby showed. The
+    -- call fills the controller's EquippedHead/Body/Voice, the pawn's voice and its replicated R_FaceMesh/R_BodyMesh;
+    -- OnRep_SetHead (no replication here) puts those meshes on the character.
+    do
+        local cf = io.open(CFG.COSMETICS_FILE, "r")
+        local cos = cf and cf:read("a")
+        if cf then cf:close() end
+        if cos and cos:find('"key"', 1, true) then
+            local okCos, errCos = pcall(function()
+                pc:Server_AwsN_EquippedplayerCosmeticsReturned(cos)
+                local pawn = pc.Pawn
+                if valid(pawn) then pawn:OnRep_SetHead() end
+            end)
+            log(okCos and ("cosmetics: " .. cos) or ("cosmetics failed: " .. tostring(errCos)))
+        end
+    end
     return true
 end
 

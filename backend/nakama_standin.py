@@ -18,6 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 STATE = os.path.join(HERE, "state.json")
 LOG = os.path.join(HERE, "server.log")
 LOADOUT = os.path.join(HERE, "loadout.json")  # equipped items, read by the PvEDirector mod at raid start
+COSMETICS = os.path.join(HERE, "cosmetics.json")  # your look and voice, read by the PvEDirector mod at raid start
 CHECKOUT = os.path.join(HERE, "checkout.txt")  # item ids taken into a raid, written by the PvEDirector mod
 SHIP_STOLEN = os.path.join(HERE, "ship_stolen.txt")  # table row of a ship you took the helm of, written by the mod
 SHIP_LOST = os.path.join(HERE, "ship_lost.txt")  # you died: the ship you took in isn't coming back
@@ -98,6 +99,7 @@ def load_state():
     if os.path.exists(STATE):
         s = json.load(open(STATE, encoding="utf-8"))
         write_loadout(s)
+        write_cosmetics(s)
         return s
     s = new_state()
     save_state(s)
@@ -111,6 +113,7 @@ def save_state(s):
         json.dump(s, f, indent=1)
     os.replace(tmp, STATE)
     write_loadout(s)
+    write_cosmetics(s)
 
 
 def write_loadout(s):
@@ -129,6 +132,26 @@ def write_loadout(s):
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(items, f, separators=(",", ":"))
     os.replace(tmp, LOADOUT)
+
+
+def write_cosmetics(s):
+    """Your equipped head, body and voice (cosequipped), as the raid server's
+    SIGISPlayerController::Server_AwsN_EquippedplayerCosmeticsReturned takes them: a JSON array of
+    {"key": "head" | "body" | "voice", "value": "<row>"} (the stored {"value": ...} unwrapped; passing the stored
+    string as it is put {"value":"20"} into EquippedHead). The PvEDirector mod feeds this file to it at raid start."""
+    out = []
+    for k, o in sorted(s["storage"].get("cosequipped", {}).items()):
+        try:
+            v = json.loads(o["value"])
+        except ValueError:
+            continue
+        v = v.get("value") if isinstance(v, dict) else v
+        if v not in (None, ""):
+            out.append({"key": k, "value": str(v)})
+    tmp = COSMETICS + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(out, f, separators=(",", ":"))
+    os.replace(tmp, COSMETICS)
 
 
 state = None
