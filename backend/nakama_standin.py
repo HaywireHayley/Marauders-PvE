@@ -33,6 +33,21 @@ CHEAT_CASH = 999999999
 # play as a woman from the start, but the game's cheapest female voice (French, frF01) cost 3500. The game keeps
 # unlocks in playerstats/cosmeticsunlocked as row names joined by "-" and writes the whole list back after a purchase.
 FREE_COSMETICS = ("frF01",)
+# The launcher's "Unlock all looks and voices" (issue #48): every DT_PlayerAppearance row (heads and bodies are
+# numbered, voices named), read from the running game. Left out: Pirate and Mod (57-60), cost 1 and apparently
+# developer placeholders. Only what's sent at login changes, never the save, so turning it off brings progression back.
+UNLOCK_ALL_SETTING = os.path.join(HERE, "..", "config", "unlock_all_looks.txt")
+ALL_COSMETICS = tuple(str(n) for n in list(range(1, 57)) + list(range(61, 73)) + [84, 85, 86, 87, 88, 89, 90, 92, 93, 94, 95]) + (
+    "enM01", "frM01", "frF01", "plM01", "auM01", "usaM01", "usaF01", "huM01", "duM01", "duF01", "roM01", "itM01", "itF01",
+    "str01")
+
+
+def unlock_all():
+    try:
+        with open(UNLOCK_ALL_SETTING, encoding="utf-8") as f:
+            return f.read().strip() == "on"
+    except OSError:
+        return False
 lock = threading.Lock()
 
 
@@ -146,16 +161,18 @@ def collection_kv(col):
 
 
 def with_free_cosmetics(stats):
-    """The playerstats list with FREE_COSMETICS added to cosmeticsunlocked (only in what is sent, not in the save)."""
+    """The playerstats list with FREE_COSMETICS (and with the launcher setting on, ALL_COSMETICS) added to
+    cosmeticsunlocked (only in what is sent, not in the save)."""
+    free = FREE_COSMETICS + (ALL_COSMETICS if unlock_all() else ())
     out, seen = [], False
     for kv in stats:
         if kv["key"] == "cosmeticsunlocked":
             seen = True
             have = [c for c in str(kv["value"].get("value", "")).split("-") if c]
-            kv = {"key": kv["key"], "value": {**kv["value"], "value": "-".join(have + [c for c in FREE_COSMETICS if c not in have])}}
+            kv = {"key": kv["key"], "value": {**kv["value"], "value": "-".join(have + [c for c in dict.fromkeys(free) if c not in have])}}
         out.append(kv)
     if not seen:
-        out.append({"key": "cosmeticsunlocked", "value": {"value": "-".join(FREE_COSMETICS)}})
+        out.append({"key": "cosmeticsunlocked", "value": {"value": "-".join(dict.fromkeys(free))}})
     return out
 
 

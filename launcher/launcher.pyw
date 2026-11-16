@@ -22,6 +22,7 @@ FEMALE_SHARE = os.path.join(ROOT, "config", "female_share.txt")  # percent of ot
 FEMALE_SHARE_DEFAULT = 35
 WINDOW_SETTING = os.path.join(ROOT, "config", "window_mode.txt")  # read by scripts/launch-offline.ps1
 SKIP_INTRO_SETTING = os.path.join(ROOT, "config", "skip_intro.txt")  # read by scripts/mode.ps1
+UNLOCK_LOOKS_SETTING = os.path.join(ROOT, "config", "unlock_all_looks.txt")  # read by the Nakama stand-in at login
 GAME_PATH = os.path.join(ROOT, "config", "game_path.txt")  # written by the installer; scripts/mode.ps1 has the same default
 
 
@@ -233,6 +234,8 @@ class App(tk.Tk):
         self.toggle("Borderless fullscreen", self.borderless_var, self.toggle_borderless)
         self.skip_intro_var = tk.BooleanVar(value=self.read_skip_intro())
         self.toggle("Skip the intro video", self.skip_intro_var, self.toggle_skip_intro)
+        self.unlock_looks_var = tk.BooleanVar(value=self.read_unlock_looks())
+        self.toggle("Unlock all looks and voices", self.unlock_looks_var, self.toggle_unlock_looks)
 
         self.status = tk.Label(self, text="", bg=INK, fg=MUTED, font=font(11), anchor="w", bd=0)
         tag = tk.Label(self, text="OFFLINE  PvE", bg=INK, fg=ORANGE_DIM, font=font(11, "SemiBold"))
@@ -483,6 +486,18 @@ class App(tk.Tk):
                 return f.read().strip() == "on"
         except OSError:
             return False
+
+    def read_unlock_looks(self):
+        try:
+            with open(UNLOCK_LOOKS_SETTING, encoding="utf-8") as f:
+                return f.read().strip() == "on"
+        except OSError:
+            return False
+
+    def toggle_unlock_looks(self):
+        # every head, body and voice unlocked from the next login on; off brings back what the save earned
+        with open(UNLOCK_LOOKS_SETTING, "w", encoding="utf-8") as f:
+            f.write("on\n" if self.unlock_looks_var.get() else "off\n")
 
     def toggle_skip_intro(self):
         # takes effect at the next Play (scripts/mode.ps1 offline swaps the startup video)

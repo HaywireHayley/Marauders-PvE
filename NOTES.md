@@ -2712,6 +2712,12 @@ Issue #27. You can play as a woman from the first launch, but the cheapest femal
   Voice shows FRENCH 02 without a lock. Selecting it wrote only cosequipped/voice = frF01 (no cash write).
 - Crashes while probing (don't repeat): calling InventoryMenuWidget:UnlockCosmetic("frF01") with a guessed signature,
   and appending to pc.UnlockedCustomisations from Lua (`a[#a+1] = "x"` on an FString TArray in UE4SS 3.0.1).
+- Unlock all looks and voices (2026-11-16, issue #48, Hayley: a toggle): launcher checkbox -> config/unlock_all_looks.txt
+  (on/off). The stand-in's with_free_cosmetics adds ALL_COSMETICS (every DT_PlayerAppearance row: heads/bodies 1-56,
+  61-72, 84-90, 92-95 and the 14 voices; Pirate/Mod 57-60 left out, cost 1, likely dev placeholders) to what it sends
+  at login, never to the save. Tested: on -> UnlockedCustomisations 93, Appearance > Voice all unlocked; off ->
+  1 (frF01) and the save's cosmeticsunlocked still "". With everything unlocked nothing can be bought, so the game
+  never writes the full list back into the save.
 ## No captain's key card at raid start (2026-11-16, tested; main.lua guardKeyCard)
 Issue #33. Reproduced on Space_Beta with the test save's empty loadout: the player's inventory had no items and no
 KEYCARD 35 s after boarding, and guardKeyCard logged nothing, because it only puts back a card it has seen.
