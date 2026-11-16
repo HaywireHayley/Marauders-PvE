@@ -2533,7 +2533,8 @@ local STASH_UNLOCK_ROWS = 2 -- each one's StashSizeIncrease
 -- that leaves you shut out of your own ship. So: remember it, and if it's gone while the KeyCard slot is empty, put the
 -- same card back (Server_AddItem with its id and info; verified to open the station side of the airlock again).
 -- A card of another crew in the slot is left alone: that's yours to use on their ship.
-local CARD_CHECK = 2
+-- check every 2 s; ask the game for a missing card 6 s after boarding, at most 3 times (a table: the 200-locals limit)
+local CARD = { CHECK = 2, GRACE = 6, ASKS = 3 }
 
 local function playerInventory()
     for _, inv in ipairs(FindAllOf("SIGISInventoryComponent") or {}) do
@@ -2561,6 +2562,15 @@ local function guardKeyCard(pc)
         end
     end)
     local k = raid.card
+    -- No card at all yet (issue #33; seen with an empty loadout): ask the game for one, as its own raid start does.
+    -- Server_ReadyforKeyCard makes the card for your ship (verified: KEYCARD in the KeyCard slot a second later).
+    if not k and not slotted and raid.readyAt and os.clock() - raid.readyAt >= CARD.GRACE
+        and (raid.cardAsked or 0) < CARD.ASKS then
+        raid.cardAsked = (raid.cardAsked or 0) + 1
+        inv:Server_ReadyforKeyCard()
+        log(("key card: none %ds after boarding; asked the game for one (%d)"):format(CARD.GRACE, raid.cardAsked))
+        return
+    end
     if not k or mine then return end
     if slotted then
         if raid.cardNote ~= slotted then raid.cardNote = slotted log("key card: yours is gone, another crew's is in the slot") end
@@ -3049,7 +3059,7 @@ update = function(pc)
         end
         if raid.readyAt and not raid.floorLoot then spawnFloorLoot(pc) end
         if raid.readyAt and os.clock() >= (raid.cardAt or 0) then
-            raid.cardAt = os.clock() + CARD_CHECK
+            raid.cardAt = os.clock() + CARD.CHECK
             local ok, err = pcall(guardKeyCard, pc)
             if not ok then log("key card: " .. tostring(err)) end
         end

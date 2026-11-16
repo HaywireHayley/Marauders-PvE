@@ -2551,6 +2551,19 @@ space salvaging doesn't work.
   `pcall(loadfile("<absolute path>"), a, b)` (relative paths fail). Read widget `.Visibility` instead of calling
   GetVisibility (errors as "function: 0x..." on some instances).
 
+## No captain's key card at raid start (2026-11-16, tested; main.lua guardKeyCard)
+Issue #33. Reproduced on Space_Beta with the test save's empty loadout: the player's inventory had no items and no
+KEYCARD 35 s after boarding, and guardKeyCard logged nothing, because it only puts back a card it has seen.
+- SIGISInventoryComponent:Server_ReadyforKeyCard (no params, server RPC) makes the card. Called by bridge, KEYCARD
+  appeared in the KeyCard slot a second later, Attachments "<captain>!USS Oberon!75312034!FrigateStarter_Ship" (the
+  interior's KeyCardUUID). A second call doesn't add another card (still 1).
+- guardKeyCard now calls it when no card has turned up 6 s after boarding (CARD.GRACE, at most CARD.ASKS = 3 tries,
+  every CARD.CHECK = 2 s). The card it gets is then remembered and guarded as before. CARD is a table because main.lua
+  is at the 200-locals limit.
+- Tested on a fresh launch, empty loadout: "none 6s after boarding; asked the game for one (1)" at +6 s, then
+  "key card: Vanquisher!16368391!FrigateStarter_Ship" at +8 s; 1 card. Not tested: using this card at a station airlock
+  (it is the game's own card, the same kind the 2026-11-07 tests used), and which normal-start step fails to ask with
+  an empty loadout.
 ## Quit Game in the pause menu (2026-11-16, tested in a raid; mods/PvEDirector/Scripts/quit.lua)
 Testers had no way to quit from inside the game and force-closed it. SIGIS_Exit_Widget_C (Esc in a raid) has Resume,
 Guide, Report Abuse, Settings and Main Menu. Its EXIT button belongs to the "are you sure?" panel behind Main Menu and
