@@ -55,14 +55,41 @@ def font(size, weight=""):
 def ps(*args):
     # PVE_PYTHON: launch-offline.ps1 starts the stand-in with this interpreter, not whatever "python" is on PATH.
     env = dict(os.environ, PVE_PYTHON=sys.executable)
-    subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", *args], cwd=ROOT, creationflags=NO_WINDOW,
-                   capture_output=True, text=True, env=env)
+    return subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", *args], cwd=ROOT,
+                          creationflags=NO_WINDOW, capture_output=True, text=True, env=env)
 
 
 def game_running():
     out = subprocess.run(["tasklist", "/FI", f"IMAGENAME eq {GAME_EXE}", "/NH"], capture_output=True, text=True,
                          creationflags=NO_WINDOW).stdout
     return GAME_EXE[:20].lower() in out.lower()
+
+
+def ps_error(result):
+    """The first line of a failed PowerShell script's error, short enough for the status line."""
+    lines = [l.strip() for l in (result.stderr or "").splitlines() if l.strip()]
+    text = lines[0] if lines else f"exit code {result.returncode}"
+    return text if len(text) <= 160 else text[:157] + "..."
+
+
+def steam_running():
+    out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq steam.exe", "/NH"], capture_output=True, text=True,
+                         creationflags=NO_WINDOW).stdout
+    return "steam.exe" in out.lower()
+
+
+def preflight():
+    """Why PLAY can't work right now, in words a player can act on; None when everything it needs is in place.
+    Without this a missing piece only showed as "The game didn't start" after START_TIMEOUT."""
+    game = game_folder()
+    if not os.path.isfile(os.path.join(game, "RaidGame", "Binaries", "Win64", GAME_EXE)):
+        return f"Can't find the game in {game}. Run Install.bat again (developers: set config\\game_path.txt)."
+    for need in ("dwmapi.dll", "UE4SS.dll", "Mods"):
+        if not os.path.exists(os.path.join(ROOT, "tools", "ue4ss", need)):
+            return f"UE4SS is missing (tools\\ue4ss\\{need}). Unzip the mod again (developers: see the README's setup)."
+    if not steam_running():
+        return "Start Steam first: the game needs it running."
+    return None
 
 
 def stop_standin():
@@ -141,6 +168,7 @@ class App(tk.Tk):
             saves.settle()
         self.selected = None
         self.running = False
+        self.launch_error = None
         self.cards = {}
         self.build()
         self.refresh()
@@ -458,6 +486,11 @@ class App(tk.Tk):
         if game_running():
             self.say("The game is already running. Close it first.")
             return
+        problem = preflight()
+        if problem:
+            self.say(problem)
+            return
+        self.launch_error = None
         self.running = True
         self.seen = False
         self.started = time.time()
@@ -469,7 +502,12 @@ class App(tk.Tk):
     def start_game(self, sid):
         stop_standin()
         saves.activate(sid)
-        ps("-File", os.path.join(ROOT, "scripts", "launch-offline.ps1"))
+        result = ps("-File", os.path.join(ROOT, "scripts", "launch-offline.ps1"))
+        if result.returncode != 0:
+            # Tidy up at once (watch() sees the timeout) and say why, instead of waiting START_TIMEOUT in silence.
+            self.launch_error = ps_error(result)
+            self.started = 0
+            return
         self.after(0, lambda: self.say("Playing. Leave this window open: it saves when you close the game."))
 
     def watch(self):
@@ -500,6 +538,9 @@ class App(tk.Tk):
     def done(self):
         self.running = False
         self.refresh()
+        if self.launch_error and not self.seen:
+            self.say(f"The game didn't start: {self.launch_error} Nothing changed; the normal online game works as usual.")
+            return
         self.say(("Saved. " if self.seen else "The game didn't start, so nothing changed. ") + "The normal online game works as usual.")
 
 
