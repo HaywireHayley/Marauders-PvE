@@ -2067,7 +2067,7 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
 - Not yet seen in game: whether Health above 100 survives the game's own healing/med use on a bot (an earlier run showed
   a crewmate at 160 hp, so values over 100 do stick).
 
-## Gear follows your level (2026-11-13, UNTESTED in game; rolls checked offline with lupa)
+## Gear follows your level (2026-11-13; rolls checked offline with lupa, in game 2026-11-15)
 - `gearscale.lua`: rivals (`newMember`), station top-up guards and crew kits (`hire.lua` `H.tier`) roll a gear grade
   0..1 = position in each price-sorted gear.lua list. Centre = 0.15 at player level 1 -> 0.80 at `LEVEL_MAX`; 70% of rolls
   land below it (up to 0.35 under), the rest above (squared, up to 0.25), 6% anywhere. Helmet/chest/bag chances rise
@@ -2082,6 +2082,15 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
   Helmet/Armour/BackPackToSpawn) and its head + gear meshes before female.lua dresses it. A top-up copies one template
   guard's helmet/chest/bag/pistol rows and meshes (set again in `finishTopUp` once the kit has arrived) and takes a gun
   some guard of that station carries. Unreadable rows -> the old mid-tier roll.
+- Level off by one, and level 0 dropped (2026-11-15, tested in game): the game counts from 0 (a new player's lobby
+  shows "LVL 0"; GetXPForLevel(0) = 0, (1) = 525, (20) = 29070), so GetPlayersLevel() returned 0 for a new save and
+  setLevel ignored it: a new save kept the previous save's level (and its geared enemies), and the dev tree kept the
+  tracked config/player_level.txt "8 40". main.lua now passes GetPlayersLevel() + 1; player_level.txt is per-player
+  (gitignored, no longer tracked). The XP table keeps rising past 200, so the cap stays LEVEL_MAX 40 (mod levels).
+- Checked in game, rolls sampled inside the director (bridge/dir_eval.lua, 4000 GearScale.roll()):
+  game LVL 0 -> "player level 1 of 40", centre 0.15: budget 92% / mid 5% / geared 2%, helmet 41%, chest 32%;
+  game LVL 20 (XP 29080) -> level 21, centre 0.48: 41 / 52 / 6 %, helmet 59%, chest 54%. Live raid at level 21
+  (GearScale.roll wrapped for 3.5 min): 5 new rivals rolled 0.48 0.19 0.35 0.66 0.61 (4 mid, 1 budget).
 
 ## Share of women (2026-11-13)
 - Launcher slider "Female enemies and crew" (0-100 %, steps of 5, default 35) writes `config/female_share.txt` (a percent).
