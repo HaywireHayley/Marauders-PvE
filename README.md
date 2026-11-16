@@ -106,28 +106,31 @@ small local server that answers what the real backend used to (account, stash, l
 
 ## Setting it up on your PC
 
-1. **Have Marauders installed through Steam.**
-2. **Install Python 3.9 or newer** from python.org, ticking "Add Python to PATH". Then, in a terminal:
+1. **Have Marauders installed through Steam**, and **Python 3.9 or newer** from python.org (tick "Add Python to PATH").
+2. **Get this repository** with GitHub Desktop (File → Clone repository). Put it in a plain folder like
+   `C:\Mods\MaraudersPvE`.
+3. **Run the setup script** in a terminal, from the repository folder:
 
    ```bash
-   pip install pillow
+   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup-dev.ps1
    ```
 
-   For the research tools under `tools/` you'd also want `pip install capstone numpy pycryptodome`. Playing doesn't need them.
-3. **Get this repository** with GitHub Desktop (File → Clone repository). Put it in a plain folder like
-   `C:\Mods\MaraudersPvE`.
-4. **Tell it where the game is:** create `config\game_path.txt` containing one line, the folder that holds
-   `RaidGame\`, for example:
+   It installs the Python packages (`requirements.txt`), finds the game in your Steam libraries and writes
+   `config\game_path.txt`, and downloads UE4SS v3.0.1 into `tools\ue4ss\` (checked against a known SHA-256). It doesn't
+   touch the game folder, and it's safe to run again. Add `-Research` to also install what the research tools under
+   `tools/` and `scripts/luacheck.py` need (`requirements-research.txt`).
 
-   ```
-   C:\Program Files (x86)\Steam\steamapps\common\PHtest
-   ```
+   <details><summary>Doing it by hand instead</summary>
 
-   (In Steam: right-click Marauders → Manage → Browse local files shows the folder.)
-5. **Get UE4SS v3.0.1** from the [RE-UE4SS releases page](https://github.com/UE4SS-RE/RE-UE4SS/releases/tag/v3.0.1)
-   (`UE4SS_v3.0.1.zip`) and unzip it into `tools\ue4ss\`, so that `tools\ue4ss\dwmapi.dll`, `tools\ue4ss\UE4SS.dll`
-   and `tools\ue4ss\Mods\` exist.
-6. **Play:** run `python launcher\launcher.pyw`, make a save and press PLAY. Closing the game puts the game folder
+   - `pip install -r requirements.txt` (and `-r requirements-research.txt` for the research tools).
+   - Create `config\game_path.txt` with one line, the folder that holds `RaidGame\`, e.g.
+     `C:\Program Files (x86)\Steam\steamapps\common\PHtest` (in Steam: right-click Marauders → Manage → Browse local
+     files shows it).
+   - Unzip `UE4SS_v3.0.1.zip` from the [RE-UE4SS releases page](https://github.com/UE4SS-RE/RE-UE4SS/releases/tag/v3.0.1)
+     into `tools\ue4ss\`, so that `tools\ue4ss\dwmapi.dll`, `tools\ue4ss\UE4SS.dll` and `tools\ue4ss\Mods\` exist.
+
+   </details>
+4. **Play:** run `python launcher\launcher.pyw`, make a save and press PLAY. Closing the game puts the game folder
    back to stock.
 
 If anything goes wrong, this always puts the game back to its normal, online-safe state:

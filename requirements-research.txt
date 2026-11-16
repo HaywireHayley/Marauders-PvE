@@ -1,0 +1,7 @@
+-r requirements.txt
+# Research tools under tools/ and scripts/ (playing does not need these)
+capstone
+numpy
+pycryptodome
+# scripts/luacheck.py (Lua syntax check)
+lupa

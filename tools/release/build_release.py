@@ -37,6 +37,7 @@ FILES = [  # (from, to), relative to the dev tree and the release
     ("tools/ue4ss/dwmapi.dll", "tools/ue4ss/dwmapi.dll"),
     ("tools/ue4ss/UE4SS.dll", "tools/ue4ss/UE4SS.dll"),
     ("tools/release/install.ps1", "scripts/install.ps1"),
+    ("scripts/find-game.ps1", "scripts/find-game.ps1"),
     ("tools/release/uninstall.ps1", "scripts/uninstall.ps1"),
     ("tools/release/README.txt", "README.txt"),
     ("CREDITS.md", "CREDITS.md"),

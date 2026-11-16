@@ -1721,6 +1721,11 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
   installer detection finds Python and E:\...\PHtest; release mode.ps1 offline/online on a fake game folder restores it
   byte for byte. NOT verified: an actual game session on the new DLLs / pveproject.lua (the game was left in offline
   mode, so it wasn't switched for the test).
+- Dev setup (2026-11-15): scripts/setup-dev.ps1 [-Research] does a dev checkout's setup: requirements.txt
+  (requirements-research.txt with -Research), config/game_path.txt via Find-Game, UE4SS v3.0.1 into tools/ue4ss.
+  UE4SS_v3.0.1.zip (GitHub release, 5,523,402 bytes) SHA-256 4B47D4BCEDDD2F561A4E395BFA00924CCFC945AF576A2D0C613E6537846C57EC;
+  dwmapi.dll, UE4SS.dll and Mods/ sit at the zip's root. Find-Game now lives in scripts/find-game.ps1, dot-sourced by
+  install.ps1 (build_release.py ships it next to it in scripts/).
 
 ## Bot-on-bot damage, armour, aiming walk speed, your gunner's arc (2026-11-08, pvepatch.c + main.lua + rivals.lua)
 - Measured (bridge/t_bothit.lua = health drop between a bot's shots on its MyEnemy, t_phit.lua = the same on you with god
