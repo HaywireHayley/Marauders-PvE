@@ -29,6 +29,10 @@ to stock when you close the game. If your PC crashes mid-game, open the launcher
 `Uninstall.bat`) before starting Marauders from Steam. Full instructions and the in-game keys are in `README.txt` in the
 zip.
 
+**Hold off game updates:** an update to Marauders is unlikely, but if one came it could break the mod. In Steam,
+right-click Marauders → **Properties → Updates** and set it to **Only update this game when I launch it**. The mod's
+launcher starts the game without going through Steam, so playing offline won't trigger an update.
+
 **Found a bug?** [Open an issue](https://github.com/HaywireHayley/Marauders-PvE/issues) and attach `backend\last_game.log`
 and `backend\server.log` from your install folder, with a line on what you were doing.
 

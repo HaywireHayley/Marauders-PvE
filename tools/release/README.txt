@@ -52,6 +52,10 @@ IS MY ONLINE GAME SAFE?
   If your PC crashed mid-game, open the launcher once and close it again, or run Uninstall.bat: either puts the game
   back to stock. Don't start Marauders from Steam while the game folder is in offline mode.
 
+  Hold off game updates: an update to Marauders is unlikely, but if one came it could break the mod. In Steam,
+  right-click Marauders > Properties > Updates and choose "Only update this game when I launch it". The launcher starts
+  the game without going through Steam, so playing offline won't trigger an update.
+
 
 KNOWN ISSUES
 ------------
