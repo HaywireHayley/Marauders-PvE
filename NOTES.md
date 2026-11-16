@@ -441,6 +441,15 @@ Why bots did nothing, and the fix for each (all automated in PvEDirector):
   colour 0.64,0.91,1.0). The space map itself has no fog. Director: per space raid, collect sublevel fogs +
   unbound PPVs once (when ready), all off; switch on only the nearest sublevel's within LEVEL_EFFECT_RADIUS
   (40k) of the camera. Note: a sublevel actor's GetWorld() is the sublevel's own UWorld, not the space map's.
+- "F" prompts never showed (testers, 2026-11-15; doors, airlocks, helm, quest spots): detection was fine, the HUD was
+  wrong. InteractionDetection (native, vtable +0x910 -> 0x8eaaf0: Visibility line trace 500 from the controller's view
+  point) calls MatchHUD_C.HUD_Widget's HUD_Main_Widget_C.Show_Interact_Prompt(SomethingInFront, ObjectName "[F] Use
+  Airlock", HasHold) on every run; that shows Border_InteractPrompt / Txt_Use ("\"F\" Use Airlock"). But two HUDs exist:
+  ensureHud's own SIGIS_HUDOverlay_C (made first, so HUD_Widget points into it) and the game's "In Game Overlay Match"
+  (made a moment later; ensureHud then collapses ours). The prompts went to the collapsed one. ensureHud now also sets
+  hud.HUD_Widget = hud.InGameOverlay.HUD_Main_Widget. Seen live: calls switch to the visible HUD and the prompt draws.
+- Testing tip: the trace is easily blocked by small meshes in front of a usable (the starter frigate's helm sits behind
+  SM_cloth_floor_802 from most angles), so aim tests need a real hit on the usable's component, not its location.
 
 ## Docking at a station (WORKING, 2026-10-30)
 - Flow: RaidDockingComponent::FrigateDocking (authority; 0x17d33c0) sets pc.DockedVolume (+0xC60) and an unnamed

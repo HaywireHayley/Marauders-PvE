@@ -2036,7 +2036,11 @@ local function ensureHud(pc)
         if valid(own) and own:GetAddress() ~= hud.InGameOverlay:GetAddress() then
             own:SetVisibility(1) -- Collapsed
             raid.ownOverlay = nil
-            log("the game created its own SIGIS HUD overlay; collapsed ours")
+            -- hud.HUD_Widget still pointed at the HUD inside ours, and the game sends the "F" prompts there
+            -- (InteractionDetection -> HUD_Main_Widget.Show_Interact_Prompt), so no prompt ever showed.
+            local main = hud.InGameOverlay.HUD_Main_Widget
+            if valid(main) then hud.HUD_Widget = main end
+            log("the game created its own SIGIS HUD overlay; collapsed ours, prompts go to the game's")
         end
         return true
     end
