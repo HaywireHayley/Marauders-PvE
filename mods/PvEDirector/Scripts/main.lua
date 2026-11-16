@@ -2815,7 +2815,9 @@ update = function(pc)
         if os.clock() - (raid.levelReadAt or -100) > 5 then
             raid.levelReadAt = os.clock()
             pcall(function()
-                local lvl = pc:GetPlayersLevel()
+                -- The game counts from 0 (a new player shows "LVL 0"; GetXPForLevel(1) = 525), gearscale from 1. Level 0
+                -- used to be dropped, so a new save kept the last save's level (and its geared enemies).
+                local lvl = pc:GetPlayersLevel() + 1
                 if not raid.levelMax then
                     raid.levelMax = 0
                     local prev = -1
