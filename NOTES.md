@@ -25,6 +25,8 @@ Game: `<game folder>` (Steam app 1789480). Engine **UE 4.26.2** (crash context),
   spawn <ClassPath> [dist], dump/sdk/usmap/actors, anything else = console command.
 - `config/` — UE4SS-settings.ini (engine override 4.27 needed for the scan to succeed; hot reload on, Ctrl+R) + mods.txt.
 - `dumps/` — CXXHeaderDump, UE4SS_ObjectDump.txt, Mappings.usmap (taken in the main menu).
+- `.github/workflows/check.yml` — CI on every push/PR: scripts/luacheck.py over every tracked .lua (Lua 5.4 via lupa, so
+  the 200-locals limit too) and py_compile over every .py/.pyw. Needs no game files.
 
 ## UE4SS quirks in this game
 - Engine version auto-detect fails → override in settings to **4.26** (NOT 4.27: UE4SS picks the ProcessEvent vtable
