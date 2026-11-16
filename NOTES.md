@@ -1228,6 +1228,11 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
 - Floor plans: flood fill over navmesh cells (100 units) from known spots, 2 ms per frame, 2-25 s per place, once. PNG only: ImportFileAsTexture2D returns nothing for BMP. Written by a small stored-deflate encoder in Lua, cached as assets/minimap/<level>.png + .txt (size). Your ship: ship_<interior class>.png, stored relative to the airlock. Floors merge, the highest wins, so a route can cross rooms on the map that are on another level ("up a level" in the text).
 - Verified in game by bridge scripts (screens only): ship, flying, station, overview, gate markers, docked at the target, docked elsewhere, wrong station, hide and save, 90 FPS with the map open. Not verified: walking through a real airlock with the map (airlock Interact from Lua does nothing; stations were entered by teleport), AI frigate targets that fly around (place.hull), Destroy contracts (no marker unless a contract actor carries the tag), the first-raid overlap with the loading screen by eye.
 - TESTING TRAP: a raid start takes the active ship out of the save (checkout) and only a gate puts it back. Closing the game mid-raid loses it. This test lost the Vanquisher; restored by putting that one inventory key back, stand-in stopped (backend/state.before-vanquisher-restore.json is the save without it). Back up backend/state.json before a raid test, and restore it after. bridge/mm_restart.sh, mm_launch.sh, mm_tour.sh do NOT do that for you.
+- Land raids (the F9 test raid; 2026-11-15): locate() did `hull = valid(home) and home.SpaceshipToPairTo`, false with
+  no ship, and valid(false) threw every frame ("minimap failed ... attempt to index a boolean value", ~24 lines/s in
+  UE4SS.log; the minimap never drew there). Fixing only that line made survey() retry its 3 FindAllOf scans every 5 s
+  all raid instead (land maps have no stations, so it finds 0 places; worst frame gap 87-94 ms vs 12-21 ms). M.tick now
+  returns early off space maps.
 
 ## Stutter, lighting, bot aim, kit looks (2026-11-06, written; NOT yet run in game)
 Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame numbers are only rough: p50 11 ms, 100-400 ms hitches several times a second. The render thread was busy and the game thread mostly waiting.
