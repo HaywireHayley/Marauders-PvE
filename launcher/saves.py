@@ -52,6 +52,13 @@ def _write(path, data):
     os.replace(tmp, path)
 
 
+def _copy(src, dst):
+    """copyfile, but a crash or a full disk mid-copy leaves the old file whole instead of a cut-off one."""
+    tmp = dst + ".tmp"
+    shutil.copyfile(src, tmp)
+    os.replace(tmp, dst)
+
+
 def _stat(state, key, value):
     state["storage"]["playerstats"][key]["value"] = json.dumps({"value": str(value)})
 
@@ -165,8 +172,14 @@ def _stacked(state, items, rows):
         "create_time": "2026-01-01T00:00:00Z", "update_time": "2026-01-01T00:00:00Z", "permission_read": 1, "permission_write": 1}
 
 
+# Windows device names: a folder can be made with some of these, but not the files inside it ("Nul" failed silently).
+RESERVED = {"con", "prn", "aux", "nul", *(f"com{i}" for i in range(10)), *(f"lpt{i}" for i in range(10))}
+
+
 def _slug(name):
     base = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "save"
+    if base in RESERVED:
+        base += "-save"
     slug, n = base, 1
     while os.path.exists(os.path.join(SAVES, slug)):
         n += 1
@@ -201,7 +214,7 @@ def adopt_existing():
         return
     folder = os.path.join(SAVES, "main-save")
     os.makedirs(folder)
-    shutil.copyfile(LIVE, os.path.join(folder, "state.json"))
+    _copy(LIVE, os.path.join(folder, "state.json"))
     _write(os.path.join(folder, "meta.json"), {"name": "Main save", "cheat": False, "created": time.time(), "played": time.time()})
 
 
@@ -212,9 +225,9 @@ def settle():
         return
     folder = os.path.join(SAVES, sid)
     if os.path.isdir(folder) and os.path.exists(LIVE):
-        shutil.copyfile(LIVE, os.path.join(folder, "state.json"))
+        _copy(LIVE, os.path.join(folder, "state.json"))
         if os.path.exists(RAID_COPY):
-            shutil.copyfile(RAID_COPY, os.path.join(folder, "before-last-raid.json"))
+            _copy(RAID_COPY, os.path.join(folder, "before-last-raid.json"))
             os.remove(RAID_COPY)
         meta = _meta(sid)
         meta["played"] = time.time()
@@ -230,7 +243,7 @@ def stash_rows(meta):
 
 def activate(sid):
     settle()
-    shutil.copyfile(os.path.join(SAVES, sid, "state.json"), LIVE)
+    _copy(os.path.join(SAVES, sid, "state.json"), LIVE)
     rows = stash_rows(_meta(sid))
     if rows != STASH_H:
         with open(STASH_ROWS, "w", encoding="utf-8") as f:
@@ -244,13 +257,24 @@ def activate(sid):
 
 
 def listing():
+    """Every save, newest first. One whose files can't be read is listed as damaged (it used to vanish from the list)."""
     out = []
     for sid in os.listdir(SAVES) if os.path.isdir(SAVES) else []:
         folder = os.path.join(SAVES, sid)
+        if not os.path.isdir(folder):  # .keep
+            continue
         try:
             meta = _meta(sid)
-            info = _summary(_read(os.path.join(folder, "state.json")))
         except (OSError, ValueError):
+            meta = {}
+        try:
+            info = _summary(_read(os.path.join(folder, "state.json")))
+            damaged = not meta
+        except (OSError, ValueError, AttributeError, KeyError, TypeError):
+            info, damaged = {"cash": 0, "xp": 0, "items": 0}, True
+        if damaged:
+            meta = {"name": meta.get("name") or sid, "played": meta.get("played") or os.path.getmtime(folder)}
+            out.append({"id": sid, **meta, **info, "stash_rows": STASH_H, "can_undo": False, "damaged": True})
             continue
         out.append({"id": sid, **meta, **info, "stash_rows": stash_rows(meta),
                     "can_undo": os.path.exists(os.path.join(folder, "before-last-raid.json"))})
@@ -313,5 +337,5 @@ def set_cheat(sid, on):
 def undo_last_raid(sid):
     """Back to the moment the last raid started: for a raid that ended without an extraction you wanted."""
     folder = os.path.join(SAVES, sid)
-    shutil.copyfile(os.path.join(folder, "before-last-raid.json"), os.path.join(folder, "state.json"))
+    _copy(os.path.join(folder, "before-last-raid.json"), os.path.join(folder, "state.json"))
     os.remove(os.path.join(folder, "before-last-raid.json"))

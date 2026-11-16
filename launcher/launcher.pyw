@@ -170,24 +170,60 @@ class App(tk.Tk):
         if os.path.exists(icon):
             self.iconbitmap(icon)
         saves.adopt_existing()
-        if not game_running():
+        # A save still marked active means a launcher was closed while its game ran: finish that game's tidy-up now.
+        left_playing = saves.active() is not None
+        playing = game_running()
+        if not playing:
             saves.settle()
         self.selected = None
         self.running = False
         self.launch_error = None
+        self.seen = False
+        self.started = time.time()
         self.cards = {}
         self.release = None  # a newer public test build, once the background check finds one
         self.updating = False
+        self.tidying = left_playing and not playing  # PLAY waits for tidy_after_close
         self.build()
         self.refresh()
         self.after(1000, self.watch)
         self.check_update()
         self.protocol("WM_DELETE_WINDOW", self.close)
+        if left_playing and playing:
+            # still running: watch() saves and goes back to stock when it closes, as if PLAY had started it here
+            self.running, self.seen = True, True
+            self.show_selected()
+            self.say("Playing. Leave this window open: it saves when you close the game.")
+        elif left_playing:
+            self.say("Putting the game back to normal (the launcher was closed while you played)...")
+            threading.Thread(target=self.tidy_after_close, daemon=True).start()
+
+    def tidy_after_close(self):
+        stop_standin()
+        try:
+            shutil.copyfile(GAME_LOG, os.path.join(ROOT, "backend", "last_game.log"))
+        except OSError:
+            pass
+        ps("-File", os.path.join(ROOT, "scripts", "mode.ps1"), "online")
+        self.after(0, self.tidied)
+
+    def tidied(self):
+        self.tidying = False
+        self.show_selected()
+        self.say("Saved your last game. The normal online game works as usual.")
 
     def close(self):
         # Closing mid-install would kill the update thread before it can put replaced files back.
         if self.updating:
             self.say("Updating: the launcher restarts by itself when it's done.")
+            return
+        if self.running is None:  # finish() is saving and switching back to stock
+            self.say("Saving: this takes a few seconds.")
+            return
+        if self.running:
+            self.confirm("Close the launcher?", "The game is still running. The launcher saves your game and puts the "
+                         "normal online game back when the game closes. If you close it now, that waits until you "
+                         "open the launcher again.", "CLOSE ANYWAY", self.destroy)
             return
         self.destroy()
 
@@ -316,10 +352,12 @@ class App(tk.Tk):
         bar.pack(side="left", fill="y")
         inner = tk.Frame(f, bg=bg, padx=12, pady=8)
         inner.pack(side="left", fill="x", expand=True)
-        name = s["name"] + ("     CHEAT" if s.get("cheat") else "")
+        name = s["name"] + ("     DAMAGED" if s.get("damaged") else "     CHEAT" if s.get("cheat") else "")
         a = tk.Label(inner, text=name, bg=bg, fg=TEXT, font=font(13, "SemiBold"), anchor="w")
         a.pack(fill="x")
-        b = tk.Label(inner, text=f"{s['cash']:,} cash   ·   {s['items']} items   ·   last played {when(s.get('played'))}", bg=bg, fg=MUTED,
+        line = (f"Can't read this save   ·   last changed {when(s.get('played'))}" if s.get("damaged") else
+                f"{s['cash']:,} cash   ·   {s['items']} items   ·   last played {when(s.get('played'))}")
+        b = tk.Label(inner, text=line, bg=bg, fg=DANGER if s.get("damaged") else MUTED,
                      font=font(10), anchor="w")
         b.pack(fill="x")
         for w in (f, inner, a, b):
@@ -335,16 +373,24 @@ class App(tk.Tk):
 
     def show_selected(self):
         s = self.current()
-        live = not self.running and not self.updating and s is not None
-        for b in (self.b_rename, self.b_copy, self.b_delete, self.play):
-            b.enable(live)
-        self.b_undo.enable(live and s.get("can_undo"))
+        live = not self.running and not self.updating and not self.tidying and s is not None
+        ok = live and not s.get("damaged")
+        for b in (self.b_rename, self.b_copy, self.play):
+            b.enable(ok)
+        self.b_delete.enable(live)
+        self.b_undo.enable(ok and s.get("can_undo"))
         if not s:
             self.d_name.config(text="No saves yet")
             self.d_mode.config(text="")
             self.d_info.config(text="Make a new save to start.")
             return
         self.d_name.config(text=s["name"])
+        if s.get("damaged"):
+            self.d_mode.config(text="Can't read this save")
+            self.d_info.config(text=f"Its files in backend\\saves\\{s['id']}\nare missing or damaged. Share them on the\n"
+                                    "Discord if you'd like help, or delete it.")
+            self.cheat_var.set(False)
+            return
         self.d_mode.config(text="Infinite money is on" if s.get("cheat") else "Normal save")
         self.d_info.config(text=f"Cash   {s['cash']:,}\nXP   {s['xp']:,}\nStash   {s['items']} items, {s['stash_rows']} rows\n"
                                 f"Started   {when(s.get('created'))}")
@@ -389,8 +435,13 @@ class App(tk.Tk):
                 problem.config(text=f"Stash size: enter a number from {saves.STASH_MIN} to {saves.STASH_MAX}.")
                 rows.focus_set()
                 return
+            try:
+                sid = saves.create(text, cheat.get(), n)
+            except (OSError, ValueError) as e:
+                problem.config(text=f"Couldn't make the save: {e}")
+                return
             d.destroy()
-            self.selected = saves.create(text, cheat.get(), n)
+            self.selected = sid
             self.refresh()
             self.say(f"Made the save {text}.")
 
@@ -464,11 +515,23 @@ class App(tk.Tk):
                                        "anything you gained in that raid is lost.", "UNDO RAID", back)
 
     def toggle_cheat(self):
-        if self.selected and not self.running:
+        s = self.current()
+        if s and not s.get("damaged") and not self.running:
             saves.set_cheat(self.selected, self.cheat_var.get())
             self.refresh()
         else:
             self.show_selected()
+
+    def write_setting(self, path, text):
+        """Writes one of the small settings files. Says so on the status line if it can't: the box would look set but
+        not be."""
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(text)
+            return True
+        except OSError as e:
+            self.say(f"Couldn't save that setting ({os.path.relpath(path, ROOT)}): {e.strerror or e}")
+            return False
 
     def read_female(self):
         try:
@@ -478,8 +541,7 @@ class App(tk.Tk):
             return False
 
     def toggle_female(self):
-        with open(FEMALE_SETTING, "w", encoding="utf-8") as f:
-            f.write("on\n" if self.female_var.get() else "off\n")
+        self.write_setting(FEMALE_SETTING, "on\n" if self.female_var.get() else "off\n")
 
     def read_share(self):
         try:
@@ -492,8 +554,7 @@ class App(tk.Tk):
         # rivals, soldiers, station guards and new crew recruits; the game picks it up within a few seconds
         value = self.share_var.get()
         self.share_label.config(text=f"{value}%")
-        with open(FEMALE_SHARE, "w", encoding="utf-8") as f:
-            f.write(f"{value}\n")
+        self.write_setting(FEMALE_SHARE, f"{value}\n")
 
     def read_borderless(self):
         try:
@@ -518,8 +579,7 @@ class App(tk.Tk):
 
     def toggle_unlock_looks(self):
         # every head, body and voice unlocked from the next login on; off brings back what the save earned
-        with open(UNLOCK_LOOKS_SETTING, "w", encoding="utf-8") as f:
-            f.write("on\n" if self.unlock_looks_var.get() else "off\n")
+        self.write_setting(UNLOCK_LOOKS_SETTING, "on\n" if self.unlock_looks_var.get() else "off\n")
 
     def read_update_check(self):
         try:
@@ -529,8 +589,7 @@ class App(tk.Tk):
             return True
 
     def toggle_update_check(self):
-        with open(UPDATE_CHECK_SETTING, "w", encoding="utf-8") as f:
-            f.write("on\n" if self.update_check_var.get() else "off\n")
+        self.write_setting(UPDATE_CHECK_SETTING, "on\n" if self.update_check_var.get() else "off\n")
         if self.update_check_var.get():
             self.check_update()
         else:
@@ -617,22 +676,21 @@ class App(tk.Tk):
 
     def update_done(self, version):
         self.say(f"Updated to {version}. Restarting...")
-        subprocess.Popen([sys.executable, os.path.abspath(__file__)], cwd=ROOT)
+        # --after-update: the new launcher waits for this one to close instead of stepping aside for it
+        subprocess.Popen([sys.executable, os.path.abspath(__file__), "--after-update"], cwd=ROOT)
         self.after(500, self.destroy)
 
     def toggle_skip_intro(self):
         # takes effect at the next Play (scripts/mode.ps1 offline swaps the startup video)
-        with open(SKIP_INTRO_SETTING, "w", encoding="utf-8") as f:
-            f.write("on\n" if self.skip_intro_var.get() else "off\n")
+        self.write_setting(SKIP_INTRO_SETTING, "on\n" if self.skip_intro_var.get() else "off\n")
 
     def toggle_borderless(self):
         # takes effect at the next Play
-        with open(WINDOW_SETTING, "w", encoding="utf-8") as f:
-            f.write("borderless\n" if self.borderless_var.get() else "windowed\n")
+        self.write_setting(WINDOW_SETTING, "borderless\n" if self.borderless_var.get() else "windowed\n")
 
     # Playing --------------------------------------------------------------------------------------------------------
     def launch(self):
-        if self.running or not self.selected:
+        if self.running or self.updating or self.tidying or not self.current() or self.current().get("damaged"):
             return
         if game_running():
             self.say("The game is already running. Close it first.")
@@ -695,9 +753,34 @@ class App(tk.Tk):
         self.say(("Saved. " if self.seen else "The game didn't start, so nothing changed. ") + "The normal online game works as usual.")
 
 
+def single_instance(wait=0.0):
+    """True if this is the only launcher. A second one used to tidy up a game the first had just started (settle()
+    before the game was up), so that raid's progress never reached the save. A second launch now brings the first
+    window forward and quits. Windows drops the mutex when the process ends, even in a crash."""
+    kernel, user = ctypes.windll.kernel32, ctypes.windll.user32
+    kernel.CreateMutexW.restype = ctypes.c_void_p
+    deadline = time.time() + wait
+    while True:
+        handle = kernel.CreateMutexW(None, False, "Local\\MaraudersOfflineLauncher")
+        if handle and kernel.GetLastError() != 183:  # ERROR_ALREADY_EXISTS
+            single_instance.handle = handle  # held for the life of the process
+            return True
+        if handle:
+            kernel.CloseHandle(ctypes.c_void_p(handle))
+        if time.time() >= deadline:
+            break
+        time.sleep(0.25)
+    hwnd = user.FindWindowW(None, "Marauders Offline")
+    if hwnd:
+        user.ShowWindow(hwnd, 9)  # SW_RESTORE
+        user.SetForegroundWindow(hwnd)
+    return False
+
+
 if __name__ == "__main__":
     try:
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
     except (OSError, AttributeError):
         pass
-    App().mainloop()
+    if single_instance(wait=15 if "--after-update" in sys.argv else 0):
+        App().mainloop()

@@ -1400,6 +1400,25 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
   hold (saves, logs, loadout) aren't touched. Every replaced file is backed up first and restored if a write fails
   (tested with a read-only UE4SS.dll). Files removed from a later release stay behind (harmless so far). Builds 1-3
   have no update.py, so those players update by hand once.
+- Launcher audit fixes (2026-11-16):
+  - One launcher at a time: a named mutex (Local\MaraudersOfflineLauncher, single_instance() in launcher.pyw). Before,
+    a second launcher opened between PLAY and the game appearing ran settle(): it filed state.json away before the
+    raid and removed active_save.txt, so when the game closed the first launcher had nothing to put back, and the
+    next activate() overwrote that raid. A second launch now brings the first window forward and exits. The updater's
+    restart passes --after-update, which waits up to 15 s for the old launcher to exit.
+  - Closing the launcher while the game runs asks first, and while it's saving it's refused. If it was closed anyway,
+    the next start finishes the job: with the game still running it watches it as if PLAY had started it, otherwise
+    it settles the save, keeps the log and runs mode.ps1 online, with PLAY off until that's done. Before, the game
+    folder stayed in offline mode.
+  - Save names that are Windows device names (con, prn, aux, nul, com0-9, lpt0-9) get "-save" on their folder:
+    "Nul" made the folder but no files, and the new-save dialog closed with nothing made. Create errors now show
+    in the dialog.
+  - Copies into a save slot (settle, activate, undo, adopt) go through saves._copy (.tmp + os.replace), so a
+    crash mid-copy can't cut a save off. A save whose meta.json or state.json can't be read is listed as DAMAGED
+    (only Delete works) instead of silently vanishing from the list.
+  - Settings boxes write through App.write_setting, which says so on the status line if the file can't be written.
+  Tested outside the game: saves.py and the launcher with stubbed game/PowerShell (26 checks), and real launcher
+  processes for the single-instance cases.
 - New saves start as a new live account did (2026-11-16, issue #56). On the first login of an account with no
   social/created (the seed has none, so every fresh save), the game runs its new-player setup: it writes
   social/created + accouttype, adds 65,000 credits (statChangeArray TotalCash) and a 34-item kit (2 KlobbSMG, 3
