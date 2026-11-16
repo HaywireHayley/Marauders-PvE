@@ -63,26 +63,7 @@ if ($LASTEXITCODE -ne 0) {
 Say "Pillow:  ok"
 
 # 4. The game: every Steam library, then ask.
-function Find-Game {
-    $steam = (Get-ItemProperty 'HKCU:\Software\Valve\Steam' -ErrorAction SilentlyContinue).SteamPath
-    $libs = @()
-    if ($steam) {
-        $libs += $steam
-        $vdf = Join-Path $steam 'steamapps\libraryfolders.vdf'
-        if (Test-Path $vdf) {
-            foreach ($m in [regex]::Matches((Get-Content $vdf -Raw), '"path"\s+"([^"]+)"')) { $libs += $m.Groups[1].Value -replace '\\\\', '\' }
-        }
-    }
-    foreach ($lib in $libs | Select-Object -Unique) {
-        $common = Join-Path $lib 'steamapps\common'
-        if (-not (Test-Path $common)) { continue }
-        foreach ($d in Get-ChildItem $common -Directory -ErrorAction SilentlyContinue) {
-            if (Test-Path (Join-Path $d.FullName $ExeRel)) { return $d.FullName }
-        }
-    }
-    return $null
-}
-
+. (Join-Path $PSScriptRoot 'find-game.ps1')  # Find-Game (scripts/find-game.ps1, shared with scripts/setup-dev.ps1)
 $Game = Find-Game
 if (-not $Game) {
     Say "`nCouldn't find Marauders in your Steam libraries. Pick the game's folder (the one with RaidGame inside)." Yellow
