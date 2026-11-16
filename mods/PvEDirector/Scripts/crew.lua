@@ -596,7 +596,9 @@ function C.tags(pc)
         S.tags = buildTags(pc)
         if not S.tags then return end
     end
-    local wll = X.lib("/Script/UMG.Default__WidgetLayoutLibrary")
+    -- The class default object lives as long as the game: looked up once, not every frame.
+    if not valid(S.tags.wll) then S.tags.wll = X.lib("/Script/UMG.Default__WidgetLayoutLibrary") end
+    local wll = S.tags.wll
     local cam = pc.PlayerCameraManager
     local eye = valid(cam) and cam:GetCameraLocation()
     for i, row in ipairs(S.tags.rows) do
@@ -608,7 +610,9 @@ function C.tags(pc)
             local at = { X = l.X, Y = l.Y, Z = l.Z + CFG.TAG_HEIGHT }
             local d = eye and dist(eye, at) or 0
             local out = {}
-            if d < CFG.TAG_FAR and wll:ProjectWorldLocationToWidgetPosition(pc, at, out, false) and out.X then
+            -- ScreenPosition is an out param: through Out.call, or UE4SS keeps a registry ref to `out` every frame
+            -- per crewmate (outref.lua).
+            if d < CFG.TAG_FAR and Out.call(wll, "ProjectWorldLocationToWidgetPosition", pc, at, out, false) and out.X then
                 shown = true
                 if not row.on then
                     row.on = true
