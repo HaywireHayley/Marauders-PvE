@@ -779,6 +779,11 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
   Use key if rebound (CFG.USE_KEY = "F"), death path (game returns to the menu by itself).
 - Crash: reading a TArray<FName> inside a returned struct (FRaidMissionUI.ContractRequiredActorTags) from Lua crashed
   the game. Read row data from memory instead.
+- Crash (2026-11-16, pod to the Mini Mine, contract Just Deserts): the contract actors were kept as UObjects from the
+  once-a-raid scan; one was freed later, and the first IsValid on it (on arriving within 4000) read freed memory
+  (AV in UObjectBase::GetInternalIndex under a Lua call, 2 pcalls deep). Same signature crash on 2026-11-15 21:28.
+  Now each entry keeps its object path and missions.lua looks it up with StaticFindObject on every use. Not yet
+  re-tested at the Mini Mine.
 
 ## Rival ship combat (2026-10-31, rivals.lua)
 - Why ships never fired: every frigate's DefaultInventoryClasses = InGame_BowGun_50Cal_C, never spawned offline

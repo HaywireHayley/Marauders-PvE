@@ -30,6 +30,17 @@ local S -- per-raid state
 
 local function valid(o) return X.valid(o) end
 
+-- The contract actors are found once a raid but never kept as objects: one kept from that scan was freed later (a
+-- station's actors replaced, or an old world's still listed), and the first IsValid on it, when you walked up to it,
+-- read freed memory and crashed the game (user, 2026-11-16: out of a pod at the Mini Mine; AV in UE4SS's IsValid).
+-- Each entry holds the actor's object path; live() looks it up by name, which never touches a stale pointer.
+local function live(c)
+    if not c or not c.path then return nil end
+    local o = StaticFindObject(c.path)
+    if valid(o) then return o end
+    return nil
+end
+
 local function scan()
     local list = {}
     for _, a in ipairs(FindAllOf("SIGISContractActor") or {}) do
@@ -38,10 +49,12 @@ local function scan()
             pcall(function() a.Tags:ForEach(function(_, e) tags[#tags + 1] = e:get():ToString() end) end)
             local typ = 8
             pcall(function() typ = a.ContractType end)
-            if #tags > 0 then
+            local full = a:GetFullName()
+            local path = full:match("^%S+ (.+)$") -- "Class /Game/...:PersistentLevel.Name" -> the path
+            if #tags > 0 and path then
                 local l = a:K2_GetActorLocation()
-                table.insert(list, { actor = a, tags = tags, type = typ, at = { X = l.X, Y = l.Y, Z = l.Z },
-                    level = a:GetFullName():match("([%w_]+):PersistentLevel"),
+                table.insert(list, { path = path, tags = tags, type = typ, at = { X = l.X, Y = l.Y, Z = l.Z },
+                    level = full:match("([%w_]+):PersistentLevel"),
                     name = a:GetClass():GetFName():ToString():gsub("^Contract_", ""):gsub("_C$", "") })
             end
         end
@@ -93,12 +106,14 @@ function M.update(pc, key, pawn)
     -- (Contract_Hold_*) = overlapping their GuardArea box.
     local inside
     for _, c in ipairs(S.list) do
-        if math.abs(l.X - c.at.X) < CFG.NEAR and math.abs(l.Y - c.at.Y) < CFG.NEAR and math.abs(l.Z - c.at.Z) < CFG.NEAR
-            and valid(c.actor) then
-            local hit
-            if c.type == 5 then hit = S.looking == c
-            else hit = c.actor:IsOverlappingActor(pawn) end
-            if hit then inside = c break end
+        if math.abs(l.X - c.at.X) < CFG.NEAR and math.abs(l.Y - c.at.Y) < CFG.NEAR and math.abs(l.Z - c.at.Z) < CFG.NEAR then
+            local a = live(c)
+            if a then
+                local hit
+                if c.type == 5 then hit = S.looking == c
+                else hit = a:IsOverlappingActor(pawn) end
+                if hit then inside = c break end
+            end
         end
     end
     if inside ~= S.current then
@@ -124,7 +139,7 @@ function M.interact(pc, pawn)
     end
     local now = os.clock()
     local ok = false
-    if best and valid(best.actor) then
+    if best and live(best) then
         local cam, r = pc.PlayerCameraManager:GetCameraLocation(), pc:GetControlRotation()
         local yaw, pitch = math.rad(r.Yaw), math.rad(r.Pitch)
         local fx, fy, fz = math.cos(pitch) * math.cos(yaw), math.cos(pitch) * math.sin(yaw), math.sin(pitch)
@@ -137,10 +152,12 @@ function M.interact(pc, pawn)
         S.looking, S.lookLost = best, nil
     elseif S.looking then
         S.lookLost = S.lookLost or now
-        if now - S.lookLost > CFG.LOOK_GRACE or not valid(S.looking.actor) then S.looking, S.lookLost = nil, nil end
+        if now - S.lookLost > CFG.LOOK_GRACE or not live(S.looking) then S.looking, S.lookLost = nil, nil end
     end
-    if S.looking then
-        pawn.LastInteractionActor = S.looking.actor
+    local target = S.looking and live(S.looking)
+    if S.looking and not target then S.looking, S.lookLost = nil, nil end
+    if target then
+        pawn.LastInteractionActor = target
         -- The server sent the inspect event when you pressed Use on the object; its timer stops (clearing
         -- CurrentTimedMission) the first second Use isn't held. So: (re)send it whenever Use is down and no inspect
         -- is running.
