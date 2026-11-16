@@ -1404,7 +1404,8 @@ end
 -- leaving crews are heading for (nearest first). Leaving ships stalled 70-80 m off their exit, circling for minutes
 -- (2026-11-15): a hull parked at the point (yours, or another leaver's) sat in shipnav's sweep, so every approach
 -- turned into a detour away from it and back again.
-local function pickExit(c)
+-- (On R, not a local: the file sits at Lua's 200-local limit for its main chunk.)
+function R.pickExit(c)
     local here = shipOk(c) and c.ship:K2_GetActorLocation() or nil
     local best, bn, bd
     for _, s in ipairs(S.shipSpawns) do
@@ -1422,7 +1423,7 @@ end
 
 local function startLeaving(c, why)
     c.state, c.station, c.target, c.fireAt = "leaving", nil, nil, nil
-    c.exitAt = pickExit(c)
+    c.exitAt = R.pickExit(c)
     c.exitBest, c.exitBestAt = nil, nil
     X.log(("[rivals] %s extracting (%s)"):format(crewLabel(c), why))
 end
