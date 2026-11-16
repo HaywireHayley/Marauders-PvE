@@ -365,7 +365,12 @@ Why bots did nothing, and the fix for each (all automated in PvEDirector):
 - The stand-in writes backend/loadout.json in that shape (startup + every save). The director feeds it to that
   function once the SIGIS HUD overlay exists, while bridge/offline_backend exists; the donor gun is only a fallback.
 - Verified: Mat49 (stash id 56548551, 36 rounds) equipped, fires, drains its own item (36 -> 26); 32 ammo in the
-  left pocket; helmet + vest registered. Not verified: helmet/vest visible on the character and reducing damage.
+  left pocket; helmet + vest registered. Not verified: helmet/vest visible on the character.
+- Your armour works (2026-11-16, bridge/t_parm.lua = your hp drop per bot shot at 5000 hp; M1FlakChest cond 40 in the
+  loadout, Space_Solo_01 Fortress and Space_Delta Navy Outpost): 1911 (28) hit you for 21, Bren (36) for 29, both
+  less 7 = the vest's value; a few hits did half of that (legs, armour first). Body hits wear the vest ~2 condition
+  each (40 -> 0 in ~20-23 hits, read off its SIGISInventoryItem.Condition), then hits do the full 28 / 36. The
+  game's own wear, nothing in the mod. No head hits landed, so the helmet is untested in game.
 - Don't pass nil for a UObject parameter (pc:GetItemArmourValue(nil) crashed the game).
 
 ## End of raid: extraction and death (WORKING, 2026-10-30)
