@@ -2032,11 +2032,18 @@ local function ensureHud(pc)
     if valid(hud.InGameOverlay) then
         -- With the local backend the game now builds its own overlay ("In Game Overlay Match") a moment after ours.
         -- Two full-screen overlays: ours sat on top and swallowed every click (loot grid, Esc menu). Collapse ours.
+        -- MatchHUD_C.HUD_Widget (the main HUD every prompt goes to: "F" interact on doors, contracts and loot, the
+        -- ship's salvage prompt, the frigate panel) was taken from ours when it was made, so point it at the game's
+        -- one too; otherwise those prompts kept going to the collapsed overlay and never showed.
         local own = raid.ownOverlay
         if valid(own) and own:GetAddress() ~= hud.InGameOverlay:GetAddress() then
-            own:SetVisibility(1) -- Collapsed
-            raid.ownOverlay = nil
-            log("the game created its own SIGIS HUD overlay; collapsed ours")
+            local main = hud.InGameOverlay.HUD_Main_Widget
+            if valid(main) then -- else try again next update
+                own:SetVisibility(1) -- Collapsed
+                hud.HUD_Widget = main
+                raid.ownOverlay = nil
+                log("the game created its own SIGIS HUD overlay; collapsed ours and moved the main HUD to it")
+            end
         end
         return true
     end

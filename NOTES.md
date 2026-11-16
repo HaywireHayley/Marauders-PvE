@@ -2329,3 +2329,35 @@ single-shot "FireWeapon trace RPC". Found by static disassembly of the exe. Test
 2026-11-16 (bridge/t_sgive.lua hands a TrenchShotgun, bridge/t_sshoot.lua aims and fires): patch applied 21/21, one
 shell at 4 m took a raider from 100 HP to dead (clip 30 to 29). Impact FX not checked by eye. Bot shotgun pellets get no impact FX (0x1895dc0
 never calls 0x18a1c70); not fixed.
+
+## Missing prompts, salvage, objective sounds (2026-11-16)
+User report: interaction prompts (contracts, doors) missing; objective sounds repeat before an objective is done;
+space salvaging doesn't work.
+- **Hidden main HUD (fixed in main.lua ensureHud, needs a play-test)**: two SIGIS_HUDOverlay_C are in the viewport:
+  the director's own (made early for the loadout, then Collapsed) and the game's "In Game Overlay Match". But
+  MatchHUD_C.HUD_Widget (the HUD_Main_Widget every prompt goes to: Show_Interact_Prompt, SetAbleToDockPrompt, the
+  frigate panel Border_FrigateHUD) still pointed at the one inside OUR collapsed overlay, so prompts were set on an
+  invisible widget. ensureHud now also sets hud.HUD_Widget = hud.InGameOverlay.HUD_Main_Widget when it collapses ours
+  (retries until that widget exists). Verified live by repointing it by hand: frigate panel and "KEY: SALVAGE" showed.
+  Probably also the cause of the missing door prompts (doors tested earlier "had prompts" only because the probe read
+  the hidden widget's state). Probes: bridge/t_hudp.lua (border parent chain), t_hudref.lua / t_hudref2.lua.
+- **Salvage (fixed, pvepatch "Salvage scan timer a/b/c")**: RaidFrigate BeginPlay (0x1824550) only starts the looping
+  salvage-scan timer (0x182e430: 1500-unit trace, wreck kept at frigate+0xD08, SalvageEvent -> CheckifAbleToDock ->
+  HUD SetAbleToDockPrompt) on the non-Authority branch (0x18246a1). The three Authority exits now jump there.
+  Salvage key = R (InputSettings action "Salvage"; key handler 0x1838f90 -> ServerOnSalvage 0x183d4c0 -> 0x185e800,
+  spawns DefaultShipInsideSalvage in the interior). Verified in Space_Solo_01: R took a wreck aboard (SalvageFull,
+  Industrial_InsideSalvage_01_C spawned in the hold). Not yet tested: looting it, unloading (0x182e990).
+  OnSpaceSalvageChange (from OnRep_HasSpaceSavage) has no Blueprint implementation, so nothing lost there.
+- **Contract inspect prompt (pvepatch "Contract inspect prompt")**: ShouldShowContractInteraction (0x8fc9c0)
+  `jae` at 0x8fc9f6 NOPed so InteractionDetection offers inspect objects. Patch applies (25/25 on a fresh launch);
+  the on-screen prompt is not yet seen (also depended on the HUD fix above).
+- **Objective sounds (NOT fixed)**: MainPlayerController_C OnUpDateMission / OnUpDateChapterMission play the
+  Completed cue when progress == max; Inspect (type 5) plays the progress cue on every +1; native IncrementMission
+  (0x9ca2c0) fires the event only when it increments. Suspects: (1) with two HUD overlays alive, a widget-played cue
+  plays twice (both HUD_Main_Widget copies get mission updates); (2) missions.lua re-sending Client_CheckMissionEvent
+  for inspects while Use is held; (3) both bInMissionVolume and bInChapterVolume set together. Probe
+  bridge/t_mis.lua logs both events. CAUTION: hooking GameplayStatics:PlaySound2D/SpawnSound2D from Lua and then
+  calling pc:OnUpDateMission crashed the game (AV inside UE4SS's hook; probe t_snd.lua, don't reuse as is).
+- Bridge tips: globals set in a bridge command don't reach a dofile'd script; pass args with
+  `pcall(loadfile("<absolute path>"), a, b)` (relative paths fail). Read widget `.Visibility` instead of calling
+  GetVisibility (errors as "function: 0x..." on some instances).

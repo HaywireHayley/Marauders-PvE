@@ -18,7 +18,8 @@ Raw results and the re-runnable scripts are in `tools/offline-audit/` (see the e
 
 ## Already fixed
 pvepatch.dll: FireWeapon trace/projectile RPCs, SimulateWeaponFire cosmetics, recoil ammo gate, trace + projectile
-bullet impacts, instant/melee hit reacts, vault/climb animations, the 4 SIGIS loot-copy early-outs, bot death body.
+bullet impacts, instant/melee hit reacts, vault/climb animations, the 4 SIGIS loot-copy early-outs, bot death body,
+space gate extraction, frigate salvage scan timer (2026-11-16), contract inspect prompt gate (2026-11-16).
 PvEDirector: near-miss whizz (hook on ServerTraceMultiFireProjectile), broken-weapon effect (calls
 OnRep_WeaponHasBroken when the held gun breaks).
 
@@ -64,6 +65,7 @@ server code *might* do the same work some other way; **check** = a gate whose di
 8. **Ship system damage** (certain): `OnEngineDestroyed`, `OnHelmGunDestroyed`, `OnTurretDestroyed`, `OnSpaceSalvageChange` are only fired from
    `RaidSpaceshipInside::OnRep_*`, and turret nodes' `HealthChanged` only from `RaidSubNodeActor_Turret::OnRep_Health`.
    Destroyed-engine/turret/helm-gun visuals (and anything the Blueprints disable there) never happen offline.
+   (OnSpaceSalvageChange has no Blueprint implementation; salvage itself was the BeginPlay timer gate, now patched.)
 9. **Manning a turret** (certain): `DrivingTurret` is only fired by `RaidCharacter::OnRep_SetGunning`.
    Done 2026-11-08 by mods/PvEDirector/Scripts/gunseat.lua (aim, fire, stand up); see NOTES "Manning a turret yourself".
 10. Ship anim Blueprints (strike/fast/frigate/capital/VIP/starter/drop pod) all call `IsServer`; see the Blueprint section.
@@ -75,6 +77,7 @@ server code *might* do the same work some other way; **check** = a gate whose di
     `LeaveSpaceRaidVolume` skip a widget/HUD call when Authority. Expect missing evac prompts/countdowns.
 12. **Contracts** (likely): `SIGISContractActor::CharacterOverlapped`, `SIGISGenericActor::ContractCharacter(End)Overlapped`
     and `ShouldShowContractInteraction` skip their client part when Authority. Contract objectives/prompts may not show.
+    (2026-11-16: ShouldShowContractInteraction patched; overlaps handled by missions.lua.)
 13. **Voice lines** (check): `RaidCharacter::PlayVoiceSound` skips playback when Authority; `RaidPlayerCharacter::PlayVoiceLine`'s
     non-authority side holds `OnPlayVoiceLine`.
 

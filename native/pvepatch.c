@@ -51,6 +51,18 @@ static const Patch PATCHES[] = {
        EscapeZoneSpaceGate Blueprint on overlap): only a client went on to EvacRaid + Server_EnterEvacRaidVolume, so
        offline a pod or ship flying into the space gate did nothing. */
     { "Space gate extraction", 0x182c23e, { 0x0f, 0x84, 0xe4, 0x00, 0x00, 0x00 }, { 0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00 }, 6 },
+    /* cmp byte [rdx+0xF0],3 ; jae return  in SIGISContractActor::ShouldShowContractInteraction (0x8fc9c0, called by
+       InteractionDetection): only a client went on to check the active contracts, so offline inspect objects never
+       got an "F" prompt. */
+    { "Contract inspect prompt", 0x8fc9f6, { 0x0f, 0x83, 0x2a, 0x04, 0x00, 0x00 }, { 0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00 }, 6 },
+    /* RaidFrigate BeginPlay (0x1824550): only a non-Authority frigate started the looping salvage-scan timer
+       (0x182e430: traces 1500 ahead, keeps the wreck at +0xD08, SalvageEvent -> HUD "salvage" prompt; the Salvage key
+       needs that wreck), so offline the prompt never showed and R did nothing. The Authority branch's three exits
+       went to the end (0x182487f); send them into the client branch (0x18246a1) instead. Bot frigates run the scan
+       too, harmlessly: CheckifAbleToDock only acts for a RaidPlayerController. */
+    { "Salvage scan timer a", 0x1824681, { 0x0f, 0x85, 0xf8, 0x01, 0x00, 0x00 }, { 0x0f, 0x85, 0x1a, 0x00, 0x00, 0x00 }, 6 },
+    { "Salvage scan timer b", 0x182468e, { 0x0f, 0x8e, 0xeb, 0x01, 0x00, 0x00 }, { 0x0f, 0x8e, 0x0d, 0x00, 0x00, 0x00 }, 6 },
+    { "Salvage scan timer c", 0x182469c, { 0xe9, 0xde, 0x01, 0x00, 0x00 }, { 0xe9, 0x00, 0x00, 0x00, 0x00 }, 5 },
     /* cmp byte [rcx+0xF0],3 ; je return  in RaidCharacter::NetMultiVault (0x180c620): an Authority character never
        played PlayVaultAnimations / PlayClimbAnimations, so offline nobody did. */
     { "Vault/climb animations", 0x180c648, { 0x0f, 0x84, 0xa1, 0x01, 0x00, 0x00 }, { 0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00 }, 6 },
