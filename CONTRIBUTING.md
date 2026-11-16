@@ -32,8 +32,7 @@ Small pull requests (one fix or feature each) get reviewed much faster than big 
   it and tell the maintainer.
 - **Leave the game folder stock** when you're done: closing the launcher's game does this; otherwise run
   `powershell -NoProfile -File scripts\mode.ps1 online`.
-- **Write down what you learn** in `NOTES.md`, in the section it belongs to. It's how the next person (and future
-  you) understands why the code is the way it is.
+- **Write down what you learn** in `NOTES.md`, in the section it belongs to. It's how the next person (or AI agent) understands why the code is the way it is.
 
 ## Testing tips
 
