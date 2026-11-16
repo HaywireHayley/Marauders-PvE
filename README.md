@@ -48,13 +48,9 @@ The game's own controls are unchanged. The mod adds:
 | **Left click** | While flying with a crew gunner aboard: send them after the ship or space turret nearest the middle of your view. Click empty space to send them back to whoever is attacking you | Flying your ship |
 | **F** on a turret seat | Man the turret yourself: left click fires, F stands you up | Ships |
 
-### Too busy or too quiet?
+### TOO DIFFICULT? Too busy or too quiet?
 
-Every raid's population can be tuned to your liking. Press **F3** and open the **How many** tab: rival crews per raid,
-people in each crew, guards at each station, and how many ship battles break out around you. **Rival ships** sets how
-often crews attack and board, and **Difficulty** at the top picks a preset. Changes save themselves. Crew numbers take
-effect from your next raid, and guard numbers from the next station you visit. Save setups you like under
-**Saved setups**.
+Every raid's population and difficulty can be tuned to your liking. Press F3 and open the How many tab: rival crews per raid, people in each crew, guards at each station, and how many ship battles break out around you. Rival ships sets how often crews attack and board, and Difficulty at the top picks a preset. Changes save themselves. Crew numbers take effect from your next raid, and guard numbers from the next station you visit. Save setups you like under Saved setups.
 
 **Hold off game updates:** an update to Marauders is unlikely, but if one came it could break the mod. In Steam,
 right-click Marauders → **Properties → Updates** and set it to **Only update this game when I launch it**. The mod's
