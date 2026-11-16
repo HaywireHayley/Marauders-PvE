@@ -4203,7 +4203,9 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
         for _, c in ipairs(S.crews) do counts[c.state] = (counts[c.state] or 0) + 1 end
         local parts = {}
         for k, v in pairs(counts) do table.insert(parts, k .. " " .. v) end
+        -- (playerPlace says "rival" aboard another crew's ship: that used to fall through to "in space", issue #11)
         X.log("[rivals] crews: " .. table.concat(parts, ", ") .. (place == "ship" and " | you: aboard your ship"
+            or place == "rival" and (" | you: aboard the " .. (S.aboard and S.aboard.shipName or "rival ship"))
             or type(place) == "table" and (" | you: in " .. place.name) or " | you: in space")
             .. " | turret shots " .. (S.turretShots or 0) .. turretWhy() .. " | steering: " .. Nav.report() .. ", breakaways " .. (S.seps or 0))
     end

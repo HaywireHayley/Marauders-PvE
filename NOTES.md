@@ -2240,7 +2240,10 @@ it doesn't fit, or the ragdoll of a pod-spawned body; check rollKit leg pieces v
   frame. Untested.
 - Confirmed in game 05:50: pod + the game's breach into the Long Odds with its interior preloaded; no void, no void
   camera needed, walking and looking fine. User: "it worked perfectly".
-- TODO: the status line said "you: in space" while the user was inside the Long Odds; it should say aboard a rival.
+- Fixed 2026-11-15 (issue #11): the status line said "you: in space" while the user was inside the Long Odds.
+  playerPlace() returns "rival" there, and the status line only knew "ship", a station table, or else "in space". It
+  now says "you: aboard the <ship name>" (S.aboard.shipName). Checked by running the expression in lupa for all five
+  cases; not re-seen in game (needs a pod boarding of a rival).
 - TODO: "no breach point joins up with the inside: boarders come in nearer the middle" fired for the Long Odds.
 
 ## Station fights end too fast; AI legs too fast (2026-11-14, fix untested)
