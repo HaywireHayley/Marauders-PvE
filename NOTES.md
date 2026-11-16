@@ -1569,8 +1569,6 @@ What this means for the candidates (desk research, same date):
     (ClientSetHUD arrives here), last client packets at ~2.70 s, last host packet at ~2.73 s, then nothing either way.
     No new send stack on either side at the end, so neither side's last packet came from a separate close path.
   * Not settled: which side ends it. Reading the client world's URL (.URL.Op) from the bridge errored.
-- Next, observation only: decode the last 4-5 packets each way (a control-channel close bunch says who closed);
-  a client-side NotifyOnNewObject trace of which replicated actors arrive in the final packets.
 - Out of bounds, unchanged: nothing that bypasses, patches, spoofs, emulates or hooks Denuvo anti-cheat/anti-tamper or
   answers a challenge; no modded client near a live match.
 - Wire, third join (both captures merged on the shared GetTickCount clock): the last exchange is client 18 + 10 bytes,
