@@ -2822,3 +2822,33 @@ SOCIAL > GUILD stayed an empty hall and the TRADE page's GUILD shopkeeper (First
   for comparison). One raid load on Space_Delta exited silently with no dump and didn't repeat.
 - kdis.py now decodes the delegate opcodes (0x5C, 0x5D, 0x61-0x63) and set/map/array literals (0x39, 0x3B, 0x3D,
   0x3F, 0x65).
+## Offline guild: editing it (2026-11-16, tested; guild.lua)
+You now captain the offline guild, and Haywire Hayley and Lilykoi are officers. The page's EDIT GUILD tab
+(Btn_GuildTab_EditGuild, MM_GuildTab_EditGuild, SizeBox_ApperanceSubTabsDivide) is shown, MyCurrentGuild_AmIOwner is
+set, and the tab's own handler shows SizeBox_PermissionBasedStuff.
+- Each control's bound event runs its own body first: checks and warnings, then a PGOS request (SetGuildIcon,
+  SetGroupTags, ...) that goes nowhere. A pre-hook then reads the panel, applies the value to the page, and writes
+  config/guild.txt (key=value).
+  - Announcement Confirm (event 16) and Clear Message (27): Txt_PGOS_MyGuild_AnnouncmentMessage, shown in
+    Border_GuildAnnouncment above the tabs. Collapsed when empty.
+  - Is Public checkbox (44): YES/NO.
+  - Join Type combo (45): index 0-2 is Open To Anyone / Invite Only / Closed To All. The combo's FStrings from
+    GetOptionAtIndex came back as garbage; DefaultOptions reads fine.
+  - APPLY NEW PATCH DESIGN (35): Edited_Current_Patch_Design/PrimColour/SecColour, saved as "d-p-c" (the PGOS Icon
+    format). Also written to the game instance's guild entry (group_brief.Icon).
+  - APPLY NEW TAGS (event 4, the button named ..._PubliclyVisible_1): EditGuild_Tags holds the E_GuildTags names, e.g.
+    "HelpingHand". They are shown spaced.
+- Badges: Refresh_MyCurrentGuild_Patch(d, p, c) and Refresh_MyCurrentGuild_Edit_PatchLook(d, p, c) draw nothing until
+  MyCurrentGuild_Patch_DMAT and MyCurrentGuild_Patch_Edit_DMAT are set. Initialise_Guild_My_Info sets them, but only
+  on the PGOS path. guild.lua sets them from Border_TEMP_MyGuild_PatchLook_ and
+  Border_TEMP_CurrentPatchLook_EditPatch with GetDynamicMaterial().
+- Restoring the panel when the page fills: checkbox, combo index and announcement text are set back, plus the
+  Edited_Current_Patch_* values. Tag buttons (Guild_GuildTag_SubWidget_C in WrapBox_GuildEditTags) get "Is Selected"
+  and isTagSelected(true) when their label (txt_GuildTagName) minus spaces is a saved tag. GuildTagsActive_EditGuild and
+  the "n / 5" text are updated too. LoadCorrectTagLook_ForEditGuild(TArray<FString>) didn't work: the Lua table
+  arrived empty.
+- Disband (Border_Permissions_OwnerOnly_Disband) stays hidden. Guild name and description have no controls on this
+  panel and stay fixed.
+- Tested with real clicks and typing: each control logged "guild: ... changed" and wrote config/guild.txt. The Summary
+  showed the announcement, YES, OPEN TO ANYONE, the tags and the new badge. After a relaunch all of it came back,
+  including the edit panel's controls (3 / 5 tags selected). Clear Message removed the banner.
