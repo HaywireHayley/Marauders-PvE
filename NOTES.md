@@ -2319,3 +2319,60 @@ single-shot "FireWeapon trace RPC". Found by static disassembly of the exe. Test
 2026-11-16 (bridge/t_sgive.lua hands a TrenchShotgun, bridge/t_sshoot.lua aims and fires): patch applied 21/21, one
 shell at 4 m took a raider from 100 HP to dead (clip 30 to 29). Impact FX not checked by eye. Bot shotgun pellets get no impact FX (0x1895dc0
 never calls 0x18a1c70); not fixed.
+
+## Co-op join: who drops, and what never fires (2026-11-15; tools/coop/coop_hooks.lua)
+Follow-up to "Co-op host+join attempt". Same setup as there: host = launch-offline.ps1, splash Play, then from the lobby
+`open /Game/Maps/Raids/Spaceport_01?listen<RAID_OPTS>`; client = second exe with its own TEMP/TMP (tmp2) and
+PVE_BRIDGE=bridge2/, deployed Mods/mods.txt PvEDirector 0 (PvEBridge only), `open 127.0.0.1:7777?PID=offline2...`.
+Both copies ran tools/coop/coop_hooks.lua: logging-only hooks (name, time, object address; no params) on 21 UFunctions:
+SIGISPlayerController ServerCheck / ServerChallenge / Server_SendEAC / OnAntiCheatCheck / ClientEACAction /
+Client_EACMessage / Client_EACAction / Client_Loaded, GameLiftPlayerController ServerAcceptPlayer / ServerRemovePlayer,
+RaidPlayerController ClientStartOnlineGame / ClientGameStarted / ClientDissconnectedFromServer, PlayerController
+ServerNotifyLoadedWorld / ClientSetHUD / ClientRestart / ClientWasKicked / ClientReturnToMainMenuWithTextReason,
+GameModeBase K2_PostLogin / K2_OnLogout, MainPlayerController_C ReceiveBeginPlay; plus Actor:ReceiveEndPlay logged
+for PlayerController classes only. Two joins (21:05, 21:14), same result both times.
+- THE HOST DOES NOT CLOSE THE CONNECTION. Polled once a second through the bridge (FindAllOf IpConnection /
+  MainPlayerController_C, non-CDO): conns 0 -> 1 at the join, pcs 1 -> 2 five seconds later, and both stayed (conns 1,
+  pcs 2) for the 30 s watched, no EndPlay or K2_OnLogout for the joiner's controller. This contradicts "the HOST closes
+  the connection" in the native pass above; it fits the earlier "second MainPlayerController ... stays until the
+  connection times out". So the client leaves and the host only notices by timeout.
+- Client timeline (join 21:14:23): host spawns the joiner's MainPlayerController (ReceiveBeginPlay 21:14:27.2); client
+  gets ClientSetHUD 21:14:28.8; client is back on MainMenu by ~21:14:30 (its menu re-login hits the stand-in's
+  GET /v2/account at 21:14:30). The client's own ReceiveBeginPlay never fired, no ClientRestart, no ServerNotifyLoadedWorld.
+- Never fired on either side, both joins: ServerChallenge, ServerCheck, OnAntiCheatCheck, Server_SendEAC, every
+  Client_EAC*/ClientEACAction, ServerAcceptPlayer, ServerRemovePlayer, ClientWasKicked, ClientDissconnectedFromServer,
+  ClientReturnToMainMenuWithTextReason. A host-side hook at a native RPC's exec thunk should fire on receipt even if
+  its _Validate then fails (inferred, not verified). Whether a client-side hook fires when the client SENDS a Server
+  RPC is not verified either. The conclusion below doesn't rest on that: the host never drops the joiner at all.
+- No backend traffic at the join: stand-in server.log has nothing between the join and the client's menu re-login.
+  pvenet.log (needs a capture/ folder to exist, else it logs nothing) shows only the usual blocked lookups
+  (api.gameanalytics.com every ~4 s from the exe, marauderea2...nakamacloud.io from nakama-cpp.dll), before and after.
+- Gotcha: UE4SS 3.0.1 can't run a Lua hook for a function with an FText param: "Error executing hook pre-callback
+  /Script/Engine.PlayerController:ClientReturnToMainMenuWithTextReason: [push_textproperty] Operation::GetParam is not
+  supported" in UE4SS.log, and the Lua callback never runs. So a "never fired" for an FText RPC only holds if that error
+  line is absent from UE4SS.log too (it was, for both joins). Earlier passes that hooked this RPC couldn't have seen it.
+- Seen once, after the joiner crashed (below): ~17 s after the client died, the HOST called
+  ClientReturnToMainMenuWithTextReason (the UE4SS error line above) and went back to its own MainMenu. That's the host
+  ending its session on losing a player, not the join bounce.
+- Crash, our tooling: a client-side RegisterLoadMapPreHook that read the URL (url:get().Map / .Op) killed the client
+  during travel (0xe06d7363, a C++ exception inside UE4SS.dll frames, minidump in %LOCALAPPDATA%\RaidGame\Saved\Crashes).
+  Don't read LoadMap params from Lua.
+- Denuvo, passive OS view only: "Denuvo Anti-Cheat Update Service" (Manual start) is Running while the game is up, process
+  denuvo-anti-cheat-update-service; EasyAntiCheat and EasyAntiCheat_EOS services Stopped. Nothing else looked at.
+
+What this means for the candidates (desk research, same date):
+- A, Denuvo anti-cheat challenge: no longer the best fit. The suspected path was SIGISPlayerController ServerChallenge
+  (TokenReturn, TokenReturn2) failing on the host; the host never runs it and doesn't drop anyone. Not
+  ruled out: a check entirely inside the Denuvo runtime on the CLIENT that makes it leave (we don't and won't look there).
+- B, GameLift accept: ruled out as the trigger. The host never runs ServerAcceptPlayer and keeps the joiner anyway.
+- New lead, client side: the client leaves ~1-2 s after ClientSetHUD, before its controller's BeginPlay, without any
+  kick RPC: the shape of an engine-level client network failure (UNetDriver/PendingNetGame error -> HandleDisconnect ->
+  travel with `?closed`), e.g. a replication/package-map problem while the joiner's world starts, or game code on the
+  client calling a disconnect natively. Desk research: `?closed` comes from UEngine::HandleDisconnect
+  (https://forums.unrealengine.com/t/network-error-force-loads-entry-map-for-client-when-server-shuts-down/405257/11).
+  Next, observation only: a client-side NotifyOnNewObject/BeginPlay trace of which replicated actors arrive before the
+  drop; hook GameInstance network-error events again but check UE4SS.log for "Error executing hook" lines; compare a
+  join with PvEDirector on vs off on the HOST (the host's director spawns bots/turrets right away; a replicated actor
+  the client can't load would fit).
+- Out of bounds, unchanged: nothing that bypasses, patches, spoofs, emulates or hooks Denuvo anti-cheat/anti-tamper or
+  answers a challenge; no modded client near a live match.
