@@ -1061,6 +1061,12 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
   Played after a fast load: rivals launch/dock/attack, Fortress garrison, fights, gate extraction with item and xp saved. Not seen on
   screen by a person. A station's own defenders weren't checked after a fast load (the Fortress has none).
 - Raid maps opened directly aren't touched: the veil only runs on space maps.
+- Missing health at raid start (tester report, 2026-11-15): the pawn spawned while the load still ran at 20x, since
+  veilUntilAboard only looks every UPDATE_SECONDS (10 game seconds at 20x). It arrived with Health 97 or 85 and
+  totalTallyHealthBurn 3 or 15 (burned: the bar's white segments stay short), set between two frames with no
+  ReceiveAnyDamage, so the landing in big physics steps. At LOAD_TIME_DILATION 1: Health 100, burn 0, but ~50 s slower.
+  Fix: onTick (per frame) sets the speed back to 1 from CFG.SPAWN_SLOW_AT (40) match seconds, or as soon as a pawn
+  exists. Two raids after the fix: 100 HP, burn 0, aboard after 13 s and 15 s.
 
 ## Raid loading screen (2026-11-06)
 - Style from trailer/make_trailer.py: Bahnschrift, orange (255,138,36), tracked title with an orange ghost edge, rules, lower-left
