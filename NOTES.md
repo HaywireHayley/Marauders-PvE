@@ -2890,3 +2890,18 @@ voice (cosequipped), but raids always had Raider_Head_Skel_01, Raider_Body_Skel_
   Space_Charlie, CharacterMesh0 = Hunter_Head_Red_Skel_01, CharacterBody0 = Raider_Body_RedWhite_Skel_01,
   ActiveVoice = frF01. A real F1 (Voice01) sent RunOnServerVoice with DT_VoiceSet_FrenchFemale01. Not watched in third
   person.
+## Pod breach into Fortress put you in a wall (2026-11-16, logic tested at the spot; rivals.lua podExitCheck)
+Tester report with log (build 3, Space_Alpha): "out of the pod with no floor under you at 60356,114798,-1038: moved
+to the floor at 60230,114665,-1203", inside a wall.
+- At that spot the pod leaves you above a round hatch. The room below has its floor at -1626 (SM_Floor_400x3278,
+  navmesh at -1623 straight under you). podExitCheck searched the navmesh 300, 600, ... below with a +-200 box, so it
+  found -1203 first, 180 to the side. A trace from the exit to that point hits SM_WallRoundedCorner, and the point
+  itself is on SM_Wall_Hole_9.
+- Now: trace straight down first (Visibility channel, your body ignored, up to 1500) and land on the navmesh at the
+  hit, or on the hit point itself when no navmesh is built there yet (it's built around you as you arrive; right
+  after a teleport there was none). Any other candidate must be in sight from where you came out (a trace to it, 60
+  above its floor, hits nothing). The helpers are R.Ground (trace / below / inSight): rivals.lua is at Lua's 200-locals
+  limit, so they're on the module table.
+- Tested in a Space_Alpha raid through bridge/dir_eval.lua, at the reporter's coordinates: below = -1626, nav =
+  60356,114798,-1623, in sight = true. The old pick (60230,114665,-1203) is not in sight (rejected). Not tested: a
+  real pod flight into Fortress with the new code.
