@@ -1252,6 +1252,11 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
 - Minimap think() ran FindAllOf + FindFirstOf twice per think (gates, game state, game instance), every second and on every ROUTE_MOVED step. Now cached; gates only scan once the timer is out, every GATE_RESCAN s.
 - The only world light is Node_Background_06's DirectionalLight: intensity 10, movable, DynamicShadowDistance 650000. Hiding it live visibly darkened the Navy Outpost and the held gun (mean brightness 39 -> 35). There is no world skylight (the one SkyLightComponent lives in /Engine/Transient). main.lua updateSun keeps it on only while not on foot. Effect on frame time not measured: all tests ran with WoW in front.
 - tools/profile/threadsample.py samples the busiest threads from outside. bridge/profile_on makes the director write scan counts and slow ticks to bridge/profile.txt.
+- 2026-11-16: bridge/profile_on is looked for every 3 s (main.lua profiler), not only when the director starts, so it
+  can be dropped in or taken out mid-raid ("profiler on (bridge/profile_on)" / "profiler off" in the log; off puts the
+  plain FindAllOf/FindFirstOf back and clears PVE_PROF). bridge/dir_eval.lua runs while it's on. Tested in the lobby:
+  "profiler on" 5 s after creating the flag, then dir_eval ran (used it to debug lobbylabel.lua, issue #55). Before,
+  every look inside a running raid cost a quit and a relaunch.
 - Shot probe (bridge/t_shots.lua, 80 shots): bots shooting while not bIsTargeting keep the gun level (shotgun gun -3 deg, bullets +19). bIsTargeting bots track it within ~5 deg and play the arms' montage (rc_Mat49_Aim_Shoot_Mon); from the hip the arms play nothing while the gun runs Mon_*_Shoot on its own mesh. trackTargets now sets ServerSetTargeting while fighting (not sprinting or hiding). Forcing it live raised hand_r 41-55 from 43-50 above the capsule; no shots landed in that test window.
 - GlobalAnimRateScale (0.6-2.4, for the legs) also scaled the arms' montage while the gun's ran at 1.0; animate now counters it with Montage_SetPlayRate.
 - anim.Bend: non-zero (2.8-8.5) only on three top-up copies, which sit lower (head 46-53 vs 64). A Lua write doesn't stick (the BP rewrites it each update). Cause unknown; check whether these still point low once aiming is forced.
