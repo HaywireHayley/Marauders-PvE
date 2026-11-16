@@ -11,6 +11,9 @@ Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Mar
   counts the gear you brought in as lost, just like Alt+F4 (the launcher's Undo last raid brings it back).
 - **French female voice free from the start.** You could play as a woman from the first launch, but every female
   voice cost credits. FRENCH 02 is now unlocked on every save. Pick it under Loadout > Appearance > Voice.
+- **START RAID.** Offline there's no matchmaking, so the lobby's launch button now says what it does.
+- **Your crew gunner tells you why they aren't shooting:** "too far, close in" when the target is out of your guns'
+  range, or "can't swing onto it, turn us toward it" when it's outside your turret's arc.
 - **Gear tab in the F3 menu:** switch level-scaled enemy gear off, or make it tougher.
 - **Launcher option to skip the 60 s intro video**, and the launcher now checks what PLAY needs before it starts and
   tells you why a launch failed.
@@ -42,6 +45,7 @@ Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Mar
 
 - CI checks Lua syntax and Python compile on every push and PR.
 - `scripts/setup-dev.ps1` sets up a dev checkout in one command.
+- `bridge/profile_on` can now be switched on and off mid-raid (it used to be read only at launch).
 - NOTES.md has the co-op join findings and the station survey log.
 
 ## Public test, 16 Nov 2026, build 2 (`public-test-20261116.2`)
