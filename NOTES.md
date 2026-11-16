@@ -1346,6 +1346,9 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
   normal save gets exactly the game's start; cheat saves are marked as set up (_set_up_already) so the kit doesn't land
   on their packed stash. Tested: fresh normal save 0 / 3 items -> after login 65,000 / 37 items, lobby shows 65,000
   straight away; fresh cheat save 999,999,999 / 32 items -> unchanged, no setup writes in server.log.
+  The new-player Guide (Guide_Widget_C:FreshAccount_RunGuide; a popup on the game instance, not the lobby's embedded
+  Guide_Widget) is closed by lobbylabel.lua with ForceCloseTheGuideWidget if it shows within 60 s of the session's
+  first lobby (it opened ~15 s in). Tested on a fresh save: "lobby: closed the new-player guide", clean lobby.
 
 ## Space_Solo_02 stations, Rebel Base lid, key card guard (2026-11-07, later)
 - User report: big black cube in the sky at Rebel Base, rivals leaving/gone right at the start, poor loot at Rebel Base, locked out of own ship (captain's ID gone).
