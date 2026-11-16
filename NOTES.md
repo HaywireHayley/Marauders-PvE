@@ -1274,6 +1274,13 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
 - rivals.lua: m.female (CFG.FEMALE 0.5) picks the HeadF/BodieF look; wearVest swaps the worn vest; top-up defenders roll it too. Placed bots stay as they are. Voices: voice.lua + voicelines.lua, 13 sets, one for life, lines from the menu one per frame. Top-ups have voices; placed bots don't.
 - Verified: 106 assets built, load, skin and animate; 9 of 19 bots women; 208 lines loaded; female and male lines heard by AudioComponent sampling, not by ear; 4 kills with full corpses. Not looked at closely in good light; shading on reshaped areas keeps the old normals. Native hurt sounds still male if the game plays any on bots: unchecked. Corpses use body mesh from the pawn; not visually checked.
 - Off limits: Spaceport basement around AINodeStart_2 (68268,23030,-186), walkable on the navmesh 107 m from an airlock, beside hidden stash and locked door contracts. main.lua OFF_LIMITS, checked in patrol, reachableNear, strafe, rival spawns, and adoption. 18 live bots, 10 samples, none inside. Only this zone is known; other stations may have similar ones. Space_Solo_02 often surveys no stations and rivals then extract at once: not new, not fixed.
+- Issue #13 (2026-11-15): five Space_Solo_02 runs, none surveyed "none" (2, 1, 2, 3, 3 stations). The interiors are the
+  same every run (Mini Mine, Penal Colony, Rebel Base loaded; Asteroid and Moon Base volumes empty); what changes per run
+  is which space-side docking nodes exist (one run: only Node_PenalColony_01 + Node_MiniMine; another: Node_CapitalShip_01 +
+  Node_PenalColony_01, with Asteroid/Mini Mine/Rebel Base interiors named but no nodes for them). So "none" needs a run
+  whose nodes all lack a named interior and no AI frigate, or a survey that throws (pcall -> "station survey failed").
+  Never seen in today's ~10 logs. survey now also logs "[rivals] survey: named interiors: ... | docking nodes: <class> ->
+  <name or no name>", so the next "none" shows which side was missing.
 
 ## Play areas replace the one-box ban (2026-11-07, later)
 - The sample shots were at Z~980: the roof. The runtime navmesh covers roofs and shells on every station and the map marks nothing as out of bounds. bridge/t_nav.lua maps the navmesh against designer markers: everything at z 850+ has none.
