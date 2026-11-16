@@ -26,6 +26,12 @@ static const Patch PATCHES[] = {
     { "FireWeapon trace RPC", 0x1885c1a, { 0x0f, 0x83, 0x6d, 0x01, 0x00, 0x00 }, { 0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00 }, 6 },
     /* cmp byte [rdi+0xF0],3 ; jae +0x28   (projectile guns: ServerFireProjectile) */
     { "FireWeapon projectile RPC", 0x1885d63, { 0x73, 0x28 }, { 0x66, 0x90 }, 2 },
+    /* cmp byte [rcx+0xF0],3 ; jae return  at the top of the multi-pellet client trace (0x18a1990). FireWeapon
+       (pellet count +0x460 > 0, i.e. shotguns) traces each pellet on the server only when MyPawn is a RaidBot or
+       RaidNodeBot (0x188f3a0); every other pawn, the player included, goes to 0x18a1990, which traces the pellets,
+       spawns their impacts (0x18a1c70) and sends ServerTraceFireProjectiles, and returns at once for an Authority
+       weapon. Offline the player's shotgun pellets were never traced: no damage, no impacts. */
+    { "Shotgun pellets trace RPC", 0x18a19be, { 0x0f, 0x83, 0x71, 0x02, 0x00, 0x00 }, { 0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00 }, 6 },
     /* cmp byte [rcx+0xF0],3 ; je return   (SimulateWeaponFire cosmetics) */
     { "SimulateWeaponFire effects", 0x189a4a3, { 0x0f, 0x84, 0x04, 0x04, 0x00, 0x00 }, { 0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00 }, 6 },
     /* cmp dword [rbx+0x26c],r15d ; jle no-recoil  in the weapon's per-tick recoil (0x189f890). +0x26c is the

@@ -2308,3 +2308,14 @@ by level (were 1000/2500/5000/9000/15000 and 300/600/1000/1600/2500). hire.lua C
 Faster into the lobby and raids (user report 2026-11-16): the PGOS social overlay scan runs every 1 s for a map's first
 30 s (was every 10 s; it sat over the fresh lobby up to 10 s); test found it 5.5 s in. MM_SEARCH_SECONDS 4 -> 1, LOAD_TIME_DILATION
 10 -> 20 (engine cap). Start to aboard went from ~22 s to ~18 s (Space_Charlie 18 s, Space_Beta 18 s); rivals launched normally.
+
+Shotguns (user report 2026-11-16): the player's shotgun did nothing offline. FireWeapon (0x1884b80) handles guns with a
+pellet count (+0x460 > 0) apart: when MyPawn is a RaidBot or RaidNodeBot (0x188f3a0) each pellet is traced and damaged on
+the server (0x1895dc0), so soldiers, rival bodies (GOAPNodeBot) and crew should be fine; every other pawn, the player
+included, goes to the multi-pellet client trace 0x18a1990, which traces the pellets, spawns their impacts (0x18a1c70) and
+sends ServerTraceFireProjectiles, but starts `cmp byte [rcx+0xF0],3 ; jae return` (OFFLINE_AUDIT item 6). Offline the
+player's pellets were never traced. Fix: pvepatch "Shotgun pellets trace RPC" NOPs that jae (0x18a19be), like the
+single-shot "FireWeapon trace RPC". Found by static disassembly of the exe. Tested in game
+2026-11-16 (bridge/t_sgive.lua hands a TrenchShotgun, bridge/t_sshoot.lua aims and fires): patch applied 21/21, one
+shell at 4 m took a raider from 100 HP to dead (clip 30 to 29). Impact FX not checked by eye. Bot shotgun pellets get no impact FX (0x1895dc0
+never calls 0x18a1c70); not fixed.
