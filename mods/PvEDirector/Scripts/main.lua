@@ -291,13 +291,16 @@ end
 _G.PVE_GC = gc
 
 -- Testing: with bridge/profile_on present, object scans and slow ticks are counted into bridge/profile.txt every 10 s.
-local function profiler(tick)
-    local on = io.open(PROJECT .. "bridge/profile_on", "r")
-    if not on then return tick end
-    on:close()
+-- profiled(tick) wraps the tick in the counters and returns it with an undo that puts the plain scans back.
+-- (inside a do block: main.lua is at Lua's 200-locals limit, and only profiler is needed outside)
+local profiler
+do
+local function profiled(tick)
     local scans, slow, frames, flushed = {}, {}, 0, os.clock()
+    local reals = {}
     for _, name in ipairs({ "FindAllOf", "FindFirstOf" }) do
         local real = _G[name]
+        reals[name] = real
         _G[name] = function(cls)
             local t = os.clock()
             local out = real(cls)
@@ -313,7 +316,7 @@ local function profiler(tick)
     local memLo, memHi, drops = math.huge, 0, 0 -- Lua heap (KB) seen each frame; a drop = a garbage collection ran
     local lastMem
     local bigGaps = {} -- the worst gaps' times, to line them up with the log
-    return function(ctx)
+    local fn = function(ctx)
         local t = os.clock()
         local mem = collectgarbage("count")
         if lastMem and mem < lastMem - 512 then drops = drops + 1 end
@@ -376,6 +379,35 @@ local function profiler(tick)
             scans, slow, frames, flushed, gaps, worst = {}, {}, 0, t, {}, 0
         end
     end
+    return fn, function()
+        for name, real in pairs(reals) do _G[name] = real end
+        _G.PVE_PROF, _G.PVE_ALLOC = nil, nil
+    end
+end
+
+-- The flag is looked for every PROFILE_CHECK s, so it can be dropped in or taken out mid-raid (bridge/dir_eval.lua
+-- only runs while it's on). Without it the tick runs as is, apart from that check.
+local PROFILE_CHECK = 3
+function profiler(tick)
+    local live, undo, nextCheck = nil, nil, 0
+    return function(ctx)
+        local now = os.clock()
+        if now >= nextCheck then
+            nextCheck = now + PROFILE_CHECK
+            local f = io.open(PROJECT .. "bridge/profile_on", "r")
+            if f then f:close() end
+            if f and not live then
+                live, undo = profiled(tick)
+                log("profiler on (bridge/profile_on)")
+            elseif not f and live then
+                undo()
+                live, undo = nil, nil
+                log("profiler off")
+            end
+        end
+        return (live or tick)(ctx)
+    end
+end
 end
 
 -- pcall that adds its time to the profiler's per-section totals (bridge/profile_on)
