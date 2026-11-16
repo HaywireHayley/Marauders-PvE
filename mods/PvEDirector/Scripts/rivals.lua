@@ -4402,7 +4402,12 @@ local function nodeTurrets(refresh)
 end
 
 local function nodeTurretAlive(t)
-    local ok, alive = pcall(function() return valid(t) and (t.Health or 0) > 0 and t.bIsDying == 0 end)
+    -- (bIsDying reads as a Lua boolean: comparing it with 0 was always false, so every turret counted as dead and your
+    -- gunner never shot one, picked or ordered)
+    local ok, alive = pcall(function()
+        local dying = t.bIsDying
+        return valid(t) and (t.Health or 0) > 0 and not (dying == true or (type(dying) == "number" and dying ~= 0))
+    end)
     return ok and alive
 end
 
