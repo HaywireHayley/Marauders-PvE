@@ -182,6 +182,14 @@ class App(tk.Tk):
         self.refresh()
         self.after(1000, self.watch)
         self.check_update()
+        self.protocol("WM_DELETE_WINDOW", self.close)
+
+    def close(self):
+        # Closing mid-install would kill the update thread before it can put replaced files back.
+        if self.updating:
+            self.say("Updating: the launcher restarts by itself when it's done.")
+            return
+        self.destroy()
 
     # Layout ---------------------------------------------------------------------------------------------------------
     def build(self):
