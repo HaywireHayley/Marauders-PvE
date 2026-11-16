@@ -1686,6 +1686,15 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
   CurrentWeapon. Hidden flags are re-applied every update (the old fix hid once), FindAllOf scans run at 0/1/4/10 s into the flight,
   and each gun hidden is logged once as "pod: hid <name> (carried|held|yours|on the pod)". Any pawn whose class name has "Pod" counts as a pod
   too (escape pods). NOT verified in game yet: copied into the game's Mods folder while the user was at the menu.
+- Gun attachments on the pod (issue #18, 2026-11-15): a gun's attachments are actors of their own in its slots
+  (RaidWeapon MuzzleSlot / SightSlot / LowerRailSlot / UpperRailSlot / MagSlot / StockSlot / SpecialSlot, e.g. a Mat49's
+  Attach_Mat49_Wooden_Stock_C and Mat49_Default_Magazine_C), so SetActorHiddenInGame on the gun left them drawn. hide()
+  now hides the slot actors too and keeps them in raid.podGuns, so the on-foot pass shows them again. Test save: a
+  stash string with the stock in the 6th attachment slot (`<id>-Mat49Rifle-32-100-0-0-0-Prim-0!0!0!0!0!Mat49WoodenStock!0`)
+  spawns the gun with StockSlot = Attach_Mat49_Wooden_Stock_C (so the 7 slots run Muzzle, Sight, LowerRail, UpperRail,
+  Mag, Stock, Special, and a slot holds the attachment's row). Launched by InteractionDetection + ServerUse on
+  RaidUseableComp_DropPod01: before, the hidden guns' StockSlot/MagSlot actors were still visible; after, all hidden
+  (held, carried and the pod's own copy). Not seen: showing them again back on foot (the pod never landed in the test).
 
 ## Ship damage visuals / incapacitated state (2026-11-08, FIXED, see end of section)
 - Measured in game (Space_Solo_01, Starter, bridge/t_shiphit.lua = real GameplayStatics:ApplyDamage on your hull; t_shipdmg.lua reads state):

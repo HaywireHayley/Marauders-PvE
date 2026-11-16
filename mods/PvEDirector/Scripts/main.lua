@@ -824,6 +824,17 @@ local function hidePodGuns(foot, pod)
             log(("pod: hid %s (%s)"):format(g:GetFName():ToString(), why))
         end
         if not g.bHidden then g:SetActorHiddenInGame(true) end
+        -- A gun's attachments (stock, magazine, sight...) are actors of their own in its slots: hiding the gun left
+        -- them showing on the pod (tester: the Mat49's stock). Hidden with it, and shown again with it on foot.
+        if g.StockSlot ~= nil then
+            for _, slot in ipairs({ "MuzzleSlot", "SightSlot", "LowerRailSlot", "UpperRailSlot", "MagSlot", "StockSlot", "SpecialSlot" }) do
+                local a = g[slot]
+                if valid(a) and not guns[a:GetAddress()] and not a.bHidden then
+                    guns[a:GetAddress()] = a
+                    a:SetActorHiddenInGame(true)
+                end
+            end
+        end
     end
     for _, g in pairs(guns) do if valid(g) and not g.bHidden then g:SetActorHiddenInGame(true) end end
     pcall(function() foot.Inventory:ForEach(function(_, w) hide(w:get(), "carried") end) end)
