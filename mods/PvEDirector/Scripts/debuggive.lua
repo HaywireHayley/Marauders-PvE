@@ -1,0 +1,118 @@
+-- F9 debug menu: pick a gun or an ammo type and get it, in a raid, on foot. Guns come loaded, into the first free gun
+-- slot (primary, then secondary; pistols into the pistol slot); ammo comes as one full stack (its own size) into a free pocket cell.
+-- Both go through the game's own loadout path, SIGISPlayerController:Server_AwsN_EquippedItemsReturned (as main.lua
+-- applyLoadout does at the start of a raid): it registers the item, spawns the weapon, loads its magazine and equips it.
+-- A second gun sent to a slot that's taken left the first in your hands with its item hidden behind the new one, so a
+-- full set of slots is refused instead.
+-- Rows, kinds and magazines from assets/saves/items.json (type 0 = long gun, 1 = pistol; max = magazine / stack), minus
+-- test items, throwables, mines, shields and tools.
+local G = {}
+
+local GUNS = {
+    { "STG44Rifle", "STG44", 0, 30 }, { "Mat49Rifle", "Mat 49", 0, 36 }, { "MP40Rifle", "MP40", 0, 30 },
+    { "StenSMG", "Sten", 0, 32 }, { "ThompsonSMG", "Thompson", 0, 30 }, { "M45CarlSMG", "Carl Gustav m/45", 0, 36 },
+    { "PPSHSmg", "PPSh", 0, 36 }, { "UziSmg", "Uzi", 0, 20 }, { "Mac10Rifle", "MAC-10", 0, 30 },
+    { "KlobbSMG", "Klobb", 1, 20 }, { "GreaseGun", "Grease Gun", 0, 30 }, { "SterlingRifle", "Sterling", 0, 20 },
+    { "M50ReisingRifle", "Reising", 0, 12 }, { "BARRifle", "BAR", 0, 20 }, { "JohnsonRifle", "Johnson", 0, 10 },
+    { "SVT40Rifle", "SVT-40", 0, 10 }, { "M1ParaRifle", "M1 Carbine Para", 0, 15 }, { "Mas44Rifle", "MAS 44", 0, 10 },
+    { "DeLisleRifle", "De Lisle", 0, 11 }, { "EM2Rifle", "EM-2", 0, 20 }, { "FALRifle", "FAL", 0, 20 },
+    { "M16Rifle", "M16", 0, 20 }, { "StonerRifle", "Stoner", 0, 30 }, { "DaewooK1Rifle", "Daewoo K1", 0, 20 },
+    { "KrasaRifle", "Krasa", 0, 20 }, { "AC14Rifle", "AC14", 0, 30 }, { "SVURifle", "SVU", 0, 10 },
+    { "MG42Rifle", "MG42", 0, 50 }, { "BrenMk2Rifle", "Bren", 0, 20 }, { "DP28Rifle", "DP-28", 0, 47 },
+    { "LiberatorShotgun", "Liberator", 0, 4 }, { "TrenchShotgun", "Trench gun", 0, 5 },
+    { "SawedOffDouble", "Sawed-off", 1, 2 }, { "LongDoubleBarrel", "Double barrel", 0, 2 },
+    { "Jackhammer", "Jackhammer", 0, 10 }, { "LPOFlamethrower", "LPO flamethrower", 0, 100 },
+    { "ChinaLake", "China Lake", 0, 3 },
+    { "P08Pistol", "Luger P08", 1, 8 }, { "1911Pistol", "M1911", 1, 7 }, { "M712Pistol", "M712", 1, 10 },
+    { "WebleyPistol", "Webley", 1, 6 }, { "WelrodPistol", "Welrod", 1, 6 }, { "SPP1Pistol", "SPP-1", 1, 4 },
+    { "MosinObrezPistol", "Obrez", 1, 5 }, { "Flaregun01", "Flare gun", 1, 1 },
+}
+local AMMO = {
+    { "9mmAmmo", "9mm", 60 }, { "45Ammo", ".45 ACP", 60 }, { "762Ammo", "7.62mm", 60 }, { "556Ammo", "5.56mm", 60 },
+    { "300Ammo", ".30-06", 60 }, { "54RAmmo", "7.62x54R", 60 }, { "32Ammo", ".32", 60 }, { "10mmAmmo", "10mm", 60 },
+    { "12GaugeAmmo", "12 gauge", 20 }, { "40mmAmmo", "40mm", 3 }, { "FlareAmmo", "Flares", 5 }, { "FlameFuel", "Flame fuel", 100 },
+    { "DartAmmo", "Darts", 40 },
+}
+local POCKETS = { "PocketLeft", "PocketRight" } -- 2 x 2 cells each
+
+local gi, ai = 1, 1
+
+local function controller()
+    local pc = FindFirstOf("MainPlayerController_C")
+    if not (pc and pc:IsValid()) then return nil end
+    local pawn = pc.Pawn
+    if not (pawn and pawn:IsValid() and pawn:GetClass():GetFName():ToString() == "PlayerPawn_C") then return nil end
+    return pc
+end
+
+-- What the player's inventory holds, by container: { Prim = true, ..., cells = { ["PocketLeft 0 1"] = true } }.
+local function taken()
+    local out = { cells = {} }
+    local inv = FindFirstOf("SIGISInventoryComponent")
+    if not (inv and inv:IsValid()) then return out end
+    inv.StashedItems:ForEach(function(_, e)
+        local it = e:get()
+        if it and it:IsValid() then
+            local con = it.MotherItemGUID:ToString()
+            out[con] = true
+            pcall(function() out.cells[("%s %d %d"):format(con, it.ItemInSlot.Column, it.ItemInSlot.Row)] = true end)
+        end
+    end)
+    return out
+end
+
+local function give(pc, row, stack, col, line, con)
+    local id = tostring(math.random(10000000, 99999999))
+    pc:Server_AwsN_EquippedItemsReturned(('[{"value":{"equip":true,"value":"%s-%s-%d-100-%d-%d-0-%s"}}]')
+        :format(id, row, stack, col, line, con))
+end
+
+local function inRaid() return controller() ~= nil end
+
+function G.actions()
+    return {
+        { id = "gunpick", label = function() return ("Gun: %s   (click for the next one)"):format(GUNS[gi][2]) end,
+          help = "Choose the gun the Give me button below gives", when = inRaid, unusable = "In a raid, on foot",
+          run = function() gi = gi % #GUNS + 1 return "Gun: " .. GUNS[gi][2] end },
+        { id = "gunback", label = "Previous gun", help = "Back one in the list", when = inRaid, unusable = "In a raid, on foot",
+          run = function() gi = (gi - 2) % #GUNS + 1 return "Gun: " .. GUNS[gi][2] end },
+        { id = "givegun", label = function() return "Give me the " .. GUNS[gi][2] end,
+          help = "Loaded, into a free gun slot", when = inRaid, unusable = "In a raid, on foot",
+          run = function()
+              local pc = controller()
+              local row, name, kind, mag = table.unpack(GUNS[gi])
+              local t = taken()
+              local slot = kind == 1 and (not t.Pistol and "Pistol")
+                  or kind == 0 and (not t.Prim and "Prim" or not t.Sec and "Sec") or nil
+              if not slot then
+                  return ("No free %s slot: drop one first"):format(kind == 1 and "pistol" or "gun")
+              end
+              give(pc, row, mag, 0, 0, slot)
+              return ("%s, %d rounds, in your %s slot"):format(name, mag,
+                  ({ Prim = "primary", Sec = "secondary", Pistol = "pistol" })[slot])
+          end },
+        { id = "ammopick", label = function() return ("Ammo: %s   (click for the next one)"):format(AMMO[ai][2]) end,
+          help = "Choose the ammo the Give me button below gives", when = inRaid, unusable = "In a raid, on foot",
+          run = function() ai = ai % #AMMO + 1 return "Ammo: " .. AMMO[ai][2] end },
+        { id = "giveammo", label = function() return ("Give me %d %s"):format(AMMO[ai][3], AMMO[ai][2]) end,
+          help = "Into a free pocket cell", when = inRaid, unusable = "In a raid, on foot",
+          run = function()
+              local pc = controller()
+              local cells = taken().cells
+              for _, pocket in ipairs(POCKETS) do
+                  for line = 0, 1 do
+                      for col = 0, 1 do
+                          if not cells[("%s %d %d"):format(pocket, col, line)] then
+                              give(pc, AMMO[ai][1], AMMO[ai][3], col, line, pocket)
+                              return ("%d %s in your %s pocket"):format(AMMO[ai][3], AMMO[ai][2],
+                                  pocket == "PocketLeft" and "left" or "right")
+                          end
+                      end
+                  end
+              end
+              return "Your pockets are full"
+          end },
+    }
+end
+
+return G

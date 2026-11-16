@@ -3337,6 +3337,7 @@ Debug.init({ log = log, valid = valid, lib = lib, menuClosed = menuClosed, actio
           return "Loading " .. CFG.MAP
       end },
 } })
+Debug.addActions(require("debuggive").actions()) -- pick a gun or ammo type and get it (F9)
 
 math.randomseed(os.time())
 log("loaded")

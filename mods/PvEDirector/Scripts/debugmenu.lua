@@ -140,4 +140,9 @@ function D.reset() ui = nil end
 
 function D.init(ctx) X = ctx end
 
+-- More buttons after the ones main.lua passed (debuggive.lua's gun and ammo picker), before the menu is first built.
+function D.addActions(list)
+    for _, a in ipairs(list) do X.actions[#X.actions + 1] = a end
+end
+
 return D
