@@ -2551,6 +2551,22 @@ space salvaging doesn't work.
   `pcall(loadfile("<absolute path>"), a, b)` (relative paths fail). Read widget `.Visibility` instead of calling
   GetVisibility (errors as "function: 0x..." on some instances).
 
+## Crew gunner never shot stationary turrets (2026-11-16, tested; rivals.lua nodeTurretAlive)
+Issue #40. nodeTurretAlive tested `t.bIsDying == 0`, but UE4SS returns bIsDying as a Lua boolean, and `false == 0` is
+false. So every RaidSubNodeActor_Turret counted as dead: hostileShips never listed the ones aiming at you, and
+pickShip (left-click orders) never offered them. It now treats only `true` or a non-zero number as dying.
+- Before (Space_Solo_01, gunner Noor level 1, hull parked 11000 and then 5000 from a flak node that was aiming at the
+  hull, CurrentAimingActor = your ship): no "engaging" call, and the flak's health stayed at 150 while the hull went
+  575 -> 495.
+- After (Space_Charlie): "Noor: engaging the turret" 1 s after parking 5000 away. Four MovingFlak nodes killed the
+  hull in about 18 s, and all shots were held by arc: SetControlRotation doesn't turn the hull, and the starter has
+  one front turret (GUNNER_ARC 120).
+- After, Space_Solo_01, hull set to face the flak 6000 away (hull health topped up each second): flak 150 -> 110 -> 22
+  -> -21 (bIsDying true) within about 12 s, then "Noor: engaging the Widowmaker" (a crew attacking you), so a dying
+  turret is dropped.
+- Test path: hire with bridge/crew_cmd "hire 1" in the lobby, then pc:Possess(Ship_StarterFrigate01_Pawn_C) from the
+  bridge; F at the helm from the bridge didn't take. Node turrets' FireDistance is 13500, beyond every hull turret's
+  range (6000-9500, TURRET_TYPES), so between those distances they can hit you and you can't hit back.
 ## French female voice free from the start (2026-11-16, tested; backend/nakama_standin.py)
 Issue #27. You can play as a woman from the first launch, but the cheapest female voice cost credits.
 - DT_PlayerAppearance (row struct UnlockCosmeticData: ItemName, slot 0/1/2 = head/body/voice, UnlockRequirementStatName
