@@ -2550,3 +2550,24 @@ space salvaging doesn't work.
 - Bridge tips: globals set in a bridge command don't reach a dofile'd script; pass args with
   `pcall(loadfile("<absolute path>"), a, b)` (relative paths fail). Read widget `.Visibility` instead of calling
   GetVisibility (errors as "function: 0x..." on some instances).
+
+## French female voice free from the start (2026-11-16, tested; backend/nakama_standin.py)
+Issue #27. You can play as a woman from the first launch, but the cheapest female voice cost credits.
+- DT_PlayerAppearance (row struct UnlockCosmeticData: ItemName, slot 0/1/2 = head/body/voice, UnlockRequirementStatName
+  + Amount, UnlockCostAmount, PrestigeUnlock, ChapterUnlock) has these voice rows: enM01 0, frM01 3500, frF01 3500,
+  plM01 4200, duM01/duF01 58000 (L_7), usaM01/usaF01 65000 (L_10), roM01 70000, huM01 76000, itF01 80000 (L_18),
+  auM01 95000, itM01 115000, str01 prestige. Rows were read from memory with a scratch reader modelled on
+  offline-audit/voicerows.py.
+- SIGIS_InventoryWidget isThisCosmeticUnlocked (kdis) treats enM01, head "1" and body "6" as always free. Anything else
+  must be in InventoryMenuWidget:GetUnlockedCosmetics (native 0x9f52e0). That reads
+  SIGISPlayerController.UnlockedCustomisations (+0x8a0) plus the prestige unlocks.
+- Storage format: playerstats/cosmeticsunlocked holds row names joined by "-" (seen after
+  pc:SetPlayerUnlockCos(FName("frF01")) then "usaF01": "frF01-usaF01"). SetPlayerUnlockCos is the purchase. It also
+  charges UnlockCostAmount (cash PUT plus statChangeArray). "!"-joined values are not parsed: the list stays empty.
+- Fix: the stand-in's masterstartfunction adds FREE_COSMETICS ("frF01") to cosmeticsunlocked in what it sends. The
+  save file is not changed. The game holds it in its list from then on, so a later purchase writes it back with the
+  rest.
+- Tested on a fresh boot with an empty cosmeticsunlocked: UnlockedCustomisations = {frF01}. Loadout > Appearance >
+  Voice shows FRENCH 02 without a lock. Selecting it wrote only cosequipped/voice = frF01 (no cash write).
+- Crashes while probing (don't repeat): calling InventoryMenuWidget:UnlockCosmetic("frF01") with a guessed signature,
+  and appending to pc.UnlockedCustomisations from Lua (`a[#a+1] = "x"` on an FString TArray in UE4SS 3.0.1).
