@@ -1,5 +1,7 @@
 # Marauders Offline (PvE)
 
+**[Join the Discord](https://discord.gg/nfEW8tFJ3b)** to test new builds, report bugs, or help develop the mod.
+
 A fan mod that keeps **Marauders** playable on your own PC, with no live servers: single-player PvE against AI soldiers,
 rival crews in their own ships, and a hired crew of your own. Everything runs locally. Nothing talks to the live
 Marauders servers.
