@@ -1939,6 +1939,17 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
 - Launcher "Borderless fullscreen" box -> config/window_mode.txt (borderless|windowed). launch-offline.ps1: borderless
   writes FullscreenMode=1 (+ desktop resolution from Win32_VideoController) into %LOCALAPPDATA%/RaidGame/Saved/Config/
   WindowsNoEditor/GameUserSettings.ini and drops -windowed/-ResX/-ResY; windowed keeps the old 1600x900 args.
+- F9 gun and ammo picker (2026-11-16, debuggive.lua; Debug.addActions appends its rows): Gun: <name> (click = next),
+  Previous gun, Give me the <gun>; Ammo: <name> (click = next), Give me <stack> <ammo>. In a raid, on foot. Rows,
+  kinds (0 long gun, 1 pistol) and magazines / stacks are from assets/saves/items.json (12 of 45 magazines I had
+  typed from memory were wrong; Klobb and Sawed-off are type 1, so pistol slot). Both go through
+  SIGISPlayerController:Server_AwsN_EquippedItemsReturned, the loadout path: one item string
+  "<id>-<Row>-<Stack>-100-<Col>-<Row>-0-<Container>" registers the item, spawns the weapon, loads it and equips it,
+  mid-raid too. Guns: first free of Prim, Sec (Pistol for type 1), read from StashedItems' MotherItemGUID; a second
+  gun into a taken slot (tried by bridge) left the first in your hands with its item hidden behind the new one, so
+  a full set is refused. Ammo: first free PocketLeft/PocketRight cell (ItemInSlot.Column/Row).
+  Tested via bridge/debug_cmd: M45 36 -> Prim, Thompson 30 -> Sec, third gun "No free gun slot", SPP-1 4 -> Pistol,
+  second pistol refused, 60 9mm and 60 .45 in separate left-pocket cells; the inventory screen showed all of it.
 
 ## Crew missing, boarding misses, wall spawn, stutter (2026-11-13; user report after the 11-09 runs)
 - Crew "never showed up": not a bug in spawning. Save had $166, wages were 1000 + 600: payWages left both at home, and its
