@@ -290,8 +290,8 @@ local function cutOff(e, foot, d, now)
     local here = e.bot:K2_GetActorLocation()
     if d > CFG.REJOIN then return end -- rejoin's case
     if d < CFG.FOLLOW_NEAR + CFG.SPACING * e.crewmate.place + CFG.STUCK_SLACK
-        or not e.stuckAt or dist(here, e.stuckAt) > CFG.STUCK_MOVE then
-        e.stuckAt, e.stuckSince = here, now
+        or not e.stuckPos or dist(here, e.stuckPos) > CFG.STUCK_MOVE then
+        e.stuckPos, e.stuckSince = here, now
         return
     end
     local waited = now - e.stuckSince
@@ -299,7 +299,7 @@ local function cutOff(e, foot, d, now)
     if X.rivals.inAirlock(foot:K2_GetActorLocation(), 50) then return end
     local seen = S.pc:LineOfSightTo(e.bot, { X = 0, Y = 0, Z = 0 }, false)
     if seen and waited < CFG.STUCK_SEEN_SECONDS then return end
-    e.stuckAt, e.stuckSince = nil, nil -- tried: wait the full time again before the next try
+    e.stuckPos, e.stuckSince = nil, nil -- tried: wait the full time again before the next try
     if rejoin(e, foot) then
         X.log(("[crew] %s was left behind %.0f m back (%.0f s without getting anywhere): caught up"):format(
             e.crewmate.name, d / 100, waited))
@@ -328,7 +328,7 @@ local function bringIn(e, foot, lock)
     e.inCombat, e.foeEntry, e.cover, e.investigate = false, nil, nil, nil
     pcall(function() e.ctrl:StopMovement() end)
     e.bot:K2_TeleportTo({ X = x, Y = y, Z = lock.floor.Z + 100 }, foot:K2_GetActorRotation())
-    e.followTo, e.stuckAt, e.stuckSince = nil, nil, nil
+    e.followTo, e.stuckPos, e.stuckSince = nil, nil, nil
     return true
 end
 
@@ -383,7 +383,7 @@ local function updateBodies(now)
                 e.nextDefend = now + 0.5
                 defend(e, foot)
             end
-            if e.inCombat then e.stuckAt = nil else cutOff(e, foot, d, now) end
+            if e.inCombat then e.stuckPos = nil else cutOff(e, foot, d, now) end
             -- out of sight in a fight: they still know where it is (you're calling it out), so they close in on it
             if e.inCombat and not e.los and e.foeEntry and e.foeEntry.bot and valid(e.foeEntry.bot)
                 and now >= (e.nextTrack or 0) then
