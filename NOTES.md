@@ -1716,6 +1716,10 @@ Co-op joining is blocked (see above), so teammates are AI stand-ins.
   Space_Solo_01 aboard the ship with bridge/t_walk.lua (sweep the player 300 units forward, Noor placed 150 ahead):
   Noor out of the way 197 (a wall), ignore turned off 62 (stopped at Noor), with the fix 197 (through Noor to the
   wall).
+- e.stuckAt meant two things (2026-11-16): crew.lua kept the crewmate's stuck position in it (cutOff), main.lua's
+  cover code the time a soldier's move stalled. A crewmate in a cover fight made main.lua:1480 do arithmetic on a
+  position: "update failed: main.lua:1479: attempt to perform arithmetic on a table value (field 'stuckAt')", which
+  ended that whole update() pass (seen 3 times in a player's log, 16 Nov, Space_Beta). crew.lua's is e.stuckPos now.
 
 ## Hiring your crew, nametags (2026-11-07, late night; hire.lua, crew.lua)
 Replaces the free random crew above: crewmates are now hired, persistent and optional.
