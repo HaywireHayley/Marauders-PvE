@@ -1902,6 +1902,9 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
   for all of them (5-45 fps), so no frame-time numbers from these; memory/GC numbers don't depend on that.
   NOT yet seen: a clean-fps raid with the fix (profile.txt "frame gaps over 100 ms" should stay ~0).
 - Save/crew restored from backend/state.before-gc-test.json / crew.before-gc-test.lua; folder left online.
+- One call site was missed (found 2026-11-15): crew.lua C.tags called ProjectWorldLocationToWidgetPosition (out param
+  ScreenPosition) directly, every frame per crewmate on screen. Through Out.call now. Checked in game through the
+  bridge, 1,000 calls each way: direct +1,000 registry slots, Out.call +1 (1,000 released).
 
 ## Kill list, airlock crew, interiors from space, proportions (2026-11-13, ~20:30-20:55; user report)
 - Kill list: the end screen lists your kills from PlayerState.InMatchStats ({StatName, StatAmmount}, +0x410), named by
