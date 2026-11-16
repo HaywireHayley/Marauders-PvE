@@ -30,8 +30,31 @@ newer (the installer can install it for you).
 
 Your online game is safe: the launcher switches the game to offline mode only while you play, and puts every file back
 to stock when you close the game. If your PC crashes mid-game, open the launcher once and close it again (or run
-`Uninstall.bat`) before starting Marauders from Steam. Full instructions and the in-game keys are in `README.txt` in the
-zip.
+`Uninstall.bat`) before starting Marauders from Steam. Full instructions are in `README.txt` in the zip.
+
+### Controls
+
+The game's own controls are unchanged. The mod adds:
+
+| Key | What it does | Where |
+|---|---|---|
+| **F6** | Your crew: hire, dismiss, and choose who comes on raids | Lobby and raids |
+| **F3** | AI tuning: every enemy, rival and crew setting as a slider, including how many spawn | Lobby and raids |
+| **F9** | Debug menu: god mode, extract now, spawn a soldier, and more | Lobby and raids |
+| **N** | Minimap on or off | Raids |
+| **M** | Minimap full overview, and back | Raids |
+| **B** | Minimap: follow the next task | Raids |
+| **F2** | Play as a woman or a man (also a launcher setting) | Anywhere |
+| **Left click** | While flying with a crew gunner aboard: send them after the ship or space turret nearest the middle of your view. Click empty space to send them back to whoever is attacking you | Flying your ship |
+| **F** on a turret seat | Man the turret yourself: left click fires, F stands you up | Ships |
+
+### Too busy or too quiet?
+
+Every raid's population can be tuned to your liking. Press **F3** and open the **How many** tab: rival crews per raid,
+people in each crew, guards at each station, and how many ship battles break out around you. **Rival ships** sets how
+often crews attack and board, and **Difficulty** at the top picks a preset. Changes save themselves. Crew numbers take
+effect from your next raid, and guard numbers from the next station you visit. Save setups you like under
+**Saved setups**.
 
 **Hold off game updates:** an update to Marauders is unlikely, but if one came it could break the mod. In Steam,
 right-click Marauders → **Properties → Updates** and set it to **Only update this game when I launch it**. The mod's

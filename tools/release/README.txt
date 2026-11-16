@@ -37,14 +37,23 @@ PLAYING
   Saves:  as many as you like. Copy one before trying something risky, or use "Undo last raid" to go back to the
           moment your last raid started. "Debug start" makes a save with a full stash and infinite money.
 
-  Keys in game:
-    F6        crew: hire, dismiss, and choose who comes on raids (in the lobby)
-    N / M / B minimap on/off  /  full overview  /  next task
+  CONTROLS (the game's own controls are unchanged; the mod adds these):
+    F6        your crew: hire, dismiss, and choose who comes on raids (lobby and raids)
+    F3        AI tuning: every enemy, rival and crew setting as a slider, including how many spawn (lobby and raids)
+    F9        debug menu: god mode, extract now, spawn a soldier, and more (lobby and raids)
+    N         minimap on or off (raids)
+    M         minimap full overview, and back (raids)
+    B         minimap: follow the next task (raids)
     F2        play as a woman or a man (also a launcher setting)
-    F3        AI tuning: every setting of the AI's behaviour as a slider (in a raid)
-    F9        debug menu: god mode, extract now, spawn a soldier, and more
-    Left click (flying your ship, with a crew gunner aboard): the gunner fires on the ship or space turret nearest the
-              middle of your view. Click empty space to send them back to whoever is attacking you.
+    Left click  while flying with a crew gunner aboard: send them after the ship or space turret nearest the middle of
+              your view. Click empty space to send them back to whoever is attacking you.
+    F         on a turret seat: man the turret yourself. Left click fires, F stands you up.
+
+  TOO BUSY OR TOO QUIET?
+    Every raid's population can be tuned to your liking. Press F3 and open the "How many" tab: rival crews per raid,
+    people in each crew, guards at each station, and how many ship battles break out around you. "Rival ships" sets how
+    often crews attack and board, and "Difficulty" at the top picks a preset. Changes save themselves. Crew numbers take
+    effect from your next raid, guard numbers from the next station you visit. Save setups you like under "Saved setups".
 
 
 IS MY ONLINE GAME SAFE?
