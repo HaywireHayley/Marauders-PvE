@@ -1476,11 +1476,10 @@ RaidPlayerController ClientStartOnlineGame / ClientGameStarted / ClientDissconne
 ServerNotifyLoadedWorld / ClientSetHUD / ClientRestart / ClientWasKicked / ClientReturnToMainMenuWithTextReason,
 GameModeBase K2_PostLogin / K2_OnLogout, MainPlayerController_C ReceiveBeginPlay; plus Actor:ReceiveEndPlay logged
 for PlayerController classes only. Two joins (21:05, 21:14), same result both times.
-- THE HOST DOES NOT CLOSE THE CONNECTION. Polled once a second through the bridge (FindAllOf IpConnection /
-  MainPlayerController_C, non-CDO): conns 0 -> 1 at the join, pcs 1 -> 2 five seconds later, and both stayed (conns 1,
-  pcs 2) for the 30 s watched, no EndPlay or K2_OnLogout for the joiner's controller. This contradicts "the HOST closes
-  the connection" in the native pass above; it fits the earlier "second MainPlayerController ... stays until the
-  connection times out". So the client leaves and the host only notices by timeout.
+- The connection IS dropped about 3 s after the join (corrected later the same day). A first poll counted objects
+  (FindAllOf IpConnection / MainPlayerController_C) and saw them stay for 30 s, which looked like the host keeping the
+  joiner. Those are leftovers waiting for garbage collection: the host's live list, world.NetDriver.ClientConnections
+  (GetArrayNum), went 0 -> 1 at the join and back to 0 about 3 s later. Count connections with that list, not objects.
 - Client timeline (join 21:14:23): host spawns the joiner's MainPlayerController (ReceiveBeginPlay 21:14:27.2); client
   gets ClientSetHUD 21:14:28.8; client is back on MainMenu by ~21:14:30 (its menu re-login hits the stand-in's
   GET /v2/account at 21:14:30). The client's own ReceiveBeginPlay never fired, no ClientRestart, no ServerNotifyLoadedWorld.
@@ -1488,7 +1487,7 @@ for PlayerController classes only. Two joins (21:05, 21:14), same result both ti
   Client_EAC*/ClientEACAction, ServerAcceptPlayer, ServerRemovePlayer, ClientWasKicked, ClientDissconnectedFromServer,
   ClientReturnToMainMenuWithTextReason. A host-side hook at a native RPC's exec thunk should fire on receipt even if
   its _Validate then fails (inferred, not verified). Whether a client-side hook fires when the client SENDS a Server
-  RPC is not verified either. The conclusion below doesn't rest on that: the host never drops the joiner at all.
+  RPC is not verified either.
 - No backend traffic at the join: stand-in server.log has nothing between the join and the client's menu re-login.
   pvenet.log (needs a capture/ folder to exist, else it logs nothing) shows only the usual blocked lookups
   (api.gameanalytics.com every ~4 s from the exe, marauderea2...nakamacloud.io from nakama-cpp.dll), before and after.
@@ -1507,18 +1506,33 @@ for PlayerController classes only. Two joins (21:05, 21:14), same result both ti
 
 What this means for the candidates (desk research, same date):
 - A, Denuvo anti-cheat challenge: no longer the best fit. The suspected path was SIGISPlayerController ServerChallenge
-  (TokenReturn, TokenReturn2) failing on the host; the host never runs it and doesn't drop anyone. Not
+  (TokenReturn, TokenReturn2) failing on the host; no hook on either side ever saw it, and no kick arrives. Not
   ruled out: a check entirely inside the Denuvo runtime on the CLIENT that makes it leave (we don't and won't look there).
-- B, GameLift accept: ruled out as the trigger. The host never runs ServerAcceptPlayer and keeps the joiner anyway.
+- B, GameLift accept: no sign of it. ServerAcceptPlayer never runs on the host and is never seen leaving the client.
 - New lead, client side: the client leaves ~1-2 s after ClientSetHUD, before its controller's BeginPlay, without any
   kick RPC: the shape of an engine-level client network failure (UNetDriver/PendingNetGame error -> HandleDisconnect ->
   travel with `?closed`), e.g. a replication/package-map problem while the joiner's world starts, or game code on the
   client calling a disconnect natively. Desk research: `?closed` comes from UEngine::HandleDisconnect
   (https://forums.unrealengine.com/t/network-error-force-loads-entry-map-for-client-when-server-shuts-down/405257/11).
-  Next, observation only: a client-side NotifyOnNewObject/BeginPlay trace of which replicated actors arrive before the
-  drop; hook GameInstance network-error events again but check UE4SS.log for "Error executing hook" lines; compare a
-  join with PvEDirector on vs off on the HOST (the host's director spawns bots/turrets right away; a replicated actor
-  the client can't load would fit).
+- Second session, same day (upstream master 92fde2d; native/pveudp.dll built with MinGW, -D_WIN32_WINNT=0x0602, loaded
+  into both copies with package.loadlib from the bridge):
+  * PvEDirector OFF on the host too (deployed mods.txt edited between mode.ps1 offline and the launch): same bounce.
+    The director is not the cause.
+  * 28 more client-side name-only hooks on everything that sounds like leaving: SIGIS_ExampleGameInstance_C
+    Return_NakamaDisconnected / Return_Nakama_Error / Return_LostInternetConnection / ExitGame_ForceDisbandOrLeaveCrew /
+    OnCanceled, SIGISGameInstance LoadMainMenu / BeenKickedFromLobby / CancelSearch, ...Nakama CaptainBackInMainMenu /
+    AwsN_BeenKicked, ...PGOS CancelMatchmaking / DirectlyTravelToServer, GameLiftGameInstance QuitGame / ServerTravel,
+    GameInstance HandleTravelError / HandleNetworkError, RaidPlayerController DeathToMainMenu, SIGISPlayerController
+    HasLostConnection / TravelToMap / PGOSTravelToMap / OfficeTravelToMap / Client_ReturnPushMessage, PlayerController
+    ClientReturnToMainMenu / ClientWasKicked. Only ClientSetHUD fired; no "Error executing hook" lines. Afterwards the
+    client's world is MainMenu with no NetDriver.
+  * UDP (both sides, same join): handshake and NMT_Login at 0-160 ms; host keepalives every ~200 ms while the client
+    loads (the client sends nothing for 2.5 s); at ~2.6 s the client's first packet after loading, a few exchanges
+    (ClientSetHUD arrives here), last client packets at ~2.70 s, last host packet at ~2.73 s, then nothing either way.
+    No new send stack on either side at the end, so neither side's last packet came from a separate close path.
+  * Not settled: which side ends it. Reading the client world's URL (.URL.Op) from the bridge errored.
+- Next, observation only: decode the last 4-5 packets each way (a control-channel close bunch says who closed);
+  a client-side NotifyOnNewObject trace of which replicated actors arrive in the final packets.
 - Out of bounds, unchanged: nothing that bypasses, patches, spoofs, emulates or hooks Denuvo anti-cheat/anti-tamper or
   answers a challenge; no modded client near a live match.
 
