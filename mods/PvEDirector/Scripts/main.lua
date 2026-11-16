@@ -2336,6 +2336,7 @@ local function onStartMatchmaking(kind)
             or (kind ~= "solo" and (l:find("crew") or l:find("squad") or l:find("team"))) and CFG.SPACE_MAPS.crew
             or CFG.MAP_POOL
         local map = pool[math.random(#pool)]
+        if PveMapPick and PveMapPick.map() then map = PveMapPick.map() end -- picked in the REGION box (mappick.lua)
         local pin = io.open(MAP_PIN, "r")
         if pin then map = pin:read("l") or map pin:close() end
         mm = { at = os.clock() + CFG.MM_SEARCH_SECONDS, map = map, kind = kind }
@@ -2714,6 +2715,8 @@ local SKIRMISH_FILE = PROJECT .. "bridge/rivals_skirmish"
 Loading.init({ log = log, valid = valid, lib = lib })
 Splash.init({ log = log, valid = valid, lib = lib })
 -- (a global, not a local: main.lua is at Lua's 200-locals limit, and onTick above reads it)
+PveMapPick = require("mappick") -- (a global: main.lua is at the 200-locals limit)
+PveMapPick.init({ log = log, valid = valid, project = PROJECT })
 PveLobbyLabel = require("lobbylabel") -- (globals, like PveQuit: main.lua is at the 200-locals limit)
 PveLobbyLabel.init({ log = log, offline = function() return offlineBackend() end })
 PveInvKeys = require("invkeys") -- (a global, like PveQuit: main.lua is at the 200-locals limit)

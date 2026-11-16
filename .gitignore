@@ -28,6 +28,7 @@ backend/crew*.lua
 config/game_path.txt
 config/female_player.txt
 config/female_share.txt
+config/raid_map.txt
 config/window_mode.txt
 config/player_level.txt
 config/skip_intro.txt
