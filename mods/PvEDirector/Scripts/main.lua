@@ -706,7 +706,12 @@ local function wake(bot, ctrl)
     for i = 1, #gear do
         local c = gear[i]:get()
         local parent = c:GetAttachParent()
-        if valid(parent) and parent:GetFullName() == mesh:GetFullName() then
+        if c:GetFName():ToString():find("^DecalMesh") then
+            -- A hidden second head (always Raider_Head_Skel_01, whatever the bot's real head) for blood decals. The
+            -- SetVisibility(true, true) above showed it too: on entering a station every adopted guard grew it over
+            -- its own head, poking through helmets (testers: "head meshes messed up when entering a POI").
+            c:SetVisibility(false, false)
+        elseif valid(parent) and parent:GetFullName() == mesh:GetFullName() then
             c:SetComponentTickEnabled(true)
             c:SetComponentTickInterval(0)
             c.bNoSkeletonUpdate = false

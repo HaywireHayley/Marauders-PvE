@@ -2116,6 +2116,13 @@ it doesn't fit, or the ragdoll of a pod-spawned body; check rollKit leg pieces v
 ## Asleep guards at stations you haven't entered (2026-11-14)
 
 The soldiers that stand still with no AI controller, frozen until shot, are the placed guards of a station you haven't walked into yet. That's by design: garrisonStation takes a station's guards over the first time you enter it. On Space_Beta and Space_Delta the volume at about 61000,-5000 is the Asteroid Mine (LevelStreamingVolume_AsteriodWhitebox_1), not part of Moon Base. bridge/t_volnames.lua prints, for each navmesh volume, its streaming volume, its area, and its raiders with and without AI. A "join the station's wing" fix based on the wrong reading went into 21fab81 and was taken out again.
+- Messed-up heads under helmets after entering a station (tester report, 2026-11-15): placed NPCs carry a hidden
+  second head, DecalMesh_* (always Raider_Head_Skel_01, attached to CharacterMesh0), for blood decals. wake()'s
+  `mesh:SetVisibility(true, true)` propagates to it, so every guard adopted on your first visit drew that head over
+  its own; a helmet (LeatherCap, Civilian_Helmet...) showed it poking through. Seen live: adopted 10 of 10 with it
+  visible, never-adopted 0. wake() now hides DecalMesh* after the propagation; after: 11 adopted, 0 visible.
+- Bridge crash to avoid: reading `bot.Helemt.SkeletalMesh` on a bot without a helmet component crashed the game twice
+  (AV in UE4SS, not catchable by pcall). Read gear through K2_GetComponentsByClass and check each object first.
 
 ## Ship stuck after undocking (2026-11-14)
 
