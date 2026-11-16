@@ -428,6 +428,12 @@ Why bots did nothing, and the fix for each (all automated in PvEDirector):
   isn't visible (it's only in the command's environment): log to a file or capture reply in a local first.
   Calling widget functions (GetVisibility...) on non-widget objects crashes. PostMessage clicks don't reach the
   game (UE reads the real cursor). Hovered widgets: UserWidget:IsHovered() from a menu tick hook.
+- 2026-11-16 (issue #55): offline the button reads START RAID (lobbylabel.lua). The label is TextBlock_31 of
+  Crew_LaunchToMatchBtn_SubWidget_C (Captain and Crewmember copies), with no variable of its own;
+  UWidgetTree::FindWidget isn't callable from Lua, so it's found as StaticFindObject("<button path>.WidgetTree.TextBlock_31").
+  Paths are kept, not objects, and looked up again each second. It's set again whenever it
+  differs (in case the game rewrites it). Text_CoreState (CANCEL MATCHMAKING, shown for the 1 s "search") is left alone. Tested: "lobby: launch
+  button relabelled START RAID (2)" at boot; a raid starts from it as before.
 
 ## Flying the ship; interaction offline; per-update cost (2026-10-30)
 - F at the helm did nothing and no "F" prompts showed: SIGISCharacter::InteractionDetection (sets
