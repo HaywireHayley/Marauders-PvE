@@ -2409,7 +2409,7 @@ it doesn't fit, or the ragdoll of a pod-spawned body; check rollKit leg pieces v
   cases; not re-seen in game (needs a pod boarding of a rival).
 - TODO: "no breach point joins up with the inside: boarders come in nearer the middle" fired for the Long Odds.
 
-## Station fights end too fast; AI legs too fast (2026-11-14, fix untested)
+## Station fights end too fast; AI legs too fast (2026-11-14; arrival stagger tested 2026-11-16)
 - Footage station_fight2.mkv, Moon Base: three rival crews (10) and 8 defenders appeared within 6 s of arriving; two
   crews came out of neighbouring airlocks (Moon_11, Moon_12) at the same moment and fought on the spot. Gunshots carried
   100 m, so every bot heard every fight and went to look. All 10 rivals were dead in two minutes.
@@ -2427,7 +2427,9 @@ it doesn't fit, or the ragdoll of a pod-spawned body; check rollKit leg pieces v
 - Launch crash at Play (twice, same stack hash, null read): Play pressed before the login reached the stand-in.
   mm_launch.sh now waits for "rpc getbuildinfo" in backend/server.log instead of a fixed 12 s.
 
-## Crews and guards by station size (2026-11-14, untested)
+- Tested (Space_Alpha raid, Rebel Base, god mode, 2 min fight with its guards, 2026-11-16): three crews docked at Rebel Base came in through its airlocks at 22:49:03, 22:49:49 and 22:50:34,
+  45-46 s apart; the later two waited 31 s and 41 s in the chamber. Leg speed was not watched on screen.
+## Crews and guards by station size (2026-11-14; guard counts tested 2026-11-16)
 - User: bigger stations should have more people, and fewer crews should go to the small ones. Station size = its
   navmesh box floor area, logged in "[rivals] stations:" (Space_Solo_01: ~4k to ~107k m2).
 - chooseStation is a weighted pick: capacity = area / STATION_AREA_PER_CREW (15k m2, at least 1), weight =
@@ -2435,6 +2437,9 @@ it doesn't fit, or the ragdoll of a pod-spawned body; check rollKit leg pieces v
 - Guards: MIN_DEFENDERS is for a STATION_AREA_MID (35k m2) station; small ones get as few as half, big ones up to
   DEFENDERS_MAX_SCALE (1.5x). STATION_AREA_PER_CREW and STATION_CROWD are in the AI menu.
 
+- Tested: Rebel Base (96k m2) got 8 of its own guards plus 1 = 9, the 1.5x cap on MIN_DEFENDERS 6. Fortress (48k m2,
+  a tester's log the same day) got 7 + 1 = 8, about 6 x 48/35. All three crews of the run went to Rebel Base, the
+  largest station; one run says little about the weighting.
 ## Asleep guards at stations you haven't entered (2026-11-14)
 
 The soldiers that stand still with no AI controller, frozen until shot, are the placed guards of a station you haven't walked into yet. That's by design: garrisonStation takes a station's guards over the first time you enter it. On Space_Beta and Space_Delta the volume at about 61000,-5000 is the Asteroid Mine (LevelStreamingVolume_AsteriodWhitebox_1), not part of Moon Base. bridge/t_volnames.lua prints, for each navmesh volume, its streaming volume, its area, and its raiders with and without AI. A "join the station's wing" fix based on the wrong reading went into 21fab81 and was taken out again.
@@ -2561,7 +2566,7 @@ station (worst frame 212 ms, the entry FindAllOf scans). Not yet tried with 20-2
   every part at once by design: the airlock transfer covers it); when it lands in the same frame as the garrison update
   the frame is ~460 ms. Spreading the show over frames would trade that for a visible pop-in after a transfer.
 
-## Baked cover never used inside Rebel Base; soldiers out of sight backpedal (2026-11-14, fix untested)
+## Baked cover never used inside Rebel Base; soldiers out of sight backpedal (2026-11-14; tested 2026-11-16)
 
 Watching the footage, the user saw a soldier slowly backstrafing that never went for cover. In the log, every cover pick
 that raid was "random", and the baked-spot probe count stopped at 39 (all "no peek") after 18:49:15, so no baked spot
@@ -2595,7 +2600,10 @@ being fought on had no loot or AI node within 18 m on its level (nearest ~12 m h
 floor out though the soldiers stood on it. Fix: findCover only filters baked spots by offLimits when the soldier's own
 spot passes it (untested). bridge/t_off.lua checks the rule on baked spots around the player.
 
-## Fight hitches and garbage: stray sweep, turret swing hook, per-frame aim (2026-11-14, untested)
+- Tested (Space_Alpha raid, Rebel Base, god mode, 2 min fight with its guards, 2026-11-16): play areas found RebelBase 101 markers. Soldiers took baked cover ("firing on the way to baked
+  lean-left cover 521 away", "baked low cover 109 away") as well as random cover. Fighting samples: hiding 39,
+  peeking 37, moving 94, open in sight 10, open unseen 27.
+## Fight hitches and garbage: stray sweep, turret swing hook, per-frame aim (2026-11-14; tested 2026-11-16)
 Space_Solo_02 at Penal Colony and Moon Base, 17-21 bots. profile.txt showed a ~50 ms FindAllOf every stray sweep (a
 steady hitch every few seconds). The Lua collector was stepping 0.5-2.4 s per 10 s, fed by the aim section (~31-34 MB per
 10 s, 1.2-1.3 s of Lua) and by hook garbage between ticks (54-75 MB per 10 s, with ~50k turret swing hook calls).
@@ -2608,13 +2616,19 @@ steady hitch every few seconds). The Lua collector was stepping 0.5-2.4 s per 10
 - main.lua: animate() and the aim upkeep (targeting pose, focus) run ANIM_HZ (30) times a second per bot instead of
   every frame; a change in what the bot should do applies at once. Hide/peek timing is still checked every frame.
 
-## Every baked cover spot "off limits": integer vs float cell keys (2026-11-14, fix untested)
+- Tested (Space_Alpha raid, Rebel Base, god mode, 2 min fight with its guards, 2026-11-16, profile_on, 10 bots): frame gaps over 100 ms 0 in every 10 s window during the fight, worst 27-35 ms.
+  GC stepping 56-82 ms per 10 s (was 0.5-2.4 s). Hook garbage 0.5 MB per 10 s (was 54-75 MB). Placed NPCs came from
+  the spawn hook ("8 placed NPC(s) to adopt (from the spawn hook)"). Turret swing hook calls still ran at ~400 a
+  second (was ~5000) with your own ship's turrets in the world.
+## Every baked cover spot "off limits": integer vs float cell keys (2026-11-14; tested 2026-11-16)
 After 12ffc4a soldiers in Rebel Base (Space_Alpha, 101 markers) still fought in the open: every cover search logged
 "baked 40, off 40". bridge/t_off2.lua ran the same rule from the bridge on one of those soldiers: all 97 baked spots
 near it passed. The difference was the play-area cell key: offLimits built it with //, which gives a float for a float
 ("26.0", the engine's marker and soldier positions) and an integer for an integer ("26", baked spots loaded from
 cover/*.txt). Baked spots never found their markers. Both keys now use math.floor (an integer either way).
 
+- Tested (Space_Alpha raid, Rebel Base, god mode, 2 min fight with its guards, 2026-11-16): cover searches logged "baked 40, ... off 6" and "baked 40, ... off 18", no longer all 40. Baked
+  spots were picked and reached.
 ## Soldiers backpedalling instead of taking cover (2026-11-14)
 
 In a Space_Beta fight a soldier mostly walked backwards away from the player and rarely reached cover. The log showed
