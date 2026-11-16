@@ -2091,6 +2091,13 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
   game LVL 0 -> "player level 1 of 40", centre 0.15: budget 92% / mid 5% / geared 2%, helmet 41%, chest 32%;
   game LVL 20 (XP 29080) -> level 21, centre 0.48: 41 / 52 / 6 %, helmet 59%, chest 54%. Live raid at level 21
   (GearScale.roll wrapped for 3.5 min): 5 new rivals rolled 0.48 0.19 0.35 0.66 0.61 (4 mid, 1 budget).
+- F3 "Gear" tab (2026-11-15, after a tester asked for it to be switchable): "Gear follows your level" (Rivals.CFG.SCALE_GEAR,
+  now 1/0 instead of true/false: a slider writes numbers, and 0 is true in Lua, so rivals.lua and main.lua's
+  rivals_scale test `~= false and ~= 0`), "Typical gear at level 1 / at the top level" (gearscale CFG.TARGET[1]/[2]),
+  "Share of people below the typical gear" (DOWN_SHARE) and "Chance of any gear at all" (OUTLIER). Read when a kit is
+  rolled, so changes show from the next crews/recruits. Checked in game: the tab draws (169 settings), `set
+  Gear:SCALE_GEAR 0` through bridge/menu_toggle -> the director reads 0 (gear no longer follows the level) and
+  ai_tuning.txt saves "Gear:SCALE_GEAR=0"; back to 1 removes it. bridge/menu_toggle is only read in raids.
 
 ## Share of women (2026-11-13)
 - Launcher slider "Female enemies and crew" (0-100 %, steps of 5, default 35) writes `config/female_share.txt` (a percent).
