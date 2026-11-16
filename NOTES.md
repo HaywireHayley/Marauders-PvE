@@ -388,6 +388,16 @@ Why bots did nothing, and the fix for each (all automated in PvEDirector):
   each (40 -> 0 in ~20-23 hits, read off its SIGISInventoryItem.Condition), then hits do the full 28 / 36. The
   game's own wear, nothing in the mod. No head hits landed, so the helmet is untested in game.
 - Don't pass nil for a UObject parameter (pc:GetItemArmourValue(nil) crashed the game).
+- Gear back from raids that end without extraction or death (2026-11-16, issue #49, Hayley's option 2): the stand-in
+  keeps what a raid took out of the stash as state.raid_out {items, ended}. ship_lost.txt (death, or out on foot /
+  by pod) and ship_gate.txt = 1 (into a space gate) mark it ended; = 0 (back out of the gate) unmarks it. If it isn't
+  ended, return_unfinished_raid() puts the items back (same keys, still equipped) when the stand-in starts, at the
+  next login (/v2/account/authenticate), or when the next raid starts: QUIT GAME, Alt+F4, a crash or leaving through
+  the menu. Loot picked up in that raid is lost. The raid QUIT GAME warning says so now.
+  Tested: equipped Stahlhelm + 1911 by drag -> raid start "took ['99255929', '68933336']" -> QuitGame mid-raid -> next
+  login "raid ended without an extraction or death (login): [...] back in the stash", both still equipped on the
+  Loadout screen. Death (ApplyDamage on your pawn) -> "ship lost", raid_out ended -> next login returned nothing.
+  Editing equip flags into state.json by hand didn't reach the raid: the game's first lobby load re-saves the stash.
 
 ## End of raid: extraction and death (WORKING, 2026-10-30)
 - Extraction: the raid server calls SIGISInventoryComponent::Client_GetOutWithLoot (thunk 0xa62f20, impl vtable
