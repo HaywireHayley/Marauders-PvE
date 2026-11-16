@@ -3212,6 +3212,22 @@ local function afterPod(foot)
     X.log("[rivals] your body after the pod had " .. was .. ": walking again")
 end
 
+-- Traces for podExitCheck (the Visibility channel, your body ignored). Kept in R (not exported for use elsewhere):
+-- rivals.lua is at Lua's 200-locals limit.
+R.Ground = { NOCOL = { R = 0, G = 0, B = 0, A = 0 } }
+function R.Ground.trace(foot, from, to)
+    local ksl = StaticFindObject("/Script/Engine.Default__KismetSystemLibrary")
+    local out = {}
+    if Out.call(ksl, "LineTraceSingle", S.pc, from, to, 0, false, { foot }, 0, out, true, R.Ground.NOCOL, R.Ground.NOCOL, 0)
+        and out.ImpactPoint then
+        return { X = out.ImpactPoint.X, Y = out.ImpactPoint.Y, Z = out.ImpactPoint.Z }
+    end
+end
+-- The first thing straight below `at`, within `depth`.
+function R.Ground.below(foot, at, depth) return R.Ground.trace(foot, at, { X = at.X, Y = at.Y, Z = at.Z - depth }) end
+-- Nothing between `at` and a body standing on `p` (aimed 60 above its floor point).
+function R.Ground.inSight(foot, at, p) return R.Ground.trace(foot, at, { X = p.X, Y = p.Y, Z = p.Z + 60 }) == nil end
+
 -- Just out of a pod that didn't bring you into a rival's ship (see POD_EXIT_CHECK). The game's station docking left the
 -- body parked, in a sealed shaft at Fortress (2026-11-14: "stuck inside what looks to be a tube"), fixed live from the bridge.
 local function podExitCheck(foot)
@@ -3221,12 +3237,24 @@ local function podExitCheck(foot)
     local floor = projected({ X = l.X, Y = l.Y, Z = l.Z - 100 }, { X = 80, Y = 80, Z = 120 })
     if floor and not parked then return end
     if not floor then
+        -- Straight down first: the real floor under you (a trace), and the navmesh right where it hit. At Fortress
+        -- (Space_Alpha, 2026-11-16) the pod leaves you above a hatch whose room floor is ~590 below; stepping the
+        -- navmesh search down 300 at a time (+-200) found a point 180 to the side first, behind a wall, and put the
+        -- tester in it. Any other spot must be in sight from where you came out (nothing in the way of a line to it).
         local spot
+        local down = R.Ground.below(foot, l, 1500)
+        -- (navmesh is built around you as you arrive, so right out of the pod there may be none yet: then the floor
+        -- point itself, which the trace reached with nothing in the way)
+        if down then spot = projected(down, { X = 80, Y = 80, Z = 150 }) or down end
         for dz = 300, 1500, 300 do
-            spot = projected({ X = l.X, Y = l.Y, Z = l.Z - dz }, { X = 200, Y = 200, Z = 200 })
             if spot then break end
+            local p = projected({ X = l.X, Y = l.Y, Z = l.Z - dz }, { X = 200, Y = 200, Z = 200 })
+            if p and R.Ground.inSight(foot, l, p) then spot = p end
         end
-        spot = spot or projected(l)
+        if not spot then
+            local p = projected(l)
+            if p and R.Ground.inSight(foot, l, p) then spot = p end
+        end
         if spot then
             Out.call(foot, "K2_SetActorLocation", { X = spot.X, Y = spot.Y, Z = spot.Z + 100 }, false, {}, true)
             X.log(("[rivals] out of the pod with no floor under you at %.0f,%.0f,%.0f: moved to the floor at %.0f,%.0f,%.0f")
