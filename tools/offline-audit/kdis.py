@@ -88,6 +88,16 @@ class P:
             a = s.e(); out = []
             while c[s.i] != 0x32: out.append(s.e())
             s.i += 1; return '%s = [%s]' % (a, ', '.join(out))
+        if t in (0x39, 0x3B): # SetSet / SetMap: lvalue, count, elements (map: key, value...)
+            a = s.e(); s.u32(); out = []
+            while c[s.i] not in (0x3A, 0x3C): out.append(s.e())
+            s.i += 1; return '%s = {%s}' % (a, ', '.join(out))
+        if t in (0x3D, 0x3F, 0x65): # SetConst / MapConst / ArrayConst: property(ies), count, elements
+            s.q()
+            if t == 0x3F: s.q()
+            s.u32(); out = []; end = {0x3D: 0x3E, 0x3F: 0x40, 0x65: 0x66}[t]
+            while c[s.i] != end: out.append(s.e())
+            s.i += 1; return '{%s}' % ', '.join(out)
         if t == 0x33: return s.fld()
         if t in (0x35, 0x36): return str(s.q())
         if t == 0x38: s.b(); return s.e()
@@ -103,6 +113,12 @@ class P:
         if t == 0x53: return 'end'
         if t in (0x5A, 0x5E, 0x50): return 'trace'
         if t == 0x5B: return 'skip %d' % s.u32()
+        if t == 0x5C: a = s.e(); return '%s += %s' % (a, s.e())
+        if t == 0x5D: return 'clear ' + s.e()
+        if t == 0x61:
+            nm = fname(s.u32()); s.u32(); s.u32(); d = s.e(); return '%s = bind(%s.%s)' % (d, s.e(), nm)
+        if t == 0x62: a = s.e(); return '%s -= %s' % (a, s.e())
+        if t == 0x63: fn = s.obj(); return 'broadcast %s(%s)' % (fn, ', '.join(s.args()))
         if t == 0x64: fl = s.fld(); return 'frame.%s = %s' % (fl, s.e())
         if t == 0x69:
             k = s.u16(); s.u32(); idx = s.e(); out = []
