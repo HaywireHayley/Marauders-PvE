@@ -2,6 +2,12 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Next build (not released yet)
+
+- **Launcher:** tells you when a newer build is out (an orange **!** top right) and can update itself: it downloads
+  the new zip, checks it, and installs it over the folder, keeping your saves and settings. Switch it off with
+  **Check for new builds**. It starts working from the build after this one.
+
 ## Public test, 16 Nov 2026, build 3 (`public-test-20261116.3`)
 
 A big one: about 25 changes since build 2. The headline fixes are **space salvage**, the **missing key card**, your
