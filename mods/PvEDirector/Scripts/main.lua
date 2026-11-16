@@ -947,10 +947,23 @@ end
 -- Aux: helpers kept in one table, because main.lua is at Lua's limit of 200 locals in a chunk.
 function Aux.inBox(b, p) return math.abs(p.X - b.at.X) <= b.ext.X and math.abs(p.Y - b.at.Y) <= b.ext.Y end
 
+-- Object scans shared for a few seconds: on stepping into a station, rivals.lua's garrison (seedSpots) and the boarding
+-- rescan below scan the same classes within a second or two (~50 ms each, so each class was paid twice). Results can
+-- hold actors destroyed since; every caller checks valid().
+function Aux.findAll(cls)
+    local c, now = raid.scanCache, os.clock()
+    if not c or c.world ~= raid.world then c = { world = raid.world } raid.scanCache = c end
+    local e = c[cls]
+    if e and now - e.at < 3 then return e.list end
+    local list = FindAllOf(cls) or {}
+    c[cls] = { at = now, list = list }
+    return list
+end
+
 -- One marker class into a cell table. Airlocks don't count towards a box being mapped: they're on the hull and load
 -- with the outside of the station, before its insides.
 function Aux.scan(cls, cells, boxes)
-    for _, a in ipairs(FindAllOf(cls) or {}) do
+    for _, a in ipairs(Aux.findAll(cls)) do
         if valid(a) then
             local l = cls == "RaidUseableAirLockComponent" and a:K2_GetComponentLocation() or a:K2_GetActorLocation()
             if not sealed(l) then
@@ -2623,7 +2636,7 @@ local addInteriorNav -- below, once navmesh helpers exist
 Rivals = require("rivals")
 Voice.init({ valid = valid, lib = lib, log = log, root = pveRoot })
 Female.init({ valid = valid, lib = lib, log = log, root = pveRoot, loadLoose = pveLoad })
-Rivals.init({ female = Female, offLimits = offLimits, rollKit = pveRollKit, addItem = pveAddItem, keepWorn = pveKeepWorn, voice = Voice, loadLoose = pveLoad, root = pveRoot, garrison = spawnGarrison, log = log, valid = valid, lib = lib, navLib = navLib, navMesh = navMesh, queryFilter = queryFilter,
+Rivals.init({ female = Female, offLimits = offLimits, findAll = Aux.findAll, rollKit = pveRollKit, addItem = pveAddItem, keepWorn = pveKeepWorn, voice = Voice, loadLoose = pveLoad, root = pveRoot, garrison = spawnGarrison, log = log, valid = valid, lib = lib, navLib = navLib, navMesh = navMesh, queryFilter = queryFilter,
     dist = dist, arm = arm, raid = function() return raid end, addInteriorNav = function(pc, i) addInteriorNav(pc, i) end })
 -- Your crew: hired in the lobby (hire.lua, F6), AI teammates in a raid who follow you and work your ship's turrets while
 -- you fly (crew.lua).

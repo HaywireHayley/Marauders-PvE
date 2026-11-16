@@ -1754,7 +1754,7 @@ end
 local function seedSpots(st)
     local pool, seeds = st.spots, {}
     for _, cls in ipairs(CFG.SPREAD_SEEDS) do
-        for _, a in ipairs(FindAllOf(cls) or {}) do
+        for _, a in ipairs(X.findAll(cls)) do -- shared with main.lua's boarding rescan (same classes, same moment)
             if valid(a) then
                 local l = a:K2_GetActorLocation()
                 if nearStation(st, l) then seeds[#seeds + 1] = l end
@@ -2148,18 +2148,49 @@ local function breachSpots(inside, from)
 end
 
 -- Station defenders ----------------------------------------------------------------------------------------------
+-- Live placed NPCs (CFG.PLACED classes) from the spawn hook; dead and destroyed entries are dropped as it goes.
+-- (Defined before garrisonStation, which uses it too: defined after, it was a nil global there and the garrison of
+-- the first station you boarded failed, 2026-11-14.)
+local function hookedPlaced()
+    local placed, list, out = {}, NodeBots.list, {}
+    for _, c in ipairs(CFG.PLACED) do placed[c] = true end
+    for i = #list, 1, -1 do
+        local n = list[i]
+        if not valid(n.o) or n.placed == false then
+            list[i] = list[#list]
+            list[#list] = nil
+        else
+            if n.placed == nil then
+                local ok, name = pcall(function() return n.o:GetClass():GetFName():ToString() end)
+                n.placed = ok and placed[name] == true and not n.o:GetFName():ToString():find("^Default__")
+            end
+            if n.placed then out[#out + 1] = n.o end
+        end
+    end
+    return out
+end
+
 local function placedDefenders(st)
     local managed = {}
     for _, e in ipairs(X.raid().bots) do
         if e.bot and valid(e.bot) then managed[e.bot:GetAddress()] = true end
     end
+    -- From the spawn hook when it's on (the two FindAllOf scans cost ~105 ms in the frame you step into a station and
+    -- found the same NPCs: "spawn hook knows 6 ... FindAllOf found 6", 2026-11-15); the scans are the fallback.
+    local found
+    if NodeBots.hooked then
+        found = hookedPlaced()
+    else
+        found = {}
+        for _, cls in ipairs(CFG.PLACED) do
+            for _, b in ipairs(FindAllOf(cls) or {}) do found[#found + 1] = b end
+        end
+    end
     local list = {}
-    for _, cls in ipairs(CFG.PLACED) do
-        for _, b in ipairs(FindAllOf(cls) or {}) do
-            if valid(b) and not managed[b:GetAddress()] and (b.Health or 0) > 0
-                and inBox(st.box, b:K2_GetActorLocation(), 500) and not X.offLimits(b:K2_GetActorLocation()) then
-                table.insert(list, b)
-            end
+    for _, b in ipairs(found) do
+        if valid(b) and not managed[b:GetAddress()] and (b.Health or 0) > 0
+            and inBox(st.box, b:K2_GetActorLocation(), 500) and not X.offLimits(b:K2_GetActorLocation()) then
+            table.insert(list, b)
         end
     end
     return list
@@ -2210,39 +2241,11 @@ local function adopt(b)
     return e, profile, row
 end
 
--- Live placed NPCs (CFG.PLACED classes) from the spawn hook; dead and destroyed entries are dropped as it goes.
--- (Defined before garrisonStation, which uses it too: defined after, it was a nil global there and the garrison of
--- the first station you boarded failed, 2026-11-14.)
-local function hookedPlaced()
-    local placed, list, out = {}, NodeBots.list, {}
-    for _, c in ipairs(CFG.PLACED) do placed[c] = true end
-    for i = #list, 1, -1 do
-        local n = list[i]
-        if not valid(n.o) or n.placed == false then
-            list[i] = list[#list]
-            list[#list] = nil
-        else
-            if n.placed == nil then
-                local ok, name = pcall(function() return n.o:GetClass():GetFName():ToString() end)
-                n.placed = ok and placed[name] == true and not n.o:GetFName():ToString():find("^Default__")
-            end
-            if n.placed then out[#out + 1] = n.o end
-        end
-    end
-    return out
-end
-
 -- First visit to a station: queue its own NPCs for adoption (one per update), then top it up to MIN_DEFENDERS.
 local function garrisonStation(pc, st)
     local list = placedDefenders(st)
-    if NodeBots.hooked then
-        local inside = 0
-        for _, b in ipairs(hookedPlaced()) do
-            if (b.Health or 0) > 0 and inBox(st.box, b:K2_GetActorLocation(), 500) then inside = inside + 1 end
-        end
-        X.log(("[rivals] %s: spawn hook knows %d live placed NPC(s) in the box, FindAllOf found %d unmanaged"):format(
-            st.name, inside, #list))
-    end
+    X.log(("[rivals] %s: %d placed NPC(s) to adopt (%s)"):format(st.name, #list,
+        NodeBots.hooked and "from the spawn hook" or "from object scans"))
     S.adoptQueue = S.adoptQueue or {}
     for _, b in ipairs(list) do table.insert(S.adoptQueue, { bot = b, st = st }) end
     -- MIN_DEFENDERS is for a mid-size station: a small one gets as few as half, a big one up to DEFENDERS_MAX_SCALE x.
