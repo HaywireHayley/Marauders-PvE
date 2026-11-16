@@ -21,6 +21,7 @@ FEMALE_SETTING = os.path.join(ROOT, "config", "female_player.txt")
 FEMALE_SHARE = os.path.join(ROOT, "config", "female_share.txt")  # percent of other characters who are women (rivals.lua)
 FEMALE_SHARE_DEFAULT = 35
 WINDOW_SETTING = os.path.join(ROOT, "config", "window_mode.txt")  # read by scripts/launch-offline.ps1
+SKIP_INTRO_SETTING = os.path.join(ROOT, "config", "skip_intro.txt")  # read by scripts/mode.ps1
 GAME_PATH = os.path.join(ROOT, "config", "game_path.txt")  # written by the installer; scripts/mode.ps1 has the same default
 
 
@@ -202,6 +203,8 @@ class App(tk.Tk):
         self.share_label.config(text=f"{self.share_var.get()}%")
         self.borderless_var = tk.BooleanVar(value=self.read_borderless())
         self.toggle("Borderless fullscreen", self.borderless_var, self.toggle_borderless)
+        self.skip_intro_var = tk.BooleanVar(value=self.read_skip_intro())
+        self.toggle("Skip the intro video", self.skip_intro_var, self.toggle_skip_intro)
 
         self.status = tk.Label(self, text="", bg=INK, fg=MUTED, font=font(11), anchor="w", bd=0)
         tag = tk.Label(self, text="OFFLINE  PvE", bg=INK, fg=ORANGE_DIM, font=font(11, "SemiBold"))
@@ -445,6 +448,18 @@ class App(tk.Tk):
                 return f.read().strip() == "borderless"
         except OSError:
             return False
+
+    def read_skip_intro(self):
+        try:
+            with open(SKIP_INTRO_SETTING, encoding="utf-8") as f:
+                return f.read().strip() == "on"
+        except OSError:
+            return False
+
+    def toggle_skip_intro(self):
+        # takes effect at the next Play (scripts/mode.ps1 offline swaps the startup video)
+        with open(SKIP_INTRO_SETTING, "w", encoding="utf-8") as f:
+            f.write("on\n" if self.skip_intro_var.get() else "off\n")
 
     def toggle_borderless(self):
         # takes effect at the next Play

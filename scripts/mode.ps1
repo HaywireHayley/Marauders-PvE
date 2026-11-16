@@ -35,6 +35,13 @@ if (-not (Test-Path $IniBackup)) { Copy-Item $PgosIni $IniBackup }
 $Intro = Join-Path $Game 'RaidGame\Content\Movies\LoadingScreen.mp4'
 $IntroBackup = Join-Path $Backup 'LoadingScreen.mp4.original'
 $IntroOurs = Join-Path $Project 'assets\intro\LoadingScreen.mp4'
+# config\skip_intro.txt "on" (the launcher's "Skip the intro video" box): a 1 s black clip instead. The game plays the
+# 60 s startup video to the end before the menu, so this takes launch-to-menu from ~69 s to ~20 s.
+$IntroSkip = Join-Path $Project 'assets\loading\skip_intro.mp4'
+$SkipIntroPath = Join-Path $Project 'config\skip_intro.txt'
+if ((Test-Path $SkipIntroPath) -and (Get-Content $SkipIntroPath -TotalCount 1).Trim() -eq 'on' -and (Test-Path $IntroSkip)) {
+    $IntroOurs = $IntroSkip
+}
 if (-not (Test-Path $IntroBackup)) { Copy-Item $Intro $IntroBackup }
 
 switch ($Mode) {
