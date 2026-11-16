@@ -448,6 +448,18 @@ Why bots did nothing, and the fix for each (all automated in PvEDirector):
   Paths are kept, not objects, and looked up again each second. It's set again whenever it
   differs (in case the game rewrites it). Text_CoreState (CANCEL MATCHMAKING, shown for the 1 s "search") is left alone. Tested: "lobby: launch
   button relabelled START RAID (2)" at boot; a raid starts from it as before.
+- Lobby QUIT tab (2026-11-16, issue #50): quit.lua adds a tab of the top bar's own kind (MM_CoreMM_TabBtns_C,
+  WidthToUse/HeightToUse from SOCIAL, Which_CoreMenuState 99 so the bar never selects it) to HorizontalBox_Core_MM_Tabs
+  after SOCIAL; it lays itself out. Same click-twice confirm ("SURE?"), then QuitGame. A button added to the
+  overlay's MainCanvas didn't show (CanvasPanelSlot:SetAnchors with a Lua table was ignored, the position landed off
+  screen), and probing that canvas crashed the game: calling a method on a null UObject wrapper (a root canvas's
+  .Slot) is an access violation inside UE4SS that pcall can't catch, so check IsValid() before every call there.
+- quit.lua keeps both menus' widgets as object paths now, not objects (the pause menu's were held across raids and
+  checked with IsValid each frame after a map change). hire.lua H.reset() also clears the tick controller
+  (H.lastPc): quit.lua and invkeys.lua ask for it before the frame's H.tick, so on a new world's first frame they got
+  the old world's controller. (tickPc was declared below H.reset; moved up so the reset clears the real local.)
+- Tested: lobby "QUIT tab added", one click -> SURE?, two clicks -> "Quit Game from the lobby", the game exited, no
+  crash reporter; same boot through a raid: pause menu QUIT GAME -> CLICK AGAIN TO QUIT -> quit.
 
 ## Flying the ship; interaction offline; per-update cost (2026-10-30)
 - F at the helm did nothing and no "F" prompts showed: SIGISCharacter::InteractionDetection (sets

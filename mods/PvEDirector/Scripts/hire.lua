@@ -600,10 +600,15 @@ end
 
 function H.isOpen() return ui ~= nil and ui.open == true end
 
+local tickPc -- the controller the director's tick runs on (H.lastPc)
+
 -- A new world: the menu's widgets and the lobby's stands went with the old one; H.tick runs every frame, before the
 -- director's update has noticed (see main.lua onTick).
 function H.reset()
     ui, inLobby = nil, false
+    -- (and the old world's controller: quit.lua and invkeys.lua ask H.lastPc() before this frame's H.tick, and checking a
+    -- freed controller reads freed memory)
+    tickPc = nil
     if X and X.lobby and X.lobby.reset then X.lobby.reset() end
 end
 
@@ -689,7 +694,6 @@ local function command(pc, line)
 end
 
 local nextCmd, nextPics = 0, 0
-local tickPc
 function H.lastPc() return tickPc end -- the controller the director's tick runs on (lobby or raid)
 
 local function preview()
