@@ -56,6 +56,20 @@ Every raid's population and difficulty can be tuned to your liking. Press F3 and
 right-click Marauders → **Properties → Updates** and set it to **Only update this game when I launch it**. The mod's
 launcher starts the game without going through Steam, so playing offline won't trigger an update.
 
+### Known issues
+
+- Rarely, dark flat slabs hang in space on the solo maps. ([#9](https://github.com/HaywireHayley/Marauders-PvE/issues/9))
+- Dead boarders' legs can stretch into odd poses. ([#10](https://github.com/HaywireHayley/Marauders-PvE/issues/10))
+- The status line can say "in space" while you're aboard another crew's ship. ([#11](https://github.com/HaywireHayley/Marauders-PvE/issues/11))
+- There's a short hitch when you first enter a station. After a hitch, blue gaps can flash at the screen's corners.
+  Fewer rival crews (F3) makes it rarer. ([#12](https://github.com/HaywireHayley/Marauders-PvE/issues/12))
+- Space_Solo_02 now and then finds no stations, so that raid has no station tasks. ([#13](https://github.com/HaywireHayley/Marauders-PvE/issues/13))
+- AI ships can get stuck on rocks or station hulls for a while. ([#14](https://github.com/HaywireHayley/Marauders-PvE/issues/14))
+- Some explosion effects and sounds, and some extraction prompts, are missing offline. ([#15](https://github.com/HaywireHayley/Marauders-PvE/issues/15))
+
+Soldiers on a station you haven't reached yet stay asleep until you get close. That's deliberate, to save performance.
+All open known issues: [known-issue label](https://github.com/HaywireHayley/Marauders-PvE/issues?q=is%3Aissue+is%3Aopen+label%3Aknown-issue).
+
 **Found a bug?** [Open an issue](https://github.com/HaywireHayley/Marauders-PvE/issues) and attach `backend\last_game.log`
 and `backend\server.log` from your install folder, with a line on what you were doing.
 
