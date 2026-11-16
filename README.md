@@ -5,7 +5,36 @@ rival crews in their own ships, and a hired crew of your own. Everything runs lo
 Marauders servers.
 
 Marauders is made by a small UK team. This mod is not affiliated with the developer or publisher. You need your own copy
-of Marauders on Steam. **This repository is private: please don't share its contents publicly.**
+of Marauders on Steam.
+
+## Play it: download the public test
+
+**[Download the latest release](https://github.com/HaywireHayley/Marauders-PvE/releases/latest)**: open the page and
+download `MaraudersOffline-<date>.zip` under **Assets**. The release notes list what's new and the known issues.
+
+**You need:** Windows 10 or 11, Marauders installed through Steam (with Steam running when you play), and Python 3.9 or
+newer (the installer can install it for you).
+
+1. **Unzip** the folder somewhere permanent with a plain path, such as `C:\Games\MaraudersOffline`. Avoid Program Files
+   and paths with non-English letters. Your saves live inside this folder.
+2. **Double-click `Install.bat`.** It finds Python and the game, and adds a "Marauders Offline" shortcut to your desktop
+   and Start menu. It doesn't touch the game folder.
+3. **Start "Marauders Offline"**, make a save (NEW SAVE), pick it and press **PLAY**. Keep the launcher open while you
+   play.
+
+Your online game is safe: the launcher switches the game to offline mode only while you play, and puts every file back
+to stock when you close the game. If your PC crashes mid-game, open the launcher once and close it again (or run
+`Uninstall.bat`) before starting Marauders from Steam. Full instructions and the in-game keys are in `README.txt` in the
+zip.
+
+**Found a bug?** [Open an issue](https://github.com/HaywireHayley/Marauders-PvE/issues) and attach `backend\last_game.log`
+and `backend\server.log` from your install folder, with a line on what you were doing.
+
+---
+
+# For developers
+
+Everything below is for working on the mod itself. To just play, use the download above.
 
 New here? Read [CONTRIBUTING.md](CONTRIBUTING.md) for how to send changes, and `NOTES.md` for how everything works
 (it's the full research log, newest findings at the bottom of each section). Credits are in [CREDITS.md](CREDITS.md).
@@ -30,7 +59,6 @@ small local server that answers what the real backend used to (account, stash, l
 | `assets/` | Our art: loading screens, minimap images, menu logo |
 | `config/` | Mod settings. `game_path.txt` (yours, not shared) says where the game is installed |
 | `tools/` | Research and build tools: `release/build_release.py` makes the player zip |
-| `trailer/` | Trailer and recording scripts (the recordings themselves aren't shared) |
 | `cover/` | Cover points per map, for the AI |
 
 ## Setting it up on your PC
@@ -68,7 +96,7 @@ powershell -NoProfile -File scripts\mode.ps1 online
 ## Not in this repository (on purpose)
 
 The game's own files and anything extracted from them, the pak decryption key, captured traffic from real accounts,
-personal saves and settings, and the trailer recordings. `.gitignore` keeps them out. Please never add them.
+personal saves and settings, and trailer tooling and recordings. `.gitignore` keeps them out. Please never add them.
 
 Optional extras you can make yourself from your own copy of the game: the female outfits
 (`tools/female/make_female.py`, which needs the pak key: `scripts/find_aes.py` finds it in your own install).
