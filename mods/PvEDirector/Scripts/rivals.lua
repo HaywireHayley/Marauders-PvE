@@ -675,14 +675,17 @@ local function survey(pc, shipActor)
     end
     -- Space-side station nodes
     local nodes, keyed = {}, {}
+    local nodeSeen = {} -- docking-node class -> the name it matched, or false (for the survey log; issue #13)
     for _, it in ipairs(interiors) do if it.key then keyed[it.key] = it.name end end
     for _, c in ipairs(FindAllOf("RaidDockingComponent") or {}) do
         -- (a node's BreachVolume wraps the whole hull for boarding pods: not a place to dock)
         if valid(c) and not c:GetFName():ToString():find("Breach", 1, true) then
             local cls = c:GetOwner():GetClass():GetFName():ToString()
             local named = keyed[key5(cls)]
+            if nodeSeen[cls] == nil then nodeSeen[cls] = false end
             for _, n in ipairs(named and { { cls, named } } or CFG.NODE_NAMES) do
                 if cls:find(n[1], 1, true) then
+                    nodeSeen[cls] = n[2]
                     local list = nodes[n[2]] or {}
                     nodes[n[2]] = list
                     local ok, b = pcall(stationBerth, c, valid(shipActor) and shipActor or pc)
@@ -754,6 +757,14 @@ local function survey(pc, shipActor)
         end
     end
     X.log("[rivals] stations: " .. (#names > 0 and table.concat(names, ", ") or "none"))
+    -- Why a station did or didn't count (issue #13: some Space_Solo_02 runs survey none): a station needs a named
+    -- interior AND docking nodes under the same name (or an AI frigate).
+    local its, ns = {}, {}
+    for _, it in ipairs(interiors) do if it.name then its[#its + 1] = it.name .. (it.frigate and " (frigate)" or "") end end
+    for cls, name in pairs(nodeSeen) do ns[#ns + 1] = cls .. (name and (" -> " .. name) or " -> no name") end
+    table.sort(ns)
+    X.log(("[rivals] survey: named interiors: %s | docking nodes: %s"):format(
+        #its > 0 and table.concat(its, ", ") or "none", #ns > 0 and table.concat(ns, ", ") or "none"))
     return stations, interiors
 end
 
