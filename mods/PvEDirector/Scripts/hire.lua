@@ -20,8 +20,9 @@ local CFG = {
     POOL = 8,                                   -- recruits looking for work
     TURNOVER = 2,                               -- after each raid this many of them have moved on and new ones turned up
     LEVEL_ODDS = { 35, 30, 20, 10, 5 },         -- how often a new recruit is level 1..5
-    FEE = { 1000, 2500, 5000, 9000, 15000 },    -- to hire, by level
-    WAGE = { 300, 600, 1000, 1600, 2500 },      -- per raid they come on, by level (a promotion raises it)
+    -- Halved while we test how useful crew are (was 1000/2500/5000/9000/15000 and 300/600/1000/1600/2500)
+    FEE = { 500, 1250, 2500, 4500, 7500 },      -- to hire, by level
+    WAGE = { 150, 300, 500, 800, 1250 },        -- per raid they come on, by level (a promotion raises it)
     PROMOTE = { 3, 7, 12, 20 },                 -- raids survived for level 2, 3, 4, 5
     -- Worth their price: even a level 1 hire fights clearly better than the best enemy (a rival raider, after the
     -- difficulty preset) and takes a lot more killing. Rivals and soldiers have 100 hp.

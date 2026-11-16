@@ -2301,3 +2301,6 @@ playerBoarding now runs podExitCheck POD_EXIT_CHECK (1.5 s) after any other pod 
 rescueFromVoid handles): no navmesh under your feet means a search downwards (then around) for floor and a move there
 ("out of the pod with no floor under you at ...: moved to the floor at ..."), and a parked body gets afterPod
 ("your body after the pod had ...: walking again").
+
+Crew prices halved for testing how useful crew are: hire fee 500/1250/2500/4500/7500 and wage 150/300/500/800/1250 a raid
+by level (were 1000/2500/5000/9000/15000 and 300/600/1000/1600/2500). hire.lua CFG.FEE / CFG.WAGE.
