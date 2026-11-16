@@ -20,7 +20,11 @@ RAID_COPY = os.path.join(BACKEND, "state.before-last-raid.json")
 ACTIVE = os.path.join(BACKEND, "active_save.txt")
 ITEMS = os.path.join(ROOT, "assets", "saves", "items.json")
 
-START_CASH = 10000
+# A new save starts as a brand-new live account did: on its first login the game itself gives 65,000 credits and its
+# 34-item starter kit (two Klobb SMGs, three Mat49s, helmets, armour, bags, ammo, bandages, a supply drop). It does
+# that when the account has no social/created yet, which a fresh save never has (the seed carries none). The launcher
+# used to add its own 10,000 and a P08 kit on top, so the bank showed 10,000 and then jumped to 75,000 (issue #56).
+START_CASH = 0
 CHEAT_CASH = 999999999       # the stand-in also puts it back after every purchase (cheat saves)
 STASH_W, STASH_H = 10, 15
 # Rows a new save may ask for (the width is the game's own 10). The game indexes stash cells with a byte, so past
@@ -128,12 +132,13 @@ def _fresh(name):
     return state
 
 
-def _starter(state, items):
-    grid = Grid(state, items)
-    _put(state, grid, items, "P08Pistol")
-    _put(state, grid, items, "9mmAmmo")
-    _put(state, grid, items, "9mmAmmo")
-    _put(state, grid, items, "BandageAid")
+def _set_up_already(state):
+    """Marks the account as one the game has already set up (social/created), so its first login doesn't add the
+    new-player kit and money: a cheat save's stash is already packed, and the kit would land on top of it."""
+    template = next(iter(state["storage"]["playerstats"].values()))
+    social = state["storage"].setdefault("social", {})
+    for key, value in (("created", time.strftime("%Y.%m.%d-%H.%M.%S")), ("accouttype", "TEST")):
+        social[key] = {**template, "value": json.dumps({"value": value})}
 
 
 def _stacked(state, items, rows):
@@ -263,8 +268,7 @@ def create(name, cheat, rows=STASH_H):
         state["cheat"] = True
         _stat(state, "cash", CHEAT_CASH)
         _stacked(state, items, rows)
-    else:
-        _starter(state, items)
+        _set_up_already(state)
     sid = _slug(name)
     folder = os.path.join(SAVES, sid)
     os.makedirs(folder)

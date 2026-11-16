@@ -9,6 +9,12 @@ local X -- log, offline (function)
 local CHECK_SECONDS = 1
 local LABEL = "START RAID"
 local paths, nextCheck, nextFind = nil, 0, 0
+-- The new-player Guide: a fresh account's first lobby opens it by itself (Guide_Widget_C:FreshAccount_RunGuide, a
+-- popup of its own on the game instance, not the lobby's embedded Guide_Widget), and its YouTube video can't load
+-- offline. For GUIDE_WATCH s after the session's first lobby, that popup is closed (ForceCloseTheGuideWidget). One
+-- you open yourself later (the pause menu's GUIDE) is left alone.
+local GUIDE_WATCH, GUIDE_EVERY = 60, 2 -- (it opened ~15 s after the lobby in testing)
+local guideUntil, nextGuide = nil, 0
 
 function L.init(ctx) X = ctx end
 
@@ -33,6 +39,18 @@ function L.tick(ticker)
     nextCheck = now + CHECK_SECONDS
     local inLobby = ticker:IsValid() and ticker:GetClass():GetFName():ToString() == "MM_CoreMissions_C"
     if not (inLobby and X.offline()) then paths = nil return end
+    guideUntil = guideUntil or now + GUIDE_WATCH
+    if now < guideUntil and now >= nextGuide then
+        nextGuide = now + GUIDE_EVERY
+        for _, w in ipairs(FindAllOf("Guide_Widget_C") or {}) do
+            local name = w:GetFullName()
+            if name:find("Transient", 1, true) and not name:find("WidgetTree", 1, true) and w:IsInViewport() then
+                w:ForceCloseTheGuideWidget()
+                X.log("lobby: closed the new-player guide (its video needs the internet)")
+                guideUntil = now -- once
+            end
+        end
+    end
     if not paths or #paths == 0 then
         if now < nextFind then return end
         nextFind = now + 5 -- the lobby's widgets may not exist yet

@@ -1336,6 +1336,19 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
   missing tools/ue4ss or Steam not running all showed as "The game didn't start" after START_TIMEOUT (90 s). launcher.pyw
   preflight() checks the game exe, tools/ue4ss (dwmapi.dll, UE4SS.dll, Mods) and steam.exe first; if the script still
   fails, the status line shows its first error line and the launcher tidies up at once.
+- New saves start as a new live account did (2026-11-16, issue #56). On the first login of an account with no
+  social/created (the seed has none, so every fresh save), the game runs its new-player setup: it writes
+  social/created + accouttype, adds 65,000 credits (statChangeArray TotalCash) and a 34-item kit (2 KlobbSMG, 3
+  Mat49Rifle + 2 wooden stocks, 3 BrodieHelmet, M1FlakChest, 2 LeatherJerkinChest, 2 LightBag, SmallContainer,
+  BasicSupplyDrop, 2 HuntingKnife, a P08, 9 x 32Ammo, 2 x 9mmAmmo, 7 BandageAid), and opens the Guide (its YouTube
+  video can't load offline). The launcher used to add START_CASH 10,000 and its own P08 kit as well: the lobby showed
+  10,000, then 75,000 after the first stash refresh. Now START_CASH = 0 and the launcher kit is gone (saves.py), so a
+  normal save gets exactly the game's start; cheat saves are marked as set up (_set_up_already) so the kit doesn't land
+  on their packed stash. Tested: fresh normal save 0 / 3 items -> after login 65,000 / 37 items, lobby shows 65,000
+  straight away; fresh cheat save 999,999,999 / 32 items -> unchanged, no setup writes in server.log.
+  The new-player Guide (Guide_Widget_C:FreshAccount_RunGuide; a popup on the game instance, not the lobby's embedded
+  Guide_Widget) is closed by lobbylabel.lua with ForceCloseTheGuideWidget if it shows within 60 s of the session's
+  first lobby (it opened ~15 s in). Tested on a fresh save: "lobby: closed the new-player guide", clean lobby.
 
 ## Space_Solo_02 stations, Rebel Base lid, key card guard (2026-11-07, later)
 - User report: big black cube in the sky at Rebel Base, rivals leaving/gone right at the start, poor loot at Rebel Base, locked out of own ship (captain's ID gone).
