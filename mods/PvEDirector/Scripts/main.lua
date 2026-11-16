@@ -2618,7 +2618,7 @@ CrewLobby = require("crewlobby")
 CrewLobby.init({ log = log, valid = valid, lib = lib, female = Female, root = pveRoot, rollKit = pveRollKit })
 Hire = require("hire")
 Hire.init({ log = log, valid = valid, lib = lib, AI = AI, tiers = function() return Rivals.CFG.TIERS end,
-    rivals_scale = function() return Rivals.CFG.SCALE_GEAR end,
+    rivals_scale = function() local s = Rivals.CFG.SCALE_GEAR return s ~= false and s ~= 0 end,
     femaleShare = function() return Rivals.femaleShare() end,
     rollKit = Rivals.rollKit, lobby = CrewLobby })
 Crew = require("crew")

@@ -197,6 +197,19 @@ local function define()
         { "SKIRMISH_SHIPS", 2, "Ships on each side in those fights, most", 1, 8, 1, "Big battles cost frame rate" },
     })
     tabs[#tabs + 1] = spawns
+    -- Gear: how well armed rivals, station top-ups and new crew are, by your player level (gearscale.lua). Read when a
+    -- person's kit is rolled (crews at the start of a raid, recruits in the hiring list), so a change shows from then.
+    local gear = { name = "Gear" }
+    add(gear, X.RCFG, {
+        { "SCALE_GEAR", "Gear follows your level", 0, 1, 1, "1 = on: better-armed enemies and recruits as you level up. 0 = off: the same odds at every level" },
+    })
+    add(gear, require("gearscale").CFG, {
+        { "TARGET", 1, "Typical gear at level 1", 0, 1, 0.01, "0 = the cheapest gear in the game, 1 = the dearest. Most people roll a bit below this" },
+        { "TARGET", 2, "Typical gear at the top level", 0, 1, 0.01, "Raise both to make everyone better armed" },
+        { "DOWN_SHARE", "Share of people below the typical gear", 0, 1, 0.01, "0.7 = most are worse armed than the typical gear for your level; lower = tougher" },
+        { "OUTLIER", "Chance of any gear at all", 0, 0.5, 0.01, "The odd geared rival early on, or a poorly armed one late" },
+    })
+    tabs[#tabs + 1] = gear
     local ships = { name = "Rival ships", id = "Crews" }
     add(ships, X.RCFG, {
         { "RUSHERS", "Crews that head straight for a station", 0, 1, 0.01, "0 = none, 1 = all. They only fight if shot at" },

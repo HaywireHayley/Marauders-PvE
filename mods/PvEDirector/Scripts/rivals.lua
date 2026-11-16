@@ -300,7 +300,7 @@ local CFG = {
     RUSHERS = 0.4,                  -- crews that make straight for a station and dock, fighting only if shot at
     -- Loadouts follow your player level (gearscale.lua: centred on your level, mostly below it, a few far off either way).
     -- Off = the fixed TIERS odds below, whatever your level.
-    SCALE_GEAR = true,
+    SCALE_GEAR = 1, -- 1 = gear follows your level (gearscale.lua), 0 = TIERS' fixed odds (a slider in F3: Gear)
     -- Loadout tiers (like players' kits): price ranges into gear.lua (every row in the game is in at least one) and the
     -- chance of wearing each piece. With SCALE_GEAR they're only names (crew.lua looks a kit's name up here).
     TIERS = {
@@ -787,7 +787,8 @@ end
 -- Crews ----------------------------------------------------------------------------------------------------------
 local function newMember(usedNames)
     -- gear grade around your level (gearscale.lua); CFG.TIERS' fixed odds are only used with SCALE_GEAR off
-    local tier = CFG.SCALE_GEAR and GearScale.spec(GearScale.roll()) or weighted(CFG.TIERS)
+    local scale = CFG.SCALE_GEAR ~= false and CFG.SCALE_GEAR ~= 0
+    local tier = scale and GearScale.spec(GearScale.roll()) or weighted(CFG.TIERS)
     -- A free name; once all PILOTS are taken (11 crews + 6 skirmish pairs + ship watches is more than the list), a
     -- numbered one. This used to `repeat pick until unused`, which never ended then and froze the game mid-flight.
     local free = {}
