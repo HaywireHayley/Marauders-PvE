@@ -240,12 +240,16 @@ local CFG = {
     -- the nearest floor below.
     POD_EXIT_CHECK = 1.5,
     SHIP_WATCH = { 1, 2 },          -- a docked crew leaves this many aboard (their team, their kind of kit) while they raid
-    -- Ambient fights: while you fly, now and then two extra crews meet somewhere ahead of you and fight to the death. They
-    -- leave you alone unless you hit them; the winner limps off and extracts.
+    -- Ambient fights: while you fly, now and then two extra crews meet somewhere near you and fight to the death. They
+    -- leave you alone unless you hit them; the winner limps off and extracts. They never appear in your view (user,
+    -- 2026-11-16): every ship starts out to the side or behind where your camera looks (SKIRMISH_BEARING off it) and
+    -- more than SKIRMISH_UNSEEN deg off its line.
     SKIRMISH_FIRST = { 20, 45 },    -- seconds of flying before the first one
     SKIRMISH_EVERY = { 70, 150 },   -- ...and between later ones (only one at a time)
-    SKIRMISH_AHEAD = { 14000, 26000 }, -- this far ahead of your ship (along your heading, or any way if you're still)
+    SKIRMISH_AHEAD = { 14000, 26000 }, -- this far from your ship...
+    SKIRMISH_BEARING = { 110, 170 },-- ...this many deg either way off where your camera looks
     SKIRMISH_SIDE = 7000,           -- up to this far to either side of that line
+    SKIRMISH_UNSEEN = 85,           -- every ship's start this far off your view's line at least (wider than any FOV corner)
     SKIRMISH_GAP = { 4000, 7000 },  -- the two ships start this far apart, closing on each other
     SKIRMISH_CLEAR = 9000,          -- not this close to a station or to any other ship
     SKIRMISH_MAX = 3,               -- per raid
@@ -3828,7 +3832,8 @@ end
 -- Ambient fights (CFG.SKIRMISH_*): only while you're flying your ship, one at a time.
 local function skirmishSpot(here, yaw)
     for _ = 1, 12 do
-        local a = math.rad(yaw or math.random(0, 359))
+        local off = rnd(CFG.SKIRMISH_BEARING) * (math.random() < 0.5 and -1 or 1)
+        local a = math.rad((yaw or math.random(0, 359)) + off)
         local fwd, side = rnd(CFG.SKIRMISH_AHEAD), (math.random() * 2 - 1) * CFG.SKIRMISH_SIDE
         local p = { X = here.X + math.cos(a) * fwd - math.sin(a) * side, Y = here.Y + math.sin(a) * fwd + math.cos(a) * side,
             Z = here.Z + math.random(-2500, 2500) }
@@ -3841,9 +3846,11 @@ local function skirmishSpot(here, yaw)
             if clear and o.ship and valid(o.ship) and dist(o.ship:K2_GetActorLocation(), p) < CFG.SKIRMISH_CLEAR then clear = false end
         end
         if clear then return p end
-        yaw = nil -- nothing clear straight ahead: any direction
     end
 end
+
+-- Out of your view: well off the camera's line (aimCos: from your ship along where you look).
+local function unseen(p) return aimCos(p) < math.cos(math.rad(CFG.SKIRMISH_UNSEEN)) end
 
 local function skirmishStep(pc, now)
     if (S.skirmishes or 0) >= CFG.SKIRMISH_MAX or not valid(S.playerShip) then return end
@@ -3855,8 +3862,8 @@ local function skirmishStep(pc, now)
         if o.ambient and o.state == "attack" and o.target and o.target.crew and o.target.crew.ambient then return end
     end
     local here = S.playerShip:K2_GetActorLocation()
-    local v = S.playerShip:GetVelocity()
-    local yaw = (v.X * v.X + v.Y * v.Y > 300 * 300) and math.deg(math.atan(v.Y, v.X)) or nil
+    local yaw
+    pcall(function() yaw = pc:GetControlRotation().Yaw end) -- where your camera looks
     S.nextSkirmish = now + rnd(CFG.SKIRMISH_EVERY)
     -- two sides of `per` ships each, in a line abreast facing each other across the gap
     local per = S.skirmishSize or math.random(CFG.SKIRMISH_SHIPS[1], math.max(CFG.SKIRMISH_SHIPS[1], CFG.SKIRMISH_SHIPS[2]))
@@ -3867,7 +3874,7 @@ local function skirmishStep(pc, now)
     local spot, places
     for _ = 1, 8 do
         spot = skirmishSpot(here, yaw)
-        if not spot then return end
+        if not spot then break end
         local gap, a = rnd(CFG.SKIRMISH_GAP) + (per - 1) * 1500, math.random() * 2 * math.pi
         local ax, ay = math.cos(a), math.sin(a)
         places = { {}, {} }
@@ -3879,14 +3886,18 @@ local function skirmishStep(pc, now)
                 local stagger = (i % 2 == 0) and 1200 or 0
                 local at = { X = spot.X + ax * (gap / 2 + stagger) * sgn - ay * off,
                     Y = spot.Y + ay * (gap / 2 + stagger) * sgn + ax * off, Z = spot.Z + math.random(-800, 800) }
-                clear = clear and Nav.clearAt(S.playerShip, at, CFG.SKIRMISH_ROCKS)
+                clear = clear and unseen(at) and Nav.clearAt(S.playerShip, at, CFG.SKIRMISH_ROCKS)
                 places[k][i] = at
             end
         end
         if clear then break end
-        places, yaw = nil, nil
+        places = nil
     end
-    if not places then X.log("[rivals] skirmish: no open space near you") return end
+    if not places then
+        S.nextSkirmish = now + 10 -- (you may just have been turning) another look soon
+        X.log("[rivals] skirmish: no open space near you out of your view")
+        return
+    end
     local used = {}
     for _, o in ipairs(S.crews) do for _, m in ipairs(o.members) do used[m.name] = true end end
     local sides = { {}, {} }
@@ -3917,8 +3928,9 @@ local function skirmishStep(pc, now)
             c.boardPlan, c.foes = nil, theirs
         end
     end
-    X.log(("[rivals] skirmish: %d against %d (the %s and the %s), %.0f m from you"):format(#sides[1], #sides[2],
-        sides[1][1].shipName, sides[2][1].shipName, dist(here, spot) / 100))
+    X.log(("[rivals] skirmish: %d against %d (the %s and the %s), %.0f m from you, %.0f deg off your view"):format(
+        #sides[1], #sides[2], sides[1][1].shipName, sides[2][1].shipName, dist(here, spot) / 100,
+        math.deg(math.acos(math.max(-1, math.min(1, aimCos(spot)))))))
 end
 
 -- Ship damage effects (OFFLINE_AUDIT item 8): the interior's alarms, fire, flickering lights and hull screen, and the hull's
