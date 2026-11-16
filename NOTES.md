@@ -1631,6 +1631,13 @@ Co-op joining is blocked (see above), so teammates are AI stand-ins.
   pod launch, a Capital interior with the fix (prep picked scouts). Test launches pay wages: the stand-in keeps state in
   memory, so restore state.json/crew.lua with it stopped.
 
+- You and your crew walk through each other (2026-11-16, issue #62): passThrough() in crew.lua, called when a body
+  is finished, sets PrimitiveComponent:IgnoreActorWhenMoving both ways (crewmate capsule ignores your on-foot pawn,
+  your capsule ignores the crewmate). Enemies still collide with both; shots are separate traces. Tested on
+  Space_Solo_01 aboard the ship with bridge/t_walk.lua (sweep the player 300 units forward, Noor placed 150 ahead):
+  Noor out of the way 197 (a wall), ignore turned off 62 (stopped at Noor), with the fix 197 (through Noor to the
+  wall).
+
 ## Hiring your crew, nametags (2026-11-07, late night; hire.lua, crew.lua)
 Replaces the free random crew above: crewmates are now hired, persistent and optional.
 - hire.lua: pool of 8 recruits, each a set person: name (by sex), voice set (voicelines key), head + body mesh paths (gear.lua),

@@ -157,6 +157,16 @@ local function follow(e)
     end
 end
 
+-- You and your crew walk through each other (testers: they body-blocked doorways and corridors). Each capsule ignores
+-- the other when moving (PrimitiveComponent:IgnoreActorWhenMoving), both ways; enemies still bump into both of you,
+-- and shots are unaffected (they don't use the capsule's movement sweep).
+local function passThrough(e)
+    local foot = onFoot()
+    if not (foot and valid(e.bot)) then return end
+    e.bot.CapsuleComponent:IgnoreActorWhenMoving(foot, true)
+    foot.CapsuleComponent:IgnoreActorWhenMoving(e.bot, true)
+end
+
 local function startBody(m, at)
     local b = X.rivals.startBody(S.pc, m, at)
     if b then S.building[#S.building + 1] = b end
@@ -186,6 +196,7 @@ local function finishBuilding()
                 e.aimRoll = m.aimRoll
                 X.AI.tuneBody(e)
                 e.home = e.bot:K2_GetActorLocation()
+                pcall(passThrough, e)
                 m.entry = e
                 table.insert(X.raid().bots, e)
                 X.log(("[crew] %s (level %d, %s kit, %s, %d hp, %s) is with you"):format(m.name, m.level, m.tier.name,
