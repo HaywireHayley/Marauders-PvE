@@ -2,6 +2,115 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 16 Nov 2026, build 3 (`public-test-20261116.3`)
+
+A big one: about 25 changes since build 2. The headline fixes are **space salvage**, the **missing key card**, your
+**crew gunner ignoring station turrets**, and the **interaction prompts** that went missing. There's also a
+**Quit Game** button at last. Please read **Known issues** at the bottom before a long session.
+
+### New in this build
+
+#### Quit Game in the pause menu
+**What happened:** there was no way to close the game from inside it. The pause menu's EXIT belongs to the "leave the
+raid?" dialog, so testers were force-closing the game.
+
+**Now:** press Esc in a raid and there's a **QUIT GAME** button under Main Menu. Click it once and it asks again
+("CLICK AGAIN TO QUIT"). Click again within 4 seconds to close the game. Quitting mid-raid counts the gear you brought
+in as lost, the same as Alt+F4; the launcher's **Undo last raid** brings it back.
+
+- The lobby still has no quit button (tracked in #50).
+
+#### START RAID
+Offline there's no matchmaking: the lobby's button loads a raid straight away. It now says **START RAID**.
+
+#### French female voice free from the start
+**What happened:** you could play as a woman from the first launch, but every female voice cost credits (the cheapest,
+FRENCH 02, was 3,500).
+
+**Now:** FRENCH 02 is unlocked on every save. Pick it under **Loadout > Appearance > Voice**. Other voices keep their
+prices and level requirements.
+
+#### Your crew gunner tells you why they aren't shooting
+If no turret on your ship can bear on the target for 3 seconds, your gunner says why, once:
+- "**too far, close in**": the target is out of your guns' range;
+- "**can't swing onto it, turn us toward it**": it's outside your turret's arc (the starter ship's single turret
+  covers about 120° either side of the nose).
+
+#### Also new
+- **Gear tab in the F3 menu:** switch level-scaled enemy gear off, or make it tougher.
+- **Launcher:** an option to skip the 60 s intro video. PLAY now checks what it needs before starting, and tells you
+  why a launch failed.
+
+### Fixed in this build
+
+#### Space salvage works offline
+**What happened:** flying up to a wreck never showed the salvage prompt, and R did nothing.
+
+**Why:** the ship only starts its "is there salvage nearby?" scan on a network client. Offline your game is the
+server, so the scan never ran.
+
+**The fix:** the scan now starts offline too. Fly within about 15 m of a wreck and press **R**. The salvage lands in
+your hold as a crate you can search with **F**, and the **lever** in the hold purges it so you can take another.
+Tested end to end: capture, loot into your loadout, purge.
+
+#### Interaction prompts missing (doors, contracts, ship panel)
+**What happened:** "F" prompts on doors and contract objects, and the ship panel, often didn't show.
+
+**Why:** the mod builds a HUD early for your loadout; the game later builds its own. Prompts kept going to the mod's
+hidden copy.
+
+**The fix:** once the game's HUD exists, prompts go to it. Please report any prompt that's still missing.
+
+#### Missing captain's key card
+**What happened:** sometimes you started a raid with no key card for your own ship, so after docking you couldn't get
+back aboard. Reproduced with an empty loadout.
+
+**The fix:** if no card has turned up 6 seconds after you board, the mod asks the game for one, using the same call
+the game makes itself. Asking again never gives you a second card.
+
+#### Crew gunner never shot station turrets
+**What happened:** your gunner ignored the stationary turrets around stations, even while they shot you, and even if
+you clicked one.
+
+**Why:** a one-line bug made every stationary turret look already destroyed.
+
+**The fix:** they now engage turrets that are aiming at you, and ones you click. In testing, a level 1 gunner took
+out a flak turret in about 12 seconds. Station turrets outrange your ship's guns (about 13,500 vs 6,000-9,500
+units), so close in and point your nose at them. Your gunner will now tell you if you're too far or facing wrong.
+
+#### Also fixed
+- **Health lost at the start of a raid:** you now spawn at normal speed, with no damage on arrival.
+- **A crash when the intro was skipped:** PLAY now stays hidden until the backend login has finished.
+- **Stray floating airlocks** from stations that aren't on the map this run are hidden (seen floating in open space
+  on Space_Solo_02).
+- **Bot heads:** the hidden decal head stays hidden when bots wake, for men and women, and swapped heads get their own
+  material.
+- **Escape pod:** the attachments (stock, magazine) of the guns hidden on your pod are hidden too.
+- **Gear by level** counts levels the way the game does, and a new save stays at level 1.
+- **Shorter hitch on first entering a station:** the mod shares its object scans there.
+- **Land raids:** the minimap is skipped there, where it threw an error every frame.
+- **Crew name tags** no longer leak memory over a long session.
+- **Status line** says "aboard the <ship>" when you're on a rival's ship.
+
+### Known issues
+
+- **Crash using a station airlock after some time in a raid** (#53). Seen by a tester at every station they tried, and reproduced here,
+  after some time in a raid or after an earlier raid in the same session; a quick in-and-out at the start doesn't
+  trigger it. We've reproduced it and are tracking it down. Until then, **save your progress by extracting
+  before long station runs**. If you crash, please share `backend\last_game.log` (written when the game closes) on
+  the Discord.
+- **A new save shows 10,000 credits, then 75,000** after the first stash change (#56). Harmless; we're deciding the
+  intended starting amount.
+- **Docking at Planet Killer** (Space_Charlie): the airlock may not take you through (#32).
+
+### For contributors
+
+- CI checks Lua syntax and Python compile on every push and PR.
+- `scripts/setup-dev.ps1` sets up a dev checkout in one command.
+- `bridge/profile_on` can now be switched on and off mid-raid (it used to be read only at launch), so
+  `bridge/dir_eval.lua` works in a running raid.
+- NOTES.md has the co-op join findings and the station survey log.
+
 ## Public test, 16 Nov 2026, build 2 (`public-test-20261116.2`)
 
 The only change from the 16 Nov build is the Mini Mine fix below. (The first 16 Nov zip had been replaced in place
