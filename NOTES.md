@@ -206,6 +206,20 @@ Why bots did nothing, and the fix for each (all automated in PvEDirector):
   needs all 4 args; a failed property read returns a bare function as the error. Never call AssetRegistry from the
   LoopAsync thread (crashed the game), and don't run Lua work there at all (see the bridge hang below). Hide the PGOS overlay (SetVisibility 1) — RemoveFromParent crashed the next travel.
 
+- Esc and lean with the inventory open (2026-11-16, issues #60/#61; invkeys.lua). There's no "inventory open" flag:
+  between open and closed only pc.bShowMouseCursor / bEnableClickEvents / bEnableMouseOverEvents change (property diff
+  of controller, pawn and both SIGIS_HUDOverlay_C). It counts as open when the cursor is shown with neither the pause
+  menu (SIGIS_Exit_Widget_C IsInViewport and IsVisible; its .Visibility reads 4 even when closed) nor F3/F6/F9 up.
+  Esc = MainPlayerController_C InpActEvt_InGameMenu_K2Node_InputActionEvent_3: it opened the pause menu behind the
+  inventory. UE4SS runs the "pre" callback of this input event after the event's Blueprint body (a probe at the
+  first press, nothing open, already saw the menu up and the cursor on), so the hook reads the previous frame's
+  state; the tick then calls CloseTheMenu once the menu is up, and SIGISPlayerController:CloseInventory on the
+  frame after (inside the key press it didn't stick). The hook is re-registered when the UFunction's address changes:
+  the controller Blueprint is loaded again for each raid map, and a hook placed in the lobby never fired in the raid.
+  Lean: RaidCharacter.Lean (0/1/2) is zeroed with RaidCharacter:ZeroLean while the inventory is open.
+  Tested with real keys (Space_Solo_02): Tab+Esc -> inventory closed, no menu; Esc -> menu; Esc -> closed; Tab+hold Q
+  -> Lean 0; hold Q with nothing open -> Lean 1.
+
 ## Pak key (not found yet; may not be needed)
 - Static exe scan for the `mov [reg+off], imm32` key pattern: nothing (Denuvo).
 - Memory scan (`scripts/find_aes_mem.py`, 8-aligned windows in RW memory, 2.9 GB, 112M candidates): nothing.

@@ -460,6 +460,7 @@ local function onTick(ctx)
     end
     pcall(Splash.gatePlay) -- PLAY hidden until the backend login is done (splash.lua)
     if PveQuit then pcall(PveQuit.tick) end -- Quit Game in the pause menu (quit.lua)
+    if PveInvKeys then pcall(PveInvKeys.tick) end -- Esc / lean with the inventory open (invkeys.lua)
     if PveLobbyLabel then pcall(PveLobbyLabel.tick, ctx:get()) end -- START RAID label (lobbylabel.lua)
     local shown, shownErr = ppcall("loading", Loading.tick, ctx:get())
     if not shown then
@@ -2715,6 +2716,10 @@ Splash.init({ log = log, valid = valid, lib = lib })
 -- (a global, not a local: main.lua is at Lua's 200-locals limit, and onTick above reads it)
 PveLobbyLabel = require("lobbylabel") -- (globals, like PveQuit: main.lua is at the 200-locals limit)
 PveLobbyLabel.init({ log = log, offline = function() return offlineBackend() end })
+PveInvKeys = require("invkeys") -- (a global, like PveQuit: main.lua is at the 200-locals limit)
+PveInvKeys.init({ log = log, valid = valid,
+    pc = function() local pc = Hire.lastPc() return valid(pc) and pc:GetClass():GetFName():ToString() == "MainPlayerController_C" and pc or nil end,
+    modMenuOpen = function() return Hire.isOpen() or Tuning.isOpen() or Debug.isOpen() end })
 PveQuit = require("quit")
 PveQuit.init({ log = log, valid = valid, pc = function() return Hire.lastPc() end,
     inRaid = function() local pc = Hire.lastPc() return valid(pc) and pc:GetClass():GetFName():ToString() == "MainPlayerController_C" end })
