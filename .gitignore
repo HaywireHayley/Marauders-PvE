@@ -14,15 +14,8 @@ assets/female/pak/
 assets/female/src/
 # the loading video contains a song: this install only
 assets/intro/
-trailer/*.mkv
-trailer/*.mp4
-trailer/*.wav
-trailer/*.png
-trailer/footage/
-trailer/session/
-trailer/music/*.wav
-trailer/music/*.png
-trailer/music/*/
+# trailer and cinematic camera tooling: local only, not part of the mod
+trailer/
 
 # --- your own saves, settings and logs ---
 backend/state*.json
@@ -45,7 +38,6 @@ config/crew_meshes.lua
 # --- runtime scratch folders (the game reads/writes these while running) ---
 bridge/*
 !bridge/offline_backend
-!bridge/cine.lua
 bridge2/
 tmp2/
 
