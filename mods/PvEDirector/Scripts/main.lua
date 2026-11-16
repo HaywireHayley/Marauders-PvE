@@ -728,7 +728,10 @@ local function wake(bot, ctrl)
             -- A hidden second head (always Raider_Head_Skel_01, whatever the bot's real head) for blood decals. The
             -- SetVisibility(true, true) above showed it too: on entering a station every adopted guard grew it over
             -- its own head, poking through helmets (testers: "head meshes messed up when entering a POI").
+            -- Hidden in game as well: something later shows the body with propagation again (3 of 12 awake bots had
+            -- it back, men and women), and that only sets bVisible, never bHiddenInGame.
             c:SetVisibility(false, false)
+            c:SetHiddenInGame(true, false)
         elseif valid(parent) and parent:GetFullName() == mesh:GetFullName() then
             c:SetComponentTickEnabled(true)
             c:SetComponentTickInterval(0)
