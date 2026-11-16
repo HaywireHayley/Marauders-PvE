@@ -50,7 +50,9 @@ bridge2/
 tmp2/
 
 # --- built or downloaded files ---
-release/
+/release/
+tools/release/private.txt
+tools/release/__pycache__/
 tools/ue4ss/
 tools/repak/
 *.zip
