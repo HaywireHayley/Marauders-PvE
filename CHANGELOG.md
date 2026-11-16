@@ -7,6 +7,10 @@ Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Mar
 - **Launcher:** tells you when a newer build is out (an orange **!** top right) and can update itself: it downloads
   the new zip, checks it, and installs it over the folder, keeping your saves and settings. Switch it off with
   **Check for new builds**. It starts working from the build after this one.
+- **Launcher:** opening it twice no longer risks losing a raid's progress (the second one just brings the first
+  forward). Closing it while you play asks first, and if you do, it saves your game and puts the online game back
+  next time it opens. A damaged save shows as **DAMAGED** instead of disappearing, a save can be called "Nul",
+  and a setting that can't be saved says so.
 
 ## Public test, 16 Nov 2026, build 3 (`public-test-20261116.3`)
 
