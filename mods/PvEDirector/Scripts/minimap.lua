@@ -1158,7 +1158,10 @@ end
 -- Every frame, from the director. Hidden until you can see the game. The game's menus draw over it (see build).
 function M.tick(pc)
     local raid = X.raid()
-    if raid.space and not raid.revealed then return end
+    -- Land raids (the debug menu's test raid) have no stations or ship, so nothing to map: the survey could never find
+    -- a place, and locate() threw every frame there (valid(false) on the missing ship's hull).
+    if not raid.space then return end
+    if not raid.revealed then return end
     local now = os.clock()
     if not S or S.key ~= raid.world then S = { key = raid.world, thinkAt = 0, drawAt = 0 } end
     if S.scan then stepScan(pc) end
