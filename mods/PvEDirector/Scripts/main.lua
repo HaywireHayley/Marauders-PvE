@@ -427,6 +427,7 @@ local function onTick(ctx)
         for _ = 1, 3 do pcall(Voice.step) end
     end
     pcall(Splash.gatePlay) -- PLAY hidden until the backend login is done (splash.lua)
+    if PveQuit then pcall(PveQuit.tick) end -- Quit Game in the pause menu (quit.lua)
     local shown, shownErr = ppcall("loading", Loading.tick, ctx:get())
     if not shown then
         log("loading screen failed: " .. tostring(shownErr))
@@ -2678,6 +2679,10 @@ local SKIRMISH_FILE = PROJECT .. "bridge/rivals_skirmish"
 -- objectives count offline.
 Loading.init({ log = log, valid = valid, lib = lib })
 Splash.init({ log = log, valid = valid, lib = lib })
+-- (a global, not a local: main.lua is at Lua's 200-locals limit, and onTick above reads it)
+PveQuit = require("quit")
+PveQuit.init({ log = log, valid = valid, pc = function() return Hire.lastPc() end,
+    inRaid = function() local pc = Hire.lastPc() return valid(pc) and pc:GetClass():GetFName():ToString() == "MainPlayerController_C" end })
 -- Closing the F3/F9 menus: a raid goes back to game-only input; the lobby is a mouse screen, so it gets its UI back
 -- (as hire.lua does).
 local function menuClosed(pc)
