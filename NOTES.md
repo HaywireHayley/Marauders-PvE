@@ -2278,6 +2278,13 @@ The soldiers that stand still with no AI controller, frozen until shot, are the 
   bots (2 men, 1 woman) had the decal head visible again: something after wake() shows the body with propagation once
   more. wake() now also sets SetHiddenInGame(true) on it, which propagation doesn't touch. Checked through the bridge
   on one affected bot: after that, Mesh:SetVisibility(true, true) left it hidden. Not yet watched over a whole raid.
+- Streaky "odd texture" on a head (2026-11-16, user screenshot: a woman in goggles and mask under a garrison cap). Not
+  the female reshape: the man's version of the same head looked the same. The head was drawing Raider_01_Head_MIC
+  (as a MaterialInstanceDynamic the bot made from its starting head) over Outlaw_Head_Skel_01, whose own material is
+  Outlaw_Head_01_MIC: wrong textures on the new head's UVs. A spawned raider keeps that MID when rivals.lua or a
+  station top-up puts another head on. female.lua's SetSkeletalMesh hook now rebuilds the MID from the new mesh's
+  own material on raider bots (the old one had no parameters, so nothing is lost). Live: 1 of 15 bots was wrong,
+  0 after; the screenshot showed the proper leather mask. The hook itself takes effect from the next launch.
 
 ## Ship stuck after undocking (2026-11-14)
 

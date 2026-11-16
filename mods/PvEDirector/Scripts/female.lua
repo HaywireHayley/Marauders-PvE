@@ -110,13 +110,40 @@ local busy
 
 M.hookCalls = 0 -- read by main.lua's profiler
 
+-- A raider bot makes a dynamic material from its starting head when it spawns, and that material stays on the part when
+-- another head is put on (rivals, station top-ups): the old head's textures over the new head's UVs, a streaky smear
+-- (testers: "odd texture" on heads; seen as Raider_01_Head_MIC on Outlaw_Head_Skel_01). Its parameters are empty, so a
+-- fresh one from the new mesh's own material loses nothing, and the game's later CreateDynamicMaterialInstance calls reuse it.
+local BOT_CLASSES = { GOAPNodeBot_Raider_C = true }
+local MID = "MaterialInstanceDynamic"
+
+local function baseOf(m)
+    while m and X.valid(m) and m:GetClass():GetFName():ToString() == MID do m = m.Parent end
+    return m
+end
+
+local function refitMaterials(part)
+    local mats = part.SkeletalMesh.Materials
+    for slot = 0, part:GetNumMaterials() - 1 do
+        local drawn = part:GetMaterial(slot)
+        local own = slot < #mats and mats[slot + 1].MaterialInterface or nil
+        if own and X.valid(own) and drawn and X.valid(drawn) and drawn:GetClass():GetFName():ToString() == MID then
+            local was = baseOf(drawn)
+            if X.valid(was) and was:GetAddress() ~= own:GetAddress() then
+                part:CreateDynamicMaterialInstance(slot, own, FName("None"))
+            end
+        end
+    end
+end
+
 local function afterSetMesh(ctx)
-    if busy then return end
     M.hookCalls = M.hookCalls + 1
     local part = ctx:get()
     if not X.valid(part) then return end
     local owner = part:GetOwner()
     local cls = owner and X.valid(owner) and owner:GetClass():GetFName():ToString()
+    if cls and BOT_CLASSES[cls] and X.valid(part.SkeletalMesh) then pcall(refitMaterials, part) end
+    if busy then return end
     if not (cls and PLAYER_CLASSES[cls]) then return end
     -- the lobby's other stands are your crew's (crewlobby.lua dresses them as themselves)
     if cls == "MM_PlayerChar_C" and not owner.isPlayer then return end
