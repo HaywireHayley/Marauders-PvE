@@ -1503,6 +1503,77 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
       FIRST instance with UE4SS+bridge (first instance never quits). Open: client needs a PID, normally from login.
   The listen server itself (`open ...?listen`) is already known to work for a single instance.
 
+## Co-op join: who drops, and what never fires (2026-11-15; tools/coop/coop_hooks.lua)
+Follow-up to "Co-op host+join attempt". Same setup as there: host = launch-offline.ps1, splash Play, then from the lobby
+`open /Game/Maps/Raids/Spaceport_01?listen<RAID_OPTS>`; client = second exe with its own TEMP/TMP (tmp2) and
+PVE_BRIDGE=bridge2/, deployed Mods/mods.txt PvEDirector 0 (PvEBridge only), `open 127.0.0.1:7777?PID=offline2...`.
+Both copies ran tools/coop/coop_hooks.lua: logging-only hooks (name, time, object address; no params) on 21 UFunctions:
+SIGISPlayerController ServerCheck / ServerChallenge / Server_SendEAC / OnAntiCheatCheck / ClientEACAction /
+Client_EACMessage / Client_EACAction / Client_Loaded, GameLiftPlayerController ServerAcceptPlayer / ServerRemovePlayer,
+RaidPlayerController ClientStartOnlineGame / ClientGameStarted / ClientDissconnectedFromServer, PlayerController
+ServerNotifyLoadedWorld / ClientSetHUD / ClientRestart / ClientWasKicked / ClientReturnToMainMenuWithTextReason,
+GameModeBase K2_PostLogin / K2_OnLogout, MainPlayerController_C ReceiveBeginPlay; plus Actor:ReceiveEndPlay logged
+for PlayerController classes only. Two joins (21:05, 21:14), same result both times.
+- The connection IS dropped about 3 s after the join (corrected later the same day). A first poll counted objects
+  (FindAllOf IpConnection / MainPlayerController_C) and saw them stay for 30 s, which looked like the host keeping the
+  joiner. Those are leftovers waiting for garbage collection: the host's live list, world.NetDriver.ClientConnections
+  (GetArrayNum), went 0 -> 1 at the join and back to 0 about 3 s later. Count connections with that list, not objects.
+- Client timeline (join 21:14:23): host spawns the joiner's MainPlayerController (ReceiveBeginPlay 21:14:27.2); client
+  gets ClientSetHUD 21:14:28.8; client is back on MainMenu by ~21:14:30 (its menu re-login hits the stand-in's
+  GET /v2/account at 21:14:30). The client's own ReceiveBeginPlay never fired, no ClientRestart, no ServerNotifyLoadedWorld.
+- Never fired on either side, both joins: ServerChallenge, ServerCheck, OnAntiCheatCheck, Server_SendEAC, every
+  Client_EAC*/ClientEACAction, ServerAcceptPlayer, ServerRemovePlayer, ClientWasKicked, ClientDissconnectedFromServer,
+  ClientReturnToMainMenuWithTextReason. A host-side hook at a native RPC's exec thunk should fire on receipt even if
+  its _Validate then fails (inferred, not verified). Whether a client-side hook fires when the client SENDS a Server
+  RPC is not verified either.
+- No backend traffic at the join: stand-in server.log has nothing between the join and the client's menu re-login.
+  pvenet.log (needs a capture/ folder to exist, else it logs nothing) shows only the usual blocked lookups
+  (api.gameanalytics.com every ~4 s from the exe, marauderea2...nakamacloud.io from nakama-cpp.dll), before and after.
+- Gotcha: UE4SS 3.0.1 can't run a Lua hook for a function with an FText param: "Error executing hook pre-callback
+  /Script/Engine.PlayerController:ClientReturnToMainMenuWithTextReason: [push_textproperty] Operation::GetParam is not
+  supported" in UE4SS.log, and the Lua callback never runs. So a "never fired" for an FText RPC only holds if that error
+  line is absent from UE4SS.log too (it was, for both joins). Earlier passes that hooked this RPC couldn't have seen it.
+- Seen once, after the joiner crashed (below): ~17 s after the client died, the HOST called
+  ClientReturnToMainMenuWithTextReason (the UE4SS error line above) and went back to its own MainMenu. That's the host
+  ending its session on losing a player, not the join bounce.
+- Crash, our tooling: a client-side RegisterLoadMapPreHook that read the URL (url:get().Map / .Op) killed the client
+  during travel (0xe06d7363, a C++ exception inside UE4SS.dll frames, minidump in %LOCALAPPDATA%\RaidGame\Saved\Crashes).
+  Don't read LoadMap params from Lua.
+- Denuvo, passive OS view only: "Denuvo Anti-Cheat Update Service" (Manual start) is Running while the game is up, process
+  denuvo-anti-cheat-update-service; EasyAntiCheat and EasyAntiCheat_EOS services Stopped. Nothing else looked at.
+
+What this means for the candidates (desk research, same date):
+- A, Denuvo anti-cheat challenge: no longer the best fit. The suspected path was SIGISPlayerController ServerChallenge
+  (TokenReturn, TokenReturn2) failing on the host; no hook on either side ever saw it, and no kick arrives. Not
+  ruled out: a check entirely inside the Denuvo runtime on the CLIENT that makes it leave (we don't and won't look there).
+- B, GameLift accept: no sign of it. ServerAcceptPlayer never runs on the host and is never seen leaving the client.
+- New lead, client side: the client leaves ~1-2 s after ClientSetHUD, before its controller's BeginPlay, without any
+  kick RPC: the shape of an engine-level client network failure (UNetDriver/PendingNetGame error -> HandleDisconnect ->
+  travel with `?closed`), e.g. a replication/package-map problem while the joiner's world starts, or game code on the
+  client calling a disconnect natively. Desk research: `?closed` comes from UEngine::HandleDisconnect
+  (https://forums.unrealengine.com/t/network-error-force-loads-entry-map-for-client-when-server-shuts-down/405257/11).
+- Second session, same day (upstream master 92fde2d; native/pveudp.dll built with MinGW, -D_WIN32_WINNT=0x0602, loaded
+  into both copies with package.loadlib from the bridge):
+  * PvEDirector OFF on the host too (deployed mods.txt edited between mode.ps1 offline and the launch): same bounce.
+    The director is not the cause.
+  * 28 more client-side name-only hooks on everything that sounds like leaving: SIGIS_ExampleGameInstance_C
+    Return_NakamaDisconnected / Return_Nakama_Error / Return_LostInternetConnection / ExitGame_ForceDisbandOrLeaveCrew /
+    OnCanceled, SIGISGameInstance LoadMainMenu / BeenKickedFromLobby / CancelSearch, ...Nakama CaptainBackInMainMenu /
+    AwsN_BeenKicked, ...PGOS CancelMatchmaking / DirectlyTravelToServer, GameLiftGameInstance QuitGame / ServerTravel,
+    GameInstance HandleTravelError / HandleNetworkError, RaidPlayerController DeathToMainMenu, SIGISPlayerController
+    HasLostConnection / TravelToMap / PGOSTravelToMap / OfficeTravelToMap / Client_ReturnPushMessage, PlayerController
+    ClientReturnToMainMenu / ClientWasKicked. Only ClientSetHUD fired; no "Error executing hook" lines. Afterwards the
+    client's world is MainMenu with no NetDriver.
+  * UDP (both sides, same join): handshake and NMT_Login at 0-160 ms; host keepalives every ~200 ms while the client
+    loads (the client sends nothing for 2.5 s); at ~2.6 s the client's first packet after loading, a few exchanges
+    (ClientSetHUD arrives here), last client packets at ~2.70 s, last host packet at ~2.73 s, then nothing either way.
+    No new send stack on either side at the end, so neither side's last packet came from a separate close path.
+  * Not settled: which side ends it. Reading the client world's URL (.URL.Op) from the bridge errored.
+- Next, observation only: decode the last 4-5 packets each way (a control-channel close bunch says who closed);
+  a client-side NotifyOnNewObject trace of which replicated actors arrive in the final packets.
+- Out of bounds, unchanged: nothing that bypasses, patches, spoofs, emulates or hooks Denuvo anti-cheat/anti-tamper or
+  answers a challenge; no modded client near a live match.
+
 ## Your crew: AI teammates (2026-11-07, night; mods/PvEDirector/Scripts/crew.lua)
 Co-op joining is blocked (see above), so teammates are AI stand-ins.
 - Roster (CFG.SIZE, default 2, F3 menu tab "Your crew", 0-3): rival-style people (rivals.newMember) kept for the game session.
