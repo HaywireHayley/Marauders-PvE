@@ -2,7 +2,10 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
-## Public test, 16 Nov 2026 (`public-test-20261116`)
+## Public test, 16 Nov 2026, build 2 (`public-test-20261116.2`)
+
+The only change from the 16 Nov build is the Mini Mine fix below. (The first 16 Nov zip had been replaced in place
+with one carrying this fix; build 2 gives it its own release, so anyone holding an early download can tell.)
 
 ### Fixed: crash after taking a pod to the Mini Mine
 
@@ -29,7 +32,9 @@ replaced or removed the object, the lookup returns nothing or the new live copy,
 - Status: in this build. The exact Mini Mine pod run hasn't been repeated in game since the fix, so please report it
   in the Discord if it still crashes there, with `backend\last_game.log` and `backend\server.log`.
 
-### Also fixed in this build
+## Public test, 16 Nov 2026 (`public-test-20261116`)
+
+### Fixed in this build
 
 - Your shotguns work. Before, the player's shotgun fired but its pellets did no damage.
 - The social overlay is hidden within a second or two of the lobby loading.
