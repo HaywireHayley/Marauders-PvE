@@ -15,8 +15,65 @@ local paths, nextCheck, nextFind = nil, 0, 0
 -- you open yourself later (the pause menu's GUIDE) is left alone.
 local GUIDE_WATCH, GUIDE_EVERY = 60, 2 -- (it opened ~15 s after the lobby in testing)
 local guideUntil, nextGuide = nil, 0
+-- Gear put on or taken off on LOADOUT didn't show on your character until you switched tabs (issue #29). While
+-- LOADOUT is the selected tab, the equipped items are compared each check, and on a change LOADOUT is "pressed" again
+-- through the overlay's own handler, SIGIS_MainOverlay_C:CoreMM_Tab_Pressed(1), which is what a tab click runs (calling
+-- its inner refreshes, RefreshMenuPlayerActor or OPENED_GearMenu, alone didn't redress the character).
+local LOADOUT_STATE = 1                       -- MM_CoreMM_TabBtns_Loadout.Which_CoreMenuState
+local NOT_EQUIPPED = { Stash = true, Lobby = true, Gift = true, scrap = true, Shop = true, LootCon = true,
+    LootPocketLeft = true, PocketLeft = true, PocketRight = true, KeyCard = true }
+local gear = {}                               -- overlay, tab, inv: paths; seen: the last equipped set
 
 function L.init(ctx) X = ctx end
+
+local function live(path)
+    if not path then return nil end
+    local o = StaticFindObject(path)
+    if o and o:IsValid() then return o end
+end
+
+local function findGear()
+    gear = {}
+    for _, w in ipairs(FindAllOf("SIGIS_MainOverlay_C") or {}) do
+        local name = w:GetFullName():gsub("^%S+ ", "")
+        if name:find("Transient", 1, true) then gear.overlay = name end
+    end
+    if gear.overlay then gear.tab = gear.overlay .. ".WidgetTree.MM_CoreMM_TabBtns_Loadout" end
+    local inv = FindFirstOf("SIGISInventoryComponent")
+    if inv and inv:IsValid() then gear.inv = (inv:GetFullName():gsub("^%S+ ", "")) end
+end
+
+-- What's in your equipment slots (head, chest, guns, bag...): the item ids and slots, sorted into one string.
+local function equipped(inv)
+    local out = {}
+    inv.StashedItems:ForEach(function(_, e)
+        local it = e:get()
+        if it and it:IsValid() then
+            local con = it.MotherItemGUID:ToString()
+            if con:match("^%a+$") and not NOT_EQUIPPED[con] and not con:find("^RigSlot") then
+                out[#out + 1] = con .. "=" .. it.UniqueItemGUID:ToString()
+            end
+        end
+    end)
+    table.sort(out)
+    return table.concat(out, ",")
+end
+
+local function gearTick()
+    local overlay, tab, inv = live(gear.overlay), live(gear.tab), live(gear.inv)
+    if not (overlay and tab and inv) then
+        local t = os.clock()
+        if t >= (gear.nextFind or 0) then findGear() gear.nextFind = t + 5 end -- (FindAllOf ~50 ms; the lobby may not be up yet)
+        return
+    end
+    if not tab.isSelected then gear.seen = nil return end
+    local now = equipped(inv)
+    if gear.seen and now ~= gear.seen then
+        overlay:CoreMM_Tab_Pressed(LOADOUT_STATE)
+        X.log("lobby: gear changed, character redressed")
+    end
+    gear.seen = now
+end
 
 local function find()
     paths = {}
@@ -38,7 +95,9 @@ function L.tick(ticker)
     if now < nextCheck then return end
     nextCheck = now + CHECK_SECONDS
     local inLobby = ticker:IsValid() and ticker:GetClass():GetFName():ToString() == "MM_CoreMissions_C"
-    if not (inLobby and X.offline()) then paths = nil return end
+    if not (inLobby and X.offline()) then paths, gear = nil, {} return end
+    local okGear, errGear = pcall(gearTick)
+    if not okGear and not gear.err then gear.err = true X.log("lobby: gear refresh failed: " .. tostring(errGear)) end
     guideUntil = guideUntil or now + GUIDE_WATCH
     if now < guideUntil and now >= nextGuide then
         nextGuide = now + GUIDE_EVERY

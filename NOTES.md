@@ -1333,6 +1333,16 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
 - bridge/t_loadall2.lua loads all with a crash trail, t_me, t_lobby, t_vestmat check the rest. Verified: player swap both ways, vest materials, 13 of 20 bots, corpses. Not verified: soldier outfits on a raid map (loaded only), how your own body looks in first person.
 
 - Final proportions: shoulders width 0.82 at z 150 (0.91 at 135, 0.92 at 158). Locked in by the user 2026-11-07.
+- Gear on the lobby character (2026-11-16, issue #29): putting gear on or taking it off on LOADOUT didn't change
+  the lobby character until you switched tabs. A tab switch runs SIGIS_InventoryWidget_C OPENED_GearMenu,
+  Switch_EquipmentState and RefreshMenuPlayerActor (x4), then MM_PlayerChar_C Refresh_PlayerLookActor /
+  PGOS_OnChangedMyEquipment / NEW_PGOS_PlayerLookRefresh (x4, one per lobby character; they take a 104-byte look
+  struct). Calling Force_RefreshPlayerLook, RefreshMenuPlayerActor or OPENED_GearMenu alone changed nothing;
+  SIGIS_MainOverlay_C:CoreMM_Tab_Pressed(1) (LOADOUT's Which_CoreMenuState) on the page you're already on does it.
+  lobbylabel.lua: while the LOADOUT tab isSelected, once a second, the equipped items (StashedItems whose
+  MotherItemGUID is a plain slot name, not Stash / pockets / loot / shop / KeyCard / RigSlot*) are compared, and on a
+  change it presses LOADOUT that way. Overlay, tab and inventory are kept as paths. Tested by dragging a Brodie
+  helmet on and off: "lobby: gear changed, character redressed" each time and the helmet appeared / went at once.
 
 ## Launcher and saves (2026-11-07)
 - launcher/launcher.pyw (tkinter, trailer style) + launcher/saves.py. Marauders Offline.lnk here and on the desktop. backend/saves/<id>/{state.json, meta.json, before-last-raid.json}. Play copies a save to backend/state.json (stand-in and scripts still use that path), backend/active_save.txt names it, and closing the game copies it back, stops the stand-in and goes to stock (backend/last_game.log keeps the UE4SS log). Started by launcher: cleanup waits until the game has been seen, or it kills the backend during boot (first version did: "connecting to backend" crash).
