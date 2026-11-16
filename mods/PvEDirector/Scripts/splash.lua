@@ -34,4 +34,32 @@ function S.apply(pc)
     return false
 end
 
+-- PLAY before the game's backend login finishes crashes inside nakama-cpp.dll (a null read under the button's handler).
+-- The 60 s startup video used to cover that window; with it skipped (config/skip_intro.txt) the splash is up ~6 s
+-- before the login. So PLAY stays hidden (layout kept) until the game instance has its Nakama player id. Called every
+-- frame from the director's tick; looks at most 4 times a second, and never again once the login is done (it's once
+-- per game session).
+local G = { done = false, at = 0 }
+function S.gatePlay()
+    if G.done then return end
+    local now = os.clock()
+    if now < G.at then return end
+    G.at = now + 0.25
+    if not X.valid(G.gi) then G.gi = FindFirstOf("SIGIS_ExampleGameInstance_C") end
+    if not X.valid(G.login) then
+        G.login = nil
+        for _, w in ipairs(FindAllOf("SIGIS_LoginWidget_C") or {}) do
+            if w:GetFullName():find("/Engine/Transient", 1, true) then G.login = w break end
+        end
+    end
+    local play = G.login and G.login.MM_GenericSmallBtn01_1
+    if not X.valid(play) then return end
+    local ready = X.valid(G.gi) and #G.gi.NakamaPlayerID:ToString() > 0
+    play:SetVisibility(ready and 0 or 2) -- Visible / Hidden
+    if ready then
+        X.log("splash: PLAY shown, backend login done")
+        G.done, G.gi, G.login = true, nil, nil
+    end
+end
+
 return S

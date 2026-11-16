@@ -409,6 +409,7 @@ local function onTick(ctx)
     if Voice.pending() and not launching and not mm and ctx:get():GetClass():GetFName():ToString() ~= "MainPlayerController_C" then
         for _ = 1, 3 do pcall(Voice.step) end
     end
+    pcall(Splash.gatePlay) -- PLAY hidden until the backend login is done (splash.lua)
     local shown, shownErr = ppcall("loading", Loading.tick, ctx:get())
     if not shown then
         log("loading screen failed: " .. tostring(shownErr))
