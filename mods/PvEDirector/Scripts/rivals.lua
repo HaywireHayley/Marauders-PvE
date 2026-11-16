@@ -1104,13 +1104,13 @@ local function turretWhy()
 end
 
 local function fireTurrets(c, tgt, now)
-    if not c.turrets or #c.turrets == 0 then return false end
+    if not c.turrets or #c.turrets == 0 then c.held = nil return false end
     local sl, tl = c.ship:K2_GetActorLocation(), tgt:K2_GetActorLocation()
     local tv = tgt:GetVelocity()
     local r = c.ship:K2_GetActorRotation()
     local a, skill = gunAim(c, tgt, tv)
     local arc = c.arc or CFG.TURRET_ARC
-    local fired = false
+    local fired, seen = false, {}
     for _, t in ipairs(c.turrets) do
         if valid(t.actor) and not t.aimed and now >= (t.aimTry or 0) then
             t.aimTry = now + 1 -- (a turret spawned this frame has no AnimBP yet)
@@ -1162,7 +1162,10 @@ local function fireTurrets(c, tgt, now)
             end
         end
         if why then S.turretWhy = S.turretWhy or {} S.turretWhy[why] = (S.turretWhy[why] or 0) + 1 end
+        seen[why or "ok"] = true
     end
+    -- c.held: "range" or "arc" when no turret could bear on the target at all (your gunner says so, crew.lua)
+    c.held = not (seen.ok or seen.reload or seen.swing or seen.pitch) and (seen.range and "range" or seen.arc and "arc") or nil
     if fired then gunSettle(a, skill) end
     return fired
 end
