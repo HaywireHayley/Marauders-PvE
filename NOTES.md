@@ -2394,6 +2394,16 @@ Follow-up to the Colony Cruiser numbers above (27 bots, ~20 fps with stutters):
 Tested (Space_Alpha, Rebel Base, 8-11 bots, recording at the same time): 100-130 fps inside the station (88-92 at Moon
 Base with 11 bots before, without recording); the user says it seemed good. Still there: a one-off hitch on entering a
 station (worst frame 212 ms, the entry FindAllOf scans). Not yet tried with 20-27 bots.
+- Station entry (issue #12, 2026-11-15; Space_Beta, teleported on foot into the Asteroid Mine, profiler on): the entry
+  window had 9 FindAllOf (~480 ms): SIGISContractActor, SIGISLootSingleSpawner and RaidAINodeStart twice each (rivals.lua
+  seedSpots and main.lua Aux.rescan scan the same classes within a second), RaidUseableAirLockComponent, and the two
+  CFG.PLACED classes (placedDefenders). Worst director update 368 ms (rivals 286), interior show-all 148 ms.
+  Now: Aux.findAll caches a class's FindAllOf for 3 s per world, used by Aux.scan and (as X.findAll) seedSpots; and
+  placedDefenders takes the NodeBots spawn hook's list when it's on ("6 ... from the spawn hook"; the cross-check log
+  had shown 6 = 6), FindAllOf only as the fallback. After: 4 scans (~195 ms), worst update 255 ms (rivals 177); same 6
+  adopted, same 108 spread candidates, same marker counts. Left: the interior show-all (148-160 ms, I.frame shows
+  every part at once by design: the airlock transfer covers it); when it lands in the same frame as the garrison update
+  the frame is ~460 ms. Spreading the show over frames would trade that for a visible pop-in after a transfer.
 
 ## Baked cover never used inside Rebel Base; soldiers out of sight backpedal (2026-11-14, fix untested)
 
