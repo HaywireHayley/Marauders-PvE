@@ -476,6 +476,10 @@ Why bots did nothing, and the fix for each (all automated in PvEDirector):
   Lua pitfall hit: `(a == b) and nil or c` is always c. Tested: ALPHA picked -> raid on Space_Alpha; remembered over
   a restart ([ CHARLIE ], box CHARLIE); RANDOM -> picker closed, box RANDOM MAP, config/raid_map.txt removed; BETA ->
   raid on Space_Beta.
+  Details (2026-11-16, later): each button shows "solo map" / "crew map" in its ping row (its "(" and "ms)"
+  emptied) and a hover tooltip, UMG's own (UserWidget:SetToolTipText, set once per button address): the map, its kind
+  and the stations seen there (from the "[rivals] stations:" log lines and the NOTES survey); RANDOM's says it picks
+  any of the six. Checked: tooltip shown on hover over CHARLIE, three lines.
 
 ## Flying the ship; interaction offline; per-update cost (2026-10-30)
 - F at the helm did nothing and no "F" prompts showed: SIGISCharacter::InteractionDetection (sets

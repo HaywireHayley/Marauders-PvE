@@ -12,9 +12,13 @@ local X -- log, valid, project (path prefix)
 -- region -> map (the regions' own order in the picker: USA WEST 1, USA SOUTH 2, EU CENTRAL 3, ASIA NORTH 4,
 -- ASIA SOUTH 5, USA EAST 0)
 local MAPS = {
-    [1] = { "Space_Solo_01", "SOLO 1" }, [2] = { "Space_Solo_02", "SOLO 2" },
-    [3] = { "Space_Alpha", "ALPHA" }, [4] = { "Space_Beta", "BETA" },
-    [5] = { "Space_Charlie", "CHARLIE" }, [0] = { "Space_Delta", "DELTA" },
+-- { map, button, line under the name, stations seen there (UE4SS.log "[rivals] stations:" lines, NOTES survey) }
+    [1] = { "Space_Solo_01", "SOLO 1", "solo map", "Spaceport, Fortress, merchant ships" },
+    [2] = { "Space_Solo_02", "SOLO 2", "solo map", "Penal Colony, Rebel Base, Mini Mine, Asteroid Mine, Capital Ship" },
+    [3] = { "Space_Alpha", "ALPHA", "crew map", "Rebel Base, Spaceport, Fortress" },
+    [4] = { "Space_Beta", "BETA", "crew map", "Penal Colony, Asteroid Mine, Capital Ship" },
+    [5] = { "Space_Charlie", "CHARLIE", "crew map", "Mini Mine, Colony Cruiser, Planet Killer" },
+    [0] = { "Space_Delta", "DELTA", "crew map", "Navy Outpost, Moon Base, merchant ships" },
 }
 local RANDOM = "RANDOM MAP"
 local RANDOM_REGION = 99 -- our seventh button's region: no map, a random pick
@@ -85,23 +89,39 @@ end
 
 -- One picker button: the map's name (the picked one in brackets; RANDOM in brackets when no map is picked),
 -- clickable, without the ping line and bad-ping warnings.
+local tipped = {} -- button address -> tooltip text set
 local function dress(w)
-    local name
+    local name, line, tip
     if w.region == RANDOM_REGION then
         name = picked == nil and "[ RANDOM ]" or "RANDOM"
+        line, tip = "any map", "A different map each raid, picked at random from all six."
     elseif MAPS[w.region] then
-        name = w.region == picked and ("[ " .. MAPS[w.region][2] .. " ]") or MAPS[w.region][2]
+        local m = MAPS[w.region]
+        name = w.region == picked and ("[ " .. m[2] .. " ]") or m[2]
+        line = m[3]
+        tip = ("%s (%s)\nStations: %s\nWhich stations are there can change from raid to raid."):format(m[1], m[3], m[4])
     else
         return
     end
     setText(w.Txt_RegionName, name)
+    local key = w:GetAddress()
+    if tipped[key] ~= tip then -- (a hover tooltip, UMG's own: set once per button, and again if the text changes)
+        tipped[key] = tip
+        pcall(function() w:SetToolTipText(FText(tip)) end)
+        pcall(function() w.Btn_MatchmakingSetting:SetToolTipText(FText(tip)) end)
+    end
     -- the game disables "bad ping" regions, and offline every ping is 999: all six stay clickable
     local btn = w.Btn_MatchmakingSetting
     if btn and btn:IsValid() and not btn:GetIsEnabled() then btn:SetIsEnabled(true) end
     if not w:GetIsEnabled() then w:SetIsEnabled(true) end
-    -- the ping line ("(999ms)", its own "(" and "ms)" around Txt_PingValue) means nothing offline
+    -- the ping line ("(999ms)": "(" and "ms)" around Txt_PingValue) shows what kind of map it is instead
     local row = w.Txt_PingValue and w.Txt_PingValue:IsValid() and w.Txt_PingValue:GetParent()
-    if row and row:IsValid() and row.Visibility ~= 1 then row:SetVisibility(1) end -- Collapsed
+    if row and row:IsValid() then
+        for i = 0, row:GetChildrenCount() - 1 do
+            local t = row:GetChildAt(i)
+            if t and t:IsValid() then setText(t, t:GetAddress() == w.Txt_PingValue:GetAddress() and line or "") end
+        end
+    end
     for _, k in ipairs({ "SizeBox_RegionWarning_Left", "SizeBox_RegionWarning_Left_1", "Border_BadPingArea" }) do
         local x = w[k]
         if x and x:IsValid() and x.Visibility ~= 1 then x:SetVisibility(1) end -- Collapsed
