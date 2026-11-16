@@ -1266,6 +1266,10 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
 
 - Arms (2026-11-07): ANSUR II medians (ergoassessment.cam ANSUR II explorer), taken at equal height: biceps/forearm 0.92, wrist 0.95, neck 0.90, calf 1.03. make_female slims each arm around its bind-pose centreline (ARM_Z/ARM_Y), 0.88 at the shoulder to 0.97 at the hand; neck 0.9-0.96; calf 1.03. Checked on the lit lobby character, male vs female.
 - Bust 8.3, waist width 0.91/0.925, depth 0.885/0.915 (user, 2026-11-07).
+- PLAY preflight (2026-11-15): launch-offline.ps1's output used to be thrown away, so a wrong config/game_path.txt, a
+  missing tools/ue4ss or Steam not running all showed as "The game didn't start" after START_TIMEOUT (90 s). launcher.pyw
+  preflight() checks the game exe, tools/ue4ss (dwmapi.dll, UE4SS.dll, Mods) and steam.exe first; if the script still
+  fails, the status line shows its first error line and the launcher tidies up at once.
 
 ## Space_Solo_02 stations, Rebel Base lid, key card guard (2026-11-07, later)
 - User report: big black cube in the sky at Rebel Base, rivals leaving/gone right at the start, poor loot at Rebel Base, locked out of own ship (captain's ID gone).
