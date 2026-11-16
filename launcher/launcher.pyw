@@ -6,14 +6,17 @@ import shutil
 import subprocess
 import sys
 import threading
+import tempfile
 import time
 import tkinter as tk
+import webbrowser
 from datetime import datetime
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageTk
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import saves
+import update
 
 ROOT = saves.ROOT
 GAME_EXE = "RaidGame-Win64-Shipping.exe"
@@ -23,6 +26,7 @@ FEMALE_SHARE_DEFAULT = 35
 WINDOW_SETTING = os.path.join(ROOT, "config", "window_mode.txt")  # read by scripts/launch-offline.ps1
 SKIP_INTRO_SETTING = os.path.join(ROOT, "config", "skip_intro.txt")  # read by scripts/mode.ps1
 UNLOCK_LOOKS_SETTING = os.path.join(ROOT, "config", "unlock_all_looks.txt")  # read by the Nakama stand-in at login
+UPDATE_CHECK_SETTING = os.path.join(ROOT, "config", "update_check.txt")  # "off" stops the check for a newer build
 GAME_PATH = os.path.join(ROOT, "config", "game_path.txt")  # written by the installer; scripts/mode.ps1 has the same default
 
 
@@ -172,9 +176,12 @@ class App(tk.Tk):
         self.running = False
         self.launch_error = None
         self.cards = {}
+        self.release = None  # a newer public test build, once the background check finds one
+        self.updating = False
         self.build()
         self.refresh()
         self.after(1000, self.watch)
+        self.check_update()
 
     # Layout ---------------------------------------------------------------------------------------------------------
     def build(self):
@@ -236,6 +243,13 @@ class App(tk.Tk):
         self.toggle("Skip the intro video", self.skip_intro_var, self.toggle_skip_intro)
         self.unlock_looks_var = tk.BooleanVar(value=self.read_unlock_looks())
         self.toggle("Unlock all looks and voices", self.unlock_looks_var, self.toggle_unlock_looks)
+        self.update_check_var = tk.BooleanVar(value=self.read_update_check())
+        self.toggle("Check for new builds", self.update_check_var, self.toggle_update_check)
+        # Shown top right only when a newer build is out (check_update)
+        self.update_badge = tk.Frame(self, bg=INK)
+        tk.Label(self.update_badge, text="!", bg=ORANGE, fg=INK, font=font(14, "Bold"), width=2).pack(side="left", fill="y")
+        self.update_button = Button(self.update_badge, "UPDATE", self.offer_update, "plain", 11, (12, 6))
+        self.update_button.pack(side="left")
 
         self.status = tk.Label(self, text="", bg=INK, fg=MUTED, font=font(11), anchor="w", bd=0)
         tag = tk.Label(self, text="OFFLINE  PvE", bg=INK, fg=ORANGE_DIM, font=font(11, "SemiBold"))
@@ -313,7 +327,7 @@ class App(tk.Tk):
 
     def show_selected(self):
         s = self.current()
-        live = not self.running and s is not None
+        live = not self.running and not self.updating and s is not None
         for b in (self.b_rename, self.b_copy, self.b_delete, self.play):
             b.enable(live)
         self.b_undo.enable(live and s.get("can_undo"))
@@ -498,6 +512,105 @@ class App(tk.Tk):
         # every head, body and voice unlocked from the next login on; off brings back what the save earned
         with open(UNLOCK_LOOKS_SETTING, "w", encoding="utf-8") as f:
             f.write("on\n" if self.unlock_looks_var.get() else "off\n")
+
+    def read_update_check(self):
+        try:
+            with open(UPDATE_CHECK_SETTING, encoding="utf-8") as f:
+                return f.read().strip() != "off"
+        except OSError:
+            return True
+
+    def toggle_update_check(self):
+        with open(UPDATE_CHECK_SETTING, "w", encoding="utf-8") as f:
+            f.write("on\n" if self.update_check_var.get() else "off\n")
+        if self.update_check_var.get():
+            self.check_update()
+        else:
+            self.show_update(None)
+
+    # Updates --------------------------------------------------------------------------------------------------------
+    def check_update(self):
+        """Asks GitHub for the latest build off the UI thread; a badge appears only if it's newer than version.txt.
+        Offline, rate-limited or a dev checkout (no version.txt): nothing shows and nothing is said."""
+        current = update.installed()
+        if not self.update_check_var.get() or not current:
+            return
+
+        def work():
+            rel = update.newer(update.latest(), current)
+            self.after(0, lambda: self.show_update(rel))
+        threading.Thread(target=work, daemon=True).start()
+
+    def show_update(self, release):
+        self.release = release
+        if release and self.update_check_var.get():
+            self.update_button.config(text=f"UPDATE TO {release['tag'].replace('public-test-', 'BUILD ')}")
+            self.update_badge.place(x=W - 36, y=40, anchor="ne")
+        else:
+            self.update_badge.place_forget()
+
+    def offer_update(self):
+        rel = self.release
+        if not rel or self.updating:
+            return
+        if self.running or game_running():
+            self.say("Close the game before updating.")
+            return
+        d = Dialog(self, "New build")
+        size = f" ({rel['size'] / 1e6:.0f} MB)" if rel.get("size") else ""
+        tk.Label(d.body, text=f"{rel['tag']} is out; you have {update.installed()}.\n\nUPDATE downloads it{size}, checks it, and "
+                              "installs it over this folder. Your saves and launcher settings are kept. The launcher restarts "
+                              "when it's done.", bg=PANEL, fg=TEXT, font=font(12), justify="left", wraplength=400).pack(anchor="w")
+
+        def page():
+            d.destroy()
+            webbrowser.open(rel["page"])
+
+        def go():
+            d.destroy()
+            self.start_update(rel)
+
+        r = d.row()
+        Button(r, "Cancel", d.destroy, size=11, pad=(14, 6)).pack(side="left", padx=(0, 8))
+        Button(r, "What's new", page, size=11, pad=(14, 6)).pack(side="left", padx=(0, 8))
+        if rel.get("sha256"):
+            Button(r, "UPDATE", go, "main", 11, (14, 6)).pack(side="left")
+        d.show()
+
+    def start_update(self, rel):
+        self.updating = True
+        self.play.enable(False)
+        self.update_button.enable(False)
+
+        def progress(done, total):
+            text = f"Downloading {rel['tag']}... {done * 100 // total}%" if total else f"Downloading {rel['tag']}..."
+            self.after(0, lambda: self.say(text))
+
+        def work():
+            tmp = tempfile.mkdtemp(prefix="pve-update-")
+            try:
+                path = update.download(rel, tmp, progress)
+                self.after(0, lambda: self.say("Installing..."))
+                version = update.install(path)
+            except Exception as e:
+                err = str(e) or type(e).__name__
+                self.after(0, lambda: self.update_failed(rel, err))
+                return
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+            self.after(0, lambda: self.update_done(version))
+        threading.Thread(target=work, daemon=True).start()
+
+    def update_failed(self, rel, err):
+        self.updating = False
+        self.update_button.enable(True)
+        self.show_selected()
+        self.say(f"Update failed, nothing changed: {err}. You can get it from the release page instead.")
+
+    def update_done(self, version):
+        self.say(f"Updated to {version}. Restarting...")
+        subprocess.Popen([sys.executable, os.path.abspath(__file__)], cwd=ROOT)
+        self.after(500, self.destroy)
 
     def toggle_skip_intro(self):
         # takes effect at the next Play (scripts/mode.ps1 offline swaps the startup video)

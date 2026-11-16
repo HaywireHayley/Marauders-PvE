@@ -33,6 +33,7 @@ config/unlock_all_looks.txt
 config/window_mode.txt
 config/player_level.txt
 config/skip_intro.txt
+config/update_check.txt
 config/minimap.txt
 config/stash_rows.txt
 config/crew_meshes.lua

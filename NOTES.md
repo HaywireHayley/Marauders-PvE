@@ -1388,6 +1388,18 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
   missing tools/ue4ss or Steam not running all showed as "The game didn't start" after START_TIMEOUT (90 s). launcher.pyw
   preflight() checks the game exe, tools/ue4ss (dwmapi.dll, UE4SS.dll, Mods) and steam.exe first; if the script still
   fails, the status line shows its first error line and the launcher tidies up at once.
+- Update check (2026-11-16): the release zip now ships `version.txt` (`public-test-<build>`, written by
+  build_release.py). launcher/update.py asks `api.github.com/repos/HaywireHayley/Marauders-PvE/releases/latest` (6 s
+  timeout, background thread, fixed User-Agent, nothing about the player) and compares tags as (YYYYMMDD, .N; no suffix
+  = 1). Newer -> a "! UPDATE TO BUILD ..." badge top right; same/older, offline, rate-limited or no version.txt (dev
+  checkout, builds 1-3) -> nothing. Toggle "Check for new builds" -> config/update_check.txt (missing = on). UPDATE
+  downloads the MaraudersOffline-*.zip asset to %TEMP%, checks it against the asset's `digest` (sha256 from the GitHub
+  API; no digest -> no UPDATE button, only "What's new"), then writes the zip's files over the folder. Kept if they
+  already exist: config/* except mods.txt and UE4SS-settings.ini (shipped, not player settings), bridge/*,
+  backend/saves/*, backend/state*.json, cover/* (cover.lua appends the player's own points). Files the zip doesn't
+  hold (saves, logs, loadout) aren't touched. Every replaced file is backed up first and restored if a write fails
+  (tested with a read-only UE4SS.dll). Files removed from a later release stay behind (harmless so far). Builds 1-3
+  have no update.py, so those players update by hand once.
 - New saves start as a new live account did (2026-11-16, issue #56). On the first login of an account with no
   social/created (the seed has none, so every fresh save), the game runs its new-player setup: it writes
   social/created + accouttype, adds 65,000 credits (statChangeArray TotalCash) and a 34-item kit (2 KlobbSMG, 3

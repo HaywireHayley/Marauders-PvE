@@ -28,6 +28,7 @@ DEST = os.path.join(OUT_DIR, NAME)
 FILES = [  # (from, to), relative to the dev tree and the release
     ("launcher/launcher.pyw", "launcher/launcher.pyw"),
     ("launcher/saves.py", "launcher/saves.py"),
+    ("launcher/update.py", "launcher/update.py"),
     ("backend/nakama_standin.py", "backend/nakama_standin.py"),
     ("scripts/mode.ps1", "scripts/mode.ps1"),
     ("scripts/launch-offline.ps1", "scripts/launch-offline.ps1"),
@@ -132,6 +133,11 @@ def check():
 
 
 def main():
+    # A second build on the same day gets its own name (e.g. 20261116.2), so a published zip is never replaced.
+    build = sys.argv[1] if len(sys.argv) > 1 else f"{date.today():%Y%m%d}"
+    zip_path = os.path.join(OUT_DIR, f"{NAME}-{build}.zip")
+    if os.path.exists(zip_path):
+        sys.exit(f"{zip_path} already exists: give this build a new name, e.g. {build}.2")
     if os.path.exists(DEST):
         shutil.rmtree(DEST)
     os.makedirs(DEST)
@@ -147,16 +153,12 @@ def main():
         put(rel, text)
     put("config/mods.txt", mods_txt())
     put("backend/seed.json", seed())
+    put("version.txt", f"public-test-{build}\n")  # the launcher's update check compares this with the latest release tag
 
     found = check()
     if found:
         sys.exit("dev paths or personal data in: " + ", ".join(found))
 
-    # A second build on the same day gets its own name (e.g. 20261116.2), so a published zip is never replaced.
-    build = sys.argv[1] if len(sys.argv) > 1 else f"{date.today():%Y%m%d}"
-    zip_path = os.path.join(OUT_DIR, f"{NAME}-{build}.zip")
-    if os.path.exists(zip_path):
-        sys.exit(f"{zip_path} already exists: give this build a new name, e.g. {build}.2")
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
         for dirpath, _, files in os.walk(DEST):
             for name in files:
