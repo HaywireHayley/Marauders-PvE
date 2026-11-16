@@ -2852,3 +2852,21 @@ set, and the tab's own handler shows SizeBox_PermissionBasedStuff.
 - Tested with real clicks and typing: each control logged "guild: ... changed" and wrote config/guild.txt. The Summary
   showed the announcement, YES, OPEN TO ANYONE, the tags and the new badge. After a relaunch all of it came back,
   including the edit panel's controls (3 / 5 tags selected). Clear Message removed the banner.
+## Stuck in a loot window after rotating an item (2026-11-16, tested; invkeys.lua)
+Tester report: with Use rebound to R (also Rotate's key), rotating an item in a container left the loot window drawn
+over the game, while the game took mouse and keys again ("could move and shoot but couldn't see"). Reproduced with
+default keys: in an open loot window, pressing Use (F) opens the pause menu (SIGIS_Exit_Widget_C:ExitMenu_Open fires
+with no InGameMenu input action). Closing that menu leaves In Game Overlay Match's InventoryMenu (SIGIS_HUDWidget_C)
+visible (visibility 4) with bShowMouseCursor false. This is the game's own behaviour; no mod code opens the menu.
+- invkeys.lua now also hooks ExitMenu_Open (pre, re-hooked when the class reloads). If the inventory was open on the
+  previous frame, it does what Esc does: the menu is closed, then the inventory on the next frame. So Use in a loot
+  window closes it.
+- Safety net: if InventoryMenu is visible with the cursor off, no pause menu and no mod menu, for 0.5 s,
+  pc:CloseInventory() runs (visibility goes to 1). It logs "inventory was drawn without the cursor; closed it".
+- Tested on Space_Charlie at a station crate (SIGIS_Container_Common5_2), with real key presses.
+  - Before: F opened the crate, F again brought up the pause menu, and Resume left the window drawn with the cursor
+    off.
+  - After: F again closes the window and the "F Search" prompt is back.
+  - Tab open/close and Esc in the inventory work as before. Esc outside the inventory still opens the pause menu.
+  - Forcing InventoryMenu visible with the cursor off got it closed within 0.5 s, with the log line. The net never
+    fired on its own.
