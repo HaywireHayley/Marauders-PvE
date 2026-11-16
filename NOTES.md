@@ -2260,6 +2260,11 @@ The soldiers that stand still with no AI controller, frozen until shot, are the 
   visible, never-adopted 0. wake() now hides DecalMesh* after the propagation; after: 11 adopted, 0 visible.
 - Bridge crash to avoid: reading `bot.Helemt.SkeletalMesh` on a bot without a helmet component crashed the game twice
   (AV in UE4SS, not catchable by pcall). Read gear through K2_GetComponentsByClass and check each object first.
+- Women's heads (2026-11-16): the DecalMesh fix covers them as is. female.lua dress() swaps the decal head for its HeadF
+  copy too, but SetSkeletalMesh leaves visibility alone, and wake() hides it by name whatever mesh it holds. headfit.lua
+  (measured on the men's heads) is also safe for women: each HeadF head run through make_female.female_head against
+  every helmet, with make_headfit's own test and limits, fits wherever the man's does (never worse; 0-20 more fits per
+  helmet). Women share the men's list, so they're kept to the stricter one. Checked offline, not watched in game.
 
 ## Ship stuck after undocking (2026-11-14)
 
