@@ -65,7 +65,7 @@ function C.hud(show)
 end
 
 local NOCOL = { R = 0, G = 0, B = 0, A = 0 }
-function C.unblock(from, to, clear)
+function C.unblock(from, to, clear, ignore, rad)
     local dx, dy, dz = to.X - from.X, to.Y - from.Y, to.Z - from.Z
     local len = math.sqrt(dx * dx + dy * dy + dz * dz)
     if len <= clear + 50 then return to end
@@ -77,10 +77,10 @@ function C.unblock(from, to, clear)
     local a = { X = from.X + ux * clear, Y = from.Y + uy * clear, Z = from.Z + uz * clear }
     local out = {}
     local okc, hit = pcall(function()
-        return C.ksl:SphereTraceSingle(C.ctx, a, to, 80, 0, false, {}, 0, out, true, NOCOL, NOCOL, 0)
+        return C.ksl:SphereTraceSingle(C.ctx, a, to, rad or 80, 0, false, ignore or {}, 0, out, true, NOCOL, NOCOL, 0)
     end)
     if not (okc and hit) then return to end
-    local d = clear + math.max(0, (out.Distance or 0) - 120)
+    local d = clear + math.max(0, (out.Distance or 0) - (rad and rad * 2 or 120))
     C.blocked = (C.blocked or 0) + 1
     return { X = from.X + ux * d, Y = from.Y + uy * d, Z = from.Z + uz * d }
 end
@@ -145,14 +145,42 @@ local function frame()
     elseif s.kind == "duel" then
         -- behind `actor`, on the line from its target (`other`), looking past it at the target
         local o = type(s.other) == "function" and s.other() or s.other
-        if ok(o) then s.otherLoc = C.ahead(o) end
+        if ok(o) then s.otherLoc = C.ahead(o) elseif type(o) == "table" and o.X then s.otherLoc = o end
         local b = s.otherLoc or aim
         local dx, dy, dz = loc.X - b.X, loc.Y - b.Y, loc.Z - b.Z
         local len = math.max(1, math.sqrt(dx * dx + dy * dy + dz * dz))
         local back, side = lerp(s.back, s.back1 or s.back, e), lerp(s.side or 0, s.side1 or s.side or 0, e)
         local px, py = -dy / len, dx / len -- horizontal perpendicular
-        at = { X = loc.X + dx / len * back + px * side, Y = loc.Y + dy / len * back + py * side,
-               Z = loc.Z + dz / len * back + lerp(s.up, s.up1 or s.up, e) }
+        local up = lerp(s.up, s.up1 or s.up, e)
+        local function spot(off) -- the back direction swung `off` radians around the shooter
+            local c, sn = math.cos(off), math.sin(off)
+            local ux, uy = dx / len, dy / len
+            return { X = loc.X + (ux * c - uy * sn) * back + px * side, Y = loc.Y + (ux * sn + uy * c) * back + py * side,
+                     Z = loc.Z + dz / len * back + up }
+        end
+        if s.infantry then
+            -- indoors: every 0.2 s, if the spot behind the shooter is inside a wall or can't see the enemy, swing to the
+            -- first clear angle around it (a cut), rather than squeezing the camera up against the wall
+            local function clear(c)
+                if C.unblock(loc, c, s.clear, s.ignore, s.rad) ~= c then return false end
+                return C.unblock(b, c, s.clear, s.ignore, s.rad) == c
+            end
+            s.doff = s.doff or 0
+            if now >= (s.dcheck or 0) then
+                s.dcheck = now + 0.2
+                if not clear(spot(s.doff)) then
+                    for _, off in ipairs({ 0, 0.45, -0.45, 0.9, -0.9, 1.35, -1.35, 1.8, -1.8 }) do
+                        if clear(spot(off)) then
+                            if off ~= s.doff then s.doff, C.prev, s.cuts = off, nil, (s.cuts or 0) + 1 end
+                            break
+                        end
+                    end
+                end
+            end
+            at = spot(s.doff)
+        else
+            at = spot(0)
+        end
         local w = s.aimMix or 0.35 -- aim between the two, nearer the shooter
         aim = { X = loc.X + (b.X - loc.X) * w, Y = loc.Y + (b.Y - loc.Y) * w, Z = loc.Z + (b.Z - loc.Z) * w }
     elseif s.kind == "trail" then
@@ -185,13 +213,15 @@ local function frame()
     end
     -- keep the camera out of rocks and hulls: sphere-trace from the subject out to the camera spot, and stop short of
     -- the first hit (the trace starts `clear` units out so the subject's own hull doesn't count). collide=false turns it off.
-    if s.collide ~= false then at = C.unblock(loc, at, s.clear or 400) end
+    if s.collide ~= false then at = C.unblock(loc, at, s.clear or 400, s.ignore, s.rad) end
     -- smooth the camera a little so ship jitter doesn't shake the shot
     -- (time-based, so a long frame doesn't leave the camera further behind than a short one)
     if C.prev and not s.snap then
         at = vlerp(C.prev, at, 1 - (1 - (s.smooth or 0.35)) ^ (math.max(0.001, C.dt or 1 / 60) * 60))
     end
     s.snap = false
+    -- the smoothed point lags the target spot and can drift through a corner: trace it again
+    if s.infantry then at = C.unblock(loc, at, s.clear, s.ignore, s.rad) end
     C.prev = at
     local r = lookAt(at, aim)
     r.Roll = lerp(s.roll or 0, s.roll1 or s.roll or 0, e)
@@ -205,6 +235,14 @@ C.frame = function()
     local now = os.clock()
     C.dt = C.tickAt and math.min(0.1, now - C.tickAt) or 0
     C.tickAt = now
+    -- An infantry fighter down: end the shot now. Its body is destroyed ~3 s later and freed after that, and any look
+    -- at a freed actor (even IsValid) can crash inside UE4SS.
+    local s = C.shot
+    if s.infantry then
+        for _, b in ipairs({ s.actor, type(s.other) ~= "function" and s.other or nil }) do
+            if (b.Health or 0) <= 0 then C.stop() C.ended = "a fighter died" return end
+        end
+    end
     frame()
     C.n = (C.n or 0) + 1
     if C.hudOff and C.n % 120 == 0 then
@@ -237,6 +275,29 @@ end
 function C.orbit(a, o) o = o or {} o.r, o.h, o.a0, o.a1 = o.r or 3000, o.h or 500, o.a0 or 0, o.a1 or 60 return C.start("orbit", a, o) end
 function C.chase(a, o) o = o or {} o.back, o.up = o.back or 2500, o.up or 500 return C.start("chase", a, o) end
 function C.duel(a, b, o) o = o or {} o.other, o.back, o.up = b, o.back or 600, o.up or 150 return C.start("duel", a, o) end
+-- An infantry fight: behind `a` looking past it at `b`, kept out of walls (thin probe starting 70 out, past the 40 capsule;
+-- swings round to a clear angle that still sees `b`). Traces from chest height so the floor doesn't count.
+function C.fight(a, b, o)
+    o = o or {}
+    o.other, o.back, o.up = b, o.back or 380, o.up or 70
+    o.infantry, o.clear, o.rad, o.ignore = true, o.clear or 70, o.rad or 18, { a, b }
+    o.aimUp = o.aimUp or 40
+    return C.start("duel", a, o)
+end
+-- A portrait: in front of `a` (on its facing), looking back at it, kept out of walls like C.fight (swings to a clear
+-- angle). The point it "looks past" is a spot behind the subject, so the duel framing puts the camera in front.
+function C.front(a, o)
+    o = o or {}
+    o.back, o.up = o.back or 260, o.up or 30
+    o.infantry, o.clear, o.rad, o.ignore = true, o.clear or 70, o.rad or 18, { a }
+    o.aimUp, o.aimMix = o.aimUp or 50, o.aimMix or 0
+    o.other = function()
+        if not ok(a) then return nil end
+        local l, y = a:K2_GetActorLocation(), math.rad(a:K2_GetActorRotation().Yaw + (o.yaw or 0))
+        return { X = l.X - math.cos(y) * 1000, Y = l.Y - math.sin(y) * 1000, Z = l.Z }
+    end
+    return C.start("duel", a, o)
+end
 function C.trail(a, o) o = o or {} o.back, o.up = o.back or 250, o.up or 80 return C.start("trail", a, o) end
 function C.pair(a, b, o) -- both ships of a fight in one frame, from the side (see frame)
     o = o or {} o.pa, o.pb = a, b
