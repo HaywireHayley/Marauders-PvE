@@ -460,6 +460,22 @@ Why bots did nothing, and the fix for each (all automated in PvEDirector):
   the old world's controller. (tickPc was declared below H.reset; moved up so the reset clears the real local.)
 - Tested: lobby "QUIT tab added", one click -> SURE?, two clicks -> "Quit Game from the lobby", the game exited, no
   crash reporter; same boot through a raid: pause menu QUIT GAME -> CLICK AGAIN TO QUIT -> quit.
+- Choosing the map (2026-11-16, issue #54; mappick.lua): the lobby's REGION picker (Crew_MatchmakingTypeSelect_Widget,
+  WrapBox_RegionList) holds six SIGIS_MatchmakingRegion_Subwidget_C, region 1..5 and 0 (USA WEST, USA SOUTH, EU
+  CENTRAL, ASIA NORTH, ASIA SOUTH, USA EAST) -> SOLO 1, SOLO 2, ALPHA, BETA, CHARLIE, DELTA, plus a RANDOM button of
+  the same class (region 99) added to the WrapBox. Findings: the game re-creates the six each time the picker opens
+  (the old ones stay valid, hidden), so new ones are caught with NotifyOnNewObject and dressed on the next frame;
+  it disables "bad ping" regions and offline every ping is 999, so only two were clickable (Btn_MatchmakingSetting /
+  widget SetIsEnabled(true)); the ping row "(999ms)" is a HorizontalBox around Txt_PingValue (collapsed); a click on
+  the region already selected doesn't fire, hence the RANDOM button; the choice is stored in
+  SIGISGameInstancePGOS.ActiveMMRegion, whose default 0 can't mean "untouched", so the click is read from a hook on
+  the button's own BndEvt ... OnButtonPressedEvent instead. RANDOM closes the picker itself
+  (Crew_MatchmakingTypeSelect_Widget_C:FORCE_CLOSE_MatchmakingAndRegionSelect: the game's buttons close it through a
+  delegate their parent binds). The box (SIGIS_MenuMain Txt_PGOS_Matchmaking_WhichRegion and _CrewMember) and the
+  settings widgets' copies show the pick or RANDOM MAP. onStartMatchmaking uses PveMapPick.map() before map_pin.
+  Lua pitfall hit: `(a == b) and nil or c` is always c. Tested: ALPHA picked -> raid on Space_Alpha; remembered over
+  a restart ([ CHARLIE ], box CHARLIE); RANDOM -> picker closed, box RANDOM MAP, config/raid_map.txt removed; BETA ->
+  raid on Space_Beta.
 
 ## Flying the ship; interaction offline; per-update cost (2026-10-30)
 - F at the helm did nothing and no "F" prompts showed: SIGISCharacter::InteractionDetection (sets

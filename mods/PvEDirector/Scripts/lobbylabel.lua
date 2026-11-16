@@ -92,10 +92,15 @@ end
 -- anything in the lobby with the offline backend.
 function L.tick(ticker)
     local now = os.clock()
+    if PveMapPick then pcall(PveMapPick.frame) end -- (new picker buttons, before they can be clicked)
     if now < nextCheck then return end
     nextCheck = now + CHECK_SECONDS
     local inLobby = ticker:IsValid() and ticker:GetClass():GetFName():ToString() == "MM_CoreMissions_C"
     if not (inLobby and X.offline()) then paths, gear = nil, {} return end
+    if PveMapPick then
+        local okPick, errPick = pcall(PveMapPick.tick)
+        if not okPick and not gear.pickErr then gear.pickErr = true X.log("lobby: map picker failed: " .. tostring(errPick)) end
+    end
     local okGear, errGear = pcall(gearTick)
     if not okGear and not gear.err then gear.err = true X.log("lobby: gear refresh failed: " .. tostring(errGear)) end
     guideUntil = guideUntil or now + GUIDE_WATCH
