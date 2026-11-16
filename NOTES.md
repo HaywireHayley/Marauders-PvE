@@ -1573,6 +1573,12 @@ What this means for the candidates (desk research, same date):
   a client-side NotifyOnNewObject trace of which replicated actors arrive in the final packets.
 - Out of bounds, unchanged: nothing that bypasses, patches, spoofs, emulates or hooks Denuvo anti-cheat/anti-tamper or
   answers a challenge; no modded client near a live match.
+- Wire, third join (both captures merged on the shared GetTickCount clock): the last exchange is client 18 + 10 bytes,
+  host 19 + 11 bytes within ~15 ms, then silence both ways. Who closes can't be read from the packets: after the
+  handshake even the 12-byte keepalives look random (67027b5d5bb81ccde4bdd901, 67027b5d7c534de695f57301, ...), so a
+  packet transform is on (encryption/obfuscation, not just bit-packing). Decrypting it is not pursued (it may belong to
+  the anti-cheat protection; out of bounds). What's left, observation only: an engine-side signal on the client (which
+  network failure, if any) or a client-side NotifyOnNewObject trace of what arrives in the final packets.
 
 ## Your crew: AI teammates (2026-11-07, night; mods/PvEDirector/Scripts/crew.lua)
 Co-op joining is blocked (see above), so teammates are AI stand-ins.
