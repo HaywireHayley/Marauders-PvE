@@ -84,6 +84,9 @@ local CFG = {
         Torpedo = { cls = "InGame_Turret_TorpedoLauncher", range = 9000, spread = 1.0, speed = 3500 },
         Nuclear = { cls = "InGame_Turret_TorpedoLauncher", range = 9000, spread = 0.5, speed = 3500 },
     },
+    -- Your gunner on a stationary turret (RaidSubNodeActor_Turret): fires from as far as those turrets fire at you
+    -- (their FireDistance, 13500), not the hull guns' ship-to-ship ranges above, so you can snipe them back (#47).
+    TURRET_RANGE_STATION = 13500,
     TURRET_ARC = 60,                -- deg either side of the nose the turrets swing (their own TurretMax/MinYaw)
     GUNNER_ARC = 120,               -- the same for your crew's gunner on your ship's turrets
     TURRET_PITCH = { -15, 10 },     -- deg the barrels dip and lift (what every type's anim shows; some lift further)
@@ -1118,7 +1121,7 @@ local function fireTurrets(c, tgt, now)
         end
         local d = dist(sl, tl)
         local why = "range"
-        if valid(t.actor) and d < t.range then
+        if valid(t.actor) and d < math.max(t.range, c.reach or 0) then
             why = "arc"
             local tof = d / t.speed * a.lead
             local aim = { X = tl.X + tv.X * tof, Y = tl.Y + tv.Y * tof, Z = tl.Z + tv.Z * tof }
@@ -4498,6 +4501,7 @@ function R.gunnerFire(turrets, tgt, now, gun)
     if not (S and valid(S.playerShip)) then return false end
     gun = gun or {}
     gun.ship, gun.turrets, gun.arc = S.playerShip, turrets, CFG.GUNNER_ARC
+    gun.reach = tgt:GetClass():GetFName():ToString():find("NodeTurret", 1, true) and CFG.TURRET_RANGE_STATION or nil
     local fired = fireTurrets(gun, tgt, now)
     if fired then playerFired() end
     return fired

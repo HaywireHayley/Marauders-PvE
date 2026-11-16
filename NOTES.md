@@ -1973,6 +1973,13 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
   heldCall: after HELD_SAY (3) s on the same target and reason, the gunner says it once: "<name>: the <target> is too
   far, close in" / "<name>: can't swing onto the <target>, turn us toward it". Tested on Space_Solo_01 at a flak node:
   11000 away facing it -> the range line; 5000 away facing away -> the arc line, each a few seconds after "engaging".
+- Sniping station turrets (2026-11-16, issue #47, Hayley's option 2): CFG.TURRET_RANGE_STATION = 13500 (the node
+  turrets' FireDistance). gunnerFire sets gun.reach for a target whose class has "NodeTurret" in its name, and
+  fireTurrets uses max(type range, reach); ship-to-ship ranges (TURRET_TYPES) are unchanged, so rival duels behave as
+  before. Tested on Space_Solo_01, starter hull 12000 from a Flak_NodeTurret facing it: "Noor: engaging the turret",
+  150 -> 21 -> dying in ~15 s (the shells do carry that far). Two earlier test crashes (UE4SS, read of
+  0xffffffffffffffff) were the bridge probe reading the turret after the gunner destroyed it: probe by path
+  (StaticFindObject) and stop at bIsDying.
 
 ## F3/F9 in the lobby, borderless fullscreen (2026-11-09)
 - F3/F9 did nothing in the lobby: they looked up FindFirstOf("MainPlayerController_C"), and the lobby's controller is
