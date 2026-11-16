@@ -5,7 +5,7 @@
 --   from its Main Menu button) is added under Main Menu when the menu first opens.
 -- * Lobby: a QUIT tab at the end of the top bar (LOADOUT TRADE PLAY CONTRACTS SOCIAL), a tab of the bar's own kind
 --   (MM_CoreMM_TabBtns). The lobby has no Esc menu, and the game's own lobby Exit sits in a collapsed old bottom bar.
--- One click asks again (in a raid, with a note that the gear you brought in counts as lost, as it does with Alt+F4); a
+-- One click asks again (in a raid, with a note that the gear you brought in goes back to your stash, issue #49); a
 -- second click within CONFIRM_SECONDS quits. UMG delegates can't be bound from Lua, so the buttons are polled each frame
 -- (as tuning.lua does with its own buttons).
 -- Widgets are kept as object paths, never as objects: each frame looks them up again (StaticFindObject, a name
@@ -174,8 +174,8 @@ function Q.tick()
     setLabel(b, ASK)
     if X.inRaid() then
         pcall(function()
-            pc:ClientMessage("Quitting now ends the raid: the gear you brought in counts as lost "
-                .. "(the launcher's Undo last raid brings it back).", FName("Event"), CONFIRM_SECONDS)
+            pc:ClientMessage("Quitting now ends the raid: the gear you brought in goes back to your stash, "
+                .. "anything you picked up here is lost.", FName("Event"), CONFIRM_SECONDS)
         end)
     end
 end

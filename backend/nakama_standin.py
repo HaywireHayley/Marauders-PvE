@@ -222,6 +222,8 @@ class Handler(BaseHTTPRequestHandler):
         st = state["storage"]
         uid = state["user"]["id"]
         if path.startswith("/v2/account/authenticate/") or path == "/v2/account/session/refresh":
+            if path.startswith("/v2/account/authenticate/"):
+                return_unfinished_raid("login")
             return {"token": token(), "refresh_token": token(True)}, "session"
         if path == "/v2/account":
             u = dict(state["user"])
@@ -307,6 +309,27 @@ def settle_ship(o):
     return {**o, "value": re.sub(r"-[A-Za-z_]+_Ship-", f"-{out['row']}-", o["value"])}
 
 
+def return_unfinished_raid(why):
+    """Gear you brought into a raid that ended neither by extraction nor by death (QUIT GAME, Alt+F4, a crash, leaving
+    through the menu) goes back to the stash (issue #49: offline there's no one to exploit this against, and it keeps
+    a softlock or crash from costing your kit). Call with the lock held, or before the server starts."""
+    out = state.get("raid_out")
+    if not out:
+        return
+    state.pop("raid_out")
+    if out.get("ended"):
+        save_state(state)
+        return
+    inv = state["storage"].setdefault("inventory", {})
+    back = [k for k, item in out["items"].items() if k not in inv]
+    for k in back:
+        inv[k] = out["items"][k]
+    if any("_Ship-" in out["items"][k]["value"] for k in back):
+        state.pop("ship_out", None)  # the ship you took in is home again
+    save_state(state)
+    log(f"raid ended without an extraction or death ({why}): {back} back in the stash")
+
+
 def take_file(path):
     """The file's text, once, or None."""
     if not os.path.exists(path):
@@ -329,6 +352,11 @@ def watch_checkout():
         row = take_file(SHIP_STOLEN)
         lost = take_file(SHIP_LOST)
         gate = take_file(SHIP_GATE)
+        if lost is not None or gate:
+            with lock:  # dead, out on foot / by pod, or in a space gate: the raid ended the game's way
+                if state.get("raid_out"):
+                    state["raid_out"]["ended"] = lost is not None or gate == "1"
+                    save_state(state)
         if lost is not None or row:
             with lock:
                 state.pop("ship_out", None)
@@ -350,6 +378,7 @@ def watch_checkout():
         except OSError:
             continue  # still being written
         with lock:
+            return_unfinished_raid("a new raid started")
             save_state(state)  # the copy below is what to restore from if a raid ends without an extraction
             shutil.copyfile(STATE, STATE.replace("state.json", "state.before-last-raid.json"))
             inv = state["storage"].get("inventory", {})
@@ -359,6 +388,7 @@ def watch_checkout():
             for key, item in taken.items():
                 if "_Ship-" in item["value"]:
                     state["ship_out"] = {"key": key, "item": item["value"]}
+            state["raid_out"] = {"items": taken, "ended": False}
             save_state(state)
         log(f"raid start: took {gone} out of the stash (missing: {sorted(set(ids) - set(gone))})")
 
@@ -369,6 +399,7 @@ def main():
     ap.add_argument("--port", type=int, default=7350)
     port = ap.parse_args().port
     state = load_state()
+    return_unfinished_raid("the stand-in started")
     log(f"listening on 127.0.0.1:{port} as {state['user']['display_name']} "
         f"({len(state['storage'].get('inventory', {}))} stash items)")
     threading.Thread(target=watch_checkout, daemon=True).start()
