@@ -125,6 +125,7 @@ local CFG = {
     LOAD_TIME_DILATION = 20, -- game speed behind that black screen (see veilUntilAboard); 1 = off. 20 is the engine's
                              -- cap (WorldSettings.MaxGlobalTimeDilation); was 10
     VEIL_MAX = 90,
+    SPAWN_SLOW_AT = 40,      -- match seconds: normal speed again from here (you spawn at ~45; see onTick)
     LEVEL_EFFECT_RADIUS = 40000, -- a space map's sublevel fog/post-process only shows this close to it (see below)
     SPACE_MAPS = {
         solo = { "Space_Solo_01", "Space_Solo_02" },
@@ -403,6 +404,22 @@ local function onTick(ctx)
     if wk ~= PveTickWorld then
         if PveTickWorld ~= nil and PveResetRaid then PveResetRaid(nil) end
         PveTickWorld = wk
+    end
+    -- The load runs at LOAD_TIME_DILATION (20x) until veilUntilAboard sees your pawn, but that only looks every
+    -- UPDATE_SECONDS (10 game seconds at 20x). Spawning and landing on the deck in those big physics steps cost 3-15
+    -- health and burned it (testers: "always a bit of health missing at the start of a raid"; 100 at 1x). So normal
+    -- speed comes back here, per frame, a few match seconds before the spawn, or as soon as a pawn exists.
+    if raid.veiledAt and not raid.readyAt and not raid.spawnSpeed and w and w:IsValid() then
+        pcall(function()
+            local gm, gs, t = w.AuthorityGameMode, w.GameState, ctx:get()
+            local soon = valid(gm) and valid(gs) and gm.MatchState:ToString() == "InProgress"
+                and gm.RoundTime - gs.RemainingTime >= CFG.SPAWN_SLOW_AT
+            local ok, pawn = pcall(function() return t.Pawn end)
+            if soon or (ok and valid(pawn)) then
+                StaticFindObject("/Script/Engine.Default__GameplayStatics"):SetGlobalTimeDilation(t, 1)
+                raid.spawnSpeed = true
+            end
+        end)
     end
     -- Loading a sound crashes while a map travels, so voice lines only load in the menu with no match on the way. Lines
     -- not loaded yet are skipped by the bots, and the rest load next time you're in the menu.
