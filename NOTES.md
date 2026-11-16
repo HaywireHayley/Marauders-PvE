@@ -2785,3 +2785,40 @@ leaves the raid. Its REPORT BUG button is collapsed and opens a web page.
   hovered by Slate).
 - The lobby has no Esc menu: MenuPlayerController's InGameMenu action opens nothing. SIGIS_MainOverlay_C has an
   MM_SecondaryOptionsBtn_Exit, but it is inside Border_BottomBar_Old, which is collapsed. That's a possible follow-up.
+## Offline guild: guild page and guild shop (2026-11-16, tested; mods/PvEDirector/Scripts/guild.lua, issue #68)
+Guilds live on PGOS (membership, members, chat, hideouts) and Nakama (guild XP). Offline, PGOS never answers, so
+SOCIAL > GUILD stayed an empty hall and the TRADE page's GUILD shopkeeper (First Mate Calico) stayed locked.
+- Shop gate: SIGIS_InventoryWidget_C:Shopkeeper_CheckFactionGuildRankBlocker. For WhichFaction 4 (guild) it only checks
+  that SIGIS_ExampleGameInstance_C:GetMyGuilds returns at least one entry in MyCurrentGuilds
+  (TArray<PgosSDKCpp.ClientGroupItem>). Lua can grow it (`list[1] = { unread_count = 0 }`), then set
+  `[1].group_brief.group_id/Name`. Then the shopkeeper opens. Buying (Guild Beret, $630) and selling go through the
+  usual stand-in path. Side effect: the lobby's crew card label reads GUILD instead of FREEBOOTER.
+- Page flow (Guild_Widget_C, /SIGISPlugin/Widgets/MainMenu/Guild_Widget):
+  - GUILD_Widget_OPENED collapses its panels and calls gi:GetMyGuildList(onError, CheckOveralState).
+  - The PGOS_MyGuildLists answer calls GetGuildInfo, then PGOS_MyCurrentGuild, which sets MyCurrentGuild_Info.
+  - From there the page asks GetGuildMember, GetNakGuildInfo (GUILD_Get_NakamaGuild_Info) and GetGuildMembers.
+  - PGOS_SuccessGetMembersList creates a Guild_Member_Row_SubWidget per member: GroupMemberInfo is set, then the row
+    is added to the Owner, OFFICER or CREWMATE box.
+- UE4SS 3.0.1 can't pass the PGOS answer structs: anything holding a TMap fails, with a function as the pcall error.
+  So guild.lua sets the same widget fields and texts directly. NakamaGuildInfo {GuildXP, GuildUnlocks,
+  numOfActiveServer} has no map, so GUILD_Get_NakamaGuild_Info and GetGuildProgressionStuff are called as they are
+  (XP 500 = rank 5, 35/155).
+- Rows: Create, fill GroupMemberInfo (nickname, player_info.display_name, is_owner/is_admin, joined_time in unix
+  seconds, player_presence.Status 1 = Online), then AddChildToVerticalBox. Construct draws them. Rows with no GuildInfo
+  show no PROFILE/MESSAGE/CREW INVITE buttons; those are collapsed anyway, since they're PGOS.
+- Hidden, because they need PGOS or online servers: Border_GuildHideOut (hideout regions, START/JOIN),
+  SizeBox_GuildChat, the leave button, and SizeBox_PermissionBasedStuff (the owner's edit panel: announcement,
+  visibility, patch, tags, disband). The SUMMARY/PROGRESSION sub-tabs work as they are.
+- Members: Haywire Hayley (captain), Lilykoi (officer), and 10-16 crew mates drawn at random per game start from the
+  Discord member list, about 30% shown online. You are added too, with the stand-in save's display_name.
+- Timing: the page counts as visible behind the login screen, so it is filled only after the game has fired
+  GUILD_Widget_OPENED (pre-hook, re-registered when the UFunction moves). The guild entry is only set once the login
+  widget is gone.
+- Test harness gotcha (not the mod): pressing the login screen's PLAY before the stand-in has seen
+  authenticate/getbuildinfo (a few seconds after the splash shows) crashed the game every time: a C++ exception, the
+  same stack 4 times. The test helper now waits for getbuildinfo.
+- Tested on fresh launches: the page fills on the first open and on reopening. Summary/Progression clicks work, the
+  shopkeeper opens by mouse, the beret bought, and raids started fine (Space_Solo_01; Space_Delta with the module off
+  for comparison). One raid load on Space_Delta exited silently with no dump and didn't repeat.
+- kdis.py now decodes the delegate opcodes (0x5C, 0x5D, 0x61-0x63) and set/map/array literals (0x39, 0x3B, 0x3D,
+  0x3F, 0x65).

@@ -93,6 +93,7 @@ end
 function L.tick(ticker)
     local now = os.clock()
     if PveMapPick then pcall(PveMapPick.frame) end -- (new picker buttons, before they can be clicked)
+    if PveGuild then pcall(PveGuild.frame) end -- (the guild page, the frame it opens)
     if now < nextCheck then return end
     nextCheck = now + CHECK_SECONDS
     local inLobby = ticker:IsValid() and ticker:GetClass():GetFName():ToString() == "MM_CoreMissions_C"
@@ -100,6 +101,10 @@ function L.tick(ticker)
     if PveMapPick then
         local okPick, errPick = pcall(PveMapPick.tick)
         if not okPick and not gear.pickErr then gear.pickErr = true X.log("lobby: map picker failed: " .. tostring(errPick)) end
+    end
+    if PveGuild then
+        local okGuild, errGuild = pcall(PveGuild.tick)
+        if not okGuild and not gear.guildErr then gear.guildErr = true X.log("lobby: offline guild failed: " .. tostring(errGuild)) end
     end
     local okGear, errGear = pcall(gearTick)
     if not okGear and not gear.err then gear.err = true X.log("lobby: gear refresh failed: " .. tostring(errGear)) end
