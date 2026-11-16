@@ -117,12 +117,13 @@ local CFG = {
     MAP = "Spaceport_01",    -- F7's raid map
     -- Start Matchmaking (offline backend only): after this long "searching", load one of these space maps, where
     -- the game mode spawns the player inside their ship as on a live server.
-    MM_SEARCH_SECONDS = 4,
+    MM_SEARCH_SECONDS = 1,   -- was 4: pure waiting, the map load after it is the long part
     -- Live, the matchmaking loading screen hides the space map until you're in your ship (the game mode spawns
     -- the ship and pawn after its warmup). Offline the screen stays black instead, until the pawn and ship exist
     -- and every streaming level is in, then REVEAL_DELAY more; at most VEIL_MAX seconds.
     REVEAL_DELAY = 1.5,
-    LOAD_TIME_DILATION = 10, -- game speed behind that black screen (see veilUntilAboard); 1 = off
+    LOAD_TIME_DILATION = 20, -- game speed behind that black screen (see veilUntilAboard); 1 = off. 20 is the engine's
+                             -- cap (WorldSettings.MaxGlobalTimeDilation); was 10
     VEIL_MAX = 90,
     LEVEL_EFFECT_RADIUS = 40000, -- a space map's sublevel fog/post-process only shows this close to it (see below)
     SPACE_MAPS = {
@@ -2757,14 +2758,17 @@ update = function(pc)
     -- PGOS "social service unavailable" overlay, in the menu and in raids: keep it collapsed (removing it crashes the
     -- next travel). It comes back on its own at any time, not only while a map loads (a sweep limited to a map's first
     -- 30 s left it over the lobby). The overlay belongs to the game instance, so it lives as long as the game: it's
-    -- found once (FindFirstOf scans every object, so at most every 10 s while missing, and never in a space raid past
-    -- the veil, where a scan is a visible hitch), then this update checks the remembered widget every 0.5 s.
+    -- found once (FindFirstOf scans every object, and never in a space raid past the veil, where a scan is a visible
+    -- hitch), then this update checks the remembered widget every 0.5 s. While missing: every second for a map's first
+    -- 30 s, when the overlay turns up as the lobby loads (a scan every 10 s left it over the lobby for up to 10 s, user
+    -- report 2026-11-16), then every 10 s.
     local age = os.clock() - raid.startedAt -- this map's age (the stash check below uses it)
     local space = worldName:find("/Maps/Space_", 1, true) ~= nil
     local now = os.clock()
     if not valid(pgosOverlay.w) and now >= pgosOverlay.findAt and not (space and raid.revealed) then
-        pgosOverlay.findAt = now + 10
+        pgosOverlay.findAt = now + (age < 30 and 1 or 10)
         pgosOverlay.w = FindFirstOf("PgosOverlay_BP_C")
+        if valid(pgosOverlay.w) then log(("social overlay found %.1fs into the map: kept collapsed"):format(age)) end
     end
     if valid(pgosOverlay.w) and pgosOverlay.w:GetVisibility() ~= 1 then pgosOverlay.w:SetVisibility(1) end
     -- bridge/female_toggle: F2 without the keyboard (testing, like bridge/god.txt).

@@ -2304,3 +2304,7 @@ rescueFromVoid handles): no navmesh under your feet means a search downwards (th
 
 Crew prices halved for testing how useful crew are: hire fee 500/1250/2500/4500/7500 and wage 150/300/500/800/1250 a raid
 by level (were 1000/2500/5000/9000/15000 and 300/600/1000/1600/2500). hire.lua CFG.FEE / CFG.WAGE.
+
+Faster into the lobby and raids (user report 2026-11-16): the PGOS social overlay scan runs every 1 s for a map's first
+30 s (was every 10 s; it sat over the fresh lobby up to 10 s); test found it 5.5 s in. MM_SEARCH_SECONDS 4 -> 1, LOAD_TIME_DILATION
+10 -> 20 (engine cap). Start to aboard went from ~22 s to ~18 s (Space_Charlie 18 s, Space_Beta 18 s); rivals launched normally.
