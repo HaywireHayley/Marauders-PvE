@@ -2206,7 +2206,7 @@ it doesn't fit, or the ragdoll of a pod-spawned body; check rollKit leg pieces v
 - Do NOT run bridge/t_props.lua props() on the player pawn or its CharacterMovement: reading every property crashed
   the game outright (05:13:26, no UE4SS error). Read named fields only.
 
-## TODO: stray geometry floating in open space on Space_Solo_02 (user, 2026-11-14, not investigated)
+## Stray geometry floating in open space on Space_Solo_02 (user, 2026-11-14; airlocks of absent stations, fixed 2026-11-15)
 - Seen from the open middle of the map: long flat girder/hull-like pieces and a dark flat shape, in view from a ship.
   Possibly interior levels at the free interior slots (makeInterior) or station parts out of place; check what actors
   sit there before deciding. Keep it out of trailer shots meanwhile.
@@ -2216,6 +2216,16 @@ it doesn't fit, or the ragdoll of a pod-spawned body; check rollKit leg pieces v
   and AsteriodWhitebox_1 on Space_Solo_02, NavyOutpost on Space_Alpha, Capital_Ai_Interior_2 on Space_Charlie.
   Those two Solo_02 stations are the likeliest source (their shell/far meshes are never hidden). Next: on Space_Solo_02,
   aim at a slab and list the largest visible meshes in view (material, level, owner, scale, draw distance).
+- FOUND (2026-11-15, issue #9): the "0 parts" volumes are stations that aren't on this run's map, and their airlock
+  chambers are what floats. Space_Solo_02 picks its stations per run; on a run without the Asteroid Mine its box held only
+  36 meshes, all from the space map's own level: six StationAirlockDockingAreaAbility_AsteriodWhitebox2..10 actors
+  (RaidFrigateStationDock), each with SM_MERGED_Airlock_01 (MI_Shuttle_Metal_Dark_01, drawn to 72 m), SM_Hangar_
+  Computer_01 (100 m) and never-culled meshes. Seen on screen as a dark chamber in open space with more dark slabs
+  beyond. interiors.lua leaves the space map's own meshes alone, so nothing hid them. Fix: collect counts each volume's
+  meshes from other levels ("foreign"); a volume with none is a station that isn't here, and its RaidFrigateStationDock
+  actors are hidden with collision off for the raid. Log: "... N airlocks of absent stations (AsteriodWhitebox_1 0, not
+  here: 6 airlocks hidden, ...)". Verified: all six hidden, collision off; the spot shows empty space. Present stations
+  keep their airlocks (they are the station's own exterior). Girder-like pieces from the report not separately seen.
 
 ## Pod boarding rework (2026-11-14, tested)
 - Tested in game: after a pod, your body is fixed by afterPod (log "your body after the pod had yaw=false tick=false

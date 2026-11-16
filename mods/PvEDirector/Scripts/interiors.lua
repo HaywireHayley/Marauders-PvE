@@ -50,6 +50,8 @@ local function collect(world)
             for _, s in ipairs(locs) do
                 if inBox(at, s, MARGIN) then loc = s break end
             end
+            -- a mesh of some other level here: this location's interior is on the map this run
+            if loc and not c:GetFullName():find(own .. ":", 1, true) then loc.foreign = (loc.foreign or 0) + 1 end
             if mesh:GetFName():ToString() == "Cube" then
                 local scale = c:K2_GetComponentScale()
                 if math.max(math.abs(scale.X), math.abs(scale.Y), math.abs(scale.Z)) >= SHELL_MIN_SCALE then
@@ -76,10 +78,30 @@ local function collect(world)
             end
         end
     end
+    -- A station that isn't on this run's map (Space_Solo_02 picks its stations per run) still has its airlock chambers
+    -- at its spot: StationAirlockDockingAreaAbility_* (RaidFrigateStationDock) belong to the space map's own level, so
+    -- they hung in empty space as dark boxes and slabs (issue #9). Hidden for the raid, collision off.
+    local orphans = 0
+    for _, a in ipairs(FindAllOf("RaidFrigateStationDock") or {}) do
+        if valid(a) then
+            local at = a:K2_GetActorLocation()
+            for _, s in ipairs(locs) do
+                if (s.foreign or 0) == 0 and inBox(at, s, MARGIN) then
+                    a:SetActorHiddenInGame(true)
+                    a:SetActorEnableCollision(false)
+                    s.orphans = (s.orphans or 0) + 1
+                    orphans = orphans + 1
+                    break
+                end
+            end
+        end
+    end
     local names = {}
-    for _, s in ipairs(locs) do names[#names + 1] = ("%s %d"):format(s.name, #s.parts) end
-    X.log(("interiors: %d shell pieces and %d far-drawn interior meshes hidden from space (%s)"):format(shells, far,
-        table.concat(names, ", ")))
+    for _, s in ipairs(locs) do
+        names[#names + 1] = ("%s %d%s"):format(s.name, #s.parts, s.orphans and (", not here: " .. s.orphans .. " airlocks hidden") or "")
+    end
+    X.log(("interiors: %d shell pieces and %d far-drawn interior meshes hidden from space, %d airlocks of absent stations (%s)")
+        :format(shells, far, orphans, table.concat(names, ", ")))
     return locs
 end
 
