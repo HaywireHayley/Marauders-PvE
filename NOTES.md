@@ -1128,6 +1128,17 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
 - trailer/make_menu_logo.py -> assets/menu/logo.png (trailer title on transparency, cropped to the ink); splash.lua swaps the brush and text,
   from main.lua's update on the MainMenu world, retried each second until the widget exists. The game's own bytes aren't touched.
 - trailer/grab.ps1 <file.png>: PrintWindow capture of the game window with UI, no focus needed. HighResShot and `shot showui` saved nothing here.
+- Skipping the startup video (2026-11-15; config/skip_intro.txt, the launcher's "Skip the intro video", mode.ps1): the game
+  plays LoadingScreen.mp4 (60.4 s) to the end before this screen, so launch -> splash was 69 s; a 1 s black clip
+  (assets/loading/skip_intro.mp4) in its place makes it 16 s. `-NoLoadingScreen` on the command line changes nothing.
+- CRASH that the long video hid: the splash is then up ~6 s before the game's backend login (the stand-in's
+  POST /v2/account/authenticate/steam; afterwards SIGIS_ExampleGameInstance_C.NakamaPlayerID holds a 36-char id), and
+  PLAY in that window (login widget MM_GenericSmallBtn01_1, event BndEvt__MM_GenericSmallBtn01_1_K2Node_
+  ComponentBoundEvent_6_GenericSmallBtnPressed__DelegateSignature) dies with an access violation reading 0 in
+  nakama-cpp.dll+0x7c2fc under exe+0x934799 (report in %LOCALAPPDATA%\RaidGame\Saved\Crashes). splash.lua gatePlay keeps
+  PLAY Hidden (2, layout kept) until NakamaPlayerID is non-empty, checked from the director's tick 4x a second until the
+  first login. Measured: PLAY visible at 12 s, hidden at 13 s, shown at 14 s with the login. A window under ~0.5 s remains
+  between the widget appearing and the first check.
 
 ## Footsteps (2026-11-06)
 - Silent for player and bots: every footstep event in rc_FPS_AnimBP / rc_AI_FPS_AnimBP (walk, sprint, jump, land, crouch) starts with

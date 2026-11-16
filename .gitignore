@@ -29,6 +29,7 @@ config/game_path.txt
 config/female_player.txt
 config/female_share.txt
 config/window_mode.txt
+config/skip_intro.txt
 config/minimap.txt
 config/stash_rows.txt
 config/crew_meshes.lua
