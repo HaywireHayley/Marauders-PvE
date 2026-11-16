@@ -37,7 +37,8 @@ local CFG = {
     FRAME = 1 / 30,         -- map redraw
     THINK = 1,              -- tasks, stages and the route
     GATE_RESCAN = 20,       -- seconds between looks for space gates, once they can be there
-    SURVEY_RETRY = 5,       -- until the raid's contracts and stations exist
+    SURVEY_RETRY = 5,       -- until the raid's contracts and stations exist; doubled after each empty survey...
+    SURVEY_RETRY_MAX = 60,  -- ...up to this (a survey is 3 FindAllOf scans, ~100-150 ms, and can come up empty all raid)
     ROUTE_MOVED = 120,      -- on foot: a move this large refreshes the route early
     ROUTE_SPACING = 20,     -- px between route dots
     ROUTE_DOTS = 44,
@@ -245,6 +246,12 @@ local function readRow(m, row)
         tags = tags, raidTag = raidTag, progress = 0 }
 end
 
+-- The game instance, found once per world: a scan is 30-45 ms, and both callers run from think (once a second).
+local function gameInstance()
+    if not valid(S.gi) then S.gi = FindFirstOf("SIGIS_ExampleGameInstance_C") end -- pc:GetGameInstance() throws from Lua here
+    return S.gi
+end
+
 local function loadTasks(pc)
     S.contracts = {}
     for _, e in ipairs(pc:GetAllMissionsForRaid() or {}) do
@@ -253,8 +260,7 @@ local function loadTasks(pc)
         t.kind = "contract"
         table.insert(S.contracts, t)
     end
-    local gi = FindFirstOf("SIGIS_ExampleGameInstance_C") -- pc:GetGameInstance() throws from Lua here
-    local c = gi.PrologueChapter
+    local c = gameInstance().PrologueChapter
     local stage, chapter = c.ChapterStage, c.Chapter:ToString()
     local rows = pc:GetAllMissionsForChapters(chapter)
     local e = rows and rows[stage + 1]
@@ -266,8 +272,7 @@ local function loadTasks(pc)
 end
 
 local function refreshProgress(pc)
-    S.gi = valid(S.gi) and S.gi or FindFirstOf("SIGIS_ExampleGameInstance_C") -- once: this runs every think, and a scan is 30-45 ms
-    local gi = S.gi
+    local gi = gameInstance()
     local by = {}
     gi.ActiveMissions:ForEach(function(_, e)
         local m = e:get()
@@ -1070,9 +1075,12 @@ end
 -- Once a second ---------------------------------------------------------------------------------------------------
 local function think(pc, me)
     if not S.places then
-        if os.clock() - (S.surveyedAt or -1e9) >= CFG.SURVEY_RETRY then
+        if os.clock() - (S.surveyedAt or -1e9) >= (S.surveyWait or CFG.SURVEY_RETRY) then
             S.surveyedAt = os.clock()
-            if not survey() then S.places = nil end
+            if not survey() then
+                S.places = nil
+                S.surveyWait = math.min(CFG.SURVEY_RETRY_MAX, (S.surveyWait or CFG.SURVEY_RETRY) * 2)
+            end
         end
     end
     if not S.contracts then
