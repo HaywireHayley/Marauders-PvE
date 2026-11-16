@@ -1872,6 +1872,12 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
 - A launch from the menu by bridge (t_play + t_launch) right after the user's own raid crashed in UE4SS Lua during Space_Beta's
   load (EXCEPTION_ACCESS_VIOLATION 0xffff..., RaidGame+0x1a605d0 from a Lua call); the relaunch was fine. Cause not found.
 
+- Gunner callouts (2026-11-16, issue #52): fireTurrets leaves the reason in c.held ("range" or "arc") when no turret
+  of the hull can bear on the target at all (any turret in arc, reloading, swinging or pitching = nil). crew.lua
+  heldCall: after HELD_SAY (3) s on the same target and reason, the gunner says it once: "<name>: the <target> is too
+  far, close in" / "<name>: can't swing onto the <target>, turn us toward it". Tested on Space_Solo_01 at a flak node:
+  11000 away facing it -> the range line; 5000 away facing away -> the arc line, each a few seconds after "engaging".
+
 ## F3/F9 in the lobby, borderless fullscreen (2026-11-09)
 - F3/F9 did nothing in the lobby: they looked up FindFirstOf("MainPlayerController_C"), and the lobby's controller is
   MenuPlayerController_C (in a raid it could also be the last map's). Now F3/F6/F9 all use Hire.lastPc() (the ticking
