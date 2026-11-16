@@ -291,13 +291,16 @@ end
 _G.PVE_GC = gc
 
 -- Testing: with bridge/profile_on present, object scans and slow ticks are counted into bridge/profile.txt every 10 s.
-local function profiler(tick)
-    local on = io.open(PROJECT .. "bridge/profile_on", "r")
-    if not on then return tick end
-    on:close()
+-- profiled(tick) wraps the tick in the counters and returns it with an undo that puts the plain scans back.
+-- (inside a do block: main.lua is at Lua's 200-locals limit, and only profiler is needed outside)
+local profiler
+do
+local function profiled(tick)
     local scans, slow, frames, flushed = {}, {}, 0, os.clock()
+    local reals = {}
     for _, name in ipairs({ "FindAllOf", "FindFirstOf" }) do
         local real = _G[name]
+        reals[name] = real
         _G[name] = function(cls)
             local t = os.clock()
             local out = real(cls)
@@ -313,7 +316,7 @@ local function profiler(tick)
     local memLo, memHi, drops = math.huge, 0, 0 -- Lua heap (KB) seen each frame; a drop = a garbage collection ran
     local lastMem
     local bigGaps = {} -- the worst gaps' times, to line them up with the log
-    return function(ctx)
+    local fn = function(ctx)
         local t = os.clock()
         local mem = collectgarbage("count")
         if lastMem and mem < lastMem - 512 then drops = drops + 1 end
@@ -376,6 +379,35 @@ local function profiler(tick)
             scans, slow, frames, flushed, gaps, worst = {}, {}, 0, t, {}, 0
         end
     end
+    return fn, function()
+        for name, real in pairs(reals) do _G[name] = real end
+        _G.PVE_PROF, _G.PVE_ALLOC = nil, nil
+    end
+end
+
+-- The flag is looked for every PROFILE_CHECK s, so it can be dropped in or taken out mid-raid (bridge/dir_eval.lua
+-- only runs while it's on). Without it the tick runs as is, apart from that check.
+local PROFILE_CHECK = 3
+function profiler(tick)
+    local live, undo, nextCheck = nil, nil, 0
+    return function(ctx)
+        local now = os.clock()
+        if now >= nextCheck then
+            nextCheck = now + PROFILE_CHECK
+            local f = io.open(PROJECT .. "bridge/profile_on", "r")
+            if f then f:close() end
+            if f and not live then
+                live, undo = profiled(tick)
+                log("profiler on (bridge/profile_on)")
+            elseif not f and live then
+                undo()
+                live, undo = nil, nil
+                log("profiler off")
+            end
+        end
+        return (live or tick)(ctx)
+    end
+end
 end
 
 -- pcall that adds its time to the profiler's per-section totals (bridge/profile_on)
@@ -428,6 +460,7 @@ local function onTick(ctx)
     end
     pcall(Splash.gatePlay) -- PLAY hidden until the backend login is done (splash.lua)
     if PveQuit then pcall(PveQuit.tick) end -- Quit Game in the pause menu (quit.lua)
+    if PveLobbyLabel then pcall(PveLobbyLabel.tick, ctx:get()) end -- START RAID label (lobbylabel.lua)
     local shown, shownErr = ppcall("loading", Loading.tick, ctx:get())
     if not shown then
         log("loading screen failed: " .. tostring(shownErr))
@@ -2533,7 +2566,8 @@ local STASH_UNLOCK_ROWS = 2 -- each one's StashSizeIncrease
 -- that leaves you shut out of your own ship. So: remember it, and if it's gone while the KeyCard slot is empty, put the
 -- same card back (Server_AddItem with its id and info; verified to open the station side of the airlock again).
 -- A card of another crew in the slot is left alone: that's yours to use on their ship.
-local CARD_CHECK = 2
+-- check every 2 s; ask the game for a missing card 6 s after boarding, at most 3 times (a table: the 200-locals limit)
+local CARD = { CHECK = 2, GRACE = 6, ASKS = 3 }
 
 local function playerInventory()
     for _, inv in ipairs(FindAllOf("SIGISInventoryComponent") or {}) do
@@ -2561,6 +2595,15 @@ local function guardKeyCard(pc)
         end
     end)
     local k = raid.card
+    -- No card at all yet (issue #33; seen with an empty loadout): ask the game for one, as its own raid start does.
+    -- Server_ReadyforKeyCard makes the card for your ship (verified: KEYCARD in the KeyCard slot a second later).
+    if not k and not slotted and raid.readyAt and os.clock() - raid.readyAt >= CARD.GRACE
+        and (raid.cardAsked or 0) < CARD.ASKS then
+        raid.cardAsked = (raid.cardAsked or 0) + 1
+        inv:Server_ReadyforKeyCard()
+        log(("key card: none %ds after boarding; asked the game for one (%d)"):format(CARD.GRACE, raid.cardAsked))
+        return
+    end
     if not k or mine then return end
     if slotted then
         if raid.cardNote ~= slotted then raid.cardNote = slotted log("key card: yours is gone, another crew's is in the slot") end
@@ -2670,6 +2713,8 @@ local SKIRMISH_FILE = PROJECT .. "bridge/rivals_skirmish"
 Loading.init({ log = log, valid = valid, lib = lib })
 Splash.init({ log = log, valid = valid, lib = lib })
 -- (a global, not a local: main.lua is at Lua's 200-locals limit, and onTick above reads it)
+PveLobbyLabel = require("lobbylabel") -- (globals, like PveQuit: main.lua is at the 200-locals limit)
+PveLobbyLabel.init({ log = log, offline = function() return offlineBackend() end })
 PveQuit = require("quit")
 PveQuit.init({ log = log, valid = valid, pc = function() return Hire.lastPc() end,
     inRaid = function() local pc = Hire.lastPc() return valid(pc) and pc:GetClass():GetFName():ToString() == "MainPlayerController_C" end })
@@ -3049,7 +3094,7 @@ update = function(pc)
         end
         if raid.readyAt and not raid.floorLoot then spawnFloorLoot(pc) end
         if raid.readyAt and os.clock() >= (raid.cardAt or 0) then
-            raid.cardAt = os.clock() + CARD_CHECK
+            raid.cardAt = os.clock() + CARD.CHECK
             local ok, err = pcall(guardKeyCard, pc)
             if not ok then log("key card: " .. tostring(err)) end
         end

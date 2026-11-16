@@ -35,6 +35,7 @@ local CFG = {
     GUN_SKILL = { 0.2, 0.9 },
     GUN_TALENT = 0.25,
     GUN_LOOK = 0.4,                 -- seconds between target picks
+    HELD_SAY = 3,                   -- seconds the gunner can't bear on a target (range / arc) before saying so
     -- Left click at the helm points the gunner at a ship (any crew, hostile or not) or a stationary turret: the one
     -- nearest the middle of your view within ORDER_CONE deg, else the nearest, within ORDER_RANGE. They keep on it until
     -- it's gone, docks, is a wreck, derelict or destroyed, or is beyond ORDER_RANGE; click with nothing in range and they
@@ -474,6 +475,22 @@ local function orderTarget(m, now)
         pick.centred and "in your sights" or "nearest"))
 end
 
+-- Out of range, or no turret can swing onto it: after HELD_SAY s on the same target, the gunner says so once (the
+-- status line only counted it). gunnerFire leaves the reason in S.gun.held.
+local HELD_LINES = { range = "%s: the %s is too far, close in", arc = "%s: can't swing onto the %s, turn us toward it" }
+local function heldCall(m, now)
+    local why = S.gun and S.gun.held
+    if not (why and valid(S.gunTarget)) then S.heldWhy = nil return end
+    local key = S.gunTarget:GetAddress()
+    if S.heldKey ~= key or S.heldWhy ~= why then
+        S.heldKey, S.heldWhy, S.heldSince = key, why, now
+    elseif now - S.heldSince >= CFG.HELD_SAY and S.heldSaid ~= key .. why then
+        S.heldSaid = key .. why
+        local name = S.order and valid(S.order.ship) and S.order.ship:GetAddress() == key and S.order.name or S.autoName or "target"
+        say(HELD_LINES[why]:format(m.name, name))
+    end
+end
+
 -- The gunner: picks the nearest ship that's attacking you (or that you're shooting at) once in a while, and after a
 -- moment's reaction fires every turret whose arc covers it. A ship you click on (orderTarget) comes first.
 function C.frame()
@@ -516,7 +533,7 @@ function C.frame()
         local list = X.rivals.hostileShips()
         local pick = list[1] and list[1].ship
         if pick and (not valid(S.gunTarget) or S.gunTarget:GetAddress() ~= pick:GetAddress()) then
-            S.gunTarget, S.gunReady = pick, now + rnd(CFG.GUN_REACT)
+            S.gunTarget, S.gunReady, S.autoName = pick, now + rnd(CFG.GUN_REACT), list[1].name
             if not S.calledTarget or now - S.calledTarget > 20 then
                 S.calledTarget = now
                 say(("%s: engaging the %s"):format(m.name, list[1].name))
@@ -535,6 +552,7 @@ function C.frame()
             S.orderFired = S.order
             X.log("[crew] gunner firing on the ordered " .. tostring(S.order.name))
         end
+        if ok then heldCall(m, now) end
     elseif not valid(S.gunTarget) then
         pcall(X.rivals.restTurrets, S.turrets)
     end

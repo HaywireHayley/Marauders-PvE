@@ -29,6 +29,10 @@ if not os.path.exists(SEED):
     SEED = os.path.join(HERE, "seed.json")
 PUBLIC_USER = "00000000-0000-0000-0000-000000000000"
 CHEAT_CASH = 999999999
+# Cosmetics every account owns, on top of the game's own free ones (English voice, head 1, body 6). The mod lets you
+# play as a woman from the start, but the game's cheapest female voice (French, frF01) cost 3500. The game keeps
+# unlocks in playerstats/cosmeticsunlocked as row names joined by "-" and writes the whole list back after a purchase.
+FREE_COSMETICS = ("frF01",)
 lock = threading.Lock()
 
 
@@ -141,6 +145,20 @@ def collection_kv(col):
     return [{"key": k, "value": json.loads(o["value"])} for k, o in sorted(state["storage"].get(col, {}).items())]
 
 
+def with_free_cosmetics(stats):
+    """The playerstats list with FREE_COSMETICS added to cosmeticsunlocked (only in what is sent, not in the save)."""
+    out, seen = [], False
+    for kv in stats:
+        if kv["key"] == "cosmeticsunlocked":
+            seen = True
+            have = [c for c in str(kv["value"].get("value", "")).split("-") if c]
+            kv = {"key": kv["key"], "value": {**kv["value"], "value": "-".join(have + [c for c in FREE_COSMETICS if c not in have])}}
+        out.append(kv)
+    if not seen:
+        out.append({"key": "cosmeticsunlocked", "value": {"value": "-".join(FREE_COSMETICS)}})
+    return out
+
+
 def user_record():
     u = dict(state["user"])
     u["online"] = True
@@ -151,7 +169,7 @@ def rpc(name, body):
     if name == "masterstartfunction":
         m = dict(state["master"])
         m.update({"cosequip": collection_kv("cosequipped"), "gifts": collection_kv("gifts"),
-                  "playerstats": collection_kv("playerstats"), "servertime": str(int(time.time()))})
+                  "playerstats": with_free_cosmetics(collection_kv("playerstats")), "servertime": str(int(time.time()))})
         return m
     if name == "getbuildinfo":
         return {"branch": {"maintenence": False, "version": 0}, "vtoken": ""}

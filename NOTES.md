@@ -428,6 +428,12 @@ Why bots did nothing, and the fix for each (all automated in PvEDirector):
   isn't visible (it's only in the command's environment): log to a file or capture reply in a local first.
   Calling widget functions (GetVisibility...) on non-widget objects crashes. PostMessage clicks don't reach the
   game (UE reads the real cursor). Hovered widgets: UserWidget:IsHovered() from a menu tick hook.
+- 2026-11-16 (issue #55): offline the button reads START RAID (lobbylabel.lua). The label is TextBlock_31 of
+  Crew_LaunchToMatchBtn_SubWidget_C (Captain and Crewmember copies), with no variable of its own;
+  UWidgetTree::FindWidget isn't callable from Lua, so it's found as StaticFindObject("<button path>.WidgetTree.TextBlock_31").
+  Paths are kept, not objects, and looked up again each second. It's set again whenever it
+  differs (in case the game rewrites it). Text_CoreState (CANCEL MATCHMAKING, shown for the 1 s "search") is left alone. Tested: "lobby: launch
+  button relabelled START RAID (2)" at boot; a raid starts from it as before.
 
 ## Flying the ship; interaction offline; per-update cost (2026-10-30)
 - F at the helm did nothing and no "F" prompts showed: SIGISCharacter::InteractionDetection (sets
@@ -1252,6 +1258,11 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
 - Minimap think() ran FindAllOf + FindFirstOf twice per think (gates, game state, game instance), every second and on every ROUTE_MOVED step. Now cached; gates only scan once the timer is out, every GATE_RESCAN s.
 - The only world light is Node_Background_06's DirectionalLight: intensity 10, movable, DynamicShadowDistance 650000. Hiding it live visibly darkened the Navy Outpost and the held gun (mean brightness 39 -> 35). There is no world skylight (the one SkyLightComponent lives in /Engine/Transient). main.lua updateSun keeps it on only while not on foot. Effect on frame time not measured: all tests ran with WoW in front.
 - tools/profile/threadsample.py samples the busiest threads from outside. bridge/profile_on makes the director write scan counts and slow ticks to bridge/profile.txt.
+- 2026-11-16: bridge/profile_on is looked for every 3 s (main.lua profiler), not only when the director starts, so it
+  can be dropped in or taken out mid-raid ("profiler on (bridge/profile_on)" / "profiler off" in the log; off puts the
+  plain FindAllOf/FindFirstOf back and clears PVE_PROF). bridge/dir_eval.lua runs while it's on. Tested in the lobby:
+  "profiler on" 5 s after creating the flag, then dir_eval ran (used it to debug lobbylabel.lua, issue #55). Before,
+  every look inside a running raid cost a quit and a relaunch.
 - Shot probe (bridge/t_shots.lua, 80 shots): bots shooting while not bIsTargeting keep the gun level (shotgun gun -3 deg, bullets +19). bIsTargeting bots track it within ~5 deg and play the arms' montage (rc_Mat49_Aim_Shoot_Mon); from the hip the arms play nothing while the gun runs Mon_*_Shoot on its own mesh. trackTargets now sets ServerSetTargeting while fighting (not sprinting or hiding). Forcing it live raised hand_r 41-55 from 43-50 above the capsule; no shots landed in that test window.
 - GlobalAnimRateScale (0.6-2.4, for the legs) also scaled the arms' montage while the gun's ran at 1.0; animate now counters it with Montage_SetPlayRate.
 - anim.Bend: non-zero (2.8-8.5) only on three top-up copies, which sit lower (head 46-53 vs 64). A Lua write doesn't stick (the BP rewrites it each update). Cause unknown; check whether these still point low once aiming is forced.
@@ -1866,6 +1877,12 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
   Yaw_Delayed past their TurretMin/MaxYaw (60): rocket artillery reached 120 / 139 / -120 / -140. NOT seen in a helm fight.
 - A launch from the menu by bridge (t_play + t_launch) right after the user's own raid crashed in UE4SS Lua during Space_Beta's
   load (EXCEPTION_ACCESS_VIOLATION 0xffff..., RaidGame+0x1a605d0 from a Lua call); the relaunch was fine. Cause not found.
+
+- Gunner callouts (2026-11-16, issue #52): fireTurrets leaves the reason in c.held ("range" or "arc") when no turret
+  of the hull can bear on the target at all (any turret in arc, reloading, swinging or pitching = nil). crew.lua
+  heldCall: after HELD_SAY (3) s on the same target and reason, the gunner says it once: "<name>: the <target> is too
+  far, close in" / "<name>: can't swing onto the <target>, turn us toward it". Tested on Space_Solo_01 at a flak node:
+  11000 away facing it -> the range line; 5000 away facing away -> the arc line, each a few seconds after "engaging".
 
 ## F3/F9 in the lobby, borderless fullscreen (2026-11-09)
 - F3/F9 did nothing in the lobby: they looked up FindFirstOf("MainPlayerController_C"), and the lobby's controller is
@@ -2551,6 +2568,55 @@ space salvaging doesn't work.
   `pcall(loadfile("<absolute path>"), a, b)` (relative paths fail). Read widget `.Visibility` instead of calling
   GetVisibility (errors as "function: 0x..." on some instances).
 
+## Crew gunner never shot stationary turrets (2026-11-16, tested; rivals.lua nodeTurretAlive)
+Issue #40. nodeTurretAlive tested `t.bIsDying == 0`, but UE4SS returns bIsDying as a Lua boolean, and `false == 0` is
+false. So every RaidSubNodeActor_Turret counted as dead: hostileShips never listed the ones aiming at you, and
+pickShip (left-click orders) never offered them. It now treats only `true` or a non-zero number as dying.
+- Before (Space_Solo_01, gunner Noor level 1, hull parked 11000 and then 5000 from a flak node that was aiming at the
+  hull, CurrentAimingActor = your ship): no "engaging" call, and the flak's health stayed at 150 while the hull went
+  575 -> 495.
+- After (Space_Charlie): "Noor: engaging the turret" 1 s after parking 5000 away. Four MovingFlak nodes killed the
+  hull in about 18 s, and all shots were held by arc: SetControlRotation doesn't turn the hull, and the starter has
+  one front turret (GUNNER_ARC 120).
+- After, Space_Solo_01, hull set to face the flak 6000 away (hull health topped up each second): flak 150 -> 110 -> 22
+  -> -21 (bIsDying true) within about 12 s, then "Noor: engaging the Widowmaker" (a crew attacking you), so a dying
+  turret is dropped.
+- Test path: hire with bridge/crew_cmd "hire 1" in the lobby, then pc:Possess(Ship_StarterFrigate01_Pawn_C) from the
+  bridge; F at the helm from the bridge didn't take. Node turrets' FireDistance is 13500, beyond every hull turret's
+  range (6000-9500, TURRET_TYPES), so between those distances they can hit you and you can't hit back.
+## French female voice free from the start (2026-11-16, tested; backend/nakama_standin.py)
+Issue #27. You can play as a woman from the first launch, but the cheapest female voice cost credits.
+- DT_PlayerAppearance (row struct UnlockCosmeticData: ItemName, slot 0/1/2 = head/body/voice, UnlockRequirementStatName
+  + Amount, UnlockCostAmount, PrestigeUnlock, ChapterUnlock) has these voice rows: enM01 0, frM01 3500, frF01 3500,
+  plM01 4200, duM01/duF01 58000 (L_7), usaM01/usaF01 65000 (L_10), roM01 70000, huM01 76000, itF01 80000 (L_18),
+  auM01 95000, itM01 115000, str01 prestige. Rows were read from memory with a scratch reader modelled on
+  offline-audit/voicerows.py.
+- SIGIS_InventoryWidget isThisCosmeticUnlocked (kdis) treats enM01, head "1" and body "6" as always free. Anything else
+  must be in InventoryMenuWidget:GetUnlockedCosmetics (native 0x9f52e0). That reads
+  SIGISPlayerController.UnlockedCustomisations (+0x8a0) plus the prestige unlocks.
+- Storage format: playerstats/cosmeticsunlocked holds row names joined by "-" (seen after
+  pc:SetPlayerUnlockCos(FName("frF01")) then "usaF01": "frF01-usaF01"). SetPlayerUnlockCos is the purchase. It also
+  charges UnlockCostAmount (cash PUT plus statChangeArray). "!"-joined values are not parsed: the list stays empty.
+- Fix: the stand-in's masterstartfunction adds FREE_COSMETICS ("frF01") to cosmeticsunlocked in what it sends. The
+  save file is not changed. The game holds it in its list from then on, so a later purchase writes it back with the
+  rest.
+- Tested on a fresh boot with an empty cosmeticsunlocked: UnlockedCustomisations = {frF01}. Loadout > Appearance >
+  Voice shows FRENCH 02 without a lock. Selecting it wrote only cosequipped/voice = frF01 (no cash write).
+- Crashes while probing (don't repeat): calling InventoryMenuWidget:UnlockCosmetic("frF01") with a guessed signature,
+  and appending to pc.UnlockedCustomisations from Lua (`a[#a+1] = "x"` on an FString TArray in UE4SS 3.0.1).
+## No captain's key card at raid start (2026-11-16, tested; main.lua guardKeyCard)
+Issue #33. Reproduced on Space_Beta with the test save's empty loadout: the player's inventory had no items and no
+KEYCARD 35 s after boarding, and guardKeyCard logged nothing, because it only puts back a card it has seen.
+- SIGISInventoryComponent:Server_ReadyforKeyCard (no params, server RPC) makes the card. Called by bridge, KEYCARD
+  appeared in the KeyCard slot a second later, Attachments "<captain>!USS Oberon!75312034!FrigateStarter_Ship" (the
+  interior's KeyCardUUID). A second call doesn't add another card (still 1).
+- guardKeyCard now calls it when no card has turned up 6 s after boarding (CARD.GRACE, at most CARD.ASKS = 3 tries,
+  every CARD.CHECK = 2 s). The card it gets is then remembered and guarded as before. CARD is a table because main.lua
+  is at the 200-locals limit.
+- Tested on a fresh launch, empty loadout: "none 6s after boarding; asked the game for one (1)" at +6 s, then
+  "key card: Vanquisher!16368391!FrigateStarter_Ship" at +8 s; 1 card. Not tested: using this card at a station airlock
+  (it is the game's own card, the same kind the 2026-11-07 tests used), and which normal-start step fails to ask with
+  an empty loadout.
 ## Quit Game in the pause menu (2026-11-16, tested in a raid; mods/PvEDirector/Scripts/quit.lua)
 Testers had no way to quit from inside the game and force-closed it. SIGIS_Exit_Widget_C (Esc in a raid) has Resume,
 Guide, Report Abuse, Settings and Main Menu. Its EXIT button belongs to the "are you sure?" panel behind Main Menu and
