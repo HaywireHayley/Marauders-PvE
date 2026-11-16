@@ -3,6 +3,11 @@
 --   "Esc opens the menu instead of closing the inventory"). Now Esc closes the pause menu it just opened, then the
 --   inventory on the frame after, so Esc in the inventory just closes it.
 -- * Lean (Q/E): the pawn still leaned with the inventory up. It's zeroed (RaidCharacter:ZeroLean) while it's open.
+-- * Use (F, or whatever Use is bound to) in a loot window also opens the pause menu: the game's own doing, not an input
+--   action. A tester with Use on R (Rotate's key too) rotated an item, got the menu, closed it, and was left with the
+--   loot window drawn over the game while it took mouse and keys again ("could move and shoot but couldn't see").
+--   So the pause menu opening while the inventory is open, whatever opened it, is handled like Esc: menu closed, then
+--   the inventory. And if the inventory is ever still drawn with the cursor gone (STUCK_SECONDS), it's closed.
 -- The game has no "inventory open" flag of its own: only the controller's mouse cursor and click events change. So the
 -- inventory counts as open when the cursor is shown in a raid with neither the pause menu nor one of the mod's menus
 -- (F3 / F6 / F9) up. That's worked out every frame and the Esc hook reads the previous frame's answer: by the time
@@ -11,11 +16,16 @@ local K = {}
 local X -- log, valid, pc (function: the raid controller or nil), modMenuOpen (function)
 
 local ESC = "/Game/Blueprints/Player/MainPlayerController.MainPlayerController_C:InpActEvt_InGameMenu_K2Node_InputActionEvent_3"
+local MENU_OPEN = "/SIGISPlugin/Widgets/HUD/SIGIS_Exit_Widget.SIGIS_Exit_Widget_C:ExitMenu_Open"
+local STUCK_SECONDS = 0.5 -- the inventory drawn without the cursor this long counts as stuck
 local MENU_CLOSE_WINDOW = 1 -- seconds after Esc to look for the pause menu it opened
 local hookedAddr, hookAt = nil, 0 -- (the UFunction hooked: a raid map loads a new copy of it)
 local invWasOpen = false          -- the inventory was open on the last frame
 local closeMenuUntil, closeInvNext
 local menuPath, nextMenuFind = nil, 0
+local menuHookAddr                -- (the pause menu's class loads with the first raid map)
+local invPath, nextInvFind = nil, 0
+local stuckSince
 
 function K.init(ctx) X = ctx end
 
@@ -47,6 +57,25 @@ local function onEsc()
     if invWasOpen then closeMenuUntil = os.clock() + MENU_CLOSE_WINDOW end
 end
 
+-- The raid's inventory widget (In Game Overlay Match's InventoryMenu, a SIGIS_HUDWidget_C), kept as a path.
+local function invWidget()
+    if invPath then
+        local w = StaticFindObject(invPath)
+        if w and w:IsValid() then return w end
+        invPath = nil
+    end
+    local now = os.clock()
+    if now < nextInvFind then return nil end
+    nextInvFind = now + 2
+    for _, w in ipairs(FindAllOf("SIGIS_HUDWidget_C") or {}) do
+        local name = w:GetFullName():gsub("^%S+ ", "")
+        if name:find("Transient", 1, true) and name:find("Overlay Match.WidgetTree.InventoryMenu", 1, true) then
+            invPath = name
+            return w
+        end
+    end
+end
+
 -- Every frame from the director's tick.
 function K.tick()
     local now = os.clock()
@@ -61,6 +90,15 @@ function K.tick()
                 if not ok2 then X.log("inventory keys: Esc failed: " .. tostring(err)) end
             end)
             if ok then hookedAddr = fn:GetAddress() end
+        end
+        local open = StaticFindObject(MENU_OPEN)
+        if open and open:IsValid() and open:GetAddress() ~= menuHookAddr then
+            -- (pre-callback: this Blueprint event's post-callback never runs under UE4SS; see quit.lua)
+            local ok = pcall(RegisterHook, MENU_OPEN, function()
+                local ok2, err = pcall(onEsc)
+                if not ok2 then X.log("inventory keys: menu open failed: " .. tostring(err)) end
+            end)
+            if ok then menuHookAddr = open:GetAddress() end
         end
     end
     local pc = X.pc()
@@ -80,6 +118,21 @@ function K.tick()
     end
     -- (cheap first: the cursor is off nearly all the time in a raid, and then nothing else is looked at)
     invWasOpen = pc.bShowMouseCursor and not X.modMenuOpen() and not menuShown() or false
+    -- the loot window left drawn with the cursor gone (nothing else on screen): close it
+    local stuck = false
+    if not pc.bShowMouseCursor and not closeMenuUntil then
+        local inv = invWidget()
+        stuck = inv ~= nil and inv:IsVisible() and not menuShown() and not X.modMenuOpen()
+    end
+    if not stuck then
+        stuckSince = nil
+    elseif not stuckSince then
+        stuckSince = now
+    elseif now - stuckSince >= STUCK_SECONDS then
+        stuckSince = nil
+        pcall(function() pc:CloseInventory() end)
+        X.log("inventory keys: inventory was drawn without the cursor; closed it")
+    end
     local pawn = pc.Pawn
     if invWasOpen and X.valid(pawn) and (pawn.Lean or 0) ~= 0 then pcall(function() pawn:ZeroLean() end) end
 end
