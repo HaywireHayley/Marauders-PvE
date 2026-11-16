@@ -1,6 +1,9 @@
-"""Builds the public release: release/MaraudersOffline/ and release/MaraudersOffline-<date>.zip.
+"""Builds the public release: release/MaraudersOffline/ and release/MaraudersOffline-<build>.zip.
 
-    python tools/release/build_release.py
+    python tools/release/build_release.py [build]
+
+<build> defaults to today's date (20261116); give a later same-day build its own, like 20261116.2. Each build is
+its own GitHub release (tag public-test-<build>): never replace a published zip.
 
 Only what a player's game needs goes in (an allow-list, so new dev files stay out by default): the launcher, the
 stand-in backend with an anonymous starting account, the two mods, the two native DLLs, UE4SS, the art, the switch
@@ -148,7 +151,11 @@ def main():
     if found:
         sys.exit("dev paths or personal data in: " + ", ".join(found))
 
-    zip_path = os.path.join(OUT_DIR, f"{NAME}-{date.today():%Y%m%d}.zip")
+    # A second build on the same day gets its own name (e.g. 20261116.2), so a published zip is never replaced.
+    build = sys.argv[1] if len(sys.argv) > 1 else f"{date.today():%Y%m%d}"
+    zip_path = os.path.join(OUT_DIR, f"{NAME}-{build}.zip")
+    if os.path.exists(zip_path):
+        sys.exit(f"{zip_path} already exists: give this build a new name, e.g. {build}.2")
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
         for dirpath, _, files in os.walk(DEST):
             for name in files:
