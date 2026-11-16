@@ -2550,3 +2550,27 @@ space salvaging doesn't work.
 - Bridge tips: globals set in a bridge command don't reach a dofile'd script; pass args with
   `pcall(loadfile("<absolute path>"), a, b)` (relative paths fail). Read widget `.Visibility` instead of calling
   GetVisibility (errors as "function: 0x..." on some instances).
+
+## Quit Game in the pause menu (2026-11-16, tested in a raid; mods/PvEDirector/Scripts/quit.lua)
+Testers had no way to quit from inside the game and force-closed it. SIGIS_Exit_Widget_C (Esc in a raid) has Resume,
+Guide, Report Abuse, Settings and Main Menu. Its EXIT button belongs to the "are you sure?" panel behind Main Menu and
+leaves the raid. Its REPORT BUG button is collapsed and opens a web page.
+- A QUIT GAME button is added under Main Menu the first time each menu opens: a new MM_GenericSmallBtn01 (Main Menu's
+  class) in a new SizeBox, appended to VerticalBox_161. The button gets Main Menu's designer variables (WidthOverride
+  200, HeightOverride 35, b_TexOnlyVersion, fill material, opacities, sounds), then PreConstruct(false) again. The slot
+  gets Main Menu's padding (top 10) and centre alignment. Struct copies need a plain Lua table: passing `from.Padding`
+  failed silently. Border_MainMenuOptions sits in a canvas with a fixed size (290 x 341.6), so it grows by one row
+  (+50) with SetSize.
+- The hook on ExitMenu_Open must be a pre-callback. Its post-callback never ran (counted pre 1, post 0). The widgets
+  already exist in pre.
+- Clicks: UMG delegates can't be bound from Lua, so Btn_Main:IsPressed() is polled from the director's tick while the
+  menu is visible, and a release counts as a click. The first click relabels the button "CLICK AGAIN TO QUIT" for 4 s.
+  In a raid it also sends a ClientMessage saying the gear you brought in counts as lost. That message is not seen
+  behind the menu; Alt+F4 loses it the same way. A second click within 4 s calls
+  KismetSystemLibrary:QuitGame(pc, pc, Quit, false).
+- Tested on Space_Solo_01 with real mouse clicks. The button looks like the others. Click 1 armed it, and it was back
+  to QUIT GAME after 4 s. Clicks 1 and 2, 1 s apart, logged "quit: Quit Game from the pause menu" and the process
+  exited with no crash reporter. Synthetic clicks need a real mouse move over the button (SetCursorPos alone isn't
+  hovered by Slate).
+- The lobby has no Esc menu: MenuPlayerController's InGameMenu action opens nothing. SIGIS_MainOverlay_C has an
+  MM_SecondaryOptionsBtn_Exit, but it is inside Border_BottomBar_Old, which is collapsed. That's a possible follow-up.
