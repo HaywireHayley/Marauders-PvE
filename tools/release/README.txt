@@ -8,8 +8,8 @@ Marauders is being developed by a small team from the UK. Offline PvE is a fan m
 original developer or publisher. You need your own copy of Marauders on Steam.
 
 Heads up: this mod is vibe coded with Claude Code. Some of it may not be fully efficient or make complete sense. That's
-where your contributions come in: see https://github.com/HaywireHayley/Marauders-PvE (CONTRIBUTING.md), or come and
-talk about it on the Discord: https://discord.gg/nfEW8tFJ3b
+where your contributions come in: see CONTRIBUTING.md on the mod's GitHub page, or come and talk about it on the
+Discord: https://discord.gg/nfEW8tFJ3b
 
 
 WHAT YOU NEED
