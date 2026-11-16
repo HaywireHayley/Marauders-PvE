@@ -35,6 +35,13 @@ local CFG = {
     GUN_SKILL = { 0.2, 0.9 },
     GUN_TALENT = 0.25,
     GUN_LOOK = 0.4,                 -- seconds between target picks
+    -- Left click at the helm points the gunner at a ship (any crew, hostile or not) or a stationary turret: the one
+    -- nearest the middle of your view within ORDER_CONE deg, else the nearest, within ORDER_RANGE. They keep on it until
+    -- it's gone, docks, is a wreck, derelict or destroyed, or is beyond ORDER_RANGE; click with nothing in range and they
+    -- go back to whatever's after you (ships attacking you, turrets aiming at you).
+    ORDER_RANGE = 30000,
+    ORDER_CONE = 15,
+    FIRE_KEY = "LeftMouseButton",
     TAG_HEIGHT = 115,               -- nametag this far above a crewmate's middle
     TAG_FAR = 6000,                 -- not drawn beyond this (cm)
 }
@@ -432,14 +439,49 @@ local function releaseTurrets()
     S.held = nil
 end
 
+-- Left click while you fly (no menu open): who the gunner should shoot. Bridge test: bridge/gunner_click = one click.
+local TEST_CLICK = require("pveproject") .. "bridge/gunner_click"
+local function clicked()
+    local down = false
+    pcall(function() down = not S.pc.bShowMouseCursor and S.pc:IsInputKeyDown({ KeyName = FName(CFG.FIRE_KEY) }) end)
+    local f = io.open(TEST_CLICK, "r")
+    if f then f:close() os.remove(TEST_CLICK) return true end
+    local was = S.fireDown
+    S.fireDown = down
+    return down and not was
+end
+
+local function orderTarget(m, now)
+    local ok, pick = pcall(X.rivals.pickShip, CFG.ORDER_RANGE, CFG.ORDER_CONE)
+    if not ok then X.log("[crew] gunner pick failed: " .. tostring(pick)) return end
+    if not pick then
+        if S.order then say(m.name .. ": back on whoever's after us") end
+        S.order = nil
+        S.nextLook = 0
+        return
+    end
+    -- clicking again on the ship they're already shooting changes nothing (it restarted their reaction: no shots
+    -- at all while you kept clicking)
+    local same = valid(S.gunTarget) and S.gunTarget:GetAddress() == pick.ship:GetAddress()
+    S.order = pick
+    if same then return end
+    S.gunTarget, S.gunReady, S.nextLook = pick.ship, now + rnd(CFG.GUN_REACT), now + CFG.GUN_LOOK
+    if not S.calledTarget or now - S.calledTarget > 2 or S.calledShip ~= pick.ship:GetAddress() then
+        say(("%s: on the %s"):format(m.name, pick.name))
+    end
+    S.calledTarget, S.calledShip = now, pick.ship:GetAddress()
+    X.log(("[crew] gunner ordered onto %s (%.0f m, %s)"):format(pick.name, pick.d / 100,
+        pick.centred and "in your sights" or "nearest"))
+end
+
 -- The gunner: picks the nearest ship that's attacking you (or that you're shooting at) once in a while, and after a
--- moment's reaction fires every turret whose arc covers it.
+-- moment's reaction fires every turret whose arc covers it. A ship you click on (orderTarget) comes first.
 function C.frame()
     if not S or not X.raid().space then return end
     local m
     for _, o in ipairs(roster) do if o.gunner and o.alive then m = o end end
     if not m or not flying() then
-        S.gunTarget = nil
+        S.gunTarget, S.order, S.fireDown = nil, nil, nil
         releaseTurrets()
         return
     end
@@ -460,7 +502,16 @@ function C.frame()
     end
     if #S.turrets == 0 then return end
     holdTurrets()
-    if now >= (S.nextLook or 0) then
+    if clicked() then orderTarget(m, now) end
+    if S.order and not X.rivals.shipInPlay(S.order, CFG.ORDER_RANGE) then
+        X.log("[crew] gunner's ordered target out of play: " .. tostring(S.order.name))
+        S.order, S.nextLook = nil, 0
+    end
+    if S.order then
+        if not valid(S.gunTarget) or S.gunTarget:GetAddress() ~= S.order.ship:GetAddress() then
+            S.gunTarget, S.gunReady = S.order.ship, now + rnd(CFG.GUN_REACT)
+        end
+    elseif now >= (S.nextLook or 0) then
         S.nextLook = now + CFG.GUN_LOOK
         local list = X.rivals.hostileShips()
         local pick = list[1] and list[1].ship
@@ -468,7 +519,7 @@ function C.frame()
             S.gunTarget, S.gunReady = pick, now + rnd(CFG.GUN_REACT)
             if not S.calledTarget or now - S.calledTarget > 20 then
                 S.calledTarget = now
-                say(("%s: engaging the %s"):format(m.name, list[1].crew.shipName or "ship"))
+                say(("%s: engaging the %s"):format(m.name, list[1].name))
             end
         elseif not pick then
             S.gunTarget = nil
@@ -480,6 +531,10 @@ function C.frame()
         S.gun.gunnery = gunnery(m)
         local ok, err = pcall(X.rivals.gunnerFire, S.turrets, S.gunTarget, now, S.gun)
         if not ok and not S.gunErr then S.gunErr = true X.log("[crew] gunner failed: " .. tostring(err)) end
+        if ok and err and S.order and S.orderFired ~= S.order then
+            S.orderFired = S.order
+            X.log("[crew] gunner firing on the ordered " .. tostring(S.order.name))
+        end
     elseif not valid(S.gunTarget) then
         pcall(X.rivals.restTurrets, S.turrets)
     end

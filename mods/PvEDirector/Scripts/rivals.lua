@@ -4323,7 +4323,36 @@ function R.shipTurrets(ship, spreadScale)
     return out
 end
 
--- Ships your gunner may shoot: crews attacking you, and the ship you just fired on. Nearest first.
+-- The stationary turrets around space maps (RaidSubNodeActor_Turret: flak and gun nodes near stations). Found once per
+-- map with one FindAllOf when your gunner first needs them, again on a click at most every NODE_TURRET_REFRESH s.
+local NODE_TURRET_REFRESH = 60
+local function nodeTurrets(refresh)
+    local now = os.clock()
+    if not S.nodeTurrets or (refresh and now - (S.nodeTurretsAt or -1e9) > NODE_TURRET_REFRESH) then
+        S.nodeTurrets, S.nodeTurretsAt = {}, now
+        for _, t in ipairs(FindAllOf("RaidSubNodeActor_Turret") or {}) do
+            if valid(t) then S.nodeTurrets[#S.nodeTurrets + 1] = t end
+        end
+        X.log(("[rivals] %d stationary turret(s) on this map"):format(#S.nodeTurrets))
+    end
+    return S.nodeTurrets
+end
+
+local function nodeTurretAlive(t)
+    local ok, alive = pcall(function() return valid(t) and (t.Health or 0) > 0 and t.bIsDying == 0 end)
+    return ok and alive
+end
+
+local function turretTarget(t, here, at)
+    return { ship = t, turret = true, name = "turret", d = dist(here, at) }
+end
+
+-- Out in space with a hull there: not docked or held in a berth, not a derelict, a wreck or gone.
+local OUT_OF_PLAY = { docked = true, derelict = true, wreck = true, gone = true }
+local function flyingShip(c) return not OUT_OF_PLAY[c.state] and not c.moored and shipOk(c) end
+
+-- Ships your gunner may shoot: crews attacking you, the ship you just fired on, and stationary turrets aiming at your
+-- ship. Nearest first. Entries as pickShip's.
 function R.hostileShips()
     if not S or not valid(S.playerShip) then return {} end
     local here, list = S.playerShip:K2_GetActorLocation(), {}
@@ -4332,12 +4361,64 @@ function R.hostileShips()
         if c.state ~= "gone" and shipOk(c) then
             local at = c.ship:K2_GetActorLocation()
             if (c.state == "attack" and c.target and c.target.player) or (firing and inYourSights(c, at)) then
-                list[#list + 1] = { ship = c.ship, crew = c, d = dist(here, at) }
+                list[#list + 1] = { ship = c.ship, crew = c, name = c.shipName or "ship", d = dist(here, at) }
             end
+        end
+    end
+    local mine = S.playerShip:GetAddress()
+    for _, t in ipairs(nodeTurrets(false)) do
+        if nodeTurretAlive(t) then
+            local aimed = false
+            pcall(function() aimed = valid(t.CurrentAimingActor) and t.CurrentAimingActor:GetAddress() == mine end)
+            if aimed then list[#list + 1] = turretTarget(t, here, t:K2_GetActorLocation()) end
         end
     end
     table.sort(list, function(a, b) return a.d < b.d end)
     return list
+end
+
+-- Out in space with a hull there: not docked or held in a berth, not a derelict, a wreck or gone.
+local OUT_OF_PLAY = { docked = true, derelict = true, wreck = true, gone = true }
+local function flyingShip(c) return not OUT_OF_PLAY[c.state] and not c.moored and shipOk(c) end
+
+-- What you point your gunner at (left click at the helm, crew.lua): of the ships out flying and the stationary turrets
+-- standing within `range` of you, the one nearest the middle of your view if any is within `cone` deg of it, else the
+-- nearest. Any crew, hostile or not. Returns { ship = actor, crew = c or nil, turret = true or nil, name, d, centred }.
+function R.pickShip(range, cone)
+    if not S or not valid(S.playerShip) then return nil end
+    local here, near, best, nearD, bestCos = S.playerShip:K2_GetActorLocation(), nil, nil, range, math.cos(math.rad(cone))
+    local function consider(e, at)
+        if e.d > range then return end
+        local cs = aimCos(at)
+        if cs >= bestCos then best, bestCos = e, cs end
+        if e.d < nearD then near, nearD = e, e.d end
+    end
+    for _, c in ipairs(S.crews or {}) do
+        if flyingShip(c) and not c.glide then
+            local at = c.ship:K2_GetActorLocation()
+            consider({ ship = c.ship, crew = c, name = c.shipName or "ship", d = dist(here, at) }, at)
+        end
+    end
+    for _, t in ipairs(nodeTurrets(true)) do
+        if nodeTurretAlive(t) then
+            local at = t:K2_GetActorLocation()
+            consider(turretTarget(t, here, at), at)
+        end
+    end
+    local e = best or near
+    if e then e.centred = best ~= nil end
+    return e
+end
+
+-- Is this pickShip entry still one your gunner can go on shooting (a ship out flying, or a turret standing; in range)?
+function R.shipInPlay(e, range)
+    if not (S and valid(S.playerShip) and e) then return false end
+    if e.turret then
+        if not nodeTurretAlive(e.ship) then return false end
+    elseif not flyingShip(e.crew) then
+        return false
+    end
+    return dist(S.playerShip:K2_GetActorLocation(), e.ship:K2_GetActorLocation()) <= range
 end
 
 -- Fires your ship's turrets at a ship, as a crew's gunners would (counts as you firing: ambient fighters hit by it turn on you).
