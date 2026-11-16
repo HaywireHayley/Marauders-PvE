@@ -21,6 +21,7 @@ trailer/
 backend/state*.json
 backend/saves/
 backend/loadout.json
+backend/cosmetics.json
 backend/checkout.txt
 backend/ship_*.txt
 backend/*.log
