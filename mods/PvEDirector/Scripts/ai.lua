@@ -113,6 +113,20 @@ function AI.tuneBody(e)
     if prof.strafe then e.bot.CharacterMovement.MaxMoveBackAndStrafeSpeed = prof.strafe end
     -- RaidCharacter's editor marker sprite (a smiley) is left visible in game on some bots.
     pcall(function() e.bot.Billboard:SetHiddenInGame(true, false) end)
+    -- Head, body and leg zones for player shots (the bot pawns have no hit capsules, #123). Once per body.
+    if not e.hitZones then
+        e.hitZones = true
+        local ok, n, err = pcall(require("hitzones").ensure, e.bot)
+        if not ok or n == nil then
+            if not AI.hitZonesWarned then
+                AI.hitZonesWarned = true
+                X.log("hit zones: not added (" .. tostring(ok and err or n) .. ")")
+            end
+        elseif n > 0 and not AI.hitZonesLogged then
+            AI.hitZonesLogged = true
+            X.log("hit zones: " .. n .. " capsules on " .. e.bot:GetClass():GetFName():ToString())
+        end
+    end
 end
 
 local function knowledge(mind, target)

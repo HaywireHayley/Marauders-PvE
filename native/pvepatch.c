@@ -18,6 +18,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 typedef struct { const char *name; DWORD rva; unsigned char old[8], new_[8]; int len; } Patch;
 
@@ -537,5 +538,77 @@ __declspec(dllexport) int pve_array_grow(void *L) {
     if (IsBadWritePtr(slot, (UINT_PTR)size)) return 0;
     memset(slot, 0, (size_t)size);
     a->num++;
+    return 0;
+}
+
+/* Lua: hit zones on the mod's bots (issue #123). The pawns the mod spawns (BotPawn_C, BotPawnGuard_C, BotPawnMilitary_C)
+   have none of the 17 RaidHitCapsuleComponents the player and the map's node bots have, so the damage function found no
+   zone (AreaHitType) and every player bullet did the gun's flat damage. Adding the capsules from Lua failed: UE4SS left
+   them unregistered (no physics body: bullets went through), attached before registering they never followed the bones,
+   and two of those calls crashed inside UE4SS. So the whole step is done here through ProcessEvent with hand-built
+   parameter blocks (layouts read from the UFunctions' properties), the way the engine adds a component at run time:
+   AddComponentByClass deferred, SetupAttachment (AttachParent + AttachSocketName written before registering), size and
+   collision, then FinishAddComponent with the offset from the bone, which registers it; OnRegister attaches it.
+     pve_hit_init(AddComponentByClass, FinishAddComponent, SetCapsuleSize, SetCollisionEnabled, SetCollisionObjectType,
+                  SetCollisionResponseToAllChannels, SetCollisionResponseToChannel, RaidHitCapsuleComponent class)
+     pve_hit_capsule(bot, mesh, socket FName index, area, radius, half height, x, y, z, pitch, yaw, roll)  (all x100) */
+#define UOBJECT_PROCESS_EVENT 0x218 /* vtable slot 67 */
+#define SCENE_ATTACH_PARENT   0xc0
+#define SCENE_ATTACH_SOCKET   0xc8
+#define HIT_AREA_TYPE         0x460
+typedef void (*ProcessEventFn)(void *, void *, void *);
+typedef struct __attribute__((aligned(16))) { float qx, qy, qz, qw, tx, ty, tz, pad0, sx, sy, sz, pad1; } FTransform;
+
+static void *g_hitFn[7], *g_hitClass;
+
+static void callUFn(void *obj, void *fn, void *parms) { ((ProcessEventFn)VFN(obj, UOBJECT_PROCESS_EVENT))(obj, fn, parms); }
+
+__declspec(dllexport) int pve_hit_init(void *L) {
+    for (int i = 0; i < 7; i++) g_hitFn[i] = (void *)intArg(L, i + 1, 8);
+    g_hitClass = (void *)intArg(L, 8, 8);
+    return 0;
+}
+
+static void rotQuat(float pitch, float yaw, float roll, FTransform *t) { /* FRotator::Quaternion */
+    const double d = 3.14159265358979323846 / 360.0;
+    double sp = sin(pitch * d), cp = cos(pitch * d), sy = sin(yaw * d), cy = cos(yaw * d), sr = sin(roll * d), cr = cos(roll * d);
+    t->qx = (float)(cr * sp * sy - sr * cp * cy);
+    t->qy = (float)(-cr * sp * cy - sr * cp * sy);
+    t->qz = (float)(cr * cp * sy - sr * sp * cy);
+    t->qw = (float)(cr * cp * cy + sr * sp * sy);
+}
+
+__declspec(dllexport) int pve_hit_capsule(void *L) {
+    enum { N = 12 };
+    char *bot = (char *)intArg(L, 1, N), *mesh = (char *)intArg(L, 2, N);
+    long long socket = intArg(L, 3, N), area = intArg(L, 4, N);
+    if (!bot || !mesh || !socket || !g_hitClass) return 0;
+    for (int i = 0; i < 7; i++) if (!g_hitFn[i]) return 0;
+    float v[8];
+    for (int i = 0; i < 8; i++) v[i] = (float)intArg(L, 5 + i, N) / 100.0f;
+    struct { void *cls; char manual; char p0[7]; FTransform t; char deferred; char p1[7]; void *ret; } add;
+    memset(&add, 0, sizeof add);
+    add.cls = g_hitClass; add.manual = 1; add.deferred = 1;
+    add.t.qw = 1; add.t.sx = add.t.sy = add.t.sz = 1;
+    callUFn(bot, g_hitFn[0], &add);
+    char *c = (char *)add.ret;
+    if (!c) return 0;
+    *(void **)(c + SCENE_ATTACH_PARENT) = mesh;      /* SetupAttachment */
+    *(long long *)(c + SCENE_ATTACH_SOCKET) = socket; /* FName: comparison index, number 0 */
+    *(unsigned char *)(c + HIT_AREA_TYPE) = (unsigned char)area;
+    struct { float r, hh; char upd; char p[3]; } size = { v[0], v[1], 0, { 0 } };
+    callUFn(c, g_hitFn[2], &size);
+    unsigned char b = 1; callUFn(c, g_hitFn[3], &b); /* QueryOnly */
+    b = 2; callUFn(c, g_hitFn[4], &b);               /* object type Pawn */
+    b = 0; callUFn(c, g_hitFn[5], &b);               /* ignore everything... */
+    static const unsigned char BLOCKS[] = { 3, 9, 10, 11, 12, 13, 14, 15 };
+    for (unsigned i = 0; i < sizeof BLOCKS; i++) { unsigned char ch[2] = { BLOCKS[i], 2 }; callUFn(c, g_hitFn[6], ch); } /* ...but these */
+    struct { void *comp; char manual; char p0[7]; FTransform t; } fin;
+    memset(&fin, 0, sizeof fin);
+    fin.comp = c; fin.manual = 1;
+    rotQuat(v[5], v[6], v[7], &fin.t);
+    fin.t.tx = v[2]; fin.t.ty = v[3]; fin.t.tz = v[4];
+    fin.t.sx = fin.t.sy = fin.t.sz = 1;
+    callUFn(bot, g_hitFn[1], &fin);
     return 0;
 }
