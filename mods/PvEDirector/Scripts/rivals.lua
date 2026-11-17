@@ -1735,6 +1735,32 @@ local function startBody(pc, m, at)
     return { m = m, body = body, startedAt = os.clock() }
 end
 
+-- Weapon wear (#86). The game's kit step rolls a gun's condition AND its maximum low and at random (a 1911 at 10/10,
+-- full is 100): bodies dropped near-useless guns that cost a fortune to repair. A body's guns and melee weapons get
+-- their condition and maximum set to a share of the item's full durability (items.json `dur`): rivals keep their gear
+-- well (more so the better their kit), station guards less. Bots don't wear guns by firing (their shots aren't counted).
+R.WEAR = { budget = { 0.55, 0.85 }, mid = { 0.7, 0.95 }, geared = { 0.85, 1 }, guard = { 0.35, 0.85 } }
+function R.wear(body, band)
+    local Items = require("itemdata")
+    local slots = { Prim = true, Sec = true, Pistol = true, Melee = true }
+    pcall(function()
+        body.BotLootItems:ForEach(function(_, e)
+            local it = e:get()
+            if valid(it) and slots[it.MotherItemGUID:ToString()] then
+                local r = Items.get(it.ItemData:ToString())
+                if r and r.dur and r.dur > 0 then
+                    local c = math.max(1, math.floor(r.dur * (band[1] + math.random() * (band[2] - band[1])) + 0.5))
+                    it.MaxCondition, it.Condition = c, c
+                end
+            end
+        end)
+    end)
+end
+R.WEAR.of = function(tier)
+    if tier and tier.g then local lo = 0.55 + 0.3 * tier.g return { lo, math.min(1, lo + 0.25) } end
+    return R.WEAR[tier and tier.name or ""] or R.WEAR.mid
+end
+
 -- Second half: look, wake, arm, once the gun is there. Returns the director entry or nil (not ready / failed).
 local function finishBody(b)
     local body, m = b.body, b.m
@@ -1746,6 +1772,7 @@ local function finishBody(b)
         R.destroy(body)
         return false
     end
+    R.wear(body, R.WEAR.of(m.tier))
     local cat = gearCatalog()
     local mine = comps(body)
     -- Look: kept per member so the same person looks the same every time they materialize. Your hired crew have set
@@ -2300,6 +2327,7 @@ local function adopt(b)
     if not valid(ctrl) then return nil end
     ctrl = X.arm(b, ctrl)
     if not ctrl then return nil end
+    R.wear(b, R.WEAR.guard) -- (the level's own guards too: their rolls ran as low as 1/1, #86)
     local boss = b:GetClass():GetFName():ToString():find("Boss", 1, true) ~= nil
     local row = ""
     -- the placed NPC's GOAP controller (a weak pointer) names its brain row, e.g. EliteRaider / AverageRaiderSemi
@@ -2428,6 +2456,7 @@ local function finishTopUp(p)
     if p.female then X.female.dress(body, true) end
     local ctrl = X.arm(body)
     if not ctrl then R.destroy(body) return true end
+    R.wear(body, R.WEAR.guard)
     local e = { bot = body, ctrl = ctrl, home = body:K2_GetActorLocation(), nextPatrol = os.clock() + math.random(2, 8),
         patrolRadius = CFG.POST_RADIUS, placed = true, hand = comps(body).CharacterBody0, voice = X.voice.pick(p.female),
         mind = AI.mind(p.profile or "soldier", AI.pickPersonality(AI.power({ gun = name }))) }
