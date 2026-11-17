@@ -2574,6 +2574,25 @@ to cut.
 Also seen this session: the load crash at RaidGame+0x1a605d0 (UE4SS hook dispatch, see 2026-11-09) again, once, loading
 Space_Charlie after a bridge launch; the relaunch was fine.
 
+## Director per-frame cost: ships off the helm, calm bots, fewer engine reads (2026-11-17, tested)
+- rivals.lua R.frame: on foot (S.onFoot, set in R.update: your character is the pawn, not the helm, a turret seat or a
+  pod), glideShips, fireControl and swingAimed run CFG.SHIP_FRAME_HZ_FOOT (15) times a second with the real time
+  since the last pass (glides go by the clock; gunnery and swing scale by dt, capped at 0.25 s). Pods and boarding
+  still run every frame. At the helm: every frame, as before.
+- main.lua trackTargets: bots at peace (not fighting, in cover, investigating or running) run animate() and their aim
+  upkeep at CFG.ANIM_PEACE_HZ (15) instead of ANIM_HZ (30); a change of what they should be doing is still caught at
+  once. The two per-frame loops after reapDead no longer re-check valid(bot) and Health (reapDead just did, and
+  nothing is freed mid-frame): four engine calls per bot per frame fewer. Parked bots are skipped in both.
+- updateBots reads each bot's location once per update (o.updAt) for the perception list, Aux.parked and its own
+  loop; it used to read it three times (each read is a new table).
+- Test: Space_Solo_01, Fortress, 14-16 guards and 8 crews, everyone's senses off (ai.lua PROFILES sight 1, hearing 0,
+  from bridge/dir_eval.lua) so both runs are at peace; master's scripts vs this branch's, 120 s in the station.
+  Per 10 s: rivals frame 554 -> 134 ms, aim 276 -> 233 ms, director total ~1000 -> ~550 ms, allocated 16.6 -> 11.3 MB.
+  Frame rate unchanged on this PC (~76-80, not director-bound). Runs with fights aren't comparable: fights are
+  random and fighting bots keep the full rate (cover alone went 34 -> 386 ms when 4 bots fought).
+- Which stations have a docking node (and so a "station" in rivals' list) differs per run of the same map: test
+  scripts should retry until the station they want is there.
+
 ## Build 4 quick wins: looting stutter, far animation, hot reload (2026-11-17)
 - invkeys.lua menuWidget() ran FindAllOf("SIGIS_Exit_Widget_C") every 2 s while the inventory was open, until the pause
   menu had been opened once in that raid (44-101 ms each in bridge/profile.txt): a stutter while looting. Now it only

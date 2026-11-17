@@ -27,7 +27,8 @@ local CFG = {
     ANIM_FAR = 6000,         -- bots farther than this from the camera animate the engine's cheap way (not drawn = no pose)
     ANIM_SLOW_FAR = 4000,    -- bots at peace farther than this from the camera run animate() ANIM_SLOW_HZ a second, not every frame
     ANIM_SLOW_HZ = 10,
-    ANIM_HZ = 30,            -- every other bot (and every fighting one) runs animate() and its aim upkeep this often
+    ANIM_HZ = 30,            -- every fighting or busy bot (cover, investigating, running) runs animate() this often
+    ANIM_PEACE_HZ = 15,      -- ...and a bot at peace nearer than ANIM_SLOW_FAR this often (gait and posture only change slowly)
     -- Parking (Aux.parked): a guard or soldier at peace farther than PARK_RANGE from you is frozen and skipped until you
     -- come back within 85% of that or it's hurt. 0 = never park.
     PARK_RANGE = 15000,
@@ -957,7 +958,7 @@ local Aux = {} -- helpers (main.lua is at Lua's 200-locals limit)
 -- bot the game put to sleep. Returns true while e is parked.
 function Aux.parked(e, at)
     local busy = e.rival or e.crewmate or e.fighting or e.inCombat or e.alert or e.investigate
-    local here = e.bot:K2_GetActorLocation()
+    local here = e.updAt or e.bot:K2_GetActorLocation()
     if e.parked then
         local hurt = e.hp ~= nil and (e.bot.Health or 0) < e.hp
         if busy or hurt or (CFG.PARK_RANGE or 0) <= 0 or (at and dist(here, at) < CFG.PARK_RANGE * 0.85) then
@@ -1749,9 +1750,15 @@ local function updateBots(pc)
     -- Everyone who can be fought: you, and every live bot (by faction).
     local bodies = {}
     if alive then bodies[1] = { entry = PLAYER, pawn = pawn, at = playerLoc, faction = "player" } end
+    -- Each bot's location is read once per update here (each read makes a new table): Aux.parked and the loop below
+    -- use it too, where they used to read it again.
     for _, o in ipairs(raid.bots) do
-        if valid(o.bot) and (o.bot.Health or 0) > 0 and not o.parked then
-            bodies[#bodies + 1] = { entry = o, pawn = o.bot, at = o.bot:K2_GetActorLocation(), faction = factionOf(o) }
+        o.updAt = nil
+        if valid(o.bot) and (o.bot.Health or 0) > 0 then
+            o.updAt = o.bot:K2_GetActorLocation()
+            if not o.parked then
+                bodies[#bodies + 1] = { entry = o, pawn = o.bot, at = o.updAt, faction = factionOf(o) }
+            end
         end
     end
     for _, e in ipairs(raid.bots) do
@@ -1791,7 +1798,7 @@ local function updateBots(pc)
             end
             local dt = math.min(1, now - (e.perceivedAt or now))
             e.perceivedAt = now
-            local here = e.bot:K2_GetActorLocation()
+            local here = e.updAt or e.bot:K2_GetActorLocation()
             e.lastAt = here -- trackTargets: how far from the camera (ANIM_SLOW_FAR)
             local mine = factionOf(e)
             -- Size up every hostile body within range: the first spotted (nearest first) is the foe; otherwise
@@ -2055,13 +2062,16 @@ trackTargets = function()
     -- the director's 2-3 ms a frame. Posture, speed caps and leg rates a tenth of a second late don't show at that range.
     -- The rest animate ANIM_HZ times a second: every frame was ~1.2 ms a frame and 3 MB of garbage a second in a
     -- 20-bot fight (the aim section, profile.txt, 2026-11-14), and the collector stepping through that was worse.
+    -- reapDead has just checked every bot in raid.bots is valid and alive and dropped the rest, and nothing is freed
+    -- before the frame ends: the loops below don't ask the engine again (two calls per bot per loop, every frame).
     local now = os.clock()
     local cam = raid.camAt
     for _, e in ipairs(raid.bots) do
-        if valid(e.bot) and (e.bot.Health or 0) > 0 and not e.parked then
-            local far = cam and e.lastAt and not e.fighting and dist(e.lastAt, cam) > CFG.ANIM_SLOW_FAR
+        if not e.parked then
+            local calm = not (e.fighting or e.cover or e.investigate or e.followRun or e.meleeRun)
+            local far = calm and cam and e.lastAt and dist(e.lastAt, cam) > CFG.ANIM_SLOW_FAR
             if now >= (e.animNext or 0) then
-                e.animNext = now + 1 / (far and CFG.ANIM_SLOW_HZ or CFG.ANIM_HZ)
+                e.animNext = now + 1 / (far and CFG.ANIM_SLOW_HZ or calm and CFG.ANIM_PEACE_HZ or CFG.ANIM_HZ)
                 animate(e)
             end
         end
@@ -2069,7 +2079,7 @@ trackTargets = function()
     for _, e in ipairs(raid.bots) do
         -- Hide / lean out on time to the frame, not on the 0.5 s update.
         local c = e.cover
-        local alive = valid(e.bot) and (e.bot.Health or 0) > 0
+        local alive = not e.parked
         if c and e.fighting and alive and valid(e.ctrl) and c["until"] and now >= c["until"] then
             if c.state == "hiding" then peek(e, c, now) elseif c.state == "peeking" then hide(e, c, now) end
         end
@@ -2087,7 +2097,8 @@ trackTargets = function()
         -- level or pointing down.
         local want = (e.fighting and not sprinting and state ~= "hiding") and true or false
         if alive and (now >= (e.aimNext or 0) or want ~= e.aimWant) then
-            e.aimNext, e.aimWant = now + 1 / CFG.ANIM_HZ, want
+            -- (at peace: ANIM_PEACE_HZ, like animate(); nothing changes until want does, which is caught at once)
+            e.aimNext, e.aimWant = now + 1 / ((want or e.fighting) and CFG.ANIM_HZ or CFG.ANIM_PEACE_HZ), want
             local pawn = foeOf(e)
             local aiming = (want and pawn) and true or false
             if e.bot:IsTargeting() ~= aiming then e.bot:ServerSetTargeting(aiming) end
