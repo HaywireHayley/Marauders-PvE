@@ -195,6 +195,10 @@ local function define()
         { "SKIRMISH_EVERY", 2, "Time between those fights, longest (seconds)", 20, 900, 5, "" },
         { "SKIRMISH_SHIPS", 1, "Ships on each side in those fights, fewest", 1, 8, 1, "1 = one on one; more = a battle" },
         { "SKIRMISH_SHIPS", 2, "Ships on each side in those fights, most", 1, 8, 1, "Big battles cost frame rate" },
+        { "AWAKE_MAX", "Most enemies awake around you", 0, 40, 1, "More crews wait aboard their ship until some are down. Lower = better frame rate. 0 = no limit" },
+    })
+    add(spawns, X.CFG, {
+        { "PARK_RANGE", "Far-off guards sleep beyond (cm)", 0, 40000, 500, "Guards at peace this far from you stop until you come back. 0 = never (costs frame rate)" },
     })
     tabs[#tabs + 1] = spawns
     -- Gear: how well armed rivals, station top-ups and new crew are, by your player level (gearscale.lua). Read when a
