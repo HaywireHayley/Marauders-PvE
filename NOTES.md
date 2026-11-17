@@ -3016,3 +3016,13 @@ to the floor at 60230,114665,-1203", inside a wall.
   bytes), and logs "lobby: friends refresh stubbed" once. The overlay appears a few seconds after the menu, so the
   first seconds can still hitch.
 - Tested by the reporter in the menu, loadout and market: no stutter.
+
+## Pistol only rival bots: the pistol in the wrong slot (issue 101; rivals.lua equipKit)
+- Reported: on dead Marauder bots that carry only a pistol, the Webley sat in the large slot beside the vest, where a
+  primary goes, not in the pistol slot.
+- Cause: rollKit picks one gun from Gear.guns, pistols included, and equipKit always passed it to the game's kit step
+  as the primary (WeaponToSpawn); the pistol slot (PistolToSpawn) was only ever filled by a guard's own level kit.
+- Change: a gun whose row ends in "Pistol" (all of them do in gear.lua) is passed as the pistol and the primary is left
+  empty. Its ammo is added as before.
+- Check: kill a rival that carries only a pistol; the pistol should be in the pistol slot, and the bot should still fight
+  with it (holdGun reads CurrentWeapon). Not yet seen in game.

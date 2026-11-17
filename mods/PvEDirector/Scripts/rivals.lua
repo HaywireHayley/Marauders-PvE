@@ -1575,7 +1575,11 @@ end
 local function equipKit(body, kit)
     local function row(name) return name and FName(name):GetComparisonIndex() or 0 end
     local at = math.tointeger(body:GetAddress())
-    X.rollKit(at, math.tointeger(lib(CFG.ITEM_TABLE):GetAddress()), row(kit.gun and kit.gun[1]), row(kit.pistol), row(kit.helmet),
+    -- A pistol rolled as the gun goes in the pistol slot (every pistol row ends in "Pistol", see gear.lua), with the primary
+    -- left empty: in the primary slot it sat in the big slot next to the vest on the body.
+    local primary, sidearm = kit.gun and kit.gun[1], kit.pistol
+    if primary and primary:find("Pistol$") then primary, sidearm = nil, sidearm or primary end
+    X.rollKit(at, math.tointeger(lib(CFG.ITEM_TABLE):GetAddress()), row(primary), row(sidearm), row(kit.helmet),
         row(kit.chest), row(kit.bag))
     if kit.gun and kit.gun[3] then
         for _ = 1, kit.stacks do X.addItem(at, row(kit.gun[3]), CFG.AMMO_STACK) end
