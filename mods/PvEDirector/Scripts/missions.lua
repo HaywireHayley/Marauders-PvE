@@ -25,7 +25,7 @@ local CFG = {
     KEEP_SCALE = 1.8,    -- ...and within this many times that to keep inspecting (idle sway, small mouse moves).
     -- (A flat 35 degrees from 3.5 m took in most of a wall and the doorway, and blocked loot and doors there: #99.)
     LOOK_GRACE = 1.5,    -- seconds of looking away before an inspect stops (it restarts from zero)
-    USE_KEY = "F",       -- the "Use" action's default key (Input.ini ActionMappings)
+    USE_KEY = "F",       -- the "Use" action's default key, if it has no binding (keys.lua reads the player's own)
 }
 
 local S -- per-raid state
@@ -171,7 +171,7 @@ function M.interact(pc, pawn)
         -- CurrentTimedMission) the first second Use isn't held. So: (re)send it whenever Use is down and no inspect
         -- is running.
         local down = false
-        pcall(function() down = pc:IsInputKeyDown({ KeyName = FName(CFG.USE_KEY) }) end)
+        down = require("keys").down(pc, "Use", CFG.USE_KEY) -- (the player's own binding: #103)
         local idle = true
         pcall(function() idle = pc.CurrentTimedMission:ToString() == "None" end)
         if down and idle then

@@ -159,7 +159,7 @@ function G.frame(pc)
         S.testFire = exists(TEST_FIRE)
         if exists(TEST_LEAVE) then os.remove(TEST_LEAVE) stand(pc, "F (bridge test)") return end
     end
-    local f = keyDown(pc, CFG.USE_KEY)
+    local f = require("keys").down(pc, "Use", CFG.USE_KEY) -- (the player's own binding: #103)
     if f and not S.fDown and now - S.at >= CFG.LEAVE_AFTER then stand(pc, "F") return end
     S.fDown = f
     local ok, look = pcall(view, pc, t)
