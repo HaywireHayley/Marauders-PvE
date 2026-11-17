@@ -1,5 +1,6 @@
 -- Stash quality of life (lobby): SORT (merges stacks, then packs by kind), a search box that dims what doesn't match,
--- and SELL SHOWN (at a trader: sells the stash items the search shows, after a confirm press).
+-- and SELL SHOWN (at a trader: sells the stash items the search shows, after a confirm press). Hotkeys: K moves the
+-- item under the mouse between stash and gear, J discards it (pressed twice).
 -- A bar of plain widgets sits on top of the SECURE STORAGE panel while it's shown (LOADOUT and TRADE), polled like the
 -- debug menu's buttons (UMG delegates can't be bound from Lua).
 --
@@ -386,6 +387,83 @@ local function filter(con, query)
             pcall(function() w:SetRenderOpacity(on and 1 or DIM) end)
         end
     end
+end
+
+-- Hotkeys (main.lua binds them; they arrive here on the game thread): K moves the item under the mouse between the
+-- stash and your pockets and bags, J discards it (a second J within CONFIRM seconds: it can't be undone). Ignored while
+-- the search box is being typed in.
+local CONFIRM = 2
+local function freeSpot(con, f)
+    local _, cells, cols, rows = scan(con)
+    for _, dims in ipairs({ { f.w, f.h, f.rot }, { f.h, f.w, 1 - f.rot } }) do
+        for r = 0, rows - dims[2] do
+            for c = 0, cols - dims[1] do
+                if fits(cells, cols, rows, c, r, dims[1], dims[2]) then return c, r, dims[3] end
+            end
+        end
+    end
+end
+
+local function hovered()
+    for _, w in ipairs(FindAllOf("InventoryContainerWidget") or {}) do
+        if w:GetFullName():find("Transient", 1, true) and w:IsVisible() and w.SlotMasterType == 0 then
+            local canvas = w.DraggableItemsCanvas
+            for k = 0, (X.valid(canvas) and canvas:GetChildrenCount() or 0) - 1 do
+                local iw = canvas:GetChildAt(k)
+                if X.valid(iw) and X.valid(iw.Item) and iw:IsHovered() then return iw, w end
+            end
+        end
+    end
+end
+
+function Q.hotkey(what)
+    if not (ui and ui.search) then return end
+    if ui.search:HasKeyboardFocus() then return end
+    local inv = inventory()
+    local stash = stashCon()
+    if not (inv and stash and stash:IsVisible()) then return end
+    local iw, from = hovered()
+    if not iw then return end
+    local it = iw.Item
+    local guid = it.UniqueItemGUID:ToString()
+    local items = scan(from)
+    local f = items[guid]
+    if not f then return end
+    local name = it.ItemData:ToString()
+    pcall(function() name = iw.ItemName:GetText():ToString() end)
+    if what == "discard" then
+        local now = os.clock()
+        if ui.discard == guid and now < (ui.discardAt or 0) then
+            ui.discard = nil
+            inv:Server_RemoveItem(guid)
+            say("Discarded " .. name)
+            X.log("stash: discarded " .. f.row)
+        else
+            ui.discard, ui.discardAt = guid, now + CONFIRM
+            say(("Press J again to discard %s"):format(name))
+        end
+        return
+    end
+    -- K: from the stash to the first pocket or bag with room; from anywhere else to the stash.
+    local targets = {}
+    if from.ContainerID:ToString() == STASH then
+        for _, w in ipairs(FindAllOf("InventoryContainerWidget") or {}) do
+            if w:GetFullName():find("Transient", 1, true) and w:IsVisible() and w.SlotMasterType == 0
+                and not w.bARigCon and w.ContainerID:ToString() ~= STASH then targets[#targets + 1] = w end
+        end
+    else
+        targets[1] = stash
+    end
+    for _, w in ipairs(targets) do
+        local c, r, rot = freeSpot(w, f)
+        if c then
+            inv:Server_MoveItem(guid, w.ContainerID:ToString(), { Column = c, Row = r }, 0, 0, rot)
+            say(("Moved %s to %s"):format(name, w.ContainerID:ToString() == STASH and "the stash" or "your gear"))
+            lastQuery = nil
+            return
+        end
+    end
+    say(("No room for %s"):format(name))
 end
 
 -- The bar ---------------------------------------------------------------------------------------------------------
