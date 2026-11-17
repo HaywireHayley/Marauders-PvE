@@ -1419,6 +1419,20 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
   - Settings boxes write through App.write_setting, which says so on the status line if the file can't be written.
   Tested outside the game: saves.py and the launcher with stubbed game/PowerShell (26 checks), and real launcher
   processes for the single-instance cases.
+- Stand-in start and windowed size (2026-11-16, issue #75): launch-offline.ps1 started the stand-in with
+  `Start-Process python -ArgumentList '-I', <path>`. Windows PowerShell joins -ArgumentList with plain spaces and no
+  quotes, so with a space anywhere in the install path Python got a cut-off path and exited. Nothing checked, so the
+  game sat on CONNECTING TO BACKEND forever. Reproduced on a folder named "with space"; re-extracting to a plain
+  path "fixed" it, as the reporter found. Now scripts/launch-helpers.ps1 Start-Standin quotes the path, waits up to
+  15 s for 127.0.0.1:7350 to accept a connection, and otherwise fails PLAY with a reason. The reason is the last line
+  of backend/standin_err.log, where nakama_standin.py now writes a startup crash (port, state.json, no write access),
+  or a timeout. Don't use Start-Process -Redirect* for it: that turns on handle inheritance, the stand-in keeps the
+  launcher's stdout pipe, and the launcher's ps() call never returns. The stand-in now starts before mode.ps1 offline,
+  so a failed start leaves the game stock.
+  Windowed mode was a fixed -ResX=1600 -ResY=900, which ran off a 1366x768 screen. Get-WindowedSize uses 1600x900 when
+  it fits, else the biggest 16:9 within 90% of the width and (height - 120) for the title bar and taskbar, in steps of 16,
+  960x540 at least (1366x768 -> 1152x648). It reads the first video controller, so on two monitors it's sized for the
+  first.
 - New saves start as a new live account did (2026-11-16, issue #56). On the first login of an account with no
   social/created (the seed has none, so every fresh save), the game runs its new-player setup: it writes
   social/created + accouttype, adds 65,000 credits (statChangeArray TotalCash) and a 34-item kit (2 KlobbSMG, 3

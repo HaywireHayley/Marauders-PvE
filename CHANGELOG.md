@@ -11,6 +11,9 @@ Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Mar
   forward). Closing it while you play asks first, and if you do, it saves your game and puts the online game back
   next time it opens. A damaged save shows as **DAMAGED** instead of disappearing, a save can be called "Nul",
   and a setting that can't be saved says so.
+- **Stuck on "CONNECTING TO BACKEND"** when the mod's folder path had a space in it (#75): fixed. If the offline backend
+  still can't start, PLAY now says why instead of hanging.
+- **Windowed mode fits small screens:** 1600x900 when it fits, smaller on laptops (e.g. 1152x648 on 1366x768).
 
 ## Public test, 16 Nov 2026, build 3 (`public-test-20261116.3`)
 

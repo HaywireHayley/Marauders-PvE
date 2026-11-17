@@ -1,18 +1,18 @@
 # Starts the game in offline mode, without Easy Anti-Cheat. Extra arguments go to the game.
 #   powershell -File launch-offline.ps1 [args...]
 $ErrorActionPreference = 'Stop'
-& (Join-Path $PSScriptRoot 'mode.ps1') offline | Out-Host
+. (Join-Path $PSScriptRoot 'launch-helpers.ps1')
 # With bridge\offline_backend present the game talks to the local Nakama stand-in instead of the live backend.
+# It starts first, so if it can't, the game folder is still stock and the launcher can say why.
 $Project = Split-Path $PSScriptRoot
 if (Test-Path (Join-Path $Project 'bridge\offline_backend')) {
-    if (-not (Get-NetTCPConnection -LocalPort 7350 -State Listen -ErrorAction SilentlyContinue)) {
-        # PVE_PYTHON: the launcher's own interpreter (a bare "python" can be the Microsoft Store stub).
-        $Python = if ($env:PVE_PYTHON) { $env:PVE_PYTHON } else { 'python' }
-        Start-Process $Python -ArgumentList '-I', (Join-Path $Project 'backend\nakama_standin.py') -WindowStyle Hidden
-        Start-Sleep -Seconds 2
-    }
+    # PVE_PYTHON: the launcher's own interpreter (a bare "python" can be the Microsoft Store stub).
+    $Python = if ($env:PVE_PYTHON) { $env:PVE_PYTHON } else { 'python' }
+    $problem = Start-Standin $Project $Python
+    if ($problem) { [Console]::Error.WriteLine("Can't start: $problem."); exit 1 }
     'Nakama: local stand-in on 127.0.0.1:7350 (backend\server.log)'
 } else { 'Nakama: live backend' }
+& (Join-Path $PSScriptRoot 'mode.ps1') offline | Out-Host
 $Game = 'C:\Program Files (x86)\Steam\steamapps\common\PHtest'
 $GamePath = Join-Path $Project 'config\game_path.txt'
 if (Test-Path $GamePath) { $Game = (Get-Content $GamePath -TotalCount 1).Trim() }
@@ -24,9 +24,8 @@ if (Test-Path $ModePath) { $WindowMode = (Get-Content $ModePath -TotalCount 1).T
 if ($WindowMode -eq 'borderless') {
     # Borderless is the game's own "windowed fullscreen" (FullscreenMode=1 in GameUserSettings.ini) at the desktop's
     # resolution; there's no command-line switch for it, and -windowed / -ResX would override it.
-    $Screen = Get-CimInstance Win32_VideoController | Where-Object { $_.CurrentHorizontalResolution } | Select-Object -First 1
-    $ResX, $ResY = 1920, 1080
-    if ($Screen) { $ResX, $ResY = $Screen.CurrentHorizontalResolution, $Screen.CurrentVerticalResolution }
+    $ResX, $ResY = Get-ScreenSize
+    if (-not $ResX) { $ResX, $ResY = 1920, 1080 }
     $IniDir = Join-Path $env:LOCALAPPDATA 'RaidGame\Saved\Config\WindowsNoEditor'
     $Ini = Join-Path $IniDir 'GameUserSettings.ini'
     $Section = '[/Script/Engine.GameUserSettings]'
@@ -44,7 +43,9 @@ if ($WindowMode -eq 'borderless') {
     Set-Content $Ini $lines -Encoding Ascii
     $gameArgs = @('-nosplash') + $args
 } else {
-    $gameArgs = @('-windowed', '-ResX=1600', '-ResY=900', '-nosplash') + $args
+    $sx, $sy = Get-ScreenSize
+    $ResX, $ResY = Get-WindowedSize $sx $sy
+    $gameArgs = @('-windowed', "-ResX=$ResX", "-ResY=$ResY", '-nosplash') + $args
 }
 Start-Process $Exe -ArgumentList $gameArgs -WorkingDirectory (Split-Path $Exe)
 "Started: $($gameArgs -join ' ')"

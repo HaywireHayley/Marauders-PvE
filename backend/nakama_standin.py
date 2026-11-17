@@ -447,4 +447,21 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # The launcher starts this hidden, so a crash at startup (port taken, state.json unreadable, no write access) would
+    # be invisible: write it where scripts/launch-helpers.ps1 reads it, so PLAY can say why (issue #75).
+    err = os.path.join(HERE, "standin_err.log")
+    try:
+        if os.path.exists(err):
+            os.remove(err)
+    except OSError:
+        pass
+    try:
+        main()
+    except Exception:
+        try:
+            import traceback
+            with open(err, "w", encoding="utf-8") as f:
+                traceback.print_exc(file=f)  # its last line is "SomeError: message", the one the launcher shows
+        except OSError:
+            pass
+        raise
