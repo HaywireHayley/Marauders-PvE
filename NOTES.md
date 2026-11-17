@@ -2574,6 +2574,31 @@ to cut.
 Also seen this session: the load crash at RaidGame+0x1a605d0 (UE4SS hook dispatch, see 2026-11-09) again, once, loading
 Space_Charlie after a bridge launch; the relaunch was fine.
 
+## Parking far-off guards, a cap on bodies awake, fps in the status line (2026-11-17, tested)
+- Build 4 testers report 10-15 fps in raids. Found: every station you enter adds its guards (own NPCs adopted, plus
+  top-ups to MIN_DEFENDERS) to raid.bots, and nothing ever put them back to sleep: updateBots even wakes any bot the
+  game had put to sleep. After a few stations, dozens of guards far away kept their per-update AI, sized up every other
+  body within PERCEIVE_RANGE (n^2), and ticked skeleton and movement every frame. Rival crews were fine (they go back to
+  simulation 20 s after you leave).
+- main.lua Aux.parked (main.lua and rivals.lua are both at Lua's 200-local limit, hence Aux / R fields): a guard or
+  soldier at peace (not a rival, not your crew, not fighting, alerted or investigating) farther than CFG.PARK_RANGE
+  (15000) from your on-foot character gets time dilation 0 (body and controller), movement and pose ticks off, and is
+  skipped by updateBots, the perception candidate list and trackTargets' animate loop. Back within 85% of PARK_RANGE,
+  or hurt, e.parked is cleared and updateBots' existing wake() branch (dilation < 1) brings it back.
+- rivals.lua CFG.AWAKE_MAX (16), R.awakeCount(): a crew about to materialize in your station waits aboard (the same
+  waitingRoom path as insideCap) while that many bodies are awake around you (parked and your crew don't count), and a
+  station's top-ups stop at the cap ("N more guards wanted, room for M"). Both settings are in F3 > How many; 0 = off.
+- The 10 s status line now has "parked N" and "fps N" (frames counted in onTick's aim step), so testers' last_game.log
+  carries frame data without the profiler.
+- Test (Space_Solo_01, MIN_DEFENDERS 14 and CREWS 8 set from bridge/dir_eval.lua, t.MaxFPS 0, god mode; teleport into
+  Navy Outpost for 60 s, back aboard your ship for 120 s; master's scripts vs this branch's, same route):
+  master 67-77 fps, director over 10 ms on 10-16 frames per 10 s; branch 89-96 fps, 0-3 frames over 10 ms, 12 of 14
+  guards parked (the 2 still fighting stay awake). Back in Navy Outpost: parked 0, patrolling and fighting again, no
+  Lua errors. Not measured: a slower PC, and a full raid of several stations (should gain more, as nothing piles up).
+- Testing tips learned: splash PLAY doesn't always take its bound event from Lua (real click instead);
+  Crew_LaunchToMatchBtn_SubWidget_C:BndEvt__Btn_Main_..._OnButtonPressedEvent__DelegateSignature() starts a raid from the
+  bridge. A test raid appends to cover/<map>.txt (tracked): check it out again afterwards.
+
 ## Director frame cost: perception, garbage collector, far animation, stray sweep (2026-11-14, tested)
 
 Follow-up to the Colony Cruiser numbers above (27 bots, ~20 fps with stutters):

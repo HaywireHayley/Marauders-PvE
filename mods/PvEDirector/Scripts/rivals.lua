@@ -277,6 +277,8 @@ local CFG = {
     DEMATERIALIZE_AFTER = 20,       -- seconds outside a station before its rivals go back to being simulated
     FRESH_DOCK = 25,                -- a crew that docked this recently enters through the airlock
     MATERIALIZE_GAP = 3,            -- seconds between crews appearing in a station you walk into
+    AWAKE_MAX = 16,                 -- bodies awake around you (guards, soldiers, rivals; parked ones don't count) before
+                                    -- another crew waits aboard and station top-ups stop; 0 = no cap (F3 How many)
     INSIDE_AREA_PER_CREW = 10000,   -- crews walking a station at once: one per this many m2 (at least INSIDE_MIN).
     INSIDE_MIN = 2,                 -- The rest wait aboard and come in through an airlock as a place frees up: 11 crews
                                     -- docked at Colony Cruiser (30k m2, the map's only station) all appeared inside at
@@ -1319,6 +1321,15 @@ local function setShipEnemy(c, target)
 end
 
 -- How many crews a station holds before it counts as busy (its size), and how many it has: docked there or on the way.
+-- Bodies awake around you: every live director bot that isn't parked (main.lua Aux.parked), your crew excepted.
+function R.awakeCount()
+    local n = 0
+    for _, e in ipairs(X.raid().bots) do
+        if not e.parked and not e.crewmate and valid(e.bot) and (e.bot.Health or 0) > 0 then n = n + 1 end
+    end
+    return n
+end
+
 local function insideCap(st) return math.max(CFG.INSIDE_MIN, math.floor((st.area or CFG.STATION_AREA_MID) / CFG.INSIDE_AREA_PER_CREW)) end
 local function crewsInside(st)
     local n = 0
@@ -2310,6 +2321,13 @@ local function garrisonStation(pc, st)
     -- MIN_DEFENDERS is for a mid-size station: a small one gets as few as half, a big one up to DEFENDERS_MAX_SCALE x.
     local scale = math.max(0.5, math.min(CFG.DEFENDERS_MAX_SCALE, (st.area or CFG.STATION_AREA_MID) / CFG.STATION_AREA_MID))
     local extra = math.max(0, math.floor(CFG.MIN_DEFENDERS * scale + 0.5) - #list)
+    if CFG.AWAKE_MAX > 0 then
+        local room = math.max(0, CFG.AWAKE_MAX - R.awakeCount() - #list)
+        if room < extra then
+            X.log(("[rivals] %s: %d more guards wanted, room for %d (AWAKE_MAX)"):format(st.name, extra, room))
+            extra = room
+        end
+    end
     if #list > 0 then
         X.log(("[rivals] %s: %d of its own defenders%s"):format(st.name, #list,
             extra > 0 and (", plus %d more like them"):format(extra) or ""))
@@ -3749,10 +3767,17 @@ local function updateCrew(c, now, place, playerLoc)
                 or now - (S.lastMaterialize or -99) < CFG.MATERIALIZE_GAP
             -- Room for so many crews at once (insideCap); the rest wait aboard, and come in through an airlock later.
             local full = not c.bodies and crewsInside(st) >= insideCap(st)
-            if full and not c.waitingRoom then
+            local crowd = not c.bodies and not full and CFG.AWAKE_MAX > 0 and R.awakeCount() >= CFG.AWAKE_MAX
+            if (full or crowd) and not c.waitingRoom then
                 c.waitingRoom = true
-                X.log(("[rivals] %s waits aboard: %s already holds %d crews"):format(crewLabel(c), st.name, crewsInside(st)))
+                if full then
+                    X.log(("[rivals] %s waits aboard: %s already holds %d crews"):format(crewLabel(c), st.name, crewsInside(st)))
+                else
+                    X.log(("[rivals] %s waits aboard: %d awake around you already (AWAKE_MAX)"):format(crewLabel(c),
+                        R.awakeCount()))
+                end
             end
+            full = full or crowd
             if not c.bodies and not settling and not full then
                 if c.waitingRoom then c.lateEntry, c.waitingRoom = true, nil end
                 materialize(c, stationSpawnSpots(c, st, playerLoc), "station")

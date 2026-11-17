@@ -9,6 +9,11 @@ Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Mar
 - **The Red Baron in every raid** (an event setting, #78): F3 > **Rival ships** > "The Red Baron in every raid". With it
   on, one rival crew is the Red Baron's: his strike frigate, a full crew that fights to the death and goes for any ship
   it sees, his best gunner, and the Baron himself in his own look, best gear and twice the health. Off by default.
+- **Better frame rate later in a raid:** guards in stations you've left used to stay fully awake for the rest of the
+  raid, so every station you visited made the game slower. Now guards far from you sleep until you come back, and at
+  most 16 enemies are awake around you (more crews wait on their ship). In a test with one busy station behind us, the
+  frame rate went from about 70 to about 95. Both are adjustable in F3 > **How many**. `last_game.log` now records your
+  frame rate every 10 seconds, so please include it with performance reports.
 - **Windowed mode fits small screens:** 1600x900 when it fits, smaller on laptops (e.g. 1152x648 on 1366x768).
 
 ## Public test, 16 Nov 2026, build 4 (`public-test-20261116.4`)
