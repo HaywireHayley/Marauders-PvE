@@ -169,7 +169,24 @@ local RAID_OPTS = "?PID=offline1?PNAME=Marauder?CREW=solo1?CPT=1?NUM=1?EOS=offli
 local function log(msg) print("[PvEDirector] " .. tostring(msg) .. "\n") end
 -- (any falsy value too: `valid(a and a.b)` hands it false, which threw "attempt to index a boolean" from the minimap
 -- dozens of times a second while it looked for your ship)
-local function valid(o) return o and o:IsValid() or false end
+-- UE4SS's IsValid() reads the object's own memory, so a kept reference to an object the game has since freed (a station's
+-- contents streaming out as you cycle an airlock) crashed the game in UE4SS (issue 53). pve_alive (pvepatch.c) checks the
+-- address natively first; without pvepatch.dll, or for something that isn't a UObject, it's IsValid() alone.
+-- (a do block: main.lua is at Lua's limit of 200 locals)
+local valid
+do
+    local alive = package.loadlib(PROJECT .. "native/pvepatch.dll", "pve_alive") -- (object address) -> 1 if live
+    local function address(o) return o:GetAddress() end
+    valid = function(o)
+        if not o then return false end
+        if alive then
+            local ok, at = pcall(address, o)
+            at = ok and math.tointeger(at)
+            if at and alive(at) ~= 1 then return false end
+        end
+        return o:IsValid()
+    end
+end
 local function dist(a, b) return math.sqrt((a.X - b.X) ^ 2 + (a.Y - b.Y) ^ 2 + (a.Z - b.Z) ^ 2) end
 local function rnd(range) return range[1] + math.random() * (range[2] - range[1]) end
 local function dist2d(a, b) return math.sqrt((a.X - b.X) ^ 2 + (a.Y - b.Y) ^ 2) end

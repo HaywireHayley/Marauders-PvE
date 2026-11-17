@@ -2658,7 +2658,7 @@ local function separation(c, here, now)
     local myR = hullRadius(c)
     local worst, wgap
     for _, p in ipairs(shipsFlying(now)) do
-        if p.c ~= c and p.ship:IsValid() then
+        if p.c ~= c and valid(p.ship) then
             local rx, ry, rz = here.X - p.at.X, here.Y - p.at.Y, here.Z - p.at.Z
             local d = math.sqrt(rx * rx + ry * ry + rz * rz)
             if d - myR - p.r < CFG.SEP_CLEAR + 6000 then
