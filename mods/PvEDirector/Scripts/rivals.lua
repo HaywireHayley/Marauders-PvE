@@ -34,6 +34,7 @@ local CFG = {
     CREW_SIZE = { 1, 4 },           -- people per rival crew (solo maps were one player per ship; live crew maps had 3-4)
     MAX_CREWS = 15,
     CREWS = 5,                      -- rival crews per raid; 0 = one per free player slot (up to MAX_CREWS: 11 on solo maps)
+    BARON = 0,                      -- event (#78): 1 = one crew in every raid is the Red Baron's (makeBaron; F3 Rival ships)
     ARRIVAL_SPREAD = { 5, 60 },     -- crews launch from their spawn points this many seconds after you are aboard
     STATIONS_PER_RAID = { 2, 4 },   -- each crew raids this many places before extracting
     DOCK_SECONDS = { 200, 450 },    -- time spent inside a station
@@ -858,11 +859,52 @@ local function newCrew(i, used, size)
     return c
 end
 
+-- Event (#78): the Red Baron's crew. The map's own Red Baron frigate only turns up on some runs (the game rolls it), so
+-- the guarantee is one of our crews: his strike frigate with its own guns, a full crew that fights to the death and
+-- goes for any ship it sees, his best gunner, and the Baron himself as captain in the game's Baron head and coat, in
+-- the best gear and with twice the health. He keeps the rivals' player-like brain (ai.lua "boss" is the weaker one).
+-- (Fields of R.baron, not locals: this file's main chunk is at Lua's 200-local limit.)
+R.baron = {
+    head = "/Game/Characters/MainPlayer/Meshes/Heads/Baron_Head_Skel_01.Baron_Head_Skel_01",
+    body = "/Game/Characters/MainPlayer/Meshes/Bodies/Baron_Body_Skel_01.Baron_Body_Skel_01",
+}
+
+function R.baron.design()
+    for _, d in ipairs(CFG.HULLS) do if d.row == "StrikeFrigate_Ship" then return d end end
+end
+
+function R.baron.make(c, used)
+    c.baron = true
+    c.shipName = "Strike Frigate"
+    c.diehard, c.rusher, c.aggression = true, false, 1
+    c.gunnery = CFG.GUN_SKILL[2]
+    local most = math.max(CFG.CREW_SIZE[1], CFG.CREW_SIZE[2])
+    while #c.members < most do
+        local m = newMember(used)
+        m.crew = c.id
+        table.insert(c.members, m)
+    end
+    local b = c.members[1]
+    used["Red Baron"] = true
+    b.name, b.baron = "Red Baron", true
+    b.tier = GearScale.spec(1)
+    b.helmet, b.chest, b.backpack = true, true, true
+    b.female = false
+    b.voice = X.voice.pick(false)
+    b.headPath, b.bodyPath = R.baron.head, R.baron.body
+    b.maxHp = CFG.BASE_HP * 2
+    b.hp = b.maxHp
+    c.captain = b.name
+end
+
 local function makeCrews(slots, kind)
     local crews, used = {}, {}
     local n = CFG.CREWS > 0 and math.floor(CFG.CREWS) or math.min(CFG.MAX_CREWS, math.max(0, slots - 1))
     local size = CFG.CREW_SIZE
+    local baron = (tonumber(CFG.BARON) or 0) >= 1 and R.baron.design() ~= nil
+    if baron then n = math.max(n, 1) end
     for i = 1, n do table.insert(crews, newCrew(i, used, size)) end
+    if baron then R.baron.make(crews[1], used) end
     return crews
 end
 
@@ -884,7 +926,7 @@ local function spawnShip(pc, c, at)
     if #spots == 0 then spots = S.shipSpawns end
     if #spots == 0 and not at then return false end
     at = at or pick(spots)
-    local design = weighted(CFG.HULLS)
+    local design = c.baron and R.baron.design() or weighted(CFG.HULLS)
     local cls = loadClass("/Game/Blueprints/Ships/" .. design.pawn)
     local tree = lib(CFG.SHIP_TREE)
     if not (cls and valid(tree)) then return false end
@@ -907,7 +949,7 @@ local function spawnShip(pc, c, at)
     for k in pairs(CFG.TURRET_TYPES) do table.insert(kinds, k) end
     table.sort(kinds)
     for _, t in ipairs(design.turrets) do
-        table.insert(c.turretPlan, math.random() < CFG.TURRET_SWAP and pick(kinds) or t)
+        table.insert(c.turretPlan, not c.baron and math.random() < CFG.TURRET_SWAP and pick(kinds) or t)
     end
     c.turretKinds = { table.unpack(c.turretPlan) }
     -- The frigate's own behaviour tree picks the nearest ship it can see (usually yours) and steers at it, which made

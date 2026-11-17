@@ -212,7 +212,8 @@ local function define()
     tabs[#tabs + 1] = gear
     local ships = { name = "Rival ships", id = "Crews" }
     add(ships, X.RCFG, {
-        { "RUSHERS", "Crews that head straight for a station", 0, 1, 0.01, "0 = none, 1 = all. They only fight if shot at" },
+        { "BARON", "The Red Baron in every raid", 0, 1, 1, "1 = on: one rival crew is the Red Baron's, in his strike frigate, and he hunts any ship he sees. Takes effect next raid" },
+        { "RUSHERS","Crews that head straight for a station", 0, 1, 0.01, "0 = none, 1 = all. They only fight if shot at" },
         { "ATTACK_CHANCE", "Chance a crew attacks a ship it sees", 0, 1, 0.01, "Aggressive crews attack more often" },
         { "BOARD_ONE", "Chance one crew member boards", 0, 1, 0.01, "Only for crews of 2 or more" },
         { "BOARD_ALL", "Chance the whole crew boards", 0, 1, 0.01, "" },
