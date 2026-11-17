@@ -167,7 +167,9 @@ local PLAYER_TEAM, BOT_TEAM = 3, 2
 local RAID_OPTS = "?PID=offline1?PNAME=Marauder?CREW=solo1?CPT=1?NUM=1?EOS=offline1?UPN=offline1?psid=1"
 
 local function log(msg) print("[PvEDirector] " .. tostring(msg) .. "\n") end
-local function valid(o) return o ~= nil and o:IsValid() end
+-- (any falsy value too: `valid(a and a.b)` hands it false, which threw "attempt to index a boolean" from the minimap
+-- dozens of times a second while it looked for your ship)
+local function valid(o) return o and o:IsValid() or false end
 local function dist(a, b) return math.sqrt((a.X - b.X) ^ 2 + (a.Y - b.Y) ^ 2 + (a.Z - b.Z) ^ 2) end
 local function rnd(range) return range[1] + math.random() * (range[2] - range[1]) end
 local function dist2d(a, b) return math.sqrt((a.X - b.X) ^ 2 + (a.Y - b.Y) ^ 2) end
