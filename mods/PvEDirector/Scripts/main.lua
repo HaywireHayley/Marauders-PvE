@@ -36,6 +36,8 @@ local CFG = {
     RETARGET_NEAR = 1500,    -- ...within this range
     RETARGET_RATIO = 0.5,    -- ...and at most this share of the current foe's distance
     GUNSHOT_RANGE = 10000,   -- gunshots carry this far (at hearing 1.0)
+    BOT_RELOAD_SECONDS = 2.4, -- a bot's magazine is empty: this long without shooting (issue #115), plus up to
+    BOT_RELOAD_JITTER = 0.8,  -- this much more
     BOT_GUNSHOT_SCALE = 0.4, -- a bot's own shots carry this share of that: at 100 m every bot in a station heard every
                              -- firefight, went to look and died in the first two minutes (2026-11-14, Moon Base)
     LOOK_AROUND = { 3, 6 },  -- seconds spent looking around where a noise came from
@@ -467,6 +469,10 @@ local function onTick(ctx)
     if PveQuit then pcall(PveQuit.tick) end -- Quit Game in the pause menu (quit.lua)
     if PveInvKeys then pcall(PveInvKeys.tick) end -- Esc / lean with the inventory open (invkeys.lua)
     if PveLobbyLabel then pcall(PveLobbyLabel.tick, ctx:get()) end -- START RAID label (lobbylabel.lua)
+    if PveInvQol then
+        local okq, errq = pcall(PveInvQol.tick, ctx:get())
+        if not okq and not PveInvQolErr then PveInvQolErr = true log("stash tools: " .. tostring(errq)) end
+    end
     local shown, shownErr = ppcall("loading", Loading.tick, ctx:get())
     if not shown then
         log("loading screen failed: " .. tostring(shownErr))
@@ -1009,6 +1015,7 @@ local function setEnemy(e, pawn)
     -- Reaction time (ai.lua profile): facing the target already, but no shooting until it's over
     -- (trackTargets sets the enemy then).
     if e.holdUntil and os.clock() < e.holdUntil then return end
+    if e.reloadUntil and os.clock() < e.reloadUntil then return end -- (reloading: no new reaction time cuts it short)
     -- A knife or truncheon only swings once it's in reach (Aux.meleeHints): with an enemy set the tree swings at any range.
     if Aux.isMelee(e) and not e.meleeClose then return end
     ctrl.BlackboardComp:SetValueAsObject(FName("Enemy"), pawn)
@@ -1411,6 +1418,38 @@ end
 local function holdFire(e)
     e.ctrl.BlackboardComp:ClearValue(FName("Enemy"))
     e.ctrl.MyEnemy = nil
+end
+
+-- Bots reload (issue #115). A bot's shot never touches its gun's clip (only ServerMultiSimulateWeaponFire runs, see
+-- the gunfire hook), so its 30 rounds never ran out. Shots are counted here against the gun's magazine
+-- (WeaponConfig.AmmoPerClip) and the clip kept in step; on empty the bot holds fire for the reload (its controller's
+-- ReloadAIWeapon plays what the game has for it), and updateBots refills the clip when the time is up.
+function Aux.botShot(w, owner)
+    local addr = owner:GetAddress()
+    local by = raid.botByAddr
+    if not by or raid.botByAddrN ~= #raid.bots then
+        by = {}
+        for _, o in ipairs(raid.bots) do
+            if valid(o.bot) then by[o.bot:GetAddress()] = o end
+        end
+        raid.botByAddr, raid.botByAddrN = by, #raid.bots
+    end
+    local e = by[addr]
+    if not (e and valid(e.ctrl)) then return end
+    if not e.mag then
+        local ok, m = pcall(function() return w.WeaponConfig.AmmoPerClip end)
+        e.mag = ok and m and m > 0 and m or 30
+    end
+    e.shots = (e.shots or 0) + 1
+    pcall(function() w.CurrentAmmoInClip = math.max(0, e.mag - e.shots) end)
+    if e.shots < e.mag then return end
+    e.shots = 0
+    e.reloadUntil = os.clock() + CFG.BOT_RELOAD_SECONDS + math.random() * CFG.BOT_RELOAD_JITTER
+    e.holdUntil = e.reloadUntil
+    pcall(holdFire, e)
+    pcall(function() e.ctrl:ReloadAIWeapon() end)
+    raid.reloads = (raid.reloads or 0) + 1
+    if raid.reloads == 1 then log(("bots reload: first one after %d shots"):format(e.mag)) end
 end
 
 local function strafeTo(e, at)
@@ -2108,8 +2147,13 @@ trackTargets = function()
         end
         local state = e.cover and e.cover.state
         local sprinting = state == "moving" and e.cover.run
+        -- A reload done (Aux.botShot): a full clip again.
+        if e.reloadUntil and now >= e.reloadUntil then
+            e.reloadUntil = nil
+            pcall(function() e.bot.CurrentWeapon.CurrentAmmoInClip = e.mag or 30 end)
+        end
         -- Reaction time over: open fire, unless cover says hold it (running to cover, hiding).
-        if e.holdUntil and now >= e.holdUntil and valid(e.ctrl) then
+        if e.holdUntil and now >= e.holdUntil and valid(e.ctrl) and not (e.reloadUntil and now < e.reloadUntil) then
             e.holdUntil = nil
             local pawn = foeOf(e)
             if e.inCombat and pawn and state ~= "hiding" and not sprinting then setEnemy(e, pawn) end
@@ -2817,6 +2861,8 @@ PveMapPick.init({ log = log, valid = valid, project = PROJECT })
 PveGuild = require("guild") -- (a global: main.lua is at the 200-locals limit)
 PveGuild.init({ log = log, valid = valid, project = PROJECT })
 PveLobbyLabel = require("lobbylabel") -- (globals, like PveQuit: main.lua is at the 200-locals limit)
+PveInvQol = require("invqol") -- stash SORT / SELL JUNK / search / double-click to gear (invqol.lua)
+PveInvQol.init({ log = log, valid = valid, lib = lib })
 PveLobbyLabel.init({ log = log, offline = function() return offlineBackend() end })
 PveInvKeys = require("invkeys") -- (a global, like PveQuit: main.lua is at the 200-locals limit)
 PveInvKeys.init({ log = log, valid = valid,
@@ -3262,6 +3308,10 @@ RegisterHook("/Script/RaidGame.RaidWeapon:ServerMultiSimulateWeaponFire", functi
         local ok, err = pcall(AI.noise, owner:K2_GetActorLocation(), range, "gunshot", owner:GetAddress())
         if not ok then log("gunshot noise failed: " .. tostring(err)) end
     end
+    if isBot then
+        local okr, errr = pcall(Aux.botShot, w, owner)
+        if not okr and not raid.reloadErr then raid.reloadErr = true log("bot reload: " .. tostring(errr)) end
+    end
     if nativeFireFx then return end
     if not isBot then return end
     if valid(w.MuzzleFX) then
@@ -3399,6 +3449,9 @@ RegisterKeyBind(Key.F9, function() table.insert(pending, toggleDebug) end)
 RegisterKeyBind(Key.N, function() table.insert(pending, Minimap.toggle) end)
 RegisterKeyBind(Key.M, function() table.insert(pending, Minimap.expand) end)
 RegisterKeyBind(Key.B, function() table.insert(pending, Minimap.next) end)
+-- Stash hotkeys (invqol.lua): K quick move, J discard (twice) for the item under the mouse. Neither key is bound by the game.
+RegisterKeyBind(Key.K, function() table.insert(pending, function() if PveInvQol then PveInvQol.hotkey("move") end end) end)
+RegisterKeyBind(Key.J, function() table.insert(pending, function() if PveInvQol then PveInvQol.hotkey("discard") end end) end)
 
 -- The debug menu's buttons (they used to be F4-F9). when() says whether one can be used where you are.
 local function onFootIn(kind)
