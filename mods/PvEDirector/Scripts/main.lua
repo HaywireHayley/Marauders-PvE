@@ -3446,9 +3446,11 @@ RegisterKeyBind(Key.F6, function() table.insert(pending, function()
 end) end)
 RegisterKeyBind(Key.F9, function() table.insert(pending, toggleDebug) end)
 -- The minimap (minimap.lua): N shows or hides it, M switches to the full overview and back, B follows the next task.
-RegisterKeyBind(Key.N, function() table.insert(pending, Minimap.toggle) end)
-RegisterKeyBind(Key.M, function() table.insert(pending, Minimap.expand) end)
-RegisterKeyBind(Key.B, function() table.insert(pending, Minimap.next) end)
+-- (not while typing in the stash search: "nickel" turned the minimap off)
+function Aux.unlessTyping(fn) return function() if not (PveInvQol and PveInvQol.typing()) then fn() end end end
+RegisterKeyBind(Key.N, function() table.insert(pending, Aux.unlessTyping(Minimap.toggle)) end)
+RegisterKeyBind(Key.M, function() table.insert(pending, Aux.unlessTyping(Minimap.expand)) end)
+RegisterKeyBind(Key.B, function() table.insert(pending, Aux.unlessTyping(Minimap.next)) end)
 -- Stash hotkeys (invqol.lua): K quick move, J discard (twice) for the item under the mouse. Neither key is bound by the game.
 RegisterKeyBind(Key.K, function() table.insert(pending, function() if PveInvQol then PveInvQol.hotkey("move") end end) end)
 RegisterKeyBind(Key.J, function() table.insert(pending, function() if PveInvQol then PveInvQol.hotkey("discard") end end) end)

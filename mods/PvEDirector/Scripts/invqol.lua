@@ -416,9 +416,16 @@ local function hovered()
     end
 end
 
+-- True while the stash search box has the keyboard (main.lua's letter hotkeys stand aside).
+function Q.typing()
+    local typing = false
+    pcall(function() typing = ui ~= nil and ui.search ~= nil and ui.search:HasKeyboardFocus() end)
+    return typing
+end
+
 function Q.hotkey(what)
     if not (ui and ui.search) then return end
-    if ui.search:HasKeyboardFocus() then return end
+    if Q.typing() then return end
     local inv = inventory()
     local stash = stashCon()
     if not (inv and stash and stash:IsVisible()) then return end
