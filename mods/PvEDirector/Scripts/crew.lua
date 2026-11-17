@@ -11,6 +11,12 @@ local Out = require("outref") -- releases UE4SS's out-param registry refs (outre
 local C = {}
 local X -- context from main.lua
 
+-- Destroy an actor that may already be gone (killed, or its level unloaded mid-travel): a failed call no longer aborts
+-- the rest of the update.
+local function destroy(a)
+    if a and X.valid(a) then pcall(function() a:K2_DestroyActor() end) end
+end
+
 local CFG = {
     FOLLOW_NEAR = 350,              -- a follower closer than this (+ SPACING per place in line) stays put
     SPACING = 150,
@@ -203,7 +209,7 @@ local function finishBuilding()
                     m.gunName or "no gun", m.hp, m.personality or "?"))
                 if not S.greeted then S.greeted = true pcall(X.voice.say, e, "HoldPosition") end
             else
-                e.bot:K2_DestroyActor()
+                destroy(e.bot)
             end
         end
     end
@@ -231,7 +237,7 @@ local function removeBody(m)
     for i = #bots, 1, -1 do if bots[i] == e then table.remove(bots, i) end end
     if valid(e.bot) and (e.bot.Health or 0) > 0 then
         m.hp = e.bot.Health
-        e.bot:K2_DestroyActor()
+        destroy(e.bot)
     end
     -- (out of the list, reapDead no longer drops these: a soldier fighting this crewmate still holds the entry)
     e.bot, e.ctrl, e.hand, e.mesh, e.move = nil, nil, nil, nil, nil

@@ -372,8 +372,10 @@ function L.tick(pc, crew, preview)
     if not key then return nil end
     if not W or W.key ~= key then
         if not cache then loadCache() end
+        -- Portraits carry over: they're rooted (one per crewmate for the session), so a new set per lobby visit would
+        -- pile up.
         W = { key = key, stands = {}, slotSig = {}, standSig = {}, down = {}, donorQueue = {}, photoQueue = {},
-            portraits = {}, photoSig = {}, nextFind = 0 }
+            portraits = W and W.portraits or {}, photoSig = W and W.photoSig or {}, nextFind = 0 }
     end
     local now = os.clock()
     if now >= W.nextFind then

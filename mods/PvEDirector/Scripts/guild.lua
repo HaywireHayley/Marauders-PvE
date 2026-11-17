@@ -64,7 +64,7 @@ local hookedAt = {} -- hook name -> the UFunction address it was registered on
 
 local members  -- { name, role ("owner" / "admin" / "crew"), online, joined (unix seconds) }, drawn once
 local giPath, pagePath
-local nextFind, nextLogin, hookAt = 0, 0, 0
+local nextFind, nextLogin, hookAt, findEvery = 0, 0, 0, nil
 local dressed = {} -- page path -> true once its rows are built
 local opened = {}  -- page path -> true once the game has opened it (GUILD_Widget_OPENED)
 local loggedIn = false
@@ -358,11 +358,12 @@ function G.tick()
         for what, path in pairs(EDITS) do hook(what, path, function(w) edited(what, w) end) end
     end
     if not live(pagePath) and now >= nextFind then
-        nextFind = now + 5 -- (a FindAllOf, ~50 ms: only until the lobby's page exists)
+        findEvery = math.min(60, (findEvery or 2.5) * 2)
+        nextFind = now + findEvery -- (a FindAllOf, ~50 ms: only until the lobby's page exists; 5 s backing off to 60 s)
         pagePath = nil
         for _, w in ipairs(FindAllOf("Guild_Widget_C") or {}) do
             local name = pathOf(w)
-            if name:find("Transient", 1, true) then pagePath = name end -- (the overlay's own page, not its class's template)
+            if name:find("Transient", 1, true) then pagePath = name findEvery = nil end -- (the overlay's own page, not its class's template)
         end
     end
     if not members and pagePath then

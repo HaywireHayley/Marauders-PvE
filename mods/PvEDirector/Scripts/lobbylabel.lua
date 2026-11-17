@@ -63,9 +63,14 @@ local function gearTick()
     local overlay, tab, inv = live(gear.overlay), live(gear.tab), live(gear.inv)
     if not (overlay and tab and inv) then
         local t = os.clock()
-        if t >= (gear.nextFind or 0) then findGear() gear.nextFind = t + 5 end -- (FindAllOf ~50 ms; the lobby may not be up yet)
+        if t >= (gear.nextFind or 0) then -- (FindAllOf ~50 ms; the lobby may not be up yet): 5 s, backing off to 60 s
+            findGear()
+            gear.findEvery = math.min(60, (gear.findEvery or 2.5) * 2)
+            gear.nextFind = t + gear.findEvery
+        end
         return
     end
+    gear.findEvery = nil
     if not tab.isSelected then gear.seen = nil return end
     local now = equipped(inv)
     if gear.seen and now ~= gear.seen then

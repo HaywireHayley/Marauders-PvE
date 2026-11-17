@@ -120,12 +120,16 @@ function I.frame(pc, raid)
     for _, s in ipairs(locs) do
         local want = inBox(cam, s, CAMERA_MARGIN)
         if want and (not s.shown or s.hiding) then -- (back before it was all hidden: show it all again)
-            for _, c in ipairs(s.parts) do c:SetVisibility(true, false) end
+            -- valid(): a part's level can be unloaded mid-raid (a streamed sublevel), and its components go with it
+            for _, c in ipairs(s.parts) do if X.valid(c) then c:SetVisibility(true, false) end end
             s.shown, s.hiding = true, nil
         elseif not want and s.shown and budget > 0 then
             local i = s.hiding or 1
             local last = math.min(#s.parts, i + budget - 1)
-            for k = i, last do s.parts[k]:SetVisibility(false, false) end
+            for k = i, last do
+                local c = s.parts[k]
+                if X.valid(c) then c:SetVisibility(false, false) end
+            end
             budget = budget - (last - i + 1)
             if last >= #s.parts then s.shown, s.hiding = false, nil else s.hiding = last + 1 end
         end
