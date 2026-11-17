@@ -124,6 +124,21 @@ class Button(tk.Label):
         self.config(bg=self.colors[0] if on else PANEL, fg=self.colors[1] if on else "#4A525E", cursor="hand2" if on else "arrow")
 
 
+# The mod's keys, as the CONTROLS dialog lists them (keep in step with README.md's "Controls" table).
+CONTROLS = [
+    ("F6", "Your crew: hire, dismiss, and choose who comes on raids", "Lobby and raids"),
+    ("F3", "AI tuning: every enemy, rival and crew setting, including how many spawn", "Lobby and raids"),
+    ("F9", "Debug menu: god mode, extract now, spawn a soldier, and more", "Lobby and raids"),
+    ("F2", "Play as a woman or a man", "Anywhere"),
+    ("N", "Minimap on or off", "Raids"),
+    ("M", "Minimap full overview, and back", "Raids"),
+    ("B", "Minimap: follow the next task", "Raids"),
+    ("K", "Move the item under the mouse between stash and pockets or bags", "LOADOUT, TRADE"),
+    ("J", "Discard the item under the mouse (press twice)", "LOADOUT, TRADE"),
+    ("Left click", "With a crew gunner aboard: send them after what you aim at", "Flying your ship"),
+]
+
+
 class Dialog(tk.Toplevel):
     """A small dark window in the launcher's style."""
 
@@ -235,6 +250,7 @@ class App(tk.Tk):
         head.pack(fill="x")
         tk.Label(head, text="SAVES", bg=INK, fg=TEXT, font=font(17, "SemiBold")).pack(side="left")
         Button(head, "NEW SAVE", self.new_save, "main", 11, (14, 5)).pack(side="right")
+        Button(head, "CONTROLS", self.show_controls, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
         tk.Frame(left, bg=ORANGE, height=2).pack(fill="x", pady=(7, 8))
         self.list_box = tk.Frame(left, bg=INK)
         self.list_box.pack(fill="both", expand=True)
@@ -451,6 +467,18 @@ class App(tk.Tk):
         d.show()
         name.focus_set()
         name.bind("<Return>", lambda e: make())
+
+    def show_controls(self):
+        d = Dialog(self, "Controls")
+        grid = tk.Frame(d.body, bg=PANEL)
+        grid.pack(anchor="w")
+        for i, (key, what, where) in enumerate(CONTROLS):
+            tk.Label(grid, text=key, bg=PANEL, fg=ORANGE, font=font(12, "SemiBold"), anchor="w").grid(row=i, column=0, sticky="nw", padx=(0, 14), pady=2)
+            tk.Label(grid, text=what, bg=PANEL, fg=TEXT, font=font(11), anchor="w", justify="left", wraplength=380).grid(row=i, column=1, sticky="w", pady=2)
+            tk.Label(grid, text=where, bg=PANEL, fg=MUTED, font=font(10), anchor="w").grid(row=i, column=2, sticky="w", padx=(14, 0), pady=2)
+        r = d.row()
+        Button(r, "Close", d.destroy, "main", 11, (14, 6)).pack(side="left")
+        d.show()
 
     def rename(self):
         s = self.current()
