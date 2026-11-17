@@ -2,7 +2,12 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
-## Next build (not released yet)
+## Public test, 17 Nov 2026, build 2 (`public-test-20261117.2`)
+
+A frame-rate follow-up to this morning's build. If you're on build `public-test-20261117`, the launcher offers this
+one by itself (the orange **!**); from build 4 or older, download it by hand.
+
+### Changes
 
 - **Lighter on the CPU in stations:** while you're on foot, rival ships out in space are updated 15 times a second
   instead of every frame, and enemies who aren't fighting update their animation and aim half as often. In a test
