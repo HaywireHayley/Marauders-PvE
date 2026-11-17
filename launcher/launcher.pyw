@@ -27,6 +27,7 @@ FEMALE_SHARE_DEFAULT = 35
 WINDOW_SETTING = os.path.join(ROOT, "config", "window_mode.txt")  # read by scripts/launch-offline.ps1
 SKIP_INTRO_SETTING = os.path.join(ROOT, "config", "skip_intro.txt")  # read by scripts/mode.ps1
 UNLOCK_LOOKS_SETTING = os.path.join(ROOT, "config", "unlock_all_looks.txt")  # read by the Nakama stand-in at login
+MINIMIZE_SETTING = os.path.join(ROOT, "config", "minimize_while_playing.txt")  # "off": stay on screen while playing
 UPDATE_CHECK_SETTING = os.path.join(ROOT, "config", "update_check.txt")  # "off" stops the check for a newer build
 GAME_PATH = os.path.join(ROOT, "config", "game_path.txt")  # written by the installer; scripts/mode.ps1 has the same default
 
@@ -202,6 +203,10 @@ class App(tk.Tk):
         self.tidying = left_playing and not playing  # PLAY waits for tidy_after_close
         self.build()
         self.refresh()
+        # Keyboard (#98): Enter plays, Delete deletes (asking first), F2 renames. Dialogs grab the keys while open.
+        self.bind("<Return>", lambda e: self.launch())
+        self.bind("<Delete>", lambda e: self.current() and self.delete())
+        self.bind("<F2>", lambda e: self.current() and self.rename())
         self.after(1000, self.watch)
         self.check_update()
         self.protocol("WM_DELETE_WINDOW", self.close)
@@ -305,6 +310,8 @@ class App(tk.Tk):
         self.toggle("Skip the intro video", self.skip_intro_var, self.toggle_skip_intro)
         self.unlock_looks_var = tk.BooleanVar(value=self.read_unlock_looks())
         self.toggle("Unlock all looks and voices", self.unlock_looks_var, self.toggle_unlock_looks)
+        self.minimize_var = tk.BooleanVar(value=self.read_minimize())
+        self.toggle("Minimize while playing", self.minimize_var, self.toggle_minimize)
         self.update_check_var = tk.BooleanVar(value=self.read_update_check())
         self.toggle("Check for new builds", self.update_check_var, self.toggle_update_check)
         # Shown top right only when a newer build is out (check_update)
@@ -640,6 +647,16 @@ class App(tk.Tk):
         # every head, body and voice unlocked from the next login on; off brings back what the save earned
         self.write_setting(UNLOCK_LOOKS_SETTING, "on\n" if self.unlock_looks_var.get() else "off\n")
 
+    def read_minimize(self):
+        try:
+            with open(MINIMIZE_SETTING, encoding="utf-8") as f:
+                return f.read().strip() != "off"
+        except OSError:
+            return True
+
+    def toggle_minimize(self):
+        self.write_setting(MINIMIZE_SETTING, "on\n" if self.minimize_var.get() else "off\n")
+
     def read_update_check(self):
         try:
             with open(UPDATE_CHECK_SETTING, encoding="utf-8") as f:
@@ -755,6 +772,13 @@ class App(tk.Tk):
             self.say("The game is already running. Close it first.")
             return
         problem = preflight()
+        if problem and not steam_running() and problem.startswith("Start Steam"):
+            try:  # (#98) start it for you rather than only saying so
+                os.startfile("steam://open/main")
+                self.say("Starting Steam... press PLAY again once it's up.")
+            except OSError:
+                self.say(problem)
+            return
         if problem:
             self.say(problem)
             return
@@ -782,6 +806,8 @@ class App(tk.Tk):
         # Tidying up only starts once the game has been seen running: until then "no game" just means it's still starting.
         if self.running:
             if game_running():
+                if not self.seen and self.minimize_var.get():
+                    self.iconify()  # (#98) out of the way while playing; done() brings it back after saving
                 self.seen = True
             elif self.seen or time.time() - self.started > START_TIMEOUT:
                 if not self.seen:
@@ -805,6 +831,9 @@ class App(tk.Tk):
 
     def done(self):
         self.running = False
+        if self.state() == "iconic":
+            self.deiconify()
+            self.lift()
         self.refresh()
         if self.launch_error and not self.seen:
             self.say(f"The game didn't start: {self.launch_error} Nothing changed; the normal online game works as usual.")
