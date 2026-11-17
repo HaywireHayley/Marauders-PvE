@@ -3099,3 +3099,23 @@ to the floor at 60230,114665,-1203", inside a wall.
   odd and pc+8 all 0 without a crash. 0.30 us per call, same as IsValid().
 - Not covered: a direct `:IsValid()` or any other method on a kept reference elsewhere (shipnav/cover/killstats ones are
   CDOs or fresh reads). Not reproduced in a raid yet.
+
+## Crew gunner reach, swing and click (issue 88; rivals.lua GUNNER_*, crew.lua ORDER_CONE)
+- Reports: a level 3 and a level 4 gunner "only kept shooting ahead and not turning the turret", clicking a target didn't
+  make them attack it, nothing to answer a stationary turret with. Hayley: mainly radius/range.
+- What limited them: each turret type's crew range (60-95 m), GUNNER_ARC 120 deg, and the barrels' pitch (-15..10 deg)
+  with TURRET_PITCH_SLACK 6: a target a little above or below was held ("pitch"), one past the arc or range was "arc" /
+  "range", and an ordered ship out of range just got "too far, close in".
+- Shells don't run out of range: every ship turret's shell (ProjSmallShell, Proj25mm, Proj75mmShell, ProjSmallMissile,
+  ProjTorpedo) has InitialLifeSpan 0 (probed from the CDOs). The turrets' own limits: yaw +-60, pitch 0..15.
+- Now for your gunner only (gunnerFire passes them to fireTurrets; rival crews unchanged): GUNNER_RANGE 1.75 x the type's
+  range, GUNNER_ARC 170, GUNNER_PITCH_SLACK 30 (past the barrel's tilt the shell keeps the true pitch instead of the
+  barrel's). A click picks the ship nearest your view within ORDER_CONE 25 deg (was 15). Both new settings are on the
+  F3 "Ship guns" tab.
+- In a fight (Pavel, level 2, gunnery 0.46, Starter Frigate): "engaging the Lucky Strike" a second after it attacked,
+  held only for range at first (57% of checks while it closed), then firing (reload 99% of held checks), and it was a
+  wreck 38 s later. A click on a stationary turret 103 m off (well below the ship) got "ordered onto turret", but your
+  hull was disabled a second later, so nothing fired (right: the gunner stands down with the hull).
+- Then: GUNNER_PITCH_SLACK 30 -> 45 (a turret below you as you pass over is 40-60 deg down), and the gunner now says when
+  height is what stops them ("can't get the guns on the ..., too far above or below us"); before, a pitch hold was silent.
+- Not done: a second gunner (only one crewmate is the gunner; they already work every turret on the hull).

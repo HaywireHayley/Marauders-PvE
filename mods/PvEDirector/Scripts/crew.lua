@@ -47,7 +47,7 @@ local CFG = {
     -- it's gone, docks, is a wreck, derelict or destroyed, or is beyond ORDER_RANGE; click with nothing in range and they
     -- go back to whatever's after you (ships attacking you, turrets aiming at you).
     ORDER_RANGE = 30000,
-    ORDER_CONE = 15,
+    ORDER_CONE = 25,
     FIRE_KEY = "LeftMouseButton",
     TAG_HEIGHT = 115,               -- nametag this far above a crewmate's middle
     TAG_FAR = 6000,                 -- not drawn beyond this (cm)
@@ -499,7 +499,8 @@ end
 
 -- Out of range, or no turret can swing onto it: after HELD_SAY s on the same target, the gunner says so once (the
 -- status line only counted it). gunnerFire leaves the reason in S.gun.held.
-local HELD_LINES = { range = "%s: the %s is too far, close in", arc = "%s: can't swing onto the %s, turn us toward it" }
+local HELD_LINES = { range = "%s: the %s is too far, close in", arc = "%s: can't swing onto the %s, turn us toward it",
+    pitch = "%s: can't get the guns on the %s, it's too far above or below us" }
 local function heldCall(m, now)
     local why = S.gun and S.gun.held
     if not (why and valid(S.gunTarget)) then S.heldWhy = nil return end
