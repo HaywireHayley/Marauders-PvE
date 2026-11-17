@@ -44,6 +44,8 @@ The game's own controls are unchanged. The mod adds:
 | **N** | Minimap on or off | Raids |
 | **M** | Minimap full overview, and back | Raids |
 | **B** | Minimap: follow the next task | Raids |
+| **K** | Move the item under the mouse between your stash and your pockets or bags | Lobby (LOADOUT, TRADE) |
+| **J** | Discard the item under the mouse (press twice) | Lobby (LOADOUT, TRADE) |
 | **F2** | Play as a woman or a man (also a launcher setting) | Anywhere |
 | **Left click** | While flying with a crew gunner aboard: send them after the ship or space turret nearest the middle of your view. Click empty space to send them back to whoever is attacking you | Flying your ship |
 | **F** on a turret seat | Man the turret yourself: left click fires, F stands you up | Ships |
