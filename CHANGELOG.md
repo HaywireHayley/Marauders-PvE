@@ -2,6 +2,34 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 17 Nov 2026, build 6 (`public-test-20261117.6`)
+
+A batch of fixes from the bug reports, and a handier launcher. On build 1 or later from today, the launcher's orange
+**!** installs this one for you; from yesterday's build 4 or older, download it by hand.
+
+### Changes
+
+- **Loot from bodies:**
+  - **Guns in usable condition (#86).** Bots used to drop guns as low as 1/1 durability. Rivals now carry well-kept
+    guns (better kit, better kept) and station guards somewhat worn ones.
+  - **Shotgun ammo stacks (#102)** stay within their limit (12 gauge: 20, not 35 or 60).
+  - **Blueprints (#100)** found on bodies have half to all of their uses, not 1.
+  - **Pistol-only rivals (#101)** carry the pistol in the pistol slot.
+- **Contracts:**
+  - **Inspect spots (#99)** only take over the Use key when you're close and looking right at the object, and never
+    over loot, doors or containers.
+  - **No repeating contract sound (#20)** while holding Use on a finished one.
+  - **Your own Use key (#103):** inspects and the turret seat follow your key binding instead of assuming F.
+- **Launcher:**
+  - **CONTROLS (#97)** lists every mod key.
+  - **REPORT (#96)** makes one zip of your logs (and the last crash) on the Desktop for a bug report, with your
+    Windows user name, Steam IDs and in-game name taken out.
+  - **Back up** a save to a zip, and **IMPORT (#95)** saves from a backup or from an older copy of the mod.
+  - **Starts Steam** for you when it isn't running, **minimizes while you play** (a setting), and takes **Enter**
+    (play), **Delete** and **F2** (rename) (#98).
+  - Shows the **build** you're on, next to OFFLINE PvE.
+- **Stash search:** typing an N, M or B in it no longer toggles the minimap.
+
 ## Public test, 17 Nov 2026, build 5 (`public-test-20261117.5`)
 
 **Stash tools** and **enemies that reload**. On build 1 or later from today, the launcher's orange **!** installs this

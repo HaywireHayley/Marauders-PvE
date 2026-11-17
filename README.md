@@ -34,7 +34,7 @@ to stock when you close the game. If your PC crashes mid-game, open the launcher
 
 ### Controls
 
-The game's own controls are unchanged. The mod adds:
+The game's own controls are unchanged. The mod adds (the launcher's CONTROLS button shows the same list):
 
 | Key | What it does | Where |
 |---|---|---|
