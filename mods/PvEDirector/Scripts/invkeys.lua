@@ -26,6 +26,8 @@ local menuPath, nextMenuFind = nil, 0
 local menuOpened                  -- the pause menu has opened in this world (its ExitMenu_Open hook ran)
 local menuHookAddr                -- (the pause menu's class loads with the first raid map)
 local invPath, nextInvFind = nil, 0
+local invWait, INV_WAIT_MAX = 2, 60 -- seconds to the next look for the inventory widget: doubles on each miss
+local invPc, cursorWas, lastInvFind = nil, nil, 0 -- (the controller the misses were counted for; the cursor on the last frame)
 local stuckSince
 
 function K.init(ctx) X = ctx end
@@ -61,19 +63,24 @@ local function onEsc()
 end
 
 -- The raid's inventory widget (In Game Overlay Match's InventoryMenu, a SIGIS_HUDWidget_C), kept as a path.
+-- FindAllOf walks every object (44-101 ms on space maps). While nothing matches, the wait between looks doubles from
+-- 2 s up to INV_WAIT_MAX: it used to look every 2 s for as long as there was no match, a steady hitch for the whole
+-- raid. K.tick starts the wait over for a new controller (a new raid), and looks at once when the cursor has just
+-- gone (an inventory or loot window just closed: the only time the stuck check below matters).
 local function invWidget()
     if invPath then
         local w = StaticFindObject(invPath)
         if w and w:IsValid() then return w end
-        invPath = nil
+        invPath, invWait, nextInvFind = nil, 2, 0
     end
     local now = os.clock()
     if now < nextInvFind then return nil end
-    nextInvFind = now + 2
+    nextInvFind, lastInvFind = now + invWait, now
+    invWait = math.min(INV_WAIT_MAX, invWait * 2)
     for _, w in ipairs(FindAllOf("SIGIS_HUDWidget_C") or {}) do
         local name = w:GetFullName():gsub("^%S+ ", "")
         if name:find("Transient", 1, true) and name:find("Overlay Match.WidgetTree.InventoryMenu", 1, true) then
-            invPath = name
+            invPath, invWait = name, 2
             return w
         end
     end
@@ -107,6 +114,11 @@ function K.tick()
     end
     local pc = X.pc()
     if not X.valid(pc) then invWasOpen = false return end
+    -- (see invWidget: a new controller starts the wait over; the cursor just gone allows one look now, at most every 2 s)
+    local addr, cursor = pc:GetAddress(), pc.bShowMouseCursor
+    if addr ~= invPc then invPc, invWait, nextInvFind, cursorWas = addr, 2, 0, nil end
+    if cursorWas and not cursor and not invPath then nextInvFind = math.min(nextInvFind, lastInvFind + 2) end
+    cursorWas = cursor
     if closeInvNext then
         closeInvNext = nil
         pcall(function() pc:CloseInventory() end)

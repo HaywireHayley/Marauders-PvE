@@ -131,9 +131,15 @@ local function setRect(p)
 end
 
 -- Your ship is a place too: its interior moves between raids, so its floor plan is stored relative to the airlock.
+-- (locate() calls this on every redraw on foot, 30 times a second, until S.ship exists. Its two FindAllOf walk every
+-- object, 44-101 ms each on space maps: while a ship's airlock or helm wasn't found, that was two scans per redraw,
+-- about 10 fps for as long as you were on foot with the map shown. Now a miss waits SURVEY_RETRY before the next look.)
 local function surveyShip(home)
     local p = S.ship
     if p or not valid(home) then return end
+    local now = os.clock()
+    if now < (S.shipSurveyAt or 0) then return end
+    S.shipSurveyAt = now + CFG.SURVEY_RETRY
     local locks, helms = {}, {}
     for _, c in ipairs(FindAllOf("RaidUseableAirLockComponent") or {}) do
         if valid(c) and not c.StationAirLock and c:GetOwner():GetAddress() == home:GetAddress() then
@@ -145,7 +151,14 @@ local function surveyShip(home)
             helms[#helms + 1] = copy(c:K2_GetComponentLocation())
         end
     end
-    if #locks == 0 or #helms == 0 then return end
+    if #locks == 0 or #helms == 0 then
+        if not S.shipSurveyMiss then
+            S.shipSurveyMiss = true
+            X.log(("minimap: your ship (%s) has %d airlock(s) and %d helm(s) of its own: no ship map yet, looking again every %d s")
+                :format(home:GetClass():GetFName():ToString(), #locks, #helms, CFG.SURVEY_RETRY))
+        end
+        return
+    end
     local a, r = locks[1], CFG.SHIP_RADIUS
     a = { X = math.floor(a.X), Y = math.floor(a.Y), Z = a.Z }
     S.ship = { key = "ship_" .. home:GetClass():GetFName():ToString(), name = "your ship", isShip = true, tag = "", airlocks = {},
@@ -253,7 +266,10 @@ local function loadTasks(pc)
         t.kind = "contract"
         table.insert(S.contracts, t)
     end
-    local gi = FindFirstOf("SIGIS_ExampleGameInstance_C") -- pc:GetGameInstance() throws from Lua here
+    -- (kept on S, as refreshProgress does: with no contract and no chapter task this is tried again every think, and a
+    -- FindFirstOf each second is a hitch each second for the whole raid)
+    S.gi = valid(S.gi) and S.gi or FindFirstOf("SIGIS_ExampleGameInstance_C") -- pc:GetGameInstance() throws from Lua here
+    local gi = S.gi
     local c = gi.PrologueChapter
     local stage, chapter = c.ChapterStage, c.Chapter:ToString()
     local rows = pc:GetAllMissionsForChapters(chapter)

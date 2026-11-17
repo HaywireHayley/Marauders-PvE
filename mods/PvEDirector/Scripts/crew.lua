@@ -456,8 +456,13 @@ local TEST_CLICK = require("pveproject") .. "bridge/gunner_click"
 local function clicked()
     local down = false
     pcall(function() down = not S.pc.bShowMouseCursor and S.pc:IsInputKeyDown({ KeyName = FName(CFG.FIRE_KEY) }) end)
-    local f = io.open(TEST_CLICK, "r")
-    if f then f:close() os.remove(TEST_CLICK) return true end
+    -- (the test file is looked for twice a second, not every frame: this runs each frame you fly with a gunner)
+    local now = os.clock()
+    if now >= (S.testClickAt or 0) then
+        S.testClickAt = now + 0.5
+        local f = io.open(TEST_CLICK, "r")
+        if f then f:close() os.remove(TEST_CLICK) return true end
+    end
     local was = S.fireDown
     S.fireDown = down
     return down and not was
