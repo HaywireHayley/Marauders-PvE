@@ -3016,3 +3016,22 @@ to the floor at 60230,114665,-1203", inside a wall.
   bytes), and logs "lobby: friends refresh stubbed" once. The overlay appears a few seconds after the menu, so the
   first seconds can still hitch.
 - Tested by the reporter in the menu, loadout and market: no stutter.
+
+## Menu hitches after a raid and on the title screen (2026-11-17; main.lua lobby tick and menu helper, mappick.lua, lobbylabel.lua)
+- After a raid the menu hitched once a second again (150 ms). mappick.lua kept the widget paths of the old lobby
+  (the START RAID label boxes, the map picker buttons) and looked each one up every check: a StaticFindObject of a path
+  that no longer exists walks every object, ~15 ms apiece, ~10 paths. The list was not empty, so the new lobby's own
+  widgets were never looked for either. Now lobbylabel.lua resets mappick's lists while a raid is on, and mappick's checks
+  drop any path that has gone.
+- The friends refresh stub keyed on `not raid.world`, which is only true until update() first runs in the menu; after a
+  raid it never ran again. It now keys on the world: PveTickMenu is set once per world (its name has /Maps/MainMenu) and
+  the stub is repeated every 5 s there, logged once per world, with a line if the function is not found.
+- The title screen stuttered while the mouse moved: the voice lines (3 a frame) and other menu loads are 15 to 50 ms
+  hitches. Voice.step now runs one a frame, and for the first 25 s of the menu only while the mouse is still for half a
+  second (PveMenuBusy, APlayerController:GetMousePosition gives its numbers as out parameters that don't come back to Lua
+  here, so it reads WidgetLayoutLibrary:GetMousePositionOnViewport, 5 microseconds). If the position can't be read nothing
+  is held back, and a line says so. A raid started inside the 25 s still gets its voices.
+- Log lines: "menu: mouse position read (x, y); ..." once per game start, "lobby: friends refresh stubbed" once per
+  world.
+- Checked: the title screen stutter was gone about 25 s in, when the startup loads finish. Not yet confirmed in game:
+  the post raid hitch with the new mappick lists, and the mouse gating on the title screen.

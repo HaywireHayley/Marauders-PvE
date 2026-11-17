@@ -144,7 +144,11 @@ function L.tick(ticker)
     if now < nextCheck then return end
     nextCheck = now + CHECK_SECONDS
     local inLobby = ticker:IsValid() and ticker:GetClass():GetFName():ToString() == "MM_CoreMissions_C"
-    if not (inLobby and X.offline()) then paths, gear = nil, {} return end
+    if not (inLobby and X.offline()) then
+        paths, gear = nil, {}
+        if PveMapPick then pcall(PveMapPick.reset) end -- (its widget paths died with this lobby)
+        return
+    end
     if PveMapPick then
         local okPick, errPick = pcall(PveMapPick.tick)
         if not okPick and not gear.pickErr then gear.pickErr = true X.log("lobby: map picker failed: " .. tostring(errPick)) end

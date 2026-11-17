@@ -185,6 +185,14 @@ function M.frame()
 end
 
 -- Every check (once a second) in the lobby, from lobbylabel.lua.
+-- A raid takes the lobby down, and its widgets with it. The paths kept for them stay: each check then looked up ~10 dead
+-- paths, 15 ms apiece (a StaticFindObject of a path that doesn't exist walks every object), a 150 ms hitch every second in
+-- the menu after a raid, and the new lobby's boxes were never looked for (the list wasn't empty). lobbylabel.lua calls this
+-- while a raid is on; the checks below also drop any path that has gone.
+function M.reset()
+    boxes, copies, picker, fresh = {}, {}, {}, {}
+end
+
 function M.tick()
     local now = os.clock()
     if not notified then
@@ -209,9 +217,18 @@ function M.tick()
         findBoxes()
     end
     local label = picked ~= nil and MAPS[picked][2] or RANDOM
-    for _, p in ipairs(boxes) do setText(live(p), label) end
-    for _, p in ipairs(copies) do local w = live(p) if w then setText(w.Txt_RegionName, label) end end
-    for _, p in ipairs(picker) do local w = live(p) if w then dress(w) end end -- (a click moves the brackets)
+    for i = #boxes, 1, -1 do
+        local w = live(boxes[i])
+        if w then setText(w, label) else table.remove(boxes, i) end
+    end
+    for i = #copies, 1, -1 do
+        local w = live(copies[i])
+        if w then setText(w.Txt_RegionName, label) else table.remove(copies, i) end
+    end
+    for i = #picker, 1, -1 do
+        local w = live(picker[i])
+        if w then dress(w) else table.remove(picker, i) end -- (a click moves the brackets)
+    end
 end
 
 return M
