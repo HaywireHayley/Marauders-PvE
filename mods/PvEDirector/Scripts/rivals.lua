@@ -26,6 +26,12 @@ local Kills = require("killstats") -- your rival kills show as Marauders in the 
 local R = {}
 local X -- context from main.lua: log, valid, lib, navLib, navMesh, queryFilter, dist, arm, wake, engage, raid()
 
+-- Destroy an actor that may already be gone (killed, or its level unloaded mid-travel): a failed call no longer aborts
+-- the rest of the update.
+function R.destroy(a)
+    if a and X.valid(a) then pcall(function() a:K2_DestroyActor() end) end
+end
+
 local CFG = {
     -- Population: a live raid filled the map's frigate interior slots (FrigInteriorSpawn): one player per ship on
     -- solo maps, crews of 2-4 on crew maps. You take one slot.
@@ -1066,7 +1072,7 @@ local function fitTurrets(c)
     for _, t in ipairs(own) do
         if valid(t) and not t.bACameraTurret then
             local p = t:GetAttachParentActor()
-            if valid(p) and p:GetAddress() == addr then t:K2_DestroyActor() end
+            if valid(p) and p:GetAddress() == addr then R.destroy(t) end
         end
     end
     for slot, kind in ipairs(c.turretPlan) do
@@ -1726,7 +1732,7 @@ local function finishBody(b)
         if os.clock() - b.startedAt < CFG.GUN_WAIT then return nil end
         X.log(("[rivals] %s: no %s arrived, rolling another gun next time"):format(m.name, m.kit.gun[1]))
         m.kit = nil
-        body:K2_DestroyActor()
+        R.destroy(body)
         return false
     end
     local cat = gearCatalog()
@@ -1751,7 +1757,7 @@ local function finishBody(b)
     if m.female then X.female.dress(body, true) end
     m.gunName = gunName(body.CurrentWeapon)
     local ctrl = X.arm(body)
-    if not ctrl then body:K2_DestroyActor() return false end
+    if not ctrl then R.destroy(body) return false end
     ctrl.TeamNumber = CFG.TEAM_BASE + m.crew
     body.Health = m.hp
     -- Player-like senses and aim (ai.lua "rival" profile); the personality comes from the kit, once per member.
@@ -1967,7 +1973,7 @@ local function dematerialize(c)
         -- Corpses stay where they fell (lootable); only the living go back into the simulation.
         if valid(e.bot) and (e.bot.Health or 0) > 0 then
             e.rival.hp = e.bot.Health
-            e.bot:K2_DestroyActor()
+            R.destroy(e.bot)
         end
         removeEntry(e)
     end
@@ -2410,7 +2416,7 @@ local function finishTopUp(p)
     end
     if p.female then X.female.dress(body, true) end
     local ctrl = X.arm(body)
-    if not ctrl then body:K2_DestroyActor() return true end
+    if not ctrl then R.destroy(body) return true end
     local e = { bot = body, ctrl = ctrl, home = body:K2_GetActorLocation(), nextPatrol = os.clock() + math.random(2, 8),
         patrolRadius = CFG.POST_RADIUS, placed = true, hand = comps(body).CharacterBody0, voice = X.voice.pick(p.female),
         mind = AI.mind(p.profile or "soldier", AI.pickPersonality(AI.power({ gun = name }))) }
@@ -2762,7 +2768,7 @@ local function launchPods(c, party, ship)
             if valid(pod) then
                 -- In the same call, before its 0.5 s timer: no controller, or the game crashes.
                 local ctrl = pod.Controller
-                if valid(ctrl) then ctrl:UnPossess() ctrl:K2_DestroyActor() end
+                if valid(ctrl) then ctrl:UnPossess() R.destroy(ctrl) end
                 pod:SetActorHiddenInGame(false)
                 pod:SetActorEnableCollision(false)
                 pcall(function() pod:SetBoostingVisuals(true) end)
@@ -2783,7 +2789,7 @@ local function podHit(p, ship)
     local pod = p.pod
     p.hitAt = os.clock()
     local at = pod:K2_GetActorLocation()
-    pod:K2_DestroyActor()
+    R.destroy(pod)
     if p.crew.victim then
         X.log(("[rivals] %s's pod hit the %s"):format(p.member.name, p.crew.victim.shipName))
         return
@@ -2823,7 +2829,7 @@ local function flyPods(dt)
         elseif not valid(pod) then
             table.remove(S.pods, i)
         elseif not valid(ship) then
-            pod:K2_DestroyActor()
+            R.destroy(pod)
             table.remove(S.pods, i)
         else
             local here = pod:K2_GetActorLocation()
@@ -3063,7 +3069,7 @@ local function captureShip(p, now)
         c.fireAt, c.target = nil, nil
         if shipOk(c) then
             dropTurrets(c)
-            c.ship:K2_DestroyActor()
+            R.destroy(c.ship)
         end
         c.ship, c.state = nil, "gone"
         X.log(("[rivals] %s left their own %s behind"):format(p.captain, c.shipName))
@@ -3210,9 +3216,9 @@ local function pairInterior(c)
     c.ship.MyShipInside = c.inside
     if valid(ctrl) then
         ctrl:UnPossess()
-        ctrl:K2_DestroyActor()
+        R.destroy(ctrl)
     end
-    own:K2_DestroyActor()
+    R.destroy(own)
     local box = c.inside.InSideComp
     c.insideBox = { c = box:K2_GetComponentLocation(), e = box:GetScaledBoxExtent() }
     X.addInteriorNav(S.pc, c.inside)
@@ -3353,7 +3359,7 @@ local function breachInto(c, force)
     pcall(function() foot.CharacterMovement.Velocity = { X = 0, Y = 0, Z = 0 } end)
     -- facing into the ship
     S.pc:SetControlRotation({ Pitch = 0, Yaw = math.deg(math.atan(c.insideBox.c.Y - spot.Y, c.insideBox.c.X - spot.X)), Roll = 0 })
-    if inPod then pod:K2_DestroyActor() end
+    if inPod then R.destroy(pod) end
     S.podAt, S.voidSince = nil, nil
     -- crew.lua brings your crewmates in through the same hole, behind you
     S.breach = { at = { X = spot.X, Y = spot.Y, Z = spot.Z }, time = os.clock(), ship = c.shipName,
@@ -3875,7 +3881,7 @@ local function updateCrew(c, now, place, playerLoc)
         end
         if not c.exitAt or d < 3000 or stalled then
             dropTurrets(c)
-            c.ship:K2_DestroyActor()
+            R.destroy(c.ship)
             c.ship, c.state = nil, "gone"
             X.log("[rivals] " .. crewLabel(c) .. " extracted")
         end
@@ -3911,7 +3917,7 @@ local function finishBuilding(now)
                     job.mode == "boarding" and (c.inside and "their ship" or "your ship") or c.station.name))
             else
                 -- The crew dematerialized while this one was being built.
-                entry.bot:K2_DestroyActor()
+                R.destroy(entry.bot)
                 removeEntry(entry)
             end
         end
@@ -4372,9 +4378,9 @@ function R.ownHull(pc, inside, row)
     local ctrl = old.Controller
     if valid(ctrl) then
         ctrl:UnPossess()
-        ctrl:K2_DestroyActor()
+        R.destroy(ctrl)
     end
-    old:K2_DestroyActor()
+    R.destroy(old)
     local hull = helper():SpawnAIFromClass(pc, cls, tree, at, rot, true, pc)
     if not valid(hull) then
         X.log("[rivals] your " .. design.name .. "'s hull failed to spawn")

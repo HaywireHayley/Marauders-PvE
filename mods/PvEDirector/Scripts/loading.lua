@@ -3,7 +3,7 @@
 -- the black veil (main.lua veilUntilAboard), which says what the load is doing; it fades out as the game fades in.
 local PROJECT = require("pveproject") -- the install folder (".../MaraudersPvE/"), written by scripts/mode.ps1
 local L = {}
-local X -- context from main.lua: log, valid, lib
+local X -- context from main.lua: log, valid, lib, root
 
 local DIR = PROJECT .. "assets/loading/"
 local HOST = "/SIGISPlugin/Widgets/DebugInfo_Widget.DebugInfo_Widget_C" -- as tuning.lua: a Blueprint with a canvas root
@@ -142,12 +142,21 @@ end
 -- behind them made transparent. disarm puts it back.
 local SETTINGS = "/Script/AsyncLoadingScreen.Default__LoadingScreenSettings"
 local saved
+-- The travel art, imported once and rooted: the settings only hold its path, so nothing else keeps it from the garbage
+-- collector, and the collection map travel runs freed it before the loading screen (on its own thread) looked it up.
+local travelTex
 
 function L.arm(pc)
     local s = X.lib(SETTINGS)
     if not X.valid(s) then return end
-    local tex = X.lib("/Script/Engine.Default__KismetRenderingLibrary"):ImportFileAsTexture2D(pc, DIR .. "travel.png")
-    if not X.valid(tex) then return end
+    local tex = travelTex
+    if not tex then
+        tex = X.lib("/Script/Engine.Default__KismetRenderingLibrary"):ImportFileAsTexture2D(pc, DIR .. "travel.png")
+        if not X.valid(tex) then return end
+        if not X.root then return end -- unrooted it can be freed mid-travel: keep the game's own picture instead
+        X.root(math.tointeger(tex:GetAddress()))
+        travelTex = tex
+    end
     local d = s.DefaultLoadingScreen
     d.Background.Images:ForEach(function(_, e)
         local sp = e:get()

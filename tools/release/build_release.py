@@ -58,7 +58,8 @@ TREES = [  # (from, to, skip): whole folders, minus names matching skip
     ("tools/ue4ss/Mods", "tools/ue4ss/Mods", r"^(ActorDumperMod|LineTraceMod|SplitScreenMod|jsbLuaProfilerMod|jsbProfiler)$"),
     # The art, minus the female outfits' sources and stills nothing loads.
     # (not intro/: the re-cut startup video has a song in it, this install only, as .gitignore says)
-    ("assets", "assets", r"^src$|^intro$|^ingame_sample\.png$|^list\.txt$|^hangar_vanquisher\.png$|^splash_check\.png$"),
+    ("assets", "assets", r"^src$|^intro$|^ingame_sample\.png$|^list\.txt$|^hangar_vanquisher\.png$|^splash_check\.png$"
+               r"|^ahtu-.*\.png$|\.floors$"),  # (Ahtu's full-size sources and the plan scans' floor dumps: tools input only)
     # Cover points the bots recorded on each map (cover.lua reads and appends to these), so players start with them.
     ("cover", "cover", r"^$"),
 ]

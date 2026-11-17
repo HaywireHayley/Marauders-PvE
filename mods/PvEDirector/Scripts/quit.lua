@@ -22,7 +22,7 @@ local COPY = { "WidthOverride", "HeightOverride", "b_TexOnlyVersion", "Material_
 
 local ui = {}  -- the pause menu's: menuPath, btnPath, down, armedUntil
 local lob = {} -- the lobby's: btnPath, down, armedUntil
-local hooked, hookAt, nextTabFind = false, 0, 0
+local hooked, hookAt, nextTabFind, tabFindEvery = false, 0, 0, nil
 
 function Q.init(ctx) X = ctx end
 
@@ -133,9 +133,11 @@ local function lobbyTick(pc, now)
     local btn = live(lob.btnPath)
     if not btn then
         if now < nextTabFind then return end
-        nextTabFind = now + 3 -- (the lobby's widgets may not exist yet; FindAllOf costs ~50 ms)
+        tabFindEvery = math.min(60, (tabFindEvery or 1.5) * 2)
+        nextTabFind = now + tabFindEvery -- (the lobby's widgets may not exist yet; FindAllOf costs ~50 ms): 3 s, up to 60 s
         return buildTab(pc)
     end
+    tabFindEvery = nil
     if lob.armedUntil and now > lob.armedUntil then
         lob.armedUntil = nil
         setLabel(btn, TAB_LABEL)
@@ -161,8 +163,14 @@ function Q.tick()
             end)
         end
     end
+    if not ui.menuPath then return end
     local menu, b = live(ui.menuPath), live(ui.btnPath)
-    if not (menu and b) then return end
+    if not (menu and b) then
+        -- Gone with the last raid: forget them until the menu opens again (Q.opened). A StaticFindObject of a path
+        -- that doesn't exist walks every object in the game, each frame (issue #112's cause, in guild.lua).
+        ui.menuPath, ui.btnPath = nil, nil
+        return
+    end
     if not menu:IsVisible() then ui.down = false return end
     if ui.armedUntil and now > ui.armedUntil then
         ui.armedUntil = nil

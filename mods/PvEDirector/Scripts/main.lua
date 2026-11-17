@@ -959,6 +959,15 @@ local function reapDead()
 end
 
 local Aux = {} -- helpers (main.lua is at Lua's 200-locals limit)
+-- True at most once every `every` seconds per key: the test flag files (bridge/*) were each opened on every update,
+-- ~20 failed opens a second, each a filesystem lookup (and a virus-scanner hook).
+function Aux.due(key, every)
+    local t = os.clock()
+    Aux.dueAt = Aux.dueAt or {}
+    if t < (Aux.dueAt[key] or 0) then return false end
+    Aux.dueAt[key] = t + every
+    return true
+end
 
 -- Parking far-off bots. Every station you enter adds its guards to raid.bots, and nothing put them back to sleep: after
 -- three or four stations, dozens of guards kilometres away still ran their AI every update, sized each other up, and
@@ -1751,9 +1760,12 @@ local function updateBots(pc)
     local cam
     pcall(function() cam = pc.PlayerCameraManager:GetCameraLocation() end)
     raid.camAt = cam or playerLoc
-    local farOn = true
-    local ff = io.open(ANIM_FAR_FLAG, "r")
-    if ff then ff:close() farOn = false end
+    if Aux.due("animFar", 5) then
+        local ff = io.open(ANIM_FAR_FLAG, "r")
+        if ff then ff:close() end
+        Aux.animFarOn = ff == nil
+    end
+    local farOn = Aux.animFarOn ~= false
     -- Cover is baked around you on foot (fights happen near you) and around every fighting soldier (combatHints).
     if playerLoc and raid.navReady and valid(pc.Pawn) and pc.Pawn:GetAddress() == pawn:GetAddress() then
         Cover.want(playerLoc, CFG.COVER_BAKE_RADIUS)
@@ -2377,9 +2389,12 @@ end
 -- Test immunity: on while bridge/god.txt exists (survives raids and restarts); the debug menu toggles it.
 local GOD_FILE = PROJECT .. "bridge/god.txt"
 function godMode()
-    local f = io.open(GOD_FILE, "r")
-    if f then f:close() return true end
-    return false
+    if Aux.due("god", 2) then
+        local f = io.open(GOD_FILE, "r")
+        if f then f:close() end
+        Aux.god = f ~= nil
+    end
+    return Aux.god == true
 end
 
 local function toggleGodMode()
@@ -2387,6 +2402,7 @@ local function toggleGodMode()
         local f = io.open(GOD_FILE, "w")
         if f then f:write("player can't be damaged while this file exists\n") f:close() end
     end
+    Aux.dueAt.god = 0 -- read the file again now, not up to 2 s later
     log("player damage immunity " .. (godMode() and "ON" or "OFF"))
 end
 
@@ -2793,7 +2809,7 @@ local SKIRMISH_FILE = PROJECT .. "bridge/rivals_skirmish"
 
 -- Contract / campaign objectives (missions.lua): the contract actors' server half, so hold-area and inspect
 -- objectives count offline.
-Loading.init({ log = log, valid = valid, lib = lib })
+Loading.init({ log = log, valid = valid, lib = lib, root = pveRoot })
 Splash.init({ log = log, valid = valid, lib = lib })
 -- (a global, not a local: main.lua is at Lua's 200-locals limit, and onTick above reads it)
 PveMapPick = require("mappick") -- (a global: main.lua is at the 200-locals limit)
@@ -2912,6 +2928,7 @@ local function updateSpace(pc, worldName)
     if not okc then log("crew: " .. tostring(errc)) end
     spawnQueued(pc)
     -- Testing from outside the game: bridge/rivals_provoke does what F4 does.
+    if not Aux.due("rivalFlags", 2) then updateBots(pc) return end
     local f = io.open(PROVOKE_FILE, "r")
     if f then f:close() os.remove(PROVOKE_FILE) Rivals.provoke() end
     f = io.open(BOARD_FILE, "r")
@@ -2963,6 +2980,8 @@ update = function(pc)
     local age = os.clock() - raid.startedAt -- this map's age (the stash check below uses it)
     local space = worldName:find("/Maps/Space_", 1, true) ~= nil
     local now = os.clock()
+    -- A new world: the overlay found in the last one went with it (valid() on it would read freed memory).
+    if pgosOverlay.world ~= raid.world then pgosOverlay.w, pgosOverlay.world = nil, raid.world end
     if not valid(pgosOverlay.w) and now >= pgosOverlay.findAt and not (space and raid.revealed) then
         pgosOverlay.findAt = now + (age < 30 and 1 or 10)
         pgosOverlay.w = FindFirstOf("PgosOverlay_BP_C")
@@ -2970,7 +2989,7 @@ update = function(pc)
     end
     if valid(pgosOverlay.w) and pgosOverlay.w:GetVisibility() ~= 1 then pgosOverlay.w:SetVisibility(1) end
     -- bridge/female_toggle: F2 without the keyboard (testing, like bridge/god.txt).
-    local toggle = io.open(FEMALE_FLAG, "r")
+    local toggle = Aux.due("female", 2) and io.open(FEMALE_FLAG, "r")
     if toggle then
         toggle:close()
         os.remove(FEMALE_FLAG)
@@ -3099,8 +3118,9 @@ update = function(pc)
         end
     end
     if space and raid.readyAt then
-        local aff = io.open(PROJECT .. "bridge/autofly", "r") -- testing: "<station name>" or "x y z"; gone = stop
-        if aff then
+        local aff = Aux.due("autofly", 1) and io.open(PROJECT .. "bridge/autofly", "r") -- testing: "<station name>" or "x y z"; gone = stop
+        if aff == false then -- not due: keep the last answer
+        elseif aff then
             local line = aff:read("l") or ""
             aff:close()
             local x, y, z = line:match("^(%-?[%d.]+)%s+(%-?[%d.]+)%s+(%-?[%d.]+)")
@@ -3112,7 +3132,8 @@ update = function(pc)
         Interiors.update(pc, raid, world)
     end
     -- bridge/menu_toggle: opens or closes the tuning menu without the keyboard (testing, like bridge/god.txt).
-    local flag = io.open(MENU_FLAG, "r")
+    local flagsDue = Aux.due("menuFlags", 1)
+    local flag = flagsDue and io.open(MENU_FLAG, "r")
     if flag then
         local line = flag:read("l")
         flag:close()
@@ -3120,7 +3141,7 @@ update = function(pc)
         if line and line ~= "" then Tuning.command(line) else Tuning.toggle(pc) end
     end
     -- bridge/debug_cmd: a debug menu action id (see Debug.init below), or empty to open or close the menu.
-    flag = io.open(DEBUG_FLAG, "r")
+    flag = flagsDue and io.open(DEBUG_FLAG, "r")
     if flag then
         local line = flag:read("l")
         flag:close()
