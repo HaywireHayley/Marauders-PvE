@@ -529,6 +529,16 @@ local function onTick(ctx)
     end
     -- The crew menu (F6, hire.lua), the AI tuning menu (F3) and the debug menu (F9) work in the lobby too: they're polled
     -- with the controller hire.lua takes from this ticker (in the lobby the ticker is a menu widget).
+    -- The 1 s friends refresh hitch (~150 ms, see patchFriendsRefresh) is in the lobby too, where it made the mouse stutter in
+    -- the menu, loadout and market; it was only patched inside raids. Repeating is safe (the DLL checks the bytes).
+    if not raid.world and PVE_patchFriends and os.clock() >= (PVE_friendsAt or 0) then
+        PVE_friendsAt = os.clock() + 5
+        local okF, doneF = pcall(PVE_patchFriends)
+        if okF and doneF and not PVE_friendsLogged then
+            PVE_friendsLogged = true
+            log("lobby: friends refresh stubbed (the once a second hitch in the menu)")
+        end
+    end
     if Hire then
         local ok, err = ppcall("hire", Hire.tick, ticker)
         if not ok then log("crew menu failed: " .. tostring(err)) end
@@ -652,6 +662,7 @@ local function patchFriendsRefresh()
     pveBpStubReturn(fn:GetAddress())
     return true
 end
+PVE_patchFriends = patchFriendsRefresh -- (a global: onTick, further up, can't see this local; the lobby tick calls it)
 
 local function patchFootsteps()
     local done = true
