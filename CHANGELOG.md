@@ -20,6 +20,8 @@ launcher's orange **!** installs this one for you; from yesterday's build 4 or o
 - **Minimap: Ahtu's maps.** Asteroid Mine, Mining Frigate, Planet Killer, Terraformer, Navy Outpost, Penal Colony and
   Spaceport show Ahtu's illustrated floor maps (the floor you're on, by height) instead of the plain outline, credited
   in the map's corner. Thanks, Ahtu!
+- **Smoother menus (#113, thanks sp0rrk):** the lobby, loadout and market no longer stutter once a second (the
+  friends list refresh, already stubbed in raids, is now stubbed in the menu too).
 - **Guide:** the six video topics (they need YouTube) now show short written guidance instead of an empty box.
 - **Steadier:** actors that disappear mid-raid can't stop the director's update any more, cached objects from the last
   map are dropped, and a few menu searches back off instead of retrying every few seconds forever.
