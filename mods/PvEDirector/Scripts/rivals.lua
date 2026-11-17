@@ -277,6 +277,8 @@ local CFG = {
     DEMATERIALIZE_AFTER = 20,       -- seconds outside a station before its rivals go back to being simulated
     FRESH_DOCK = 25,                -- a crew that docked this recently enters through the airlock
     MATERIALIZE_GAP = 3,            -- seconds between crews appearing in a station you walk into
+    SHIP_FRAME_HZ_FOOT = 15,        -- while you're on foot, ships' glide, gunnery and turret swing run this often, not every
+                                    -- frame (at the helm, in a turret seat or a pod: every frame). 0 = always every frame
     AWAKE_MAX = 16,                 -- bodies awake around you (guards, soldiers, rivals; parked ones don't count) before
                                     -- another crew waits aboard and station top-ups stop; 0 = no cap (F3 How many)
     INSIDE_AREA_PER_CREW = 10000,   -- crews walking a station at once: one per this many m2 (at least INSIDE_MIN).
@@ -3966,9 +3968,17 @@ function R.frame(worldKey)
     local dt = math.min(0.1, now - (lastFrame or now))
     lastFrame = now
     if not S or S.key ~= worldKey then return end
-    glideShips(now)
-    fireControl(now, dt)
-    pcall(swingAimed, dt)
+    -- On foot (inside a station or your ship) you can't see the ships, so their per-frame work (~29 ms a second with 8
+    -- crews, profile.txt 2026-11-17) runs SHIP_FRAME_HZ_FOOT times a second, with the real time since the last pass:
+    -- glides go by the clock, and gunnery and turret swing scale by that time.
+    local hz = S.onFoot and CFG.SHIP_FRAME_HZ_FOOT or 0
+    if hz <= 0 or now >= (S.nextShipFrame or 0) then
+        local sdt = math.min(0.25, now - (S.lastShipFrame or now))
+        S.lastShipFrame, S.nextShipFrame = now, now + (hz > 0 and 1 / hz or 0)
+        glideShips(now)
+        fireControl(now, sdt)
+        pcall(swingAimed, sdt)
+    end
     if #S.pods > 0 then flyPods(dt) end
     if valid(S.pc) then
         pcall(rescueFromVoid, now)
@@ -4261,6 +4271,11 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
     end
     S.pc = pc
     S.foot = foot
+    -- on foot = your character is the pawn (not the helm, a turret seat or a pod): R.frame slows the ships' work
+    S.onFoot = false
+    pcall(function()
+        S.onFoot = valid(foot) and valid(pc.Pawn) and pc.Pawn:GetAddress() == foot:GetAddress()
+    end)
     if valid(S.playerShip) then S.playerShipLoc = S.playerShip:K2_GetActorLocation() end
     -- Where you are and where you look from (a trailer camera can be far from your ship): no ship is lifted in sight.
     S.watchers = { S.playerShipLoc }

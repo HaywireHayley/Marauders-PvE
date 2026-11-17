@@ -2,6 +2,12 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Next build (not released yet)
+
+- **Lighter on the CPU in stations:** while you're on foot, rival ships out in space are updated 15 times a second
+  instead of every frame, and enemies who aren't fighting update their animation and aim half as often. In a test
+  the mod's own work per frame roughly halved, which matters most on slower PCs.
+
 ## Public test, 17 Nov 2026 (`public-test-20261117`)
 
 The headline is **frame rate**: guards in stations you've left no longer stay awake for the whole raid, so raids
