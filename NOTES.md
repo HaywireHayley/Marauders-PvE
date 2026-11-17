@@ -2574,6 +2574,15 @@ to cut.
 Also seen this session: the load crash at RaidGame+0x1a605d0 (UE4SS hook dispatch, see 2026-11-09) again, once, loading
 Space_Charlie after a bridge launch; the relaunch was fine.
 
+## Build 4 quick wins: looting stutter, far animation, hot reload (2026-11-17)
+- invkeys.lua menuWidget() ran FindAllOf("SIGIS_Exit_Widget_C") every 2 s while the inventory was open, until the pause
+  menu had been opened once in that raid (44-101 ms each in bridge/profile.txt): a stutter while looting. Now it only
+  looks once ExitMenu_Open's hook has run in this world (menuOpened, reset when the old world's widget is gone). The
+  stuck-inventory check also needs the widget in the viewport (IsInViewport), not only flagged visible.
+- Far animation (animDistance, ANIM_FAR): on by default; bridge/anim_far_off turns it off for testing (it used to need
+  bridge/anim_far_on, so release never had it). In game: animSwitch counts in profile.txt, no errors, 14-16 bots.
+- config/UE4SS-settings.ini EnableHotReloadSystem = 0: UE4SS 3.0.x reloads every mod on Ctrl+R, which is crouch +
+  reload in a fight. Developers who want hot reload can set it back locally.
 ## Parking far-off guards, a cap on bodies awake, fps in the status line (2026-11-17, tested)
 - Build 4 testers report 10-15 fps in raids. Found: every station you enter adds its guards (own NPCs adopted, plus
   top-ups to MIN_DEFENDERS) to raid.bots, and nothing ever put them back to sleep: updateBots even wakes any bot the

@@ -23,20 +23,23 @@ local hookedAddr, hookAt = nil, 0 -- (the UFunction hooked: a raid map loads a n
 local invWasOpen = false          -- the inventory was open on the last frame
 local closeMenuUntil, closeInvNext
 local menuPath, nextMenuFind = nil, 0
+local menuOpened                  -- the pause menu has opened in this world (its ExitMenu_Open hook ran)
 local menuHookAddr                -- (the pause menu's class loads with the first raid map)
 local invPath, nextInvFind = nil, 0
 local stuckSince
 
 function K.init(ctx) X = ctx end
 
--- The pause menu widget, kept as a path (a name lookup each time, never a held object). Until the game has made one,
--- FindAllOf is tried at most every 2 s.
+-- The pause menu widget, kept as a path (a name lookup each time, never a held object). It's only looked for once the
+-- pause menu has opened in this world: FindAllOf walks every object (44-101 ms on space maps), and with the inventory
+-- open before the first Esc of a raid this ran every 2 s, a stutter while looting (profile.txt, build 4 fps reports).
 local function menuWidget()
     if menuPath then
         local m = StaticFindObject(menuPath)
         if m and m:IsValid() then return m end
-        menuPath = nil
+        menuPath, menuOpened = nil, nil -- a new world: its menu isn't made until it opens
     end
+    if not menuOpened then return nil end
     local now = os.clock()
     if now < nextMenuFind then return nil end
     nextMenuFind = now + 2
@@ -95,6 +98,7 @@ function K.tick()
         if open and open:IsValid() and open:GetAddress() ~= menuHookAddr then
             -- (pre-callback: this Blueprint event's post-callback never runs under UE4SS; see quit.lua)
             local ok = pcall(RegisterHook, MENU_OPEN, function()
+                menuOpened, nextMenuFind = true, 0
                 local ok2, err = pcall(onEsc)
                 if not ok2 then X.log("inventory keys: menu open failed: " .. tostring(err)) end
             end)
@@ -122,7 +126,10 @@ function K.tick()
     local stuck = false
     if not pc.bShowMouseCursor and not closeMenuUntil then
         local inv = invWidget()
-        stuck = inv ~= nil and inv:IsVisible() and not menuShown() and not X.modMenuOpen()
+        -- (in the viewport too: a hidden copy flagged visible would otherwise be "closed" twice a second)
+        local shown = false
+        if inv then pcall(function() shown = inv:IsInViewport() and inv:IsVisible() end) end
+        stuck = shown and not menuShown() and not X.modMenuOpen()
     end
     if not stuck then
         stuckSince = nil
