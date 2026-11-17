@@ -3035,3 +3035,37 @@ to the floor at 60230,114665,-1203", inside a wall.
   world.
 - Checked: the title screen stutter was gone about 25 s in, when the startup loads finish. Not yet confirmed in game:
   the post raid hitch with the new mappick lists, and the mouse gating on the title screen.
+
+## Player shots: no hit zones on the mod's soldiers (issue 123; investigation 2026-11-17, NOT fixed)
+- Reported: every STG44 hit on a BotPawn_C or BotPawnMilitary_C did a flat 34, helmet or not, head or not.
+- Confirmed in game (Space_Solo_01): STG44 head shot on a helmeted BotPawnMilitary_C = 34.0; Mat 49, 10 hands-on hits
+  anywhere on one = 22.0 each (the gun's flat damage).
+- Cause: the damage function reads the hit capsule's AreaHitType (see "Bot-on-bot damage" above). PlayerPawn_C and the
+  map's own node bots (GOAPNodeBot_Raider_C) have 17 RaidHitCapsuleComponents (head/neck 1, body 2, left arm 3, right arm 4,
+  left leg 5, right leg 6). The pawns the mod spawns (BotPawn_C, BotPawnGuard_C, BotPawnMilitary_C: soldiers, guards,
+  rivals, crew) have none, and their body mesh blocks channels 3 (Visibility) and 15, which the player's and node bots'
+  meshes ignore so a trace reaches the capsules. So the bullet stops on the mesh with no zone: raw damage.
+- Player capsules (measured): query only, object type Pawn, block only channels 3 and 9-15, attached to the mesh at the
+  bone of the same name with an offset. Table (socket, area, radius, half height, rel. location, rel. rotation):
+  head 1 10/14 (2.9,0.5,0) (90,-355,-695); neck_01 1 7/8.8 (6.1,-0.3,0) (90,0,0); spine_03 2 13/20 (18.8,-5.9,0.4) (0,10,0);
+  spine_02 2 15.7/23.7 (9,-2.2,1.1) (39,91,93); pelvis 2 13/19.1 (-2.3,-1.1,0) (0,10,0); upperarm_r 4 6.5/16 (-16.2,0.3,-0.8)
+  (81,-1,-6); lowerarm_r 4 5.7/16 (-14.5,-0.4,0.2) (86,-160,-163); Hand_R 4 4.9/7.9 (-6.2,0.7,1.6) (88,-24,-25);
+  upperarm_l 3 6.5/16 (16.5,-0.3,0.6) (81,-1,-6); lowerarm_l 3 5.7/16 (15.1,0,-0.4) (85,-16,-15); hand_l 3 4.9/7.9
+  (5.6,-0.6,-1.7) (88,-24,-22); thigh_r 6 8.8/23.1 (23.8,-0.2,-0.7) (90,-46,-54); calf_r 6 7.9/22.4 (21.5,2.4,0.1)
+  (88,-171,-170); Foot_R 6 4.9/13.5 (6.7,-7,0.7) (86,82,166); thigh_l/calf_l/foot_l 5 as the right side with x negated
+  (-24.1,0.4,0.6) (-21.6,-2.6,0.7) (-6.6,6.6,-0.4). BotPawn* meshes carry every bone named here.
+  Mesh responses to channels 0-17: player 220022020222222022, node bot 220022020222222020, BotPawn* 220222020222222222.
+- TRIED AND FAILED: adding RaidHitCapsuleComponents at runtime from Lua (AActor::AddComponentByClass, deferred or not, with
+  or without FinishAddComponent, attach before or after). They attach on the right bones and report the right collision
+  settings, but never block a trace: no physics body. With the mesh set to ignore 3/15 the bullets then pass through the
+  bot entirely (no damage, no impact effect). FinishAddComponent's RelativeTransform didn't arrive from Lua (left at 0).
+  Adding a plain Engine CapsuleComponent with AddComponentByClass(bManualAttachment = false) CRASHED the game.
+- Options not tried: spawn a pawn class that has the capsules (the node bot BP, or a cooked BotPawn subclass with them);
+  register the components natively (pvepatch: UActorComponent::RegisterComponent / CreatePhysicsState by address); or
+  apply the zone and armour maths ourselves from the hit bone (the hit result isn't readable from Lua here).
+- Testing from the bridge: ShootingRangeGameMode (bridge `raid`, F9 test raid) applied no damage to bots at all: test in
+  Space_Solo_01 (F9 "Give me the STG44"). An AI-controlled bot moved with K2_SetActorLocation is put back: UnPossess it
+  first. SimulateInputKey fires only while the game window has focus, and setting CurrentAmmoInClip by hand left the gun
+  refusing to fire (CurrentAmmo read -30). KismetSystemLibrary:LineTraceSingle's bool works from Lua (start the trace in
+  front of the camera, the ignore list didn't seem to apply); its hit result doesn't come back.
+- Not looked at: Liberator pellets doing no damage (the multi-pellet path, 0x18a1990).
