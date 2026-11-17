@@ -95,7 +95,11 @@ local CFG = {
     -- (their FireDistance, 13500), not the hull guns' ship-to-ship ranges above, so you can snipe them back (#47).
     TURRET_RANGE_STATION = 13500,
     TURRET_ARC = 60,                -- deg either side of the nose the turrets swing (their own TurretMax/MinYaw)
-    GUNNER_ARC = 120,               -- the same for your crew's gunner on your ship's turrets
+    -- Your crew's gunner on your ship's turrets (#88: "only kept shooting ahead", "too far" on ships it could see). Shells
+    -- never expire (every turret's shell has InitialLifeSpan 0), so the reach is ours to set.
+    GUNNER_ARC = 170,               -- deg either side of the nose they swing your turrets (all but dead astern)
+    GUNNER_RANGE = 1.75,            -- x each turret type's range below (75mm: 85 m -> 149 m; stationary turrets: 135 m)
+    GUNNER_PITCH_SLACK = 30,        -- deg past the barrels' lift/dip they still fire, along the true aim (rivals: 6)
     TURRET_PITCH = { -15, 10 },     -- deg the barrels dip and lift (what every type's anim shows; some lift further)
     TURRET_SWING = 3,               -- x the turret's own traverse speed (20 deg/s yaw, 10 pitch) the gunners swing it at
     TURRET_ON_AIM = 2,              -- deg: a turret fires once its barrel is this close to where its gunner aims
@@ -1173,7 +1177,7 @@ local function fireTurrets(c, tgt, now)
         end
         local d = dist(sl, tl)
         local why = "range"
-        if valid(t.actor) and d < math.max(t.range, c.reach or 0) then
+        if valid(t.actor) and d < math.max(t.range * (c.rangeScale or 1), c.reach or 0) then
             why = "arc"
             local tof = d / t.speed * a.lead
             local aim = { X = tl.X + tv.X * tof, Y = tl.Y + tv.Y * tof, Z = tl.Z + tv.Z * tof }
@@ -1193,12 +1197,16 @@ local function fireTurrets(c, tgt, now)
                 -- the barrel's own heading once it's ours and swinging (no AnimBP hook: straight along the aim)
                 -- (the barrel is checked against where it can point: comparing it with an aim past its lift/dip limit
                 -- used to hold every turret whose target was a little above or below)
-                local on = math.abs(wp - t.wantPitch) <= CFG.TURRET_PITCH_SLACK
+                local past = math.abs(wp - t.wantPitch)
+                local on = past <= (c.pitchSlack or CFG.TURRET_PITCH_SLACK)
                 if not on then why = "pitch" end
                 if on and t.aimed and t.swungAt and now - t.swungAt < 0.5 then
                     on = math.abs(t.yaw - t.wantYaw) <= CFG.TURRET_ON_AIM and math.abs(t.pitch - t.wantPitch) <= CFG.TURRET_ON_AIM
                     if not on then why = "swing" end
-                    ay, ap = r.Yaw + t.yaw, r.Pitch + t.pitch
+                    -- (your gunner, past the barrels' lift/dip: the shell keeps the true pitch, or it went off by up to
+                    -- GUNNER_PITCH_SLACK deg)
+                    ay = r.Yaw + t.yaw
+                    if not (c.pitchSlack and past > 0) then ap = r.Pitch + t.pitch end
                 end
                 if on and now >= t.next then
                     -- then the gun's own spread
@@ -4657,6 +4665,7 @@ function R.gunnerFire(turrets, tgt, now, gun)
     if not (S and valid(S.playerShip)) then return false end
     gun = gun or {}
     gun.ship, gun.turrets, gun.arc = S.playerShip, turrets, CFG.GUNNER_ARC
+    gun.rangeScale, gun.pitchSlack = CFG.GUNNER_RANGE, CFG.GUNNER_PITCH_SLACK
     gun.reach = tgt:GetClass():GetFName():ToString():find("NodeTurret", 1, true) and CFG.TURRET_RANGE_STATION or nil
     local fired = fireTurrets(gun, tgt, now)
     if fired then playerFired() end

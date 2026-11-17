@@ -47,7 +47,7 @@ local CFG = {
     -- it's gone, docks, is a wreck, derelict or destroyed, or is beyond ORDER_RANGE; click with nothing in range and they
     -- go back to whatever's after you (ships attacking you, turrets aiming at you).
     ORDER_RANGE = 30000,
-    ORDER_CONE = 15,
+    ORDER_CONE = 25,
     FIRE_KEY = "LeftMouseButton",
     TAG_HEIGHT = 115,               -- nametag this far above a crewmate's middle
     TAG_FAR = 6000,                 -- not drawn beyond this (cm)

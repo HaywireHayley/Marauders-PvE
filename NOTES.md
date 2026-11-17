@@ -3099,3 +3099,18 @@ to the floor at 60230,114665,-1203", inside a wall.
   odd and pc+8 all 0 without a crash. 0.30 us per call, same as IsValid().
 - Not covered: a direct `:IsValid()` or any other method on a kept reference elsewhere (shipnav/cover/killstats ones are
   CDOs or fresh reads). Not reproduced in a raid yet.
+
+## Crew gunner reach, swing and click (issue 88; rivals.lua GUNNER_*, crew.lua ORDER_CONE)
+- Reports: a level 3 and a level 4 gunner "only kept shooting ahead and not turning the turret", clicking a target didn't
+  make them attack it, nothing to answer a stationary turret with. Hayley: mainly radius/range.
+- What limited them: each turret type's crew range (60-95 m), GUNNER_ARC 120 deg, and the barrels' pitch (-15..10 deg)
+  with TURRET_PITCH_SLACK 6: a target a little above or below was held ("pitch"), one past the arc or range was "arc" /
+  "range", and an ordered ship out of range just got "too far, close in".
+- Shells don't run out of range: every ship turret's shell (ProjSmallShell, Proj25mm, Proj75mmShell, ProjSmallMissile,
+  ProjTorpedo) has InitialLifeSpan 0 (probed from the CDOs). The turrets' own limits: yaw +-60, pitch 0..15.
+- Now for your gunner only (gunnerFire passes them to fireTurrets; rival crews unchanged): GUNNER_RANGE 1.75 x the type's
+  range, GUNNER_ARC 170, GUNNER_PITCH_SLACK 30 (past the barrel's tilt the shell keeps the true pitch instead of the
+  barrel's). A click picks the ship nearest your view within ORDER_CONE 25 deg (was 15). Both new settings are on the
+  F3 "Ship guns" tab.
+- Checked: loads without errors. NOT checked in a fight (needs a hired gunner and a space battle).
+- Not done: a second gunner (only one crewmate is the gunner; they already work every turret on the hull).
