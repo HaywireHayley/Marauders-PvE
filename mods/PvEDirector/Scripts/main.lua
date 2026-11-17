@@ -2384,7 +2384,7 @@ local function giveAmmo(gun, rounds)
     if not row then return log("no ammo row for bullet type " .. tostring(gun.BulletType)) end
     local slot = 0
     while rounds > 0 and slot < 4 do
-        local n = math.min(rounds, AMMO_STACK)
+        local n = math.min(rounds, require("itemdata").capStack(row, AMMO_STACK)) -- (12 gauge stacks at 20, #102)
         inventory():Server_AddItem(FName(row), n, 100, "PocketLeft", { Column = slot % 2, Row = slot // 2 }, false,
             newId("ammo"), 0, "", 100)
         rounds, slot = rounds - n, slot + 1

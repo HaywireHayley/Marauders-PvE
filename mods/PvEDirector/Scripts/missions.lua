@@ -19,9 +19,11 @@ local X -- log, valid
 local CFG = {
     RESCAN = 20,        -- space maps stream stations in: look for contract actors again this often until found
     NEAR = 4000,        -- only actors this close are checked for overlap
-    INSPECT_RANGE = 350, -- inspecting: this close (the game's own limit is 400)...
-    INSPECT_ANGLE = 35,  -- ...and looking within this many degrees of it to start...
-    KEEP_ANGLE = 60,     -- ...and within this many to keep inspecting (idle sway, small mouse moves)
+    INSPECT_RANGE = 250, -- inspecting: this close (the game's own limit is 400)...
+    INSPECT_RADIUS = 35, -- ...and looking at it: within the angle a target this big (cm) takes up at that distance,
+    INSPECT_MIN_ANGLE = 6, -- but never tighter than this (degrees)...
+    KEEP_SCALE = 1.8,    -- ...and within this many times that to keep inspecting (idle sway, small mouse moves).
+    -- (A flat 35 degrees from 3.5 m took in most of a wall and the doorway, and blocked loot and doors there: #99.)
     LOOK_GRACE = 1.5,    -- seconds of looking away before an inspect stops (it restarts from zero)
     USE_KEY = "F",       -- the "Use" action's default key (Input.ini ActionMappings)
 }
@@ -146,7 +148,14 @@ function M.interact(pc, pawn)
         local dx, dy, dz = best.at.X - cam.X, best.at.Y - cam.Y, best.at.Z - cam.Z
         local n = math.sqrt(dx * dx + dy * dy + dz * dz)
         local angle = n < 1 and 0 or math.deg(math.acos(math.max(-1, math.min(1, (fx * dx + fy * dy + fz * dz) / n))))
-        ok = angle <= (S.looking == best and CFG.KEEP_ANGLE or CFG.INSPECT_ANGLE)
+        local start = math.max(CFG.INSPECT_MIN_ANGLE, math.deg(math.atan(CFG.INSPECT_RADIUS, math.max(n, 1))))
+        ok = angle <= (S.looking == best and start * CFG.KEEP_SCALE or start)
+        -- The game's own interaction pick (made just before this) wins: loot, a door or a container nearer the
+        -- crosshair stays usable, unless you're already inspecting this object.
+        if ok and S.looking ~= best then
+            local cur = pawn.LastInteractionActor
+            if cur and valid(cur) and cur:GetAddress() ~= live(best):GetAddress() then ok = false end
+        end
     end
     if ok then
         S.looking, S.lookLost = best, nil
