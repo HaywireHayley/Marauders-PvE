@@ -467,6 +467,10 @@ local function onTick(ctx)
     if PveQuit then pcall(PveQuit.tick) end -- Quit Game in the pause menu (quit.lua)
     if PveInvKeys then pcall(PveInvKeys.tick) end -- Esc / lean with the inventory open (invkeys.lua)
     if PveLobbyLabel then pcall(PveLobbyLabel.tick, ctx:get()) end -- START RAID label (lobbylabel.lua)
+    if PveInvQol then
+        local okq, errq = pcall(PveInvQol.tick, ctx:get())
+        if not okq and not PveInvQolErr then PveInvQolErr = true log("stash tools: " .. tostring(errq)) end
+    end
     local shown, shownErr = ppcall("loading", Loading.tick, ctx:get())
     if not shown then
         log("loading screen failed: " .. tostring(shownErr))
@@ -2817,6 +2821,8 @@ PveMapPick.init({ log = log, valid = valid, project = PROJECT })
 PveGuild = require("guild") -- (a global: main.lua is at the 200-locals limit)
 PveGuild.init({ log = log, valid = valid, project = PROJECT })
 PveLobbyLabel = require("lobbylabel") -- (globals, like PveQuit: main.lua is at the 200-locals limit)
+PveInvQol = require("invqol") -- stash SORT / SELL JUNK / search / double-click to gear (invqol.lua)
+PveInvQol.init({ log = log, valid = valid, lib = lib })
 PveLobbyLabel.init({ log = log, offline = function() return offlineBackend() end })
 PveInvKeys = require("invkeys") -- (a global, like PveQuit: main.lua is at the 200-locals limit)
 PveInvKeys.init({ log = log, valid = valid,
