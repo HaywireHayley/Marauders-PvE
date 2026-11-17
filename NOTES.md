@@ -3007,3 +3007,12 @@ to the floor at 60230,114665,-1203", inside a wall.
 - Tested in a Space_Alpha raid through bridge/dir_eval.lua, at the reporter's coordinates: below = -1626, nav =
   60356,114798,-1623, in sight = true. The old pick (60230,114665,-1203) is not in sight (rejected). Not tested: a
   real pod flight into Fortress with the new code.
+
+## Mouse stutter in the menu, loadout and market (2026-11-17, tested; main.lua lobby tick, patchFriendsRefresh)
+- bridge/profile.txt in the lobby: every 10 s window had exactly 10 frame gaps of 150 to 180 ms, one a second, while the
+  frame rate between them was 120+. Raids had none. patchFriendsRefresh (the PGOS overlay's 1 s friends timer walking the
+  Steam friends list, ~70 ms and up) was only applied from updateSpace, i.e. inside raids.
+- Now the lobby tick applies it too, every 5 s while there is no raid (the stub is idempotent: the DLL checks the
+  bytes), and logs "lobby: friends refresh stubbed" once. The overlay appears a few seconds after the menu, so the
+  first seconds can still hitch.
+- Tested by the reporter in the menu, loadout and market: no stutter.
