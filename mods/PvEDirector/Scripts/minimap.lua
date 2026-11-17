@@ -761,7 +761,7 @@ local function build(pc)
     local host = lib("/Script/UMG.Default__WidgetBlueprintLibrary"):Create(pc, cls, pc)
     if not valid(host) then return false end
     ui = { host = host, tree = host.WidgetTree, root = host.WidgetTree.RootWidget, art = {}, dots = {}, labels = {}, rings = {},
-        gates = {} }
+        gates = {}, planTex = {} }
     ui.root:ClearChildren()
     for _, f in ipairs({ "dot", "arrow", "target", "station", "gate" }) do
         ui.art[f] = texture(pc, DIR .. f .. ".png")
@@ -892,6 +892,25 @@ local function hideLabel(l)
     end
 end
 
+-- A floor plan's texture, loaded once per minimap. The plan Image only references the texture it shows, and a texture
+-- loaded from a file has nothing else holding it: once the plan switched to another place, garbage collection freed the
+-- old one, and coming back reused that freed pointer from Lua. Slate then crashed painting it (an IsA on a dead object
+-- in the game's UI paint): the airlock crash, issue #53, on the way back aboard or on entering a station a second time.
+-- So every texture loaded also sits in a collapsed Image of its own in the minimap's widget tree, which keeps it alive
+-- for as long as the minimap.
+local function planTexture(path)
+    local tex = ui.planTex[path]
+    if tex then return tex end
+    tex = texture(ui.pc, path)
+    if not tex then return nil end
+    local keep = make("Image")
+    keep:SetBrushFromTexture(tex, false)
+    keep:SetVisibility(1) -- Collapsed: never painted
+    ui.root:AddChildToCanvas(keep)
+    ui.planTex[path] = tex
+    return tex
+end
+
 -- The floor plan under a local view. It turns about you, so its pivot is your spot in the image.
 local function drawPlan(v, p)
     local plan = p and p.plan
@@ -904,7 +923,7 @@ local function drawPlan(v, p)
     end
     if ui.planFor ~= p then
         ui.planFor = p
-        p.tex = p.tex or texture(ui.pc, planPath(p))
+        p.tex = planTexture(planPath(p))
         if p.tex then ui.plan:SetBrushFromTexture(p.tex, false)
         else X.log("minimap: couldn't load " .. planPath(p)) end
     end
