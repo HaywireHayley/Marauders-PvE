@@ -3080,3 +3080,22 @@ to the floor at 60230,114665,-1203", inside a wall.
   refusing to fire (CurrentAmmo read -30). KismetSystemLibrary:LineTraceSingle's bool works from Lua (start the trace in
   front of the camera, the ignore list didn't seem to apply); its hit result doesn't come back.
 - Not looked at: Liberator pellets doing no damage (the multi-pellet path, 0x18a1990).
+
+## Airlock crash in UE4SS: IsValid() on a freed object (issue 53, build 6; pvepatch.c pve_alive, main.lua valid)
+- Report (Taki, 17 Nov, public-test-20261117.6, Space_Beta): crash 1 s after `level effects: Asteriod_Mine_Large_01`, on
+  going into the mine. `EXCEPTION_ACCESS_VIOLATION reading 0x1abccabc04c` in UE4SS: `+4baaaf` <- `+3b23fc` <- Lua
+  (`+87a0d4`) <- lua_pcall <- UE4SS's ProcessEvent hook (`+555046`) under `RaidGame+1c3574e`, i.e. the director's tick.
+  This is the first signature in #53; build 4's fix (#114) was the other one (Slate paint, `RaidGame+2bc825b`).
+- UE4SS.dll disassembled: `+3b23c0` is a UObject method that takes the wrapper's pointer (`[ud+0x70]`), calls `+4baa20`
+  (reads an int at a lazily resolved member offset from the object: InternalIndex) and looks it up in the object array:
+  IsValid. So `o:IsValid()` dereferences the object; once the game has freed it and the allocator has given the page back
+  (a station's contents streaming out), the check itself faults, and pcall can't catch an access violation.
+- Fix: `pve_alive(address)` (pvepatch.c) reads InternalIndex only after VirtualQuery says the page is committed and
+  readable, then checks the GUObjectArray item holds that pointer (+0, 24-byte items, NumElements at Objects+0x14) and
+  isn't PendingKill (1<<29) or Unreachable (1<<28). It returns its result by pushing an integer onto the Lua stack (the
+  first export that returns a value: pushInt). main.lua's valid() calls it before IsValid(); every module's X.valid is
+  that. rivals.lua's `p.ship:IsValid()` (a kept reference) now goes through valid().
+- Checked in game (menu): live controller 1, spawned actor 1, destroyed 0, after `obj gc` 0; Taki's fault address, 0,
+  odd and pc+8 all 0 without a crash. 0.30 us per call, same as IsValid().
+- Not covered: a direct `:IsValid()` or any other method on a kept reference elsewhere (shipnav/cover/killstats ones are
+  CDOs or fresh reads). Not reproduced in a raid yet.

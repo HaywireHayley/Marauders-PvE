@@ -612,3 +612,50 @@ __declspec(dllexport) int pve_hit_capsule(void *L) {
     callUFn(bot, g_hitFn[1], &fin);
     return 0;
 }
+
+/* Lua: pve_alive(object address) -> 1 if it's a live object, else 0 (issue 53). UE4SS's UObject:IsValid() reads
+   InternalIndex out of the object itself, so on an object the game has freed and whose memory has gone back to the OS (a
+   station's contents streaming out as you cycle an airlock) it faults inside UE4SS: EXCEPTION_ACCESS_VIOLATION at
+   UE4SS+0x4baaaf, under the director's tick, and pcall can't catch that. This reads the object only once VirtualQuery says
+   the page is committed and readable, then checks the GUObjectArray slot really holds it (a freed object's memory reused
+   by something else fails here) and that it isn't pending kill or unreachable. */
+#define OBJECT_NUM      0x14       /* FChunkedFixedUObjectArray.NumElements, from its Objects pointer */
+#define PENDING_KILL    (1 << 29)
+#define UNREACHABLE     (1 << 28)
+#define LUA_VNUMINT_TAG 3
+
+static int readable(const void *p, size_t n) {
+    MEMORY_BASIC_INFORMATION mbi;
+    if (!VirtualQuery(p, &mbi, sizeof mbi) || mbi.State != MEM_COMMIT) return 0;
+    if (mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD)) return 0;
+    if (!(mbi.Protect & (PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE |
+          PAGE_EXECUTE_WRITECOPY))) return 0;
+    return (const char *)p + n <= (const char *)mbi.BaseAddress + mbi.RegionSize;
+}
+
+static int objectAlive(char *obj) {
+    if ((unsigned long long)obj < 0x10000 || ((unsigned long long)obj & 7)) return 0;
+    if (!readable(obj + OBJECT_INDEX, 4)) return 0;
+    int index = *(int *)(obj + OBJECT_INDEX);
+    char *arr = (char *)GetModuleHandleA(NULL) + OBJECT_CHUNKS;
+    char **chunks = *(char ***)arr;
+    if (!chunks || index < 0 || index >= *(int *)(arr + OBJECT_NUM)) return 0;
+    char *item = chunks[index >> 16];
+    if (!item) return 0;
+    item += (index & 0xffff) * 24;
+    if (*(char **)item != obj) return 0;
+    return !(*(int *)(item + 8) & (PENDING_KILL | UNREACHABLE));
+}
+
+/* Pushes one integer as the C function's result (lua_pushinteger; a C function always has LUA_MINSTACK free slots). */
+static int pushInt(void *L, long long v) {
+    char *top = *(char **)((char *)L + LUA_TOP);
+    *(long long *)top = v;
+    top[8] = LUA_VNUMINT_TAG;
+    *(char **)((char *)L + LUA_TOP) = top + LUA_SLOT;
+    return 1;
+}
+
+__declspec(dllexport) int pve_alive(void *L) {
+    return pushInt(L, objectAlive((char *)intArg(L, 1, 1)));
+}
