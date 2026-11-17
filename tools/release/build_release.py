@@ -106,7 +106,16 @@ def mods_txt():
 def seed():
     """The captured account with everything that identifies a player taken out. A new save only keeps its base
     cosmetics and the public news/regions anyway (saves._fresh); the rest is the shape the stand-in expects."""
-    with open(os.path.join(SRC, "capture", "seed", "account.json"), encoding="utf-8") as f:
+    captured = os.path.join(SRC, "capture", "seed", "account.json")
+    if not os.path.exists(captured):
+        # No capture in this checkout (capture/ stays private): ship the repository's own backend/seed.json, which is
+        # this function's output already. The privacy check still runs on it.
+        with open(os.path.join(SRC, "backend", "seed.json"), encoding="utf-8") as f:
+            text = f.read()
+        for bad in PRIVATE + ["avatars.steamstatic"]:
+            assert bad not in text, bad
+        return text
+    with open(captured, encoding="utf-8") as f:
         s = json.load(f)
     s.pop("sources", None)
     s["account"]["user"].update(id=str(uuid.uuid5(uuid.NAMESPACE_URL, "marauders-offline-player")), username="offline",
