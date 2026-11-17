@@ -2,6 +2,28 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 17 Nov 2026, build 4 (`public-test-20261117.4`)
+
+Fixes for the two worst problems on build 3: the **crash going through airlocks** and **raids at 10 fps** after
+opening the GUILD tab. Also **illustrated station maps** in the minimap, by Ahtu. On builds 1-3 from today, the
+launcher's orange **!** installs this one for you; from yesterday's build 4 or older, download it by hand.
+
+### Changes
+
+- **Airlock crash (#53):** going back aboard through an airlock, or into a station a second time, crashed the game. The
+  minimap kept each place's floor plan only on the Lua side, so the game freed the one you'd left, and coming back
+  drew a freed image. Plans now stay loaded while the minimap exists. The lobby's crew portraits and the loading
+  screen's picture had the same weakness and are fixed too.
+- **Raids at 1-15 fps after opening GUILD (#112):** once the guild page had been opened, every frame of every raid
+  searched the whole game for it (it's gone with the lobby). It's now forgotten when the lobby goes. The pause menu's
+  Quit button had the same habit in the raid after one where you'd opened the menu.
+- **Minimap: Ahtu's maps.** Asteroid Mine, Mining Frigate, Planet Killer, Terraformer, Navy Outpost, Penal Colony and
+  Spaceport show Ahtu's illustrated floor maps (the floor you're on, by height) instead of the plain outline, credited
+  in the map's corner. Thanks, Ahtu!
+- **Guide:** the six video topics (they need YouTube) now show short written guidance instead of an empty box.
+- **Steadier:** actors that disappear mid-raid can't stop the director's update any more, cached objects from the last
+  map are dropped, and a few menu searches back off instead of retrying every few seconds forever.
+
 ## Public test, 17 Nov 2026, build 3 (`public-test-20261117.3`)
 
 A fix for the low frame rate some of you saw on build 2 (a flat 9-10 fps on foot). On build 2 or this morning's
