@@ -957,6 +957,27 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
   Watch for Steam friend pop-ups in the bottom-right of takes.
 - `trailer/make_trailer.py`: edit list, synthesized score (numpy), frame renderer -> marauders_offline_trailer.mp4.
 
+## Event: the Red Baron in every raid (2026-11-16, #78; rivals.lua R.baron, F3 > Rival ships)
+- Hayley on #78: event presets are welcome, guaranteed bosses first, reachable from the lobby, more loot when a preset
+  makes raids harder. This is the first slice: one setting, BARON (0/1, off by default), in the F3 Rival ships tab. F3
+  works in the lobby, and the value is saved with the other tuning (config/ai_tuning.txt, id Crews:BARON).
+- The map's own Red Baron (Ship_RedBaron_StrikeFrigate01_Pawn_Ai_Child_C with AiFrigateController_RedBaron_C and a
+  GOAPNodeBot_Boss_C captain) is rolled by the game per run and its GOAP brain doesn't run offline, so the guarantee is
+  one of our crews: makeCrews turns crew 1 into the Baron's (at least one crew even with CREWS 0 / no slots).
+  R.baron.make: the Strike Frigate design (no turret refit), a full crew (CREW_SIZE max), diehard, never a rusher,
+  aggression 1, gunnery = GUN_SKILL max; captain "Red Baron" with the game's Baron_Head_Skel_01 / Baron_Body_Skel_01
+  (headPath/bodyPath, as hired crew use), GearScale.spec(1) gear, helmet/chest/bag worn, 2x BASE_HP. He keeps the
+  "rival" AI profile: ai.lua "boss" is weaker than "rival" (typeMod .75, miss .4).
+- rivals.lua's main chunk is at exactly Lua's 200-local limit (adding even one top-level local fails scripts/luacheck.py),
+  so the helpers are fields of R.baron. Check with luacheck before adding any local there.
+- Tested in game (2026-11-16, Space_Solo_01, BARON set to 1 from bridge/dir_eval.lua, mod scripts from the branch laid
+  over the offline copy): "solo map, 12 player slots: 5 rival crews"; "Red Baron's Strike Frigate (4) launched in a
+  Strike Frigate (RocketArtillery): heading for Navy Outpost"; a Ship_RedBaron_StrikeFrigate01_Pawn_C in the world
+  (bridge find); docked at Navy Outpost a minute later; no Lua errors. Not seen yet: the captain's Baron look in
+  person, and a fight with him.
+- Next (#78): event presets (config/event.txt or a lobby picker) bundling map + overrides, loot scaling for harder
+  presets, other bosses.
+
 ## Rival hulls and turrets (2026-11-01, rivals.lua)
 - The player ship designs live in DT_ShipInfo (26 rows: name, hull mesh, Turret01/02Type), DT_FrigateStats (speed,
   turn, armour, hull) and FrigData (interior prefab). The 26 designs are 6 base pawns (/Game/Blueprints/Ships/

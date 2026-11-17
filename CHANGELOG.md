@@ -6,6 +6,9 @@ Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Mar
 
 - **Stuck on "CONNECTING TO BACKEND"** when the mod's folder path had a space in it (#75): fixed. If the offline backend
   still can't start, PLAY now says why instead of hanging.
+- **The Red Baron in every raid** (an event setting, #78): F3 > **Rival ships** > "The Red Baron in every raid". With it
+  on, one rival crew is the Red Baron's: his strike frigate, a full crew that fights to the death and goes for any ship
+  it sees, his best gunner, and the Baron himself in his own look, best gear and twice the health. Off by default.
 - **Windowed mode fits small screens:** 1600x900 when it fits, smaller on laptops (e.g. 1152x648 on 1366x768).
 
 ## Public test, 16 Nov 2026, build 4 (`public-test-20261116.4`)
