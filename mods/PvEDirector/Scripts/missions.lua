@@ -26,6 +26,7 @@ local CFG = {
     -- (A flat 35 degrees from 3.5 m took in most of a wall and the doorway, and blocked loot and doors there: #99.)
     LOOK_GRACE = 1.5,    -- seconds of looking away before an inspect stops (it restarts from zero)
     USE_KEY = "F",       -- the "Use" action's default key, if it has no binding (keys.lua reads the player's own)
+    RESEND = 1.0,        -- seconds between inspect events sent while Use is held (#20)
 }
 
 local S -- per-raid state
@@ -174,9 +175,22 @@ function M.interact(pc, pawn)
         down = require("keys").down(pc, "Use", CFG.USE_KEY) -- (the player's own binding: #103)
         local idle = true
         pcall(function() idle = pc.CurrentTimedMission:ToString() == "None" end)
-        if down and idle then
-            for _, t in ipairs(S.looking.tags) do
-                pcall(function() pc:Client_CheckMissionEvent(FName(t), 5) end)
+        -- At most once a second, and not for an object that keeps refusing: each send can play the contract's sound,
+        -- and a finished contract refuses to start (no timer) forever, so sending every frame while Use was held
+        -- repeated the sound (#20). Two sends in a row that start no inspect = done here for this raid.
+        local o = S.looking
+        S.refused = S.refused or {}
+        if not idle then o.refusals = 0 end
+        if down and idle and not S.refused[o] and now - (o.sentAt or 0) >= CFG.RESEND then
+            if o.sentAt and now - o.sentAt < CFG.RESEND * 3 then o.refusals = (o.refusals or 0) + 1 end
+            if (o.refusals or 0) >= 2 then
+                S.refused[o] = true
+                X.log("[missions] an inspect object stopped answering (done?): not sending it again this raid")
+            else
+                o.sentAt = now
+                for _, t in ipairs(o.tags) do
+                    pcall(function() pc:Client_CheckMissionEvent(FName(t), 5) end)
+                end
             end
         end
     end
