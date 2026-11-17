@@ -3016,3 +3016,13 @@ to the floor at 60230,114665,-1203", inside a wall.
   bytes), and logs "lobby: friends refresh stubbed" once. The overlay appears a few seconds after the menu, so the
   first seconds can still hitch.
 - Tested by the reporter in the menu, loadout and market: no stutter.
+
+## Shotgun ammo over its stack limit on bots (issue 102; rivals.lua CFG.AMMO_MAX)
+- Reported: enemy 12 Gauge showed 35/20, on almost every Penal Colony shotgun bot. Two sources put more rounds in one stack
+  than the item allows: equipKit gives a rival body stacks of CFG.AMMO_STACK (60) rounds, and a guard's carry roll
+  picks CFG.CARRY_AMMO (20 to 60). Most ammo stacks to 60 or more (assets/saves/items.json max), but 12GaugeAmmo is 20,
+  DartAmmo 40 and 40mmAmmo 3.
+- Change: CFG.AMMO_MAX holds those three limits, and the stack in equipKit and both carry rolls is capped to it. The
+  number of stacks is unchanged, so a shotgun body carries fewer rounds in total than a rifle one, as the game's own
+  stacks would.
+- Check: kill a Penal Colony shotgun guard and a rival with a shotgun; the 12 Gauge stack should read 20 at most.

@@ -328,6 +328,9 @@ local CFG = {
     ITEM_TABLE = "/SIGISPlugin/ExampleBlueprints/SIGIS_ExampleItemData.SIGIS_ExampleItemData",
     AMMO_STACKS = { 1, 3 }, -- full stacks of the gun's ammo on the body
     AMMO_STACK = 60,
+    -- Ammo rows whose stack limit (assets/saves/items.json max) is under AMMO_STACK and CARRY_AMMO: a body or guard
+    -- got 35 of 12 Gauge (limit 20). Other ammo takes 60 or more.
+    AMMO_MAX = { ["12GaugeAmmo"] = 20, DartAmmo = 40, ["40mmAmmo"] = 3 },
     MEDS = { 0, 2 },
     -- Station guards keep what they wear; their bags and pockets are rolled (rollCarried): ammo for each gun they hold,
     -- meds, and other items from gear.lua's loot / boxes / parts, priced up to a share of what they wear. Without a bag a bot
@@ -1578,7 +1581,7 @@ local function equipKit(body, kit)
     X.rollKit(at, math.tointeger(lib(CFG.ITEM_TABLE):GetAddress()), row(kit.gun and kit.gun[1]), row(kit.pistol), row(kit.helmet),
         row(kit.chest), row(kit.bag))
     if kit.gun and kit.gun[3] then
-        for _ = 1, kit.stacks do X.addItem(at, row(kit.gun[3]), CFG.AMMO_STACK) end
+        for _ = 1, kit.stacks do X.addItem(at, row(kit.gun[3]), math.min(CFG.AMMO_STACK, CFG.AMMO_MAX[kit.gun[3]] or CFG.AMMO_STACK)) end
     end
     for _ = 1, kit.meds do X.addItem(at, row(pick(Gear.meds)[1]), 1) end
 end
@@ -1648,7 +1651,7 @@ local function rollCarried(b)
         for _ = 1, 4 do -- a roll too big for the pocket is turned away: roll again
             local x, name, n = math.random(), nil, 1
             if x < CFG.POCKET_AMMO and guns[1] then
-                name, n = guns[1], math.random(CFG.CARRY_AMMO[1], CFG.CARRY_AMMO[2])
+                name, n = guns[1], math.min(math.random(CFG.CARRY_AMMO[1], CFG.CARRY_AMMO[2]), CFG.AMMO_MAX[guns[1]] or 1e9)
             else
                 local r = x < CFG.POCKET_AMMO + CFG.POCKET_MED and weightedRow(Gear.meds, cap)
                     or weightedRow(math.random() < CFG.CARRY_PART and Gear.parts or Gear.loot, cap)
@@ -1663,7 +1666,7 @@ local function rollCarried(b)
     end
     for i, ammo in ipairs(guns) do
         for _ = 1, (i == 1 and math.random(CFG.AMMO_STACKS[1], CFG.AMMO_STACKS[2]) or 1) do
-            local n = math.random(CFG.CARRY_AMMO[1], CFG.CARRY_AMMO[2])
+            local n = math.min(math.random(CFG.CARRY_AMMO[1], CFG.CARRY_AMMO[2]), CFG.AMMO_MAX[ammo] or 1e9)
             add(ammo, n)
             carried[#carried + 1] = ammo .. " x" .. n
         end
