@@ -23,6 +23,32 @@ local LOADOUT_STATE = 1                       -- MM_CoreMM_TabBtns_Loadout.Which
 local NOT_EQUIPPED = { Stash = true, Lobby = true, Gift = true, scrap = true, Shop = true, LootCon = true,
     LootPocketLeft = true, PocketLeft = true, PocketRight = true, KeyCard = true }
 local gear = {}                               -- overlay, tab, inv: paths; seen: the last equipped set
+-- The Guide's video topics (GuideItemInfo.IsAVideo) show a YouTube embed, which can't load offline: an empty box. After
+-- the guide shows a topic (Guide_Widget_C:PressedARow, which runs SetSelectedLook and FillInGuideInfo), a video topic
+-- gets this text instead, keyed by its title; the video box is collapsed and its browser pointed at about:blank so it
+-- stops trying. (A Blueprint function's hook: UE4SS runs the first callback after the body, and never the second.)
+local GUIDE_FILL = "/SIGISPlugin/Widgets/MainMenu/Guide/Guide_Widget.Guide_Widget_C:PressedARow"
+local GUIDE_TEXT = {
+    ["Marauders Intro Guide Video"] = "The video guide needs the internet, so here it is in short. Gear up on LOADOUT "
+        .. "and press START RAID. Fly your ship to a station, dock, and go through the airlock. Take what you can, then "
+        .. "get back aboard and out through a space gate before the raid timer runs out. What you carry out is yours; "
+        .. "die and it's lost. The other topics here cover each step.",
+    ["Gear Up"] = "On the LOADOUT tab, drag gear from your stash onto your character: a weapon, ammo that fits it, "
+        .. "armour, a backpack and something to heal with. Anything you take into a raid is lost if you die, so bring "
+        .. "what you can afford to lose. Buy more on the TRADE screen.",
+    ["Ready To Launch"] = "Press START RAID in the lobby. Offline there's no matchmaking: the raid loads straight away, "
+        .. "on the map you picked. Your hired crew (F6) comes along if you can pay their wages; choose who comes there.",
+    ["First Flight"] = "You start aboard your ship. Walk to the helm and press F to take the controls (F again to "
+        .. "leave). Crewmates can man the turret periscopes, or fire from the helm when you fly solo. The minimap shows "
+        .. "the way to stations and to your task: N turns it on or off, M opens the full overview, B follows the next task.",
+    ["Docking"] = "Fly into a station's docking area (the minimap marks stations) and your ship docks by itself. Walk to "
+        .. "your airlock and use it to cycle through into the station. Keep your captain's key card: the station side "
+        .. "only opens back into your ship while you carry it.",
+    ["Escaping"] = "Done, hurt or short on time? Go back through the airlock to your ship, take the helm, undock and fly "
+        .. "into a space gate before the raid timer ends. Lost your dock or your key card? Escape pods (red lights beside "
+        .. "round hatches) launch you back into space. If the timer runs out, you lose what you carry.",
+}
+local guideHooked = false
 
 function L.init(ctx) X = ctx end
 
@@ -57,6 +83,20 @@ local function equipped(inv)
     end)
     table.sort(out)
     return table.concat(out, ",")
+end
+
+-- After the guide shows a topic: a video topic gets text instead of the dead embed.
+local function guideFilled(w)
+    if not (w and w:IsValid()) then return end
+    local title = w.Txt_GuideTitle:GetText():ToString()
+    local text -- (the title is shown upper-case: matched without case)
+    for k, v in pairs(GUIDE_TEXT) do if k:upper() == title:upper() then text = v end end
+    if not text then return end
+    local web = w.GuideWebBrowserVideoPlaying
+    if web and web:IsValid() then pcall(function() web:LoadURL("about:blank") end) end
+    w.SizeBox_VideoBrowser:SetVisibility(1) -- Collapsed
+    w.Txt_Guide_Desc:SetText(FText(text))
+    w.Txt_Guide_Desc:SetVisibility(0)
 end
 
 local function gearTick()
@@ -113,6 +153,17 @@ function L.tick(ticker)
     end
     local okGear, errGear = pcall(gearTick)
     if not okGear and not gear.err then gear.err = true X.log("lobby: gear refresh failed: " .. tostring(errGear)) end
+    -- (the Guide's class loads with the lobby; hooked once it exists, for the session: the pause menu's GUIDE too)
+    if not guideHooked then
+        local fn = StaticFindObject(GUIDE_FILL)
+        if fn and fn:IsValid() then
+            guideHooked = pcall(RegisterHook, GUIDE_FILL, function(ctx)
+                local ok, err = pcall(guideFilled, ctx:get())
+                if not ok then X.log("lobby: guide text failed: " .. tostring(err)) end
+            end)
+            X.log("lobby: guide video topics " .. (guideHooked and "get text instead" or "hook failed"))
+        end
+    end
     guideUntil = guideUntil or now + GUIDE_WATCH
     if now < guideUntil and now >= nextGuide then
         nextGuide = now + GUIDE_EVERY
