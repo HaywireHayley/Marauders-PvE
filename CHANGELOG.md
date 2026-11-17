@@ -2,6 +2,23 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 17 Nov 2026, build 5 (`public-test-20261117.5`)
+
+**Stash tools** and **enemies that reload**. On build 1 or later from today, the launcher's orange **!** installs this
+one for you; from yesterday's build 4 or older, download it by hand.
+
+### Changes
+
+- **Enemies reload (#115):** soldiers, rival crews and your own crew used to fire forever from a 30-round magazine. Now
+  each gun's magazine runs out, and its owner stops for about 2.5-3 seconds to reload: a window to push or reposition.
+- **Stash tools** under SECURE STORAGE (LOADOUT and TRADE):
+  - **SORT** merges part stacks of ammo and meds, then packs your stash by kind (guns, ammo, attachments, armour and
+    bags, meds...). A nearly full stash is sorted as far as the free space allows.
+  - **Search box:** type part of a name and everything else dims.
+  - **SELL SHOWN** (at a trader): sells what your search shows, after a second press to confirm.
+- **Hotkeys** for the item under the mouse: **K** moves it between your stash and your pockets or bags, **J** discards
+  it (press J twice: it can't be undone).
+
 ## Public test, 17 Nov 2026, build 4 (`public-test-20261117.4`)
 
 Fixes for the two worst problems on build 3: the **crash going through airlocks** and **raids at 10 fps** after
