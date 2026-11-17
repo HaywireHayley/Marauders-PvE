@@ -2,6 +2,27 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 17 Nov 2026, build 7 (`public-test-20261117.7`)
+
+Another **airlock crash** fixed, a **crew gunner** that actually turns the guns, and a smoother menu. On build 1 or later
+from today, the launcher's orange **!** installs this one for you; from yesterday's build 4 or older, download it by hand.
+
+### Changes
+
+- **Airlock crash (#53), the other kind:** crashing in UE4SS on going through an airlock or into a station (the Asteroid
+  Mine most often). The mod's object checks could read memory the game had already freed as a station's contents
+  streamed out; they're now checked natively first. Build 4 fixed a different airlock crash. If you still crash at an
+  airlock, send a REPORT from the launcher.
+- **Crew gunner (#88):** your gunner now reaches further (1.75x each turret's range), swings the turrets to 170 deg
+  either side, and keeps firing at ships and turrets well above or below you. A left click picks the ship nearest the
+  middle of your view more easily. When they can't fire, they say why: too far, can't swing onto it, or too far above
+  or below. Two new settings on the F3 **Ship guns** tab. Rival crews' gunners are unchanged.
+- **Hit zones on soldiers (#123):** on land raids, the mod's soldiers now take head, body and leg damage from your shots
+  (head shots hit much harder, legs less) instead of the same damage everywhere. Station guards and rival crews already
+  had them. Liberator pellets are still being looked at.
+- **Menu (#125, thanks sp0rrk):** no more once-a-second hitch in the lobby after a raid, and a smoother title screen.
+- **Minimap:** no more error spam in the log while it looks for your ship.
+
 ## Public test, 17 Nov 2026, build 6 (`public-test-20261117.6`)
 
 A batch of fixes from the bug reports, and a handier launcher. On build 1 or later from today, the launcher's orange
