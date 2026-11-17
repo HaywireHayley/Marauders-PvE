@@ -1682,7 +1682,7 @@ end
 -- bots never turned or aimed, and URO made near ones choppy). With a garrison and docked crews that's dozens of
 -- skeletons evaluated each frame while you fly kilometres away. Past ANIM_FAR from the camera they go back to the
 -- engine's cheaper way: montages only while not drawn, URO on. They still move, fight and take damage.
-local ANIM_FAR_FLAG = PROJECT .. "bridge/anim_far_on" -- NOT on by default yet (untested with a garrison): present = on
+local ANIM_FAR_FLAG = PROJECT .. "bridge/anim_far_off" -- on by default since 2026-11-17 (build 4 fps reports); present = off, for testing
 local function animDistance(e, cam, farOn)
     local far = farOn and dist(e.bot:K2_GetActorLocation(), cam) > CFG.ANIM_FAR
     if far == e.animFar then return end
@@ -1703,9 +1703,9 @@ local function updateBots(pc)
     local cam
     pcall(function() cam = pc.PlayerCameraManager:GetCameraLocation() end)
     raid.camAt = cam or playerLoc
-    local farOn = false
+    local farOn = true
     local ff = io.open(ANIM_FAR_FLAG, "r")
-    if ff then ff:close() farOn = true end
+    if ff then ff:close() farOn = false end
     -- Cover is baked around you on foot (fights happen near you) and around every fighting soldier (combatHints).
     if playerLoc and raid.navReady and valid(pc.Pawn) and pc.Pawn:GetAddress() == pawn:GetAddress() then
         Cover.want(playerLoc, CFG.COVER_BAKE_RADIUS)
