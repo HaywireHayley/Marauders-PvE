@@ -9,6 +9,7 @@ import threading
 import tempfile
 import time
 import tkinter as tk
+from tkinter import filedialog
 import webbrowser
 from datetime import datetime
 
@@ -258,6 +259,7 @@ class App(tk.Tk):
         Button(head, "NEW SAVE", self.new_save, "main", 11, (14, 5)).pack(side="right")
         Button(head, "CONTROLS", self.show_controls, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
         Button(head, "REPORT", self.report_problem, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
+        Button(head, "IMPORT", self.import_saves, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
         tk.Frame(left, bg=ORANGE, height=2).pack(fill="x", pady=(7, 8))
         self.list_box = tk.Frame(left, bg=INK)
         self.list_box.pack(fill="both", expand=True)
@@ -286,8 +288,14 @@ class App(tk.Tk):
         self.b_delete.grid(row=0, column=2, sticky="ew")
         for c in range(3):
             grid.columnconfigure(c, weight=1)
-        self.b_undo = Button(self.right, "Undo last raid", self.undo, size=11, pad=(10, 6))
-        self.b_undo.pack(fill="x", pady=(6, 0))
+        row2 = tk.Frame(self.right, bg=PANEL)
+        row2.pack(fill="x", pady=(6, 0))
+        self.b_undo = Button(row2, "Undo last raid", self.undo, size=11, pad=(10, 6))
+        self.b_backup = Button(row2, "Back up", self.backup, size=11, pad=(10, 6))
+        self.b_undo.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        self.b_backup.grid(row=0, column=1, sticky="ew")
+        row2.columnconfigure(0, weight=2)
+        row2.columnconfigure(1, weight=1)
 
         tk.Frame(self.right, bg=LINE, height=1).pack(fill="x", pady=(14, 8))
         self.cheat_var = tk.BooleanVar()
@@ -404,6 +412,7 @@ class App(tk.Tk):
             b.enable(ok)
         self.b_delete.enable(live)
         self.b_undo.enable(ok and s.get("can_undo"))
+        self.b_backup.enable(ok)
         if not s:
             self.d_name.config(text="No saves yet")
             self.d_mode.config(text="")
@@ -487,6 +496,42 @@ class App(tk.Tk):
             tk.Label(grid, text=where, bg=PANEL, fg=MUTED, font=font(10), anchor="w").grid(row=i, column=2, sticky="w", padx=(14, 0), pady=2)
         r = d.row()
         Button(r, "Close", d.destroy, "main", 11, (14, 6)).pack(side="left")
+        d.show()
+
+    def backup(self):
+        s = self.current()
+        if not s:
+            return
+        try:
+            path = saves.export(s["id"])
+        except OSError as e:
+            return self.say(f"Couldn't back up: {e}")
+        self.say(f"Backed up to {os.path.basename(path)} (Desktop). IMPORT brings it back.")
+        subprocess.Popen(["explorer", "/select,", path])
+
+    def import_saves(self):
+        d = Dialog(self, "Import saves")
+        tk.Label(d.body, text="Bring saves in from a backup zip (made with Back up), or from an older copy of the mod: pick "
+                 "its folder and every save in it is copied here. Nothing at the source is changed.",
+                 bg=PANEL, fg=TEXT, font=font(11), justify="left", wraplength=480).pack(anchor="w")
+
+        def run(path):
+            d.destroy()
+            if not path:
+                return
+            try:
+                names = saves.import_from(path)
+            except (OSError, ValueError, KeyError) as e:
+                return self.say(f"Couldn't import: {e}")
+            self.refresh()
+            self.say(f"Imported: {', '.join(names)}." if names else "No saves found there.")
+
+        r = d.row()
+        Button(r, "Cancel", d.destroy, size=11, pad=(14, 6)).pack(side="left", padx=(0, 8))
+        Button(r, "Old install folder...", lambda: run(filedialog.askdirectory(parent=d, title="The older Marauders Offline folder")),
+               size=11, pad=(14, 6)).pack(side="left", padx=(0, 8))
+        Button(r, "Backup zip...", lambda: run(filedialog.askopenfilename(parent=d, title="A save backup",
+               filetypes=[("Save backup", "*.zip")])), "main", 11, (14, 6)).pack(side="left")
         d.show()
 
     def report_problem(self):
