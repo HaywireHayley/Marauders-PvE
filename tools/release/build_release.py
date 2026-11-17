@@ -106,7 +106,16 @@ def mods_txt():
 def seed():
     """The captured account with everything that identifies a player taken out. A new save only keeps its base
     cosmetics and the public news/regions anyway (saves._fresh); the rest is the shape the stand-in expects."""
-    with open(os.path.join(SRC, "capture", "seed", "account.json"), encoding="utf-8") as f:
+    captured = os.path.join(SRC, "capture", "seed", "account.json")
+    if not os.path.exists(captured):
+        # No capture in this checkout (capture/ stays private): ship the repository's own backend/seed.json, which is
+        # this function's output already. The privacy check still runs on it.
+        with open(os.path.join(SRC, "backend", "seed.json"), encoding="utf-8") as f:
+            text = f.read()
+        for bad in PRIVATE + ["avatars.steamstatic"]:
+            assert bad not in text, bad
+        return text
+    with open(captured, encoding="utf-8") as f:
         s = json.load(f)
     s.pop("sources", None)
     s["account"]["user"].update(id=str(uuid.uuid5(uuid.NAMESPACE_URL, "marauders-offline-player")), username="offline",
@@ -135,6 +144,38 @@ def check():
     return found
 
 
+FEMALE = os.path.join(SRC, "assets", "female", "pak")
+
+
+def ensure_female():
+    """The female outfit meshes (assets/female/pak) are made per checkout by tools/female/make_female.py from the game's
+    pak and never committed (they're extracted game files). A checkout without them would ship a release without them,
+    breaking the female look for everyone who updates (it nearly happened with build 20261117.4). So they're taken from
+    the latest published release's zip, unchanged."""
+    if os.path.isdir(FEMALE) and any(f.endswith(".uasset") for _, _, fs in os.walk(FEMALE) for f in fs):
+        return
+    import io
+    import urllib.request
+    api = "https://api.github.com/repos/HaywireHayley/Marauders-PvE/releases/latest"
+    with urllib.request.urlopen(urllib.request.Request(api, headers={"User-Agent": "marauders-release-build"})) as r:
+        rel = json.load(r)
+    asset = next(a for a in rel["assets"] if a["name"].endswith(".zip"))
+    print(f"assets/female/pak missing: taking it from {rel['tag_name']} ({asset['name']})")
+    with urllib.request.urlopen(asset["browser_download_url"]) as r:
+        z = zipfile.ZipFile(io.BytesIO(r.read()))
+    prefix, n = f"{NAME}/assets/female/pak/", 0
+    for info in z.infolist():
+        if info.filename.startswith(prefix) and not info.is_dir():
+            out = os.path.join(FEMALE, info.filename[len(prefix):])
+            os.makedirs(os.path.dirname(out), exist_ok=True)
+            with open(out, "wb") as f:
+                f.write(z.read(info))
+            n += 1
+    if not n:
+        sys.exit("assets/female/pak missing here and not in the latest release: run tools/female/make_female.py")
+    print(f"  {n} files")
+
+
 def main():
     # A second build on the same day gets its own name (e.g. 20261116.2), so a published zip is never replaced.
     build = sys.argv[1] if len(sys.argv) > 1 else f"{date.today():%Y%m%d}"
@@ -144,6 +185,7 @@ def main():
     if os.path.exists(DEST):
         shutil.rmtree(DEST)
     os.makedirs(DEST)
+    ensure_female()
     for src, dst in FILES:
         target = os.path.join(DEST, dst)
         os.makedirs(os.path.dirname(target), exist_ok=True)
