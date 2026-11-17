@@ -28,6 +28,9 @@ local CFG = {
     ANIM_SLOW_FAR = 4000,    -- bots at peace farther than this from the camera run animate() ANIM_SLOW_HZ a second, not every frame
     ANIM_SLOW_HZ = 10,
     ANIM_HZ = 30,            -- every other bot (and every fighting one) runs animate() and its aim upkeep this often
+    -- Parking (Aux.parked): a guard or soldier at peace farther than PARK_RANGE from you is frozen and skipped until you
+    -- come back within 85% of that or it's hurt. 0 = never park.
+    PARK_RANGE = 15000,
     RETARGET_EVERY = 1.0,    -- while fighting, how often (s) a bot looks for a much closer enemy to switch to
     RETARGET_NEAR = 1500,    -- ...within this range
     RETARGET_RATIO = 0.5,    -- ...and at most this share of the current foe's distance
@@ -483,6 +486,7 @@ local function onTick(ctx)
     -- current raid state belongs to, so it never touches the previous raid's (freed) soldiers.
     local ticker = ctx:get()
     if trackTargets and raid.pcAddr and ticker:GetAddress() == raid.pcAddr then
+        raid.frames = (raid.frames or 0) + 1 -- for the status line's fps (testers' logs had no frame data at all)
         local ok, err = ppcall("aim", trackTargets)
         if not ok then log("aim tracking failed: " .. tostring(err)) end
         if raid.navReady then
@@ -943,6 +947,38 @@ local function reapDead()
 end
 
 local Aux = {} -- helpers (main.lua is at Lua's 200-locals limit)
+
+-- Parking far-off bots. Every station you enter adds its guards to raid.bots, and nothing put them back to sleep: after
+-- three or four stations, dozens of guards kilometres away still ran their AI every update, sized each other up, and
+-- ticked their skeletons and movement every frame (the frame rate fell the longer a raid went on). A guard or soldier
+-- at peace (not a rival, not your crew, not fighting, alerted or investigating) farther than CFG.PARK_RANGE from you is
+-- frozen: time dilation 0 on body and controller, movement and pose ticks off, and every loop skips it. Back within
+-- 85% of that, or hurt, it's unparked: updateBots' own wake() branch (dilation below 1) brings it back as it does a
+-- bot the game put to sleep. Returns true while e is parked.
+function Aux.parked(e, at)
+    local busy = e.rival or e.crewmate or e.fighting or e.inCombat or e.alert or e.investigate
+    local here = e.bot:K2_GetActorLocation()
+    if e.parked then
+        local hurt = e.hp ~= nil and (e.bot.Health or 0) < e.hp
+        if busy or hurt or (CFG.PARK_RANGE or 0) <= 0 or (at and dist(here, at) < CFG.PARK_RANGE * 0.85) then
+            e.parked = nil
+            raid.unparks = (raid.unparks or 0) + 1
+            return false
+        end
+        return true
+    end
+    if busy or not at or (CFG.PARK_RANGE or 0) <= 0 or dist(here, at) <= CFG.PARK_RANGE then return false end
+    e.parked = true
+    e.lastAt = here
+    raid.parks = (raid.parks or 0) + 1
+    pcall(function()
+        e.bot.CustomTimeDilation = 0
+        e.ctrl.CustomTimeDilation = 0
+        e.bot.CharacterMovement:SetComponentTickEnabled(false)
+        e.bot.Mesh:SetComponentTickEnabled(false)
+    end)
+    return true
+end
 
 local function setEnemy(e, pawn)
     local ctrl = e.ctrl
@@ -1714,12 +1750,12 @@ local function updateBots(pc)
     local bodies = {}
     if alive then bodies[1] = { entry = PLAYER, pawn = pawn, at = playerLoc, faction = "player" } end
     for _, o in ipairs(raid.bots) do
-        if valid(o.bot) and (o.bot.Health or 0) > 0 then
+        if valid(o.bot) and (o.bot.Health or 0) > 0 and not o.parked then
             bodies[#bodies + 1] = { entry = o, pawn = o.bot, at = o.bot:K2_GetActorLocation(), faction = factionOf(o) }
         end
     end
     for _, e in ipairs(raid.bots) do
-        if valid(e.bot) and valid(e.ctrl) and (e.bot.Health or 0) > 0 then
+        if valid(e.bot) and valid(e.ctrl) and (e.bot.Health or 0) > 0 and not Aux.parked(e, playerLoc) then
             local foe = foeOf(e)
             if e.inCombat and not foe then
                 -- whoever it was fighting is dead or gone: back to searching
@@ -1870,17 +1906,22 @@ local function updateBots(pc)
         end
     end
     if os.clock() - (raid.lastReport or 0) >= 10 then
-        raid.lastReport = os.clock()
-        local living, walking, fighting = 0, 0, 0
+        local now, since = os.clock(), raid.lastReport
+        raid.lastReport = now
+        local living, walking, fighting, parked = 0, 0, 0, 0
         for _, e in ipairs(raid.bots) do
             if valid(e.bot) and (e.bot.Health or 0) > 0 then
                 living = living + 1
-                if e.fighting then fighting = fighting + 1
+                if e.parked then parked = parked + 1
+                elseif e.fighting then fighting = fighting + 1
                 elseif e.ctrl:GetMoveStatus() == 3 then walking = walking + 1 end
             end
         end
-        log(("soldiers alive %d, fighting %d, patrolling %d, player hp %s | crew: %s"):format(living, fighting, walking,
-            alive and string.format("%.0f", pawn.Health) or "dead", Crew and Crew.status() or "-"))
+        local fps = since and now > since and (raid.frames or 0) / (now - since) or nil
+        raid.frames = 0
+        log(("soldiers alive %d, fighting %d, patrolling %d, parked %d, player hp %s | fps %s | crew: %s"):format(living,
+            fighting, walking, parked, alive and string.format("%.0f", pawn.Health) or "dead",
+            fps and string.format("%.0f", fps) or "-", Crew and Crew.status() or "-"))
         -- bridge/cover_nobake (testing): random-point cover search only, as before cover.lua
         local nb = io.open(PROJECT .. "bridge/cover_nobake", "r")
         if nb then nb:close() end
@@ -2017,7 +2058,7 @@ trackTargets = function()
     local now = os.clock()
     local cam = raid.camAt
     for _, e in ipairs(raid.bots) do
-        if valid(e.bot) and (e.bot.Health or 0) > 0 then
+        if valid(e.bot) and (e.bot.Health or 0) > 0 and not e.parked then
             local far = cam and e.lastAt and not e.fighting and dist(e.lastAt, cam) > CFG.ANIM_SLOW_FAR
             if now >= (e.animNext or 0) then
                 e.animNext = now + 1 / (far and CFG.ANIM_SLOW_HZ or CFG.ANIM_HZ)

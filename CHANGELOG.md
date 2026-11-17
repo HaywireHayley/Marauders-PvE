@@ -12,6 +12,11 @@ Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Mar
 - **Less stutter while looting:** the mod no longer searches the whole game for the pause menu every 2 seconds while your
   inventory is open. Distant enemies also animate the cheaper way.
 - **Ctrl+R no longer restarts the mod mid-raid** (crouch + reload triggered UE4SS's hot reload).
+- **Better frame rate later in a raid:** guards in stations you've left used to stay fully awake for the rest of the
+  raid, so every station you visited made the game slower. Now guards far from you sleep until you come back, and at
+  most 16 enemies are awake around you (more crews wait on their ship). In a test with one busy station behind us, the
+  frame rate went from about 70 to about 95. Both are adjustable in F3 > **How many**. `last_game.log` now records your
+  frame rate every 10 seconds, so please include it with performance reports.
 - **Windowed mode fits small screens:** 1600x900 when it fits, smaller on laptops (e.g. 1152x648 on 1366x768).
 
 ## Public test, 16 Nov 2026, build 4 (`public-test-20261116.4`)
