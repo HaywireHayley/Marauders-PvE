@@ -499,7 +499,8 @@ end
 
 -- Out of range, or no turret can swing onto it: after HELD_SAY s on the same target, the gunner says so once (the
 -- status line only counted it). gunnerFire leaves the reason in S.gun.held.
-local HELD_LINES = { range = "%s: the %s is too far, close in", arc = "%s: can't swing onto the %s, turn us toward it" }
+local HELD_LINES = { range = "%s: the %s is too far, close in", arc = "%s: can't swing onto the %s, turn us toward it",
+    pitch = "%s: can't get the guns on the %s, it's too far above or below us" }
 local function heldCall(m, now)
     local why = S.gun and S.gun.held
     if not (why and valid(S.gunTarget)) then S.heldWhy = nil return end

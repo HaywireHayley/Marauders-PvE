@@ -244,7 +244,7 @@ local function define()
         { "TURRET_SWING", "Turret turning speed", 0.5, 10, 0.1, "1 = normal" },
         { "GUNNER_ARC", "How far your gunner turns your turrets (degrees to each side)", 30, 180, 5, "" },
         { "GUNNER_RANGE", "Your gunner's range", 0.5, 3, 0.05, "x each turret's normal range. 1 = same as rival gunners" },
-        { "GUNNER_PITCH_SLACK", "How far above or below your gunner still fires (degrees)", 0, 60, 1, "Past what the barrels can tilt" },
+        { "GUNNER_PITCH_SLACK", "How far above or below your gunner still fires (degrees)", 0, 75, 1, "Past what the barrels can tilt" },
         { "TURRET_ON_AIM", "How close to on-target before firing (degrees)", 0.5, 10, 0.1, "Lower = gunners wait for a better shot" },
     })
     tabs[#tabs + 1] = guns

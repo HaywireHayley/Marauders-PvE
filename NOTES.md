@@ -3112,5 +3112,10 @@ to the floor at 60230,114665,-1203", inside a wall.
   range, GUNNER_ARC 170, GUNNER_PITCH_SLACK 30 (past the barrel's tilt the shell keeps the true pitch instead of the
   barrel's). A click picks the ship nearest your view within ORDER_CONE 25 deg (was 15). Both new settings are on the
   F3 "Ship guns" tab.
-- Checked: loads without errors. NOT checked in a fight (needs a hired gunner and a space battle).
+- In a fight (Pavel, level 2, gunnery 0.46, Starter Frigate): "engaging the Lucky Strike" a second after it attacked,
+  held only for range at first (57% of checks while it closed), then firing (reload 99% of held checks), and it was a
+  wreck 38 s later. A click on a stationary turret 103 m off (well below the ship) got "ordered onto turret", but your
+  hull was disabled a second later, so nothing fired (right: the gunner stands down with the hull).
+- Then: GUNNER_PITCH_SLACK 30 -> 45 (a turret below you as you pass over is 40-60 deg down), and the gunner now says when
+  height is what stops them ("can't get the guns on the ..., too far above or below us"); before, a pitch hold was silent.
 - Not done: a second gunner (only one crewmate is the gunner; they already work every turret on the hull).

@@ -99,7 +99,8 @@ local CFG = {
     -- never expire (every turret's shell has InitialLifeSpan 0), so the reach is ours to set.
     GUNNER_ARC = 170,               -- deg either side of the nose they swing your turrets (all but dead astern)
     GUNNER_RANGE = 1.75,            -- x each turret type's range below (75mm: 85 m -> 149 m; stationary turrets: 135 m)
-    GUNNER_PITCH_SLACK = 30,        -- deg past the barrels' lift/dip they still fire, along the true aim (rivals: 6)
+    GUNNER_PITCH_SLACK = 45,        -- deg past the barrels' lift/dip they still fire, along the true aim (rivals: 6): a
+                                    -- stationary turret below as you fly over it is 40-60 deg down
     TURRET_PITCH = { -15, 10 },     -- deg the barrels dip and lift (what every type's anim shows; some lift further)
     TURRET_SWING = 3,               -- x the turret's own traverse speed (20 deg/s yaw, 10 pitch) the gunners swing it at
     TURRET_ON_AIM = 2,              -- deg: a turret fires once its barrel is this close to where its gunner aims
@@ -1227,8 +1228,9 @@ local function fireTurrets(c, tgt, now)
         if why then S.turretWhy = S.turretWhy or {} S.turretWhy[why] = (S.turretWhy[why] or 0) + 1 end
         seen[why or "ok"] = true
     end
-    -- c.held: "range" or "arc" when no turret could bear on the target at all (your gunner says so, crew.lua)
-    c.held = not (seen.ok or seen.reload or seen.swing or seen.pitch) and (seen.range and "range" or seen.arc and "arc") or nil
+    -- c.held: "range", "arc" or "pitch" when no turret could bear on the target at all (your gunner says so, crew.lua)
+    c.held = not (seen.ok or seen.reload or seen.swing) and (seen.range and "range" or seen.arc and "arc"
+        or seen.pitch and "pitch") or nil
     if fired then gunSettle(a, skill) end
     return fired
 end
