@@ -61,6 +61,7 @@ local COLOR = {
     target = { R = 1, G = 0.55, B = 0.12, A = 1 },
     route = { R = 1, G = 0.62, B = 0.2, A = 0.9 },
     plan = { R = 0.25, G = 0.25, B = 0.25, A = 0.9 },
+    ahtu = { R = 0.9, G = 0.9, B = 0.9, A = 0.95 }, -- Ahtu's illustrated maps: drawn near their own colours
     place = { R = 0.55, G = 0.75, B = 0.85, A = 0.9 },
     gate = { R = 0.3, G = 0.95, B = 0.5, A = 1 },
 }
@@ -619,6 +620,10 @@ local function startScan(p)
     local h = math.ceil((r.x1 - r.x0) / CFG.CELL)
     S.scan = { place = p, w = w, h = h, cells = {}, seen = {}, queue = {}, head = 1, lo = 1e12, hi = -1e12, hits = 0,
         seeds = { table.unpack(p.spots) }, seed = 1, started = os.clock() }
+    -- bridge/plan_floors (tools): every floor of every cell is kept too and written beside the plan (<key>.floors),
+    -- for tools/minimap/ahtu_align.py to split the plan into floors.
+    local ff = io.open(PROJECT .. "bridge/plan_floors", "r")
+    if ff then ff:close() S.scan.all = {} end
     -- Where you're standing is walkable for certain, which a contract object on a shelf isn't.
     if S.me and S.me.place == p then table.insert(S.scan.seeds, 1, S.me.at) end
 end
@@ -662,6 +667,7 @@ local function stepScan(pc)
         local top = sc.cells[i]
         if not top then sc.hits = sc.hits + 1 end
         if not top or out.Z > top then sc.cells[i] = out.Z end
+        if sc.all then sc.all[#sc.all + 1] = ("%d %d %.0f"):format(cx, cy, out.Z) end
         sc.lo, sc.hi = math.min(sc.lo, out.Z), math.max(sc.hi, out.Z)
         sc.queue[#sc.queue + 1] = { cx, cy, out.Z }
     end
@@ -692,6 +698,15 @@ local function stepScan(pc)
                 return
             end
             writePlan(p, sc)
+            if sc.all then
+                local f = io.open(DIR .. p.key .. ".floors", "w")
+                if f then
+                    local nl = string.char(10)
+                    f:write(("rect %.0f %.0f %.0f %.0f"):format(p.rect.x0, p.rect.x1, p.rect.y0, p.rect.y1), nl,
+                        table.concat(sc.all, nl), nl)
+                    f:close()
+                end
+            end
             X.log(("minimap: floor plan of %s, %d x %d, %d floor cells, %.1f s"):format(p.name, sc.w, sc.h, sc.hits, os.clock() - sc.started))
             return
         end
@@ -797,6 +812,12 @@ local function build(pc)
         t:SetVisibility(1)
         ui.labels[i] = { t = t, slot = slot, on = false }
     end
+    -- Ahtu's maps are credited while one is shown (their wish: "Illustrated by Ahtu").
+    ui.credit, ui.creditSlot = text(9, ui.map)
+    ui.creditSlot:SetAutoSize(true)
+    ui.credit:SetText(FText("Map illustrated by Ahtu"))
+    ui.credit:SetOpacity(0.7)
+    ui.credit:SetVisibility(1)
     ui.title, ui.titleSlot = text(15)
     ui.step, ui.stepSlot = text(13, nil, true)
     ui.list, ui.listSlot = text(13, nil, true)
@@ -911,25 +932,63 @@ local function planTexture(path)
     return tex
 end
 
+-- Ahtu's illustrated floors for a place (tools/minimap/ahtu_align.py): assets/minimap/ahtu/<key>.ahtu, one line per
+-- floor, "<image> <z> <name>", each image drawn in the plan's own frame (so it takes the plan's place and size), z the
+-- floor's typical height. false: none for this place.
+local function ahtuFloors(p)
+    if p.ahtu ~= nil then return p.ahtu end
+    p.ahtu = false
+    local f = io.open(DIR .. "ahtu/" .. p.key .. ".ahtu", "r")
+    if not f then return false end
+    local floors = {}
+    for line in f:lines() do
+        local file, z = line:match("^(%S+)%s+(%-?[%d.]+)")
+        if file then floors[#floors + 1] = { path = DIR .. "ahtu/" .. file, z = tonumber(z) } end
+    end
+    f:close()
+    if #floors > 0 then p.ahtu = floors end
+    return p.ahtu
+end
+
+-- The floor you're on: the one whose height is nearest yours (the first, from afar).
+local function ahtuFloor(p, floors)
+    local z = S.me and S.me.place == p and S.me.at and S.me.at.Z
+    local best, bestD = floors[1], math.huge
+    if z then
+        for _, fl in ipairs(floors) do
+            local d = math.abs(fl.z - z)
+            if d < bestD then best, bestD = fl, d end
+        end
+    end
+    return best
+end
+
 -- The floor plan under a local view. It turns about you, so its pivot is your spot in the image.
 local function drawPlan(v, p)
     local plan = p and p.plan
     if not plan then
         if ui.planOn then
             ui.plan:SetVisibility(1)
+            ui.credit:SetVisibility(1)
             ui.planOn = false
         end
         return
     end
-    if ui.planFor ~= p then
-        ui.planFor = p
-        p.tex = planTexture(planPath(p))
+    local floors = ahtuFloors(p)
+    local path = floors and ahtuFloor(p, floors).path or planPath(p)
+    if ui.planFor ~= path then
+        ui.planFor = path
+        p.tex = planTexture(path)
         if p.tex then ui.plan:SetBrushFromTexture(p.tex, false)
-        else X.log("minimap: couldn't load " .. planPath(p)) end
+        else X.log("minimap: couldn't load " .. path) end
+        ui.plan:SetColorAndOpacity(floors and COLOR.ahtu or COLOR.plan)
+        ui.credit:SetVisibility(floors and p.tex and 3 or 1)
     end
+    if floors then ui.creditSlot:SetPosition({ X = 6, Y = ui.view.h - 16 }) end
     if not p.tex then return end
     if not ui.planOn then
         ui.plan:SetVisibility(3)
+        ui.credit:SetVisibility(floors and 3 or 1)
         ui.planOn = true
     end
     local r = p.rect
