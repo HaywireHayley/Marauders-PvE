@@ -2,6 +2,12 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Next build (not released yet)
+
+- **Stuck on "CONNECTING TO BACKEND"** when the mod's folder path had a space in it (#75): fixed. If the offline backend
+  still can't start, PLAY now says why instead of hanging.
+- **Windowed mode fits small screens:** 1600x900 when it fits, smaller on laptops (e.g. 1152x648 on 1366x768).
+
 ## Public test, 16 Nov 2026, build 4 (`public-test-20261116.4`)
 
 About 20 changes since build 3. The headline ones are an **offline guild** (guild page and guild shop), **choosing
