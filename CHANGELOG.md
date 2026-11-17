@@ -2,7 +2,18 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
-## Next build (not released yet)
+## Public test, 17 Nov 2026 (`public-test-20261117`)
+
+The headline is **frame rate**: guards in stations you've left no longer stay awake for the whole raid, so raids
+don't get slower the more stations you visit. Also the **Red Baron** as an event setting, a fix for the launcher
+hanging on **CONNECTING TO BACKEND**, and the launcher can now **update itself** from this build on.
+
+- **Updating from build 4:** download this one by hand (build 4's launcher can't update itself yet). From this build
+  on, the launcher shows an orange **!** when a newer build is out and updates in place, keeping your saves.
+- **Startup video:** the release no longer includes the mod's re-cut intro (it has music in it); you see the game's
+  own, or a one-second clip with **Skip the intro video** on.
+
+### Changes
 
 - **Stuck on "CONNECTING TO BACKEND"** when the mod's folder path had a space in it (#75): fixed. If the offline backend
   still can't start, PLAY now says why instead of hanging.

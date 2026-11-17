@@ -57,7 +57,8 @@ TREES = [  # (from, to, skip): whole folders, minus names matching skip
     # UE4SS's own mods, minus the dumpers and profilers (off in mods.txt anyway).
     ("tools/ue4ss/Mods", "tools/ue4ss/Mods", r"^(ActorDumperMod|LineTraceMod|SplitScreenMod|jsbLuaProfilerMod|jsbProfiler)$"),
     # The art, minus the female outfits' sources and stills nothing loads.
-    ("assets", "assets", r"^src$|^ingame_sample\.png$|^list\.txt$|^hangar_vanquisher\.png$|^splash_check\.png$"),
+    # (not intro/: the re-cut startup video has a song in it, this install only, as .gitignore says)
+    ("assets", "assets", r"^src$|^intro$|^ingame_sample\.png$|^list\.txt$|^hangar_vanquisher\.png$|^splash_check\.png$"),
     # Cover points the bots recorded on each map (cover.lua reads and appends to these), so players start with them.
     ("cover", "cover", r"^$"),
 ]
