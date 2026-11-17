@@ -432,6 +432,40 @@ local function ppcall(name, fn, ...)
     return ok, err
 end
 
+-- The menu's own loads (the voice lines) are 15 to 50 ms hitches each: felt as stutter while you move the
+-- mouse over the title screen and the lobby. They wait for the mouse to be still for half a second. (A global: main.lua is
+-- at the 200 locals limit.) Returns false when the mouse position can't be read, so nothing is held back for nothing.
+PVE_MOUSE = {}
+function PveMenuBusy(now)
+    local pc = Hire and Hire.lastPc and Hire.lastPc()
+    if not valid(pc) then return false end
+    -- (APlayerController::GetMousePosition gives its numbers as out parameters, which Lua here doesn't hand back; the
+    -- layout library's version returns a vector: 5 microseconds a call.)
+    local lib = PVE_MOUSE.lib
+    if not (lib and lib:IsValid()) then
+        lib = StaticFindObject("/Script/UMG.Default__WidgetLayoutLibrary")
+        PVE_MOUSE.lib = lib
+    end
+    local x, y
+    if lib and lib:IsValid() then
+        local okv, v = pcall(function() return lib:GetMousePositionOnViewport(pc) end)
+        if okv and type(v) == "table" then x, y = v.X, v.Y end
+    end
+    if not y then
+        if not PVE_MOUSE.warned then
+            PVE_MOUSE.warned = true
+            log("menu: mouse position can't be read; menu loads are not held back while it moves")
+        end
+        return false
+    end
+    if not PVE_MOUSE.seen then
+        PVE_MOUSE.seen = true
+        log(("menu: mouse position read (%d, %d); voice lines load while it is still"):format(x, y))
+    end
+    if x ~= PVE_MOUSE.x or y ~= PVE_MOUSE.y then PVE_MOUSE.x, PVE_MOUSE.y, PVE_MOUSE.movedAt = x, y, now end
+    return now - (PVE_MOUSE.movedAt or 0) < 0.5
+end
+
 local function onTick(ctx)
     -- A new world, seen on its first frame: drop everything held from the old one now. update() notices too, but only
     -- every UPDATE_SECONDS, and until then the per-frame work below (the crew menu, the lobby stands, menus) still held
@@ -441,6 +475,11 @@ local function onTick(ctx)
     if wk ~= PveTickWorld then
         if PveTickWorld ~= nil and PveResetRaid then PveResetRaid(nil) end
         PveTickWorld = wk
+        -- Is this world the main menu (the lobby)? Asked once per world. The lobby work below used `not raid.world`, which is
+        -- only true until update() first runs in the menu (raid.world is the menu's own key from then on), so the friends
+        -- stub barely ran, and never after a raid.
+        PveTickMenu = (w and w:IsValid() and w:GetFullName():find("/Maps/MainMenu", 1, true) ~= nil) or false
+        PveMenuSince = os.clock()
     end
     -- The load runs at LOAD_TIME_DILATION (20x) until veilUntilAboard sees your pawn, but that only looks every
     -- UPDATE_SECONDS (10 game seconds at 20x). Spawning and landing on the deck in those big physics steps cost 3-15
@@ -460,8 +499,12 @@ local function onTick(ctx)
     end
     -- Loading a sound crashes while a map travels, so voice lines only load in the menu with no match on the way. Lines
     -- not loaded yet are skipped by the bots, and the rest load next time you're in the menu.
-    if Voice.pending() and not launching and not mm and ctx:get():GetClass():GetFName():ToString() ~= "MainPlayerController_C" then
-        for _ = 1, 3 do pcall(Voice.step) end
+    -- One line a frame, and only while the mouse is still: the first 25 s of the menu (a raid started sooner than that
+    -- still gets its voices), then regardless.
+    local menuBusy = PveTickMenu and PveMenuBusy(os.clock())
+    if Voice.pending() and not launching and not mm and ctx:get():GetClass():GetFName():ToString() ~= "MainPlayerController_C"
+        and not (menuBusy and os.clock() - (PveMenuSince or 0) < 25) then
+        pcall(Voice.step)
     end
     pcall(Splash.gatePlay) -- PLAY hidden until the backend login is done (splash.lua)
     if PveQuit then pcall(PveQuit.tick) end -- Quit Game in the pause menu (quit.lua)
@@ -531,12 +574,15 @@ local function onTick(ctx)
     -- with the controller hire.lua takes from this ticker (in the lobby the ticker is a menu widget).
     -- The 1 s friends refresh hitch (~150 ms, see patchFriendsRefresh) is in the lobby too, where it made the mouse stutter in
     -- the menu, loadout and market; it was only patched inside raids. Repeating is safe (the DLL checks the bytes).
-    if not raid.world and PVE_patchFriends and os.clock() >= (PVE_friendsAt or 0) then
+    if PveTickMenu and PVE_patchFriends and os.clock() >= (PVE_friendsAt or 0) then
         PVE_friendsAt = os.clock() + 5
         local okF, doneF = pcall(PVE_patchFriends)
-        if okF and doneF and not PVE_friendsLogged then
-            PVE_friendsLogged = true
+        if okF and doneF and PVE_friendsLogged ~= PveTickWorld then
+            PVE_friendsLogged = PveTickWorld -- (once per world: it comes back after every raid)
             log("lobby: friends refresh stubbed (the once a second hitch in the menu)")
+        elseif not (okF and doneF) and PVE_friendsMissed ~= PveTickWorld then
+            PVE_friendsMissed = PveTickWorld
+            log("lobby: friends refresh function not found yet (" .. tostring(okF) .. "), retrying every 5 s")
         end
     end
     if Hire then
