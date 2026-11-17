@@ -9,12 +9,14 @@ import threading
 import tempfile
 import time
 import tkinter as tk
+from tkinter import filedialog
 import webbrowser
 from datetime import datetime
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageTk
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import report
 import saves
 import update
 
@@ -26,6 +28,7 @@ FEMALE_SHARE_DEFAULT = 35
 WINDOW_SETTING = os.path.join(ROOT, "config", "window_mode.txt")  # read by scripts/launch-offline.ps1
 SKIP_INTRO_SETTING = os.path.join(ROOT, "config", "skip_intro.txt")  # read by scripts/mode.ps1
 UNLOCK_LOOKS_SETTING = os.path.join(ROOT, "config", "unlock_all_looks.txt")  # read by the Nakama stand-in at login
+MINIMIZE_SETTING = os.path.join(ROOT, "config", "minimize_while_playing.txt")  # "off": stay on screen while playing
 UPDATE_CHECK_SETTING = os.path.join(ROOT, "config", "update_check.txt")  # "off" stops the check for a newer build
 GAME_PATH = os.path.join(ROOT, "config", "game_path.txt")  # written by the installer; scripts/mode.ps1 has the same default
 
@@ -124,6 +127,21 @@ class Button(tk.Label):
         self.config(bg=self.colors[0] if on else PANEL, fg=self.colors[1] if on else "#4A525E", cursor="hand2" if on else "arrow")
 
 
+# The mod's keys, as the CONTROLS dialog lists them (keep in step with README.md's "Controls" table).
+CONTROLS = [
+    ("F6", "Your crew: hire, dismiss, and choose who comes on raids", "Lobby and raids"),
+    ("F3", "AI tuning: every enemy, rival and crew setting, including how many spawn", "Lobby and raids"),
+    ("F9", "Debug menu: god mode, extract now, spawn a soldier, and more", "Lobby and raids"),
+    ("F2", "Play as a woman or a man", "Anywhere"),
+    ("N", "Minimap on or off", "Raids"),
+    ("M", "Minimap full overview, and back", "Raids"),
+    ("B", "Minimap: follow the next task", "Raids"),
+    ("K", "Move the item under the mouse between stash and pockets or bags", "LOADOUT, TRADE"),
+    ("J", "Discard the item under the mouse (press twice)", "LOADOUT, TRADE"),
+    ("Left click", "With a crew gunner aboard: send them after what you aim at", "Flying your ship"),
+]
+
+
 class Dialog(tk.Toplevel):
     """A small dark window in the launcher's style."""
 
@@ -186,6 +204,10 @@ class App(tk.Tk):
         self.tidying = left_playing and not playing  # PLAY waits for tidy_after_close
         self.build()
         self.refresh()
+        # Keyboard (#98): Enter plays, Delete deletes (asking first), F2 renames. Dialogs grab the keys while open.
+        self.bind("<Return>", lambda e: self.launch())
+        self.bind("<Delete>", lambda e: self.current() and self.delete())
+        self.bind("<F2>", lambda e: self.current() and self.rename())
         self.after(1000, self.watch)
         self.check_update()
         self.protocol("WM_DELETE_WINDOW", self.close)
@@ -235,6 +257,9 @@ class App(tk.Tk):
         head.pack(fill="x")
         tk.Label(head, text="SAVES", bg=INK, fg=TEXT, font=font(17, "SemiBold")).pack(side="left")
         Button(head, "NEW SAVE", self.new_save, "main", 11, (14, 5)).pack(side="right")
+        Button(head, "CONTROLS", self.show_controls, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
+        Button(head, "REPORT", self.report_problem, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
+        Button(head, "IMPORT", self.import_saves, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
         tk.Frame(left, bg=ORANGE, height=2).pack(fill="x", pady=(7, 8))
         self.list_box = tk.Frame(left, bg=INK)
         self.list_box.pack(fill="both", expand=True)
@@ -263,8 +288,14 @@ class App(tk.Tk):
         self.b_delete.grid(row=0, column=2, sticky="ew")
         for c in range(3):
             grid.columnconfigure(c, weight=1)
-        self.b_undo = Button(self.right, "Undo last raid", self.undo, size=11, pad=(10, 6))
-        self.b_undo.pack(fill="x", pady=(6, 0))
+        row2 = tk.Frame(self.right, bg=PANEL)
+        row2.pack(fill="x", pady=(6, 0))
+        self.b_undo = Button(row2, "Undo last raid", self.undo, size=11, pad=(10, 6))
+        self.b_backup = Button(row2, "Back up", self.backup, size=11, pad=(10, 6))
+        self.b_undo.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        self.b_backup.grid(row=0, column=1, sticky="ew")
+        row2.columnconfigure(0, weight=2)
+        row2.columnconfigure(1, weight=1)
 
         tk.Frame(self.right, bg=LINE, height=1).pack(fill="x", pady=(14, 8))
         self.cheat_var = tk.BooleanVar()
@@ -287,6 +318,8 @@ class App(tk.Tk):
         self.toggle("Skip the intro video", self.skip_intro_var, self.toggle_skip_intro)
         self.unlock_looks_var = tk.BooleanVar(value=self.read_unlock_looks())
         self.toggle("Unlock all looks and voices", self.unlock_looks_var, self.toggle_unlock_looks)
+        self.minimize_var = tk.BooleanVar(value=self.read_minimize())
+        self.toggle("Minimize while playing", self.minimize_var, self.toggle_minimize)
         self.update_check_var = tk.BooleanVar(value=self.read_update_check())
         self.toggle("Check for new builds", self.update_check_var, self.toggle_update_check)
         # Shown top right only when a newer build is out (check_update)
@@ -296,7 +329,9 @@ class App(tk.Tk):
         self.update_button.pack(side="left")
 
         self.status = tk.Label(self, text="", bg=INK, fg=MUTED, font=font(11), anchor="w", bd=0)
-        tag = tk.Label(self, text="OFFLINE  PvE", bg=INK, fg=ORANGE_DIM, font=font(11, "SemiBold"))
+        # the installed build (version.txt, "public-test-20261117.6"), so players can say which one they're on
+        build = (update.installed() or "").replace("public-test-", "") or "dev"
+        tag = tk.Label(self, text=f"OFFLINE  PvE   ·   build {build}", bg=INK, fg=ORANGE_DIM, font=font(11, "SemiBold"))
 
         # Fonts grow with Windows display scaling (the launcher is DPI aware) but these pixel sizes don't: make the panels
         # as tall as the details panel needs, and the window to match.
@@ -309,7 +344,7 @@ class App(tk.Tk):
         right.place_configure(height=ph)
         y = 130 + ph + 18
         h = max(H, y + self.status.winfo_reqheight() + 18)
-        self.status.place(x=36, y=y, width=800)
+        self.status.place(x=36, y=y, width=690)
         tag.place(x=W - 36, y=y, anchor="ne")
         self.geometry(f"{W}x{h}")
 
@@ -379,6 +414,7 @@ class App(tk.Tk):
             b.enable(ok)
         self.b_delete.enable(live)
         self.b_undo.enable(ok and s.get("can_undo"))
+        self.b_backup.enable(ok)
         if not s:
             self.d_name.config(text="No saves yet")
             self.d_mode.config(text="")
@@ -451,6 +487,83 @@ class App(tk.Tk):
         d.show()
         name.focus_set()
         name.bind("<Return>", lambda e: make())
+
+    def show_controls(self):
+        d = Dialog(self, "Controls")
+        grid = tk.Frame(d.body, bg=PANEL)
+        grid.pack(anchor="w")
+        for i, (key, what, where) in enumerate(CONTROLS):
+            tk.Label(grid, text=key, bg=PANEL, fg=ORANGE, font=font(12, "SemiBold"), anchor="w").grid(row=i, column=0, sticky="nw", padx=(0, 14), pady=2)
+            tk.Label(grid, text=what, bg=PANEL, fg=TEXT, font=font(11), anchor="w", justify="left", wraplength=380).grid(row=i, column=1, sticky="w", pady=2)
+            tk.Label(grid, text=where, bg=PANEL, fg=MUTED, font=font(10), anchor="w").grid(row=i, column=2, sticky="w", padx=(14, 0), pady=2)
+        r = d.row()
+        Button(r, "Close", d.destroy, "main", 11, (14, 6)).pack(side="left")
+        d.show()
+
+    def backup(self):
+        s = self.current()
+        if not s:
+            return
+        try:
+            path = saves.export(s["id"])
+        except OSError as e:
+            return self.say(f"Couldn't back up: {e}")
+        self.say(f"Backed up to {os.path.basename(path)} (Desktop). IMPORT brings it back.")
+        subprocess.Popen(["explorer", "/select,", path])
+
+    def import_saves(self):
+        d = Dialog(self, "Import saves")
+        tk.Label(d.body, text="Bring saves in from a backup zip (made with Back up), or from an older copy of the mod: pick "
+                 "its folder and every save in it is copied here. Nothing at the source is changed.",
+                 bg=PANEL, fg=TEXT, font=font(11), justify="left", wraplength=480).pack(anchor="w")
+
+        def run(path):
+            d.destroy()
+            if not path:
+                return
+            try:
+                names = saves.import_from(path)
+            except (OSError, ValueError, KeyError) as e:
+                return self.say(f"Couldn't import: {e}")
+            self.refresh()
+            self.say(f"Imported: {', '.join(names)}." if names else "No saves found there.")
+
+        r = d.row()
+        Button(r, "Cancel", d.destroy, size=11, pad=(14, 6)).pack(side="left", padx=(0, 8))
+        Button(r, "Old install folder...", lambda: run(filedialog.askdirectory(parent=d, title="The older Marauders Offline folder")),
+               size=11, pad=(14, 6)).pack(side="left", padx=(0, 8))
+        Button(r, "Backup zip...", lambda: run(filedialog.askopenfilename(parent=d, title="A save backup",
+               filetypes=[("Save backup", "*.zip")])), "main", 11, (14, 6)).pack(side="left")
+        d.show()
+
+    def report_problem(self):
+        d = Dialog(self, "Report a problem")
+        tk.Label(d.body, wraplength=520, text="Makes one zip on your Desktop with the logs from your last game, for a Discord post or a "
+                 "GitHub issue. Your Windows user name, Steam IDs and in-game name are taken out first.",
+                 bg=PANEL, fg=TEXT, font=font(11), justify="left").pack(anchor="w")
+        with_save = tk.BooleanVar(value=False)
+        with_dump = tk.BooleanVar(value=True)
+        for text, var in (("Include the selected save (helps with stash and progress problems)", with_save),
+                          ("Include the last crash dump (helps most with crashes; it holds part of the game's memory)", with_dump)):
+            tk.Checkbutton(d.body, text=text, variable=var, bg=PANEL, fg=TEXT, selectcolor=INK, activebackground=PANEL,
+                           activeforeground=TEXT, font=font(11), anchor="w").pack(anchor="w", pady=(8, 0))
+
+        def make():
+            s = self.current()
+            save_dir = os.path.join(saves.SAVES, s["id"]) if with_save.get() and s else None
+            try:
+                path, files = report.build(ROOT, game_folder(), save_dir, with_dump.get())
+            except Exception as e:  # (a report must never take the launcher down)
+                d.destroy()
+                return self.say(f"Couldn't make the report: {e}")
+            d.destroy()
+            self.say(f"Report saved: {os.path.basename(path)} ({len(files)} files). Attach it to your Discord post or issue.")
+            subprocess.Popen(["explorer", "/select,", path])
+
+        r = d.row()
+        Button(r, "Cancel", d.destroy, size=11, pad=(14, 6)).pack(side="left", padx=(0, 8))
+        Button(r, "MAKE REPORT", make, "main", 11, (14, 6)).pack(side="left")
+        d.show()
 
     def rename(self):
         s = self.current()
@@ -581,6 +694,16 @@ class App(tk.Tk):
         # every head, body and voice unlocked from the next login on; off brings back what the save earned
         self.write_setting(UNLOCK_LOOKS_SETTING, "on\n" if self.unlock_looks_var.get() else "off\n")
 
+    def read_minimize(self):
+        try:
+            with open(MINIMIZE_SETTING, encoding="utf-8") as f:
+                return f.read().strip() != "off"
+        except OSError:
+            return True
+
+    def toggle_minimize(self):
+        self.write_setting(MINIMIZE_SETTING, "on\n" if self.minimize_var.get() else "off\n")
+
     def read_update_check(self):
         try:
             with open(UPDATE_CHECK_SETTING, encoding="utf-8") as f:
@@ -696,6 +819,13 @@ class App(tk.Tk):
             self.say("The game is already running. Close it first.")
             return
         problem = preflight()
+        if problem and not steam_running() and problem.startswith("Start Steam"):
+            try:  # (#98) start it for you rather than only saying so
+                os.startfile("steam://open/main")
+                self.say("Starting Steam... press PLAY again once it's up.")
+            except OSError:
+                self.say(problem)
+            return
         if problem:
             self.say(problem)
             return
@@ -723,6 +853,8 @@ class App(tk.Tk):
         # Tidying up only starts once the game has been seen running: until then "no game" just means it's still starting.
         if self.running:
             if game_running():
+                if not self.seen and self.minimize_var.get():
+                    self.iconify()  # (#98) out of the way while playing; done() brings it back after saving
                 self.seen = True
             elif self.seen or time.time() - self.started > START_TIMEOUT:
                 if not self.seen:
@@ -746,6 +878,9 @@ class App(tk.Tk):
 
     def done(self):
         self.running = False
+        if self.state() == "iconic":
+            self.deiconify()
+            self.lift()
         self.refresh()
         if self.launch_error and not self.seen:
             self.say(f"The game didn't start: {self.launch_error} Nothing changed; the normal online game works as usual.")

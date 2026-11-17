@@ -1575,10 +1575,14 @@ end
 local function equipKit(body, kit)
     local function row(name) return name and FName(name):GetComparisonIndex() or 0 end
     local at = math.tointeger(body:GetAddress())
-    X.rollKit(at, math.tointeger(lib(CFG.ITEM_TABLE):GetAddress()), row(kit.gun and kit.gun[1]), row(kit.pistol), row(kit.helmet),
+    -- A pistol rolled as the gun goes in the pistol slot (it showed in the primary's on the body, #101).
+    local gun, pistol = kit.gun and kit.gun[1], kit.pistol
+    local gi = gun and require("itemdata").get(gun)
+    if gi and gi.type == 1 and not pistol then gun, pistol = nil, gun end
+    X.rollKit(at, math.tointeger(lib(CFG.ITEM_TABLE):GetAddress()), row(gun), row(pistol), row(kit.helmet),
         row(kit.chest), row(kit.bag))
     if kit.gun and kit.gun[3] then
-        for _ = 1, kit.stacks do X.addItem(at, row(kit.gun[3]), CFG.AMMO_STACK) end
+        for _ = 1, kit.stacks do X.addItem(at, row(kit.gun[3]), require("itemdata").capStack(kit.gun[3], CFG.AMMO_STACK)) end
     end
     for _ = 1, kit.meds do X.addItem(at, row(pick(Gear.meds)[1]), 1) end
 end
@@ -1636,7 +1640,14 @@ local function rollCarried(b)
     end
     local at = math.tointeger(b:GetAddress())
     X.keepWorn(at)
-    local function add(name, n) X.addItem(at, FName(name):GetComparisonIndex(), n) end
+    -- Never past the row's own stack (12 gauge stacks at 20, and a 35-shell stack showed as 35/20, issue #102). A
+    -- blueprint's stack is its uses: one found on a body has half to all of them, not 1 (#100).
+    local function add(name, n)
+        local Items = require("itemdata")
+        local max = Items.max(name)
+        if name:find("Blueprint", 1, true) and max and max > 1 and n <= 1 then n = math.random(math.ceil(max / 2), max) end
+        X.addItem(at, FName(name):GetComparisonIndex(), Items.capStack(name, n))
+    end
     local cap = math.max(CFG.CARRY_CAP_MIN, wealth * CFG.CARRY_CAP_SHARE)
     if math.random() < CFG.CARRY_JACKPOT then cap = 1e9 end
     local bag = worn.BackPackToSpawn ~= nil
@@ -1724,6 +1735,32 @@ local function startBody(pc, m, at)
     return { m = m, body = body, startedAt = os.clock() }
 end
 
+-- Weapon wear (#86). The game's kit step rolls a gun's condition AND its maximum low and at random (a 1911 at 10/10,
+-- full is 100): bodies dropped near-useless guns that cost a fortune to repair. A body's guns and melee weapons get
+-- their condition and maximum set to a share of the item's full durability (items.json `dur`): rivals keep their gear
+-- well (more so the better their kit), station guards less. Bots don't wear guns by firing (their shots aren't counted).
+R.WEAR = { budget = { 0.55, 0.85 }, mid = { 0.7, 0.95 }, geared = { 0.85, 1 }, guard = { 0.35, 0.85 } }
+function R.wear(body, band)
+    local Items = require("itemdata")
+    local slots = { Prim = true, Sec = true, Pistol = true, Melee = true }
+    pcall(function()
+        body.BotLootItems:ForEach(function(_, e)
+            local it = e:get()
+            if valid(it) and slots[it.MotherItemGUID:ToString()] then
+                local r = Items.get(it.ItemData:ToString())
+                if r and r.dur and r.dur > 0 then
+                    local c = math.max(1, math.floor(r.dur * (band[1] + math.random() * (band[2] - band[1])) + 0.5))
+                    it.MaxCondition, it.Condition = c, c
+                end
+            end
+        end)
+    end)
+end
+R.WEAR.of = function(tier)
+    if tier and tier.g then local lo = 0.55 + 0.3 * tier.g return { lo, math.min(1, lo + 0.25) } end
+    return R.WEAR[tier and tier.name or ""] or R.WEAR.mid
+end
+
 -- Second half: look, wake, arm, once the gun is there. Returns the director entry or nil (not ready / failed).
 local function finishBody(b)
     local body, m = b.body, b.m
@@ -1735,6 +1772,7 @@ local function finishBody(b)
         R.destroy(body)
         return false
     end
+    R.wear(body, R.WEAR.of(m.tier))
     local cat = gearCatalog()
     local mine = comps(body)
     -- Look: kept per member so the same person looks the same every time they materialize. Your hired crew have set
@@ -2289,6 +2327,7 @@ local function adopt(b)
     if not valid(ctrl) then return nil end
     ctrl = X.arm(b, ctrl)
     if not ctrl then return nil end
+    R.wear(b, R.WEAR.guard) -- (the level's own guards too: their rolls ran as low as 1/1, #86)
     local boss = b:GetClass():GetFName():ToString():find("Boss", 1, true) ~= nil
     local row = ""
     -- the placed NPC's GOAP controller (a weak pointer) names its brain row, e.g. EliteRaider / AverageRaiderSemi
@@ -2417,6 +2456,7 @@ local function finishTopUp(p)
     if p.female then X.female.dress(body, true) end
     local ctrl = X.arm(body)
     if not ctrl then R.destroy(body) return true end
+    R.wear(body, R.WEAR.guard)
     local e = { bot = body, ctrl = ctrl, home = body:K2_GetActorLocation(), nextPatrol = os.clock() + math.random(2, 8),
         patrolRadius = CFG.POST_RADIUS, placed = true, hand = comps(body).CharacterBody0, voice = X.voice.pick(p.female),
         mind = AI.mind(p.profile or "soldier", AI.pickPersonality(AI.power({ gun = name }))) }

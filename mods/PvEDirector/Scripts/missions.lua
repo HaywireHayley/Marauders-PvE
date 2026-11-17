@@ -19,11 +19,14 @@ local X -- log, valid
 local CFG = {
     RESCAN = 20,        -- space maps stream stations in: look for contract actors again this often until found
     NEAR = 4000,        -- only actors this close are checked for overlap
-    INSPECT_RANGE = 350, -- inspecting: this close (the game's own limit is 400)...
-    INSPECT_ANGLE = 35,  -- ...and looking within this many degrees of it to start...
-    KEEP_ANGLE = 60,     -- ...and within this many to keep inspecting (idle sway, small mouse moves)
+    INSPECT_RANGE = 250, -- inspecting: this close (the game's own limit is 400)...
+    INSPECT_RADIUS = 35, -- ...and looking at it: within the angle a target this big (cm) takes up at that distance,
+    INSPECT_MIN_ANGLE = 6, -- but never tighter than this (degrees)...
+    KEEP_SCALE = 1.8,    -- ...and within this many times that to keep inspecting (idle sway, small mouse moves).
+    -- (A flat 35 degrees from 3.5 m took in most of a wall and the doorway, and blocked loot and doors there: #99.)
     LOOK_GRACE = 1.5,    -- seconds of looking away before an inspect stops (it restarts from zero)
-    USE_KEY = "F",       -- the "Use" action's default key (Input.ini ActionMappings)
+    USE_KEY = "F",       -- the "Use" action's default key, if it has no binding (keys.lua reads the player's own)
+    RESEND = 1.0,        -- seconds between inspect events sent while Use is held (#20)
 }
 
 local S -- per-raid state
@@ -146,7 +149,14 @@ function M.interact(pc, pawn)
         local dx, dy, dz = best.at.X - cam.X, best.at.Y - cam.Y, best.at.Z - cam.Z
         local n = math.sqrt(dx * dx + dy * dy + dz * dz)
         local angle = n < 1 and 0 or math.deg(math.acos(math.max(-1, math.min(1, (fx * dx + fy * dy + fz * dz) / n))))
-        ok = angle <= (S.looking == best and CFG.KEEP_ANGLE or CFG.INSPECT_ANGLE)
+        local start = math.max(CFG.INSPECT_MIN_ANGLE, math.deg(math.atan(CFG.INSPECT_RADIUS, math.max(n, 1))))
+        ok = angle <= (S.looking == best and start * CFG.KEEP_SCALE or start)
+        -- The game's own interaction pick (made just before this) wins: loot, a door or a container nearer the
+        -- crosshair stays usable, unless you're already inspecting this object.
+        if ok and S.looking ~= best then
+            local cur = pawn.LastInteractionActor
+            if cur and valid(cur) and cur:GetAddress() ~= live(best):GetAddress() then ok = false end
+        end
     end
     if ok then
         S.looking, S.lookLost = best, nil
@@ -162,12 +172,25 @@ function M.interact(pc, pawn)
         -- CurrentTimedMission) the first second Use isn't held. So: (re)send it whenever Use is down and no inspect
         -- is running.
         local down = false
-        pcall(function() down = pc:IsInputKeyDown({ KeyName = FName(CFG.USE_KEY) }) end)
+        down = require("keys").down(pc, "Use", CFG.USE_KEY) -- (the player's own binding: #103)
         local idle = true
         pcall(function() idle = pc.CurrentTimedMission:ToString() == "None" end)
-        if down and idle then
-            for _, t in ipairs(S.looking.tags) do
-                pcall(function() pc:Client_CheckMissionEvent(FName(t), 5) end)
+        -- At most once a second, and not for an object that keeps refusing: each send can play the contract's sound,
+        -- and a finished contract refuses to start (no timer) forever, so sending every frame while Use was held
+        -- repeated the sound (#20). Two sends in a row that start no inspect = done here for this raid.
+        local o = S.looking
+        S.refused = S.refused or {}
+        if not idle then o.refusals = 0 end
+        if down and idle and not S.refused[o] and now - (o.sentAt or 0) >= CFG.RESEND then
+            if o.sentAt and now - o.sentAt < CFG.RESEND * 3 then o.refusals = (o.refusals or 0) + 1 end
+            if (o.refusals or 0) >= 2 then
+                S.refused[o] = true
+                X.log("[missions] an inspect object stopped answering (done?): not sending it again this raid")
+            else
+                o.sentAt = now
+                for _, t in ipairs(o.tags) do
+                    pcall(function() pc:Client_CheckMissionEvent(FName(t), 5) end)
+                end
             end
         end
     end

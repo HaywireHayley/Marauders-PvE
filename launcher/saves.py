@@ -11,6 +11,7 @@ import random
 import re
 import shutil
 import time
+import zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BACKEND = os.path.join(ROOT, "backend")
@@ -315,6 +316,57 @@ def copy(sid):
     meta.update(name=meta["name"] + " copy", played=time.time())
     _write(os.path.join(SAVES, new, "meta.json"), meta)
     return new
+
+
+def export(sid, out_dir=None):
+    """A backup of a save: one zip (its meta.json and state.json), on the Desktop unless out_dir is given (#98)."""
+    meta = _meta(sid)
+    out_dir = out_dir or os.path.join(os.path.expanduser("~"), "Desktop")
+    if not os.path.isdir(out_dir):
+        out_dir = os.path.expanduser("~")
+    path = os.path.join(out_dir, f"MaraudersOffline-save-{sid}-{time.strftime('%Y%m%d-%H%M')}.zip")
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        for f in ("meta.json", "state.json"):
+            z.write(os.path.join(SAVES, sid, f), f)
+    return path
+
+
+def _adopt(meta, state):
+    """A save from elsewhere becomes a new one here; a name already taken gets " (imported)"."""
+    if not isinstance(state, dict) or "storage" not in state or not isinstance(meta, dict):
+        raise ValueError("not a Marauders Offline save")
+    name = meta.get("name") or "Imported save"
+    taken = {m.get("name") for m in (_meta(d) for d in os.listdir(SAVES) if os.path.isfile(os.path.join(SAVES, d, "meta.json")))}
+    if name in taken:
+        name += " (imported)"
+    sid = _slug(name)
+    os.makedirs(os.path.join(SAVES, sid))
+    meta = dict(meta, name=name)
+    _write(os.path.join(SAVES, sid, "state.json"), state)
+    _write(os.path.join(SAVES, sid, "meta.json"), meta)
+    return name
+
+
+def import_from(path):
+    """Saves from a backup zip, a save folder, or an older install's folder (its backend/saves) (#95, #98). Nothing
+    at the source is changed. Returns the names of the saves added."""
+    os.makedirs(SAVES, exist_ok=True)
+    if os.path.abspath(path).startswith(os.path.abspath(SAVES)):
+        raise ValueError("that's this install's own saves folder")
+    if os.path.isfile(path) and zipfile.is_zipfile(path):
+        with zipfile.ZipFile(path) as z:
+            return [_adopt(json.loads(z.read("meta.json")), json.loads(z.read("state.json")))]
+    folders = []
+    if os.path.isfile(os.path.join(path, "state.json")) and os.path.isfile(os.path.join(path, "meta.json")):
+        folders = [path]
+    else:
+        root = next((c for c in (os.path.join(path, "backend", "saves"), os.path.join(path, "saves"), path)
+                     if os.path.isdir(c)), None)
+        for d in sorted(os.listdir(root)) if root else []:
+            f = os.path.join(root, d)
+            if os.path.isfile(os.path.join(f, "state.json")) and os.path.isfile(os.path.join(f, "meta.json")):
+                folders.append(f)
+    return [_adopt(_read(os.path.join(f, "meta.json")), _read(os.path.join(f, "state.json"))) for f in folders]
 
 
 def delete(sid):
