@@ -15,6 +15,7 @@ from datetime import datetime
 from PIL import Image, ImageDraw, ImageEnhance, ImageTk
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import report
 import saves
 import update
 
@@ -251,6 +252,7 @@ class App(tk.Tk):
         tk.Label(head, text="SAVES", bg=INK, fg=TEXT, font=font(17, "SemiBold")).pack(side="left")
         Button(head, "NEW SAVE", self.new_save, "main", 11, (14, 5)).pack(side="right")
         Button(head, "CONTROLS", self.show_controls, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
+        Button(head, "REPORT", self.report_problem, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
         tk.Frame(left, bg=ORANGE, height=2).pack(fill="x", pady=(7, 8))
         self.list_box = tk.Frame(left, bg=INK)
         self.list_box.pack(fill="both", expand=True)
@@ -478,6 +480,35 @@ class App(tk.Tk):
             tk.Label(grid, text=where, bg=PANEL, fg=MUTED, font=font(10), anchor="w").grid(row=i, column=2, sticky="w", padx=(14, 0), pady=2)
         r = d.row()
         Button(r, "Close", d.destroy, "main", 11, (14, 6)).pack(side="left")
+        d.show()
+
+    def report_problem(self):
+        d = Dialog(self, "Report a problem")
+        tk.Label(d.body, wraplength=520, text="Makes one zip on your Desktop with the logs from your last game, for a Discord post or a "
+                 "GitHub issue. Your Windows user name, Steam IDs and in-game name are taken out first.",
+                 bg=PANEL, fg=TEXT, font=font(11), justify="left").pack(anchor="w")
+        with_save = tk.BooleanVar(value=False)
+        with_dump = tk.BooleanVar(value=True)
+        for text, var in (("Include the selected save (helps with stash and progress problems)", with_save),
+                          ("Include the last crash dump (helps most with crashes; it holds part of the game's memory)", with_dump)):
+            tk.Checkbutton(d.body, text=text, variable=var, bg=PANEL, fg=TEXT, selectcolor=INK, activebackground=PANEL,
+                           activeforeground=TEXT, font=font(11), anchor="w").pack(anchor="w", pady=(8, 0))
+
+        def make():
+            s = self.current()
+            save_dir = os.path.join(saves.SAVES, s["id"]) if with_save.get() and s else None
+            try:
+                path, files = report.build(ROOT, game_folder(), save_dir, with_dump.get())
+            except Exception as e:  # (a report must never take the launcher down)
+                d.destroy()
+                return self.say(f"Couldn't make the report: {e}")
+            d.destroy()
+            self.say(f"Report saved: {os.path.basename(path)} ({len(files)} files). Attach it to your Discord post or issue.")
+            subprocess.Popen(["explorer", "/select,", path])
+
+        r = d.row()
+        Button(r, "Cancel", d.destroy, size=11, pad=(14, 6)).pack(side="left", padx=(0, 8))
+        Button(r, "MAKE REPORT", make, "main", 11, (14, 6)).pack(side="left")
         d.show()
 
     def rename(self):
