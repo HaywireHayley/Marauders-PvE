@@ -2,6 +2,18 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 17 Nov 2026, build 3 (`public-test-20261117.3`)
+
+A fix for the low frame rate some of you saw on build 2 (a flat 9-10 fps on foot). On build 2 or this morning's
+build, the launcher offers this one by itself (the orange **!**); from build 4 or older, download it by hand.
+
+### Changes
+
+- **Frame rate on foot (#110):** the minimap searched the whole game twice per redraw, 30 times a second, when it
+  couldn't find your ship's airlock or helm: about 10 fps for as long as you were on foot. It now tries again every
+  5 seconds. The minimap's task lookup and the inventory keys' widget search no longer repeat full-game searches
+  either.
+
 ## Public test, 17 Nov 2026, build 2 (`public-test-20261117.2`)
 
 A frame-rate follow-up to this morning's build. If you're on build `public-test-20261117`, the launcher offers this
