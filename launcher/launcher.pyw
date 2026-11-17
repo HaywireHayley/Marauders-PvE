@@ -329,7 +329,9 @@ class App(tk.Tk):
         self.update_button.pack(side="left")
 
         self.status = tk.Label(self, text="", bg=INK, fg=MUTED, font=font(11), anchor="w", bd=0)
-        tag = tk.Label(self, text="OFFLINE  PvE", bg=INK, fg=ORANGE_DIM, font=font(11, "SemiBold"))
+        # the installed build (version.txt, "public-test-20261117.6"), so players can say which one they're on
+        build = (update.installed() or "").replace("public-test-", "") or "dev"
+        tag = tk.Label(self, text=f"OFFLINE  PvE   ·   build {build}", bg=INK, fg=ORANGE_DIM, font=font(11, "SemiBold"))
 
         # Fonts grow with Windows display scaling (the launcher is DPI aware) but these pixel sizes don't: make the panels
         # as tall as the details panel needs, and the window to match.
@@ -342,7 +344,7 @@ class App(tk.Tk):
         right.place_configure(height=ph)
         y = 130 + ph + 18
         h = max(H, y + self.status.winfo_reqheight() + 18)
-        self.status.place(x=36, y=y, width=800)
+        self.status.place(x=36, y=y, width=690)
         tag.place(x=W - 36, y=y, anchor="ne")
         self.geometry(f"{W}x{h}")
 
