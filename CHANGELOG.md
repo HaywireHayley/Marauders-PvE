@@ -2,15 +2,101 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
-## Next build (not released yet)
+## Public test, 16 Nov 2026, build 4 (`public-test-20261116.4`)
 
-- **Launcher:** tells you when a newer build is out (an orange **!** top right) and can update itself: it downloads
-  the new zip, checks it, and installs it over the folder, keeping your saves and settings. Switch it off with
-  **Check for new builds**. It starts working from the build after this one.
+About 20 changes since build 3. The headline ones are an **offline guild** (guild page and guild shop), **choosing
+your raid map**, your **look and voice showing in raids**, **getting your gear back** when a raid ends without
+extraction or death, and a launcher that **tells you about new builds**. Please read **Known issues** at the bottom.
+
+### New in this build
+
+#### Offline guild and guild shop
+**What happened:** guilds live on the online social service, so offline SOCIAL > GUILD was an empty room and the
+TRADE page's **GUILD** shopkeeper stayed locked.
+
+**Now:** you captain an offline guild, **Marauders**, with Haywire Hayley and Lilykoi as officers and a random
+handful of people from the Discord as crew mates (some shown online). The page shows the member list, the guild's
+rank and its progression. On **EDIT GUILD** you can set an announcement, public or not, the join type, the patch
+(design and colours) and up to 5 tags; they're kept between sessions. **First Mate Calico's guild shop** on the
+TRADE page opens, and buying and selling there work.
+
+- The guild hideout, guild chat, leaving and disbanding need online servers and are hidden.
+
+#### Choose your raid map
+The **REGION** box next to START RAID means nothing offline, so it now picks the map. Its buttons are the six space
+maps (**SOLO 1, SOLO 2, ALPHA, BETA, CHARLIE, DELTA**) plus **RANDOM**. Each says whether it's a solo or crew map,
+and hovering shows the stations usually found there. Your pick is remembered.
+
+#### Your gear comes back when a raid ends without extraction or death
+**What happened:** quitting mid-raid, Alt+F4, a crash or leaving through the menu lost the gear you brought in.
+
+**Now:** that gear goes back to your stash, still equipped, the next time you log in or start a raid. Anything you
+picked up in that raid is lost. Dying and extracting work as before.
+
+#### The launcher tells you about new builds
+An orange **!** at the top right when a newer build is out, and it can update itself: it downloads the new zip, checks
+it and installs it over the folder, keeping your saves and settings. Switch it off with **Check for new builds**.
+**It starts working from the build after this one**, so download this one by hand.
+
+#### Also new
+- **Unlock all looks and voices:** a launcher checkbox that unlocks every head, body and voice without buying them.
+  Your save isn't changed, so switching it off brings the normal unlocks back.
+- **QUIT tab** in the lobby's top bar (click twice to confirm).
+- **F9 menu:** pick a specific gun or ammo type and get it (loaded, into a free slot).
+- **Crew gunner snipes station turrets** from as far as those turrets reach you (13,500), instead of having to close
+  to the hull guns' own range.
+
+### Fixed in this build
+
+#### Your look and voice didn't show in raids
+**What happened:** whatever head, body and voice you picked in the lobby, raids had the default look and the English
+male voice.
+
+**Why:** the raid server normally hands your chosen look to the raid. Offline nothing did.
+
+**Now:** the mod hands it over at raid start, with your loadout. Voice lines use your chosen voice.
+
+#### Stuck behind a loot window
+**What happened:** pressing Use (F, or R if you've moved Use onto Rotate's key) in an open loot window brought up the
+pause menu. Closing it left the loot window drawn over the game while you could still move and shoot.
+
+**Now:** Use in a loot window closes it. As a safety net, an inventory left on screen without the mouse cursor is
+closed.
+
+#### Pod breach into Fortress put you in a wall
+**What happened:** at one Fortress breach point the pod leaves you above a hatch, with the floor below out of reach.
+The mod's "no floor under you" rescue moved you to the nearest walkable point, which was behind a wall.
+
+**Now:** it lands you on the floor straight below. Any other spot must be in clear sight of where you came out.
+
+#### Also fixed
+- **Esc in the inventory** closes it, instead of opening the pause menu behind it. No leaning while it's open.
+- **You and your crew walk through each other** instead of blocking doorways. Enemies still collide.
+- **Gear shows on your lobby character** as soon as you equip it, instead of after switching tabs.
+- **New saves start like the game's own new player** (its starting credits and kit), without the launcher's extra
+  10,000 and kit on top. No more "10,000 then 75,000".
+- **Crew errors in fights from cover** ("attempt to perform arithmetic on a table value") are gone.
 - **Launcher:** opening it twice no longer risks losing a raid's progress (the second one just brings the first
   forward). Closing it while you play asks first, and if you do, it saves your game and puts the online game back
-  next time it opens. A damaged save shows as **DAMAGED** instead of disappearing, a save can be called "Nul",
-  and a setting that can't be saved says so.
+  next time it opens. A damaged save shows as **DAMAGED** instead of disappearing, a save can be called "Nul", and a
+  setting that can't be saved says so.
+
+### Known issues
+
+- **Crash using a station airlock after some time in a raid** (#53). Still being tracked down. Until then, **save
+  your progress by extracting before long station runs**. If you crash, please share `backend\last_game.log`
+  (written when the game closes) on the Discord.
+- **Docking at Planet Killer** (Space_Charlie): the airlock may not take you through (#32).
+- **Interceptors** (Solar and Galaxy) aren't properly boardable yet: missing walls inside (#70).
+- **Space salvage can disappear** when you dock at a station (#74).
+- **No button prompt to breach** when your pod reaches a ship (#77).
+- A **"social service unavailable"** panel may flash after login. If you see it stay up, please send a screenshot.
+
+### For contributors
+
+- NOTES.md: five AI fixes from 14 Nov are now confirmed in game (crew arrival spacing, guard counts by station size,
+  baked cover in Rebel Base, the off-limits fix, fight hitches).
+- `tools/offline-audit/kdis.py` decodes delegate opcodes and set/map/array literals.
 
 ## Public test, 16 Nov 2026, build 3 (`public-test-20261116.3`)
 
