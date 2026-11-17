@@ -163,8 +163,14 @@ function Q.tick()
             end)
         end
     end
+    if not ui.menuPath then return end
     local menu, b = live(ui.menuPath), live(ui.btnPath)
-    if not (menu and b) then return end
+    if not (menu and b) then
+        -- Gone with the last raid: forget them until the menu opens again (Q.opened). A StaticFindObject of a path
+        -- that doesn't exist walks every object in the game, each frame (issue #112's cause, in guild.lua).
+        ui.menuPath, ui.btnPath = nil, nil
+        return
+    end
     if not menu:IsVisible() then ui.down = false return end
     if ui.armedUntil and now > ui.armedUntil then
         ui.armedUntil = nil

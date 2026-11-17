@@ -321,7 +321,14 @@ function G.frame()
     -- crashed the game at Login)
     if not (pagePath and opened[pagePath]) then return end
     local w = live(pagePath)
-    if not (w and w:IsVisible()) then return end
+    if not w then
+        -- The page is gone (a raid took the lobby down). Forget it: a StaticFindObject of a path that doesn't exist
+        -- walks every object in the game, and this ran each frame for the rest of the session: raids at 10 fps after
+        -- opening the GUILD tab once (issue #112). G.tick finds the next lobby's page.
+        opened[pagePath], dressed[pagePath], pagePath = nil, nil, nil
+        return
+    end
+    if not w:IsVisible() then return end
     -- (Visible info, Collapsed "not in a guild" and hideout panel: already dressed)
     if w.Border_MyCurrentGuildInfo:GetVisibility() == 0 and w.Border_MyGuildCurrent_NotInGuild:GetVisibility() == 1
         and w.Border_GuildHideOut:GetVisibility() == 1 then return end

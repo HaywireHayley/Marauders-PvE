@@ -137,8 +137,10 @@ end
 -- anything in the lobby with the offline backend.
 function L.tick(ticker)
     local now = os.clock()
-    if PveMapPick then pcall(PveMapPick.frame) end -- (new picker buttons, before they can be clicked)
-    if PveGuild then pcall(PveGuild.frame) end -- (the guild page, the frame it opens)
+    -- (lobby only: in a raid there's no picker or guild page, and looking for one costs)
+    local lobby = ticker:IsValid() and ticker:GetClass():GetFName():ToString() == "MM_CoreMissions_C"
+    if lobby and PveMapPick then pcall(PveMapPick.frame) end -- (new picker buttons, before they can be clicked)
+    if lobby and PveGuild then pcall(PveGuild.frame) end -- (the guild page, the frame it opens)
     if now < nextCheck then return end
     nextCheck = now + CHECK_SECONDS
     local inLobby = ticker:IsValid() and ticker:GetClass():GetFName():ToString() == "MM_CoreMissions_C"
