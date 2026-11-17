@@ -3035,3 +3035,48 @@ to the floor at 60230,114665,-1203", inside a wall.
   world.
 - Checked: the title screen stutter was gone about 25 s in, when the startup loads finish. Not yet confirmed in game:
   the post raid hitch with the new mappick lists, and the mouse gating on the title screen.
+
+## Player shots: no hit zones on the mod's soldiers (issue 123; pvepatch.c pve_hit_capsule, hitzones.lua, ai.lua tuneBody)
+- Reported: every STG44 hit on a BotPawn_C or BotPawnMilitary_C did a flat 34, helmet or not, head or not.
+- Confirmed in game (Space_Solo_01): STG44 head shot on a helmeted BotPawnMilitary_C = 34.0; Mat 49, 10 hands-on hits
+  anywhere on one = 22.0 each (the gun's flat damage).
+- Cause: the damage function reads the hit capsule's AreaHitType (see "Bot-on-bot damage" above). PlayerPawn_C and the
+  map's own node bots (GOAPNodeBot_Raider_C) have 17 RaidHitCapsuleComponents (head/neck 1, body 2, left arm 3, right arm 4,
+  left leg 5, right leg 6). The pawns the mod spawns (BotPawn_C, BotPawnGuard_C, BotPawnMilitary_C: soldiers, guards,
+  rivals, crew) have none, and their body mesh blocks channels 3 (Visibility) and 15, which the player's and node bots'
+  meshes ignore so a trace reaches the capsules. So the bullet stops on the mesh with no zone: raw damage.
+- Player capsules (measured): query only, object type Pawn, block only channels 3 and 9-15, attached to the mesh at the
+  bone of the same name with an offset. Table (socket, area, radius, half height, rel. location, rel. rotation):
+  head 1 10/14 (2.9,0.5,0) (90,-355,-695); neck_01 1 7/8.8 (6.1,-0.3,0) (90,0,0); spine_03 2 13/20 (18.8,-5.9,0.4) (0,10,0);
+  spine_02 2 15.7/23.7 (9,-2.2,1.1) (39,91,93); pelvis 2 13/19.1 (-2.3,-1.1,0) (0,10,0); upperarm_r 4 6.5/16 (-16.2,0.3,-0.8)
+  (81,-1,-6); lowerarm_r 4 5.7/16 (-14.5,-0.4,0.2) (86,-160,-163); Hand_R 4 4.9/7.9 (-6.2,0.7,1.6) (88,-24,-25);
+  upperarm_l 3 6.5/16 (16.5,-0.3,0.6) (81,-1,-6); lowerarm_l 3 5.7/16 (15.1,0,-0.4) (85,-16,-15); hand_l 3 4.9/7.9
+  (5.6,-0.6,-1.7) (88,-24,-22); thigh_r 6 8.8/23.1 (23.8,-0.2,-0.7) (90,-46,-54); calf_r 6 7.9/22.4 (21.5,2.4,0.1)
+  (88,-171,-170); Foot_R 6 4.9/13.5 (6.7,-7,0.7) (86,82,166); thigh_l/calf_l/foot_l 5 as the right side with x negated
+  (-24.1,0.4,0.6) (-21.6,-2.6,0.7) (-6.6,6.6,-0.4). BotPawn* meshes carry every bone named here.
+  Mesh responses to channels 0-17: player 220022020222222022, node bot 220022020222222020, BotPawn* 220222020222222222.
+- Fix: AI.tuneBody (every director bot passes through it once) calls hitzones.ensure, which calls pvepatch.dll's
+  pve_hit_capsule once per capsule, then sets the body mesh to ignore channels 3 and 15. pve_hit_capsule does what the
+  engine does for a component added at run time, all through ProcessEvent (vtable +0x218) with hand-built parameter blocks:
+  AddComponentByClass deferred (Class @0, bManual @8, FTransform @0x10, bDeferred @0x40, return @0x48), SetupAttachment by
+  writing AttachParent (+0xc0) and AttachSocketName (+0xc8), AreaHitType (+0x460, 1 byte), SetCapsuleSize and the
+  collision setters, then FinishAddComponent (Component @0, bManual @8, FTransform @0x10) with the offset from the bone,
+  which registers it; OnRegister attaches it to the socket. Layouts were read from the UFunctions' property chains in
+  memory (UStruct.ChildProperties +0x50, FProperty.Next +0x20, Offset_Internal +0x4c, ElementSize +0x3c): UE4SS's
+  ForEachProperty fails here. Bots that already have capsules (node bots) are left alone.
+- Measured with the fix (Space_Solo_01, Mat 49 on a BotPawnMilitary_C): head 80.5 (23 x 3.5), body 23, legs 11.5 (x 0.5);
+  the same gun on one without zones did 22 anywhere. STG44 body hits 34 on both. Bodies of zoned soldiers loot normally.
+  Not yet seen through AI.tuneBody on a director soldier at a station (the tests called hitzones.ensure from the bridge).
+- Why not from Lua (tried, failed): AddComponentByClass from Lua leaves the component unregistered (UActorComponent flags at
+  +0x88 read 0; a registered one with physics reads 0x07), whatever bDeferredFinish says; FinishAddComponent from Lua
+  registers it, but a capsule attached before that never follows its bone (the body stays where it was registered), and
+  K2_DestroyComponent / AddComponentByClass(bManualAttachment false) from Lua crashed inside UE4SS twice.
+- Testing traps: bots spawned with the bridge `bot` verb aren't the director's: it hides their mesh and unpossesses them
+  (floating guns); loading a renamed test copy of pvepatch.dll re-points the bot-death hook to that copy, so no body can be
+  looted until a restart; ShootingRangeGameMode (bridge `raid`, F9 test raid) applies no damage to bots at all; a FindAllOf
+  every frame from a bridge hook took the game to 5 fps.
+- More bridge notes: test in Space_Solo_01 (F9 "Give me the STG44"). An AI-controlled bot moved with K2_SetActorLocation is put back: UnPossess it
+  first. SimulateInputKey fires only while the game window has focus, and setting CurrentAmmoInClip by hand left the gun
+  refusing to fire (CurrentAmmo read -30). KismetSystemLibrary:LineTraceSingle's bool works from Lua (start the trace in
+  front of the camera, the ignore list didn't seem to apply); its hit result doesn't come back.
+- Not looked at: Liberator pellets doing no damage (the multi-pellet path, 0x18a1990).
