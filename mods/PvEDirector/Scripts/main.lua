@@ -2782,7 +2782,7 @@ local SKIRMISH_FILE = PROJECT .. "bridge/rivals_skirmish"
 
 -- Contract / campaign objectives (missions.lua): the contract actors' server half, so hold-area and inspect
 -- objectives count offline.
-Loading.init({ log = log, valid = valid, lib = lib })
+Loading.init({ log = log, valid = valid, lib = lib, root = pveRoot })
 Splash.init({ log = log, valid = valid, lib = lib })
 -- (a global, not a local: main.lua is at Lua's 200-locals limit, and onTick above reads it)
 PveMapPick = require("mappick") -- (a global: main.lua is at the 200-locals limit)

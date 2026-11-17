@@ -242,8 +242,14 @@ local function photoStep(now)
         Out.call(B.cap, "K2_SetActorLocation", cam, false, {}, true)
         B.cap:K2_SetActorRotation({ Pitch = 0, Yaw = math.deg(math.atan(-face.Y, -face.X)), Roll = 0 }, true)
         local krl = X.lib("/Script/Engine.Default__KismetRenderingLibrary")
-        local rt = W.portraits[s.r.id] or krl:CreateRenderTarget2D(B.stand, CFG.PORTRAIT, CFG.PORTRAIT, 2,
-            { R = 0.02, G = 0.02, B = 0.025, A = 1 }, false)
+        local rt = W.portraits[s.r.id]
+        if not rt then
+            rt = krl:CreateRenderTarget2D(B.stand, CFG.PORTRAIT, CFG.PORTRAIT, 2, { R = 0.02, G = 0.02, B = 0.025, A = 1 }, false)
+            -- Rooted: a portrait not shown in any slot or hire row had nothing in the engine holding it (the capture
+            -- component lets go at the next photo), so it was freed and showing it again crashed the UI paint, as the
+            -- minimap's floor plans did (issue #53). One per crewmate, kept for the session.
+            X.root(math.tointeger(rt:GetAddress()))
+        end
         local c = B.cap.CaptureComponent2D
         c.TextureTarget = rt
         c:CaptureScene()
