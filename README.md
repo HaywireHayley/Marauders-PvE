@@ -13,41 +13,85 @@ of Marauders on Steam.
 > efficient or make complete sense. That's where your contributions come in: see [CONTRIBUTING.md](CONTRIBUTING.md), or
 > come and talk about it on the Discord.
 
-## Play it: download the public test
+## Quick start
 
-**[Download the latest release](https://github.com/HaywireHayley/Marauders-PvE/releases/latest)**: open the page and
-download `MaraudersOffline-<date>.zip` under **Assets**. The release notes list what's new and the known issues.
+1. **[Download the latest release](https://github.com/HaywireHayley/Marauders-PvE/releases/latest)**: open the page
+   and download `MaraudersOffline-<date>.zip` under **Assets**. The release notes list what's new and the known issues.
+2. Follow the steps for your system below. Both need **your own copy of Marauders installed through Steam**, and
+   **Python 3.9 or newer** (Windows: the installer can get it for you; SteamOS already has it).
 
-**You need:** Windows 10 or 11, Marauders installed through Steam (with Steam running when you play), and Python 3.9 or
-newer (the installer can install it for you).
+Your online game is safe either way: the game folder is switched to offline mode only while you play the mod, and every
+file is put back to stock when the game closes.
 
-1. **Unzip** the folder somewhere permanent with a plain path, such as `C:\Games\MaraudersOffline`. Avoid Program Files
-   and paths with non-English letters. Your saves live inside this folder.
-2. **Double-click `Install.bat`.** It finds Python and the game, and adds a "Marauders Offline" shortcut to your desktop
-   and Start menu. It doesn't touch the game folder.
-3. **Start "Marauders Offline"**, make a save (NEW SAVE), pick it and press **PLAY**. Keep the launcher open while you
-   play.
+### Windows 10 / 11
 
-Your online game is safe: the launcher switches the game to offline mode only while you play, and puts every file back
-to stock when you close the game. If your PC crashes mid-game, open the launcher once and close it again (or run
-`Uninstall.bat`) before starting Marauders from Steam. Full instructions are in `README.txt` in the zip.
+1. **Unzip** the folder somewhere permanent with a plain path, such as `C:\Games\MaraudersOffline`. Not Program Files,
+   and no non-English letters in the path. Your saves live inside this folder, so don't delete it.
+2. **Double-click `Install.bat`.** It finds Python (or offers to install it), finds the game, and adds a
+   **Marauders Offline** shortcut to your desktop and Start menu. It doesn't touch the game folder.
+3. **Start Steam**, then open **Marauders Offline** from the shortcut.
+4. In the launcher, click **NEW SAVE**, give it a name, and click **CREATE**. (Tick "lots of gear and infinite money"
+   for a test save with a full stash.)
+5. Pick the save and press **PLAY**. **Keep the launcher open while you play**: it saves your game and puts the game
+   folder back when the game closes.
+6. In the game's lobby, gear up in LOADOUT, pick a map and press **START RAID**. Get out alive through an extraction to
+   keep what you carry.
 
-### Linux and Steam Deck (experimental, not yet tested under Proton)
+**Back to the online game:** close the offline game, then launch Marauders from Steam as usual. If your PC crashed
+mid-game, open the launcher once and close it again (or run `Uninstall.bat`) first.
 
-The game runs under Proton; the mod's DLLs and UE4SS are Windows files that run inside it. There's no launcher window
-on Linux: Steam's PLAY button starts the mod through a launch option, so it works from Game Mode too.
+**Something wrong?** Press **REPORT** in the launcher: it zips your logs (and the crash report, if the game crashed)
+for you to attach on the [Discord](https://discord.gg/nfEW8tFJ3b) or in a
+[GitHub issue](https://github.com/HaywireHayley/Marauders-PvE/issues). "The game didn't start": check Steam is running,
+and run `Install.bat` again if the game moved.
 
-1. Unzip the folder somewhere permanent (internal storage is safest; a path with spaces is fine, non-English letters
-   aren't). You need Python 3.9 or newer, which SteamOS has.
-2. In a terminal (Desktop Mode on a Deck), run `sh linux/install.sh` in that folder. It finds the game in your Steam
-   libraries, SD cards included, and prints a line to paste into **Marauders > Properties > General > Launch options**:
-   `"/path/to/MaraudersOffline/linux/marauders-offline.sh" %command%`
-3. Press PLAY in Steam. The game folder is switched to offline for that game and put back to stock when it closes. If
-   the game is killed or the Deck loses power, the next start (or any `pvemode.py` command) puts it back first.
+### Linux / Steam Deck (experimental)
 
-Saves: `python3 scripts/pvemode.py saves`, `use <id>`, `new <name> [--cheat]`. To play the normal online game, clear
-the launch option, or run `python3 scripts/pvemode.py steam off` (`on` switches the mod back on). Details and what
-still needs testing: [#127](https://github.com/HaywireHayley/Marauders-PvE/issues/127).
+Not yet tested under real Proton: if you try it, please say how it went in
+[#127](https://github.com/HaywireHayley/Marauders-PvE/issues/127) or on the Discord. There is no launcher window on
+Linux: Steam's own **PLAY** button starts the mod through a launch option, so it works from Game Mode on a Deck too.
+
+1. **Unzip** the folder somewhere permanent, e.g. `~/Games/MaraudersOffline`. Internal storage is safest; spaces in the
+   path are fine, non-English letters aren't. On a Deck, do this in **Desktop Mode**.
+2. **Open a terminal in that folder** and run:
+
+   ```bash
+   sh linux/install.sh
+   ```
+
+   It finds the game in your Steam libraries (SD cards included) and prints one line, like
+   `"/home/deck/Games/MaraudersOffline/linux/marauders-offline.sh" %command%`.
+3. In Steam: **Marauders → Properties → General → Launch options**, paste that line.
+4. Press **PLAY** in Steam (Game Mode works). The first time, a save called "Save 1" is made for you. In the game's
+   lobby, gear up, pick a map and press **START RAID**.
+
+**On a Deck:** the mod's own keys (F3, F6, F9, N, M, B; see Controls below) need a keyboard, or bind them to buttons
+in Steam Input. No ready-made layout yet.
+
+**Saves** (in a terminal, in the folder):
+
+```bash
+python3 scripts/pvemode.py saves
+```
+
+```bash
+python3 scripts/pvemode.py new "Test save" --cheat
+```
+
+`saves` lists them (`*` marks the one PLAY uses), `use <id>` picks one, `new <name>` makes one (`--cheat` for a full
+stash and infinite money).
+
+**Back to the online game:** clear the launch option, or switch the mod off and keep the launch option for later:
+
+```bash
+python3 scripts/pvemode.py steam off
+```
+
+(`steam on` switches it back.) If the game is killed or the Deck loses power mid-game, the next PLAY puts the game
+folder back to stock before anything else.
+
+**Something wrong?** Attach `backend/last_game.log` and `backend/server.log` from the folder to a post in
+[#127](https://github.com/HaywireHayley/Marauders-PvE/issues/127) or on the Discord.
 
 ### Controls
 
