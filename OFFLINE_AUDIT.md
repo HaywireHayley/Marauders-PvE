@@ -22,6 +22,7 @@ bullet impacts, instant/melee hit reacts, vault/climb animations, the 4 SIGIS lo
 space gate extraction, frigate salvage scan timer (2026-11-16), contract inspect prompt gate (2026-11-16).
 PvEDirector: near-miss whizz (hook on ServerTraceMultiFireProjectile), broken-weapon effect (calls
 OnRep_WeaponHasBroken when the held gun breaks).
+Space turret and mine explosions and sounds (#15): they sit behind `GetLocalRole() != 3`, which the branch scan does not list; spacefx.lua does the skipped part (docs/internals/SPACE_OBJECT_DEATH.md).
 
 ## Combat-feel pass (2026-10-31): results
 - Explosions: **not broken**. Off a client, OnRealImpact calls Explode (0x1883cf0), which spawns the explosion actor
