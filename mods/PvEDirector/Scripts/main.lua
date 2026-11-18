@@ -751,12 +751,14 @@ end
 -- class that gets reloaded comes back unpatched; the DLL checks the bytes, so it's safe to repeat.
 -- The player's PlayFootstepSound (walk, sprint, crouch steps) has a second gate: on the server it skips the sound and
 -- only does the footprint decals (tools/offline-audit/kdis.py). The bots' copy has no such gate.
+-- (#143, 2026-11-18) Also: the step a character settles with on stopping ("returned to idle": a random 0.2-0.7 s
+-- later, a walk or crouch footstep; player 17368, bots 14327) and the landing camera shake on your own camera (27802).
 local FOOTSTEP_BRANCHES = {
     ["/Game/Characters/MainPlayer/rc_FPS_AnimBP.rc_FPS_AnimBP_C:ExecuteUbergraph_rc_FPS_AnimBP"] =
-        { 13585, 14667, 15387, 16022 },
+        { 13585, 14667, 15387, 16022, 17368, 27802 },
     ["/Game/Characters/MainPlayer/rc_FPS_AnimBP.rc_FPS_AnimBP_C:PlayFootstepSound"] = { 1288 },
     ["/Game/Characters/MainPlayer/rc_AI_FPS_AnimBP.rc_AI_FPS_AnimBP_C:ExecuteUbergraph_rc_AI_FPS_AnimBP"] =
-        { 11338, 11609, 12116, 13292, 13409 },
+        { 11338, 11609, 12116, 13292, 13409, 14327 },
 }
 
 -- The PGOS overlay's friends view: a looping 1 s native timer calls StartGetFriends, which walks the whole Steam friends list
