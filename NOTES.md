@@ -3251,3 +3251,22 @@ to the floor at 60230,114665,-1203", inside a wall.
   points; font fallback; dialogs are owned windows that grab only once visible; keyboard focus and Enter/Space on
   buttons; Tk option-database theme; `launcher/test_ui.py` (12 headless tests). Tk's font cache is per process on
   Windows: a scaling test must run in its own process or it leaks into the others.
+
+## rivals.lua and its modules (issue 149, 2026-11-17)
+- rivals.lua had all 200 of Lua's top-level locals (found by luacheck's headroom check). Its sections moved verbatim:
+  `rivalcrews.lua` (Crews), `rivalships.lua` (Berths, Docking route, Ships), `rivalbodies.lua` (Bodies, Spreading
+  out, Station defenders), `rivalcombat.lua` (Breaching pods, Ship combat, You boarding a rival's ship). rivals.lua
+  keeps the header (CFG, helpers), World survey, Crew brain and Public: 60 locals now, 140 to spare.
+- Sharing: rivals.lua builds a table H of the header's names and puts it at `package.loaded["rivalshared"]`; each
+  module reads what it uses from it into its own locals at load, so moved code is unchanged. Modules load in
+  dependency order (crews, ships, bodies, combat) and the functions a later module uses are added to H as each loads.
+  `X` (main's context) and `S` (per-raid state) change at runtime, so they reach the modules through `M.bind(X, S)`,
+  called by `shareState()` after `R.init` sets X, after a new raid's S, and in `R.reset`. Ships' `AIMED` table is reset
+  per raid through `Ships.resetAimed()`.
+- In rivals.lua, uses of moved names go through the module (`Ships.flyTo`, `Combat.engage`...): 152 call sites, found by
+  scope analysis so locals of the same name were left alone. Note the Breaching pods section has its own
+  `weighted(w)` (a map of weights), which shadows the header's `weighted(list)`; it stays inside rivalcombat.lua.
+- Checked: luacheck (all 5 files 120+ spare); a scope-aware free-name scan (no name became a global; `package` is new
+  and intended); every line of the old file is in the new ones, apart from the rewritten call sites and R.reset's
+  shareState(); under lupa with UE4SS stubbed, old and new export the same 254 `R` keys, register the same 4 hooks,
+  and run R.init / R.reset cleanly.

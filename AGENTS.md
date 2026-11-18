@@ -22,11 +22,11 @@ issue number, what was verified and what wasn't).
 
 ## Checks before a PR
 - Lua: `python scripts/luacheck.py <files>` (needs `pip install lupa`). Syntax, and **headroom under Lua's 200-locals
-  limit**: each file's top level must keep 20 locals to spare (it prints how many). `rivals.lua` is the one exception,
-  at 0, until #149 splits it; don't add top-level locals there.
+  limit**: each file's top level must keep 20 locals to spare (it prints how many).
 - Where new code goes: in the module that owns that system (`bots.lua` soldiers, `playareas.lua` where bots may go,
   `loadout.lua` your gear in and loot out, `launch.lua` matchmaking and the loading veil, `space.lua` space maps,
-  `debugactions.lua` the F9 buttons, plus the older `rivals.lua`, `crew.lua`, `minimap.lua`...), or a new module with
+  `debugactions.lua` the F9 buttons; rival crews: `rivals.lua` the brain and public API, `rivalcrews.lua`, `rivalships.lua`,
+  `rivalbodies.lua`, `rivalcombat.lua`; plus `crew.lua`, `minimap.lua`...), or a new module with
   the same shape (`local M = {}`, `M.init(ctx)` taking main's helpers, `M.setRaid(r)` if it reads the per-raid table
   and listed in main.lua's `shareRaid`, `return M`). `main.lua` keeps only the director: CFG, onTick, update, hooks and
   keys (101 of its 200 locals in use, 2026-11-17). No globals to dodge the limit.
