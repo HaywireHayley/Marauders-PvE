@@ -296,6 +296,8 @@ class App(tk.Tk):
         self.b_backup.grid(row=0, column=1, sticky="ew")
         row2.columnconfigure(0, weight=2)
         row2.columnconfigure(1, weight=1)
+        self.b_give = Button(self.right, "Give items or cash", self.give_items, size=11, pad=(10, 6))
+        self.b_give.pack(fill="x", pady=(6, 0))
 
         tk.Frame(self.right, bg=LINE, height=1).pack(fill="x", pady=(14, 8))
         self.cheat_var = tk.BooleanVar()
@@ -415,6 +417,7 @@ class App(tk.Tk):
         self.b_delete.enable(live)
         self.b_undo.enable(ok and s.get("can_undo"))
         self.b_backup.enable(ok)
+        self.b_give.enable(ok)
         if not s:
             self.d_name.config(text="No saves yet")
             self.d_mode.config(text="")
@@ -626,6 +629,103 @@ class App(tk.Tk):
 
         self.confirm("Undo last raid", f"Put {s['name']} back to the moment the last raid started? Your ship and gear come back, and "
                                        "anything you gained in that raid is lost.", "UNDO RAID", back)
+
+    def give_items(self):
+        """Debug: adds chosen items to the selected save's stash and sets its cash (issue #136). Only while the game is
+        closed: a running game works on backend/state.json and would write over the save when it ends."""
+        s = self.current()
+        if not s or s.get("damaged") or self.running:
+            return
+        sid = s["id"]
+        rows = saves.item_rows()
+        d = Dialog(self, "Give items or cash")
+        tk.Label(d.body, text=f"Into {s['name']}'s stash. Type to search the item list.", bg=PANEL, fg=MUTED,
+                 font=font(11)).pack(anchor="w")
+        search = tk.Entry(d.body, bg=INK, fg=TEXT, insertbackground=ORANGE, relief="flat", font=font(13), width=32)
+        search.pack(fill="x", ipady=4, pady=(4, 6))
+        box = tk.Frame(d.body, bg=PANEL)
+        box.pack(fill="x")
+        pick = tk.Listbox(box, bg=INK, fg=TEXT, selectbackground=ORANGE, selectforeground=INK, relief="flat", font=font(12),
+                          height=10, activestyle="none", highlightthickness=0, exportselection=False)
+        bar = tk.Scrollbar(box, command=pick.yview)
+        pick.config(yscrollcommand=bar.set)
+        pick.pack(side="left", fill="both", expand=True)
+        bar.pack(side="right", fill="y")
+        shown = []
+
+        def filter_list(_=None):
+            text = search.get().strip().lower()
+            shown[:] = [r for r in rows if text in r.lower()]
+            pick.delete(0, "end")
+            for r in shown:
+                pick.insert("end", r)
+            if shown:
+                pick.selection_set(0)
+
+        line = tk.Frame(d.body, bg=PANEL)
+        line.pack(fill="x", pady=(8, 0))
+        tk.Label(line, text="How many", bg=PANEL, fg=MUTED, font=font(11)).pack(side="left")
+        count = tk.Entry(line, bg=INK, fg=TEXT, insertbackground=ORANGE, relief="flat", font=font(13), width=6)
+        count.pack(side="left", ipady=3, padx=(8, 8))
+        count.insert(0, "1")
+        tk.Frame(d.body, bg=LINE, height=1).pack(fill="x", pady=(12, 10))
+        cash_line = tk.Frame(d.body, bg=PANEL)
+        cash_line.pack(fill="x")
+        tk.Label(cash_line, text="Cash", bg=PANEL, fg=MUTED, font=font(11)).pack(side="left")
+        cash = tk.Entry(cash_line, bg=INK, fg=TEXT, insertbackground=ORANGE, relief="flat", font=font(13), width=12)
+        cash.pack(side="left", ipady=3, padx=(8, 8))
+        cash.insert(0, str(s["cash"]))
+        note = tk.Label(d.body, text="", bg=PANEL, fg=ORANGE, font=font(11), justify="left", wraplength=400)
+        note.pack(anchor="w", pady=(10, 0))
+
+        def add():
+            sel = pick.curselection()
+            if not sel:
+                note.config(text="Pick an item from the list first.")
+                return
+            row = shown[sel[0]]
+            try:
+                n = int(count.get().strip())
+            except ValueError:
+                n = 0
+            if not 1 <= n <= 9999:
+                note.config(text="How many: enter a number from 1 to 9999.")
+                count.focus_set()
+                return
+            try:
+                got = saves.give(sid, row, n)
+            except (OSError, ValueError) as e:
+                note.config(text=f"Couldn't add it: {e}")
+                return
+            self.refresh()
+            note.config(text=f"Added {got} {row}." if got == n else
+                        f"Added {got} of {n} {row}: the stash is full." if got else "No room in the stash for that.")
+
+        def set_money():
+            try:
+                n = int(cash.get().strip().replace(",", ""))
+            except ValueError:
+                n = -1
+            if not 0 <= n <= saves.CHEAT_CASH:
+                note.config(text=f"Cash: enter a number from 0 to {saves.CHEAT_CASH:,}.")
+                cash.focus_set()
+                return
+            saves.set_cash(sid, n)
+            self.refresh()
+            note.config(text=f"Cash set to {n:,}." + ("  (Infinite money is on for this save.)" if s.get("cheat") else ""))
+
+        Button(line, "ADD TO STASH", add, "main", 11, (12, 4)).pack(side="left")
+        Button(cash_line, "SET CASH", set_money, "main", 11, (12, 4)).pack(side="left")
+        r = d.row()
+        Button(r, "Close", d.destroy, size=11, pad=(14, 6)).pack(side="left")
+        search.bind("<KeyRelease>", filter_list)
+        search.bind("<Return>", lambda e: add())
+        pick.bind("<Double-Button-1>", lambda e: add())
+        count.bind("<Return>", lambda e: add())
+        cash.bind("<Return>", lambda e: set_money())
+        filter_list()
+        d.show()
+        search.focus_set()
 
     def toggle_cheat(self):
         s = self.current()
