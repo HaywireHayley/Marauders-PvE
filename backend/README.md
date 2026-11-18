@@ -75,4 +75,12 @@ flowchart TD
 | `loadout.json`, `cosmetics.json`, `checkout.txt`, `ship_*.txt`, `gifts_in.txt` | Hand-offs between the stand-in and the mod (generated) |
 | `server.log`, `last_game.log`, `coverage.json` | Logs (generated) |
 
+## Adding or fixing a reply
+
+1. Find the request in `server.log` (or a player's `coverage.json`): path, verb, body.
+2. Add it to `handle_any` (REST) or `rpc()` (RPCs) in `nakama_standin.py`, keeping state in `state.json` through
+   `save_state`.
+3. Test without the game: `python tools/test_standin_gaps.py`. Then in game with a throwaway save: close the game first (the launcher stops the
+   stand-in when the game closes) so PLAY starts it again with your change.
+
 More detail: NOTES.md, sections "Online backend" and "Backend capture".

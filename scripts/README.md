@@ -9,3 +9,5 @@
 | `luacheck.py` | Lua syntax check plus headroom under Lua's 200-locals limit (CI runs it) |
 | `pvepaths.py` | Tells the Python tools where the game and this repository are |
 | `find_aes.py`, `find_aes_mem.py`, `capture_seed.py`, `gbase.py`, `procmem.py`, `udpstr.py`, `quitsite.py`, `find-game.ps1` | Research: the pak key from your own install, a seed from your own capture, reading process memory |
+
+The `.sh` scripts run in Git Bash on Windows; the `.ps1` ones in PowerShell (`powershell -NoProfile -File scripts\mode.ps1 online`).
