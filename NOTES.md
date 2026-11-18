@@ -3144,3 +3144,21 @@ to the floor at 60230,114665,-1203", inside a wall.
 - Cost to watch: a call is about a dozen engine reads and writes. With every bot animating every frame the 2026-11-14
   profile showed about 1.2 ms a frame and 3 MB of garbage a second for 20 bots; the budget bounds it. The cost at 60
   and at 120 Hz in a full raid was not measured separately: bridge/profile_on puts the aim section in profile.txt.
+
+## Crash on leaving a raid: the lobby world leaked through a rooted portrait (issue 133, builds 6-7; crewlobby.lua photoStep)
+- Reports (17 Nov, builds .6 and .7): pod extraction (Space_Delta), death (Space_Solo_01), Esc → quit to main menu
+  (Space_Beta). All three have the same `PCallStackHash` 7952771C…, null read at 0x268 on the game thread.
+- Static disassembly of the exe: `+30bca7b` is in UGameInstance::CreateGameModeForURL (references "GAME=",
+  "LoadForAllGameModes"), reading `[WorldSettings + 0x268]` (DefaultGameMode) right after `World->GetWorldSettings(false,
+  true)` (`+3502970`) returned null. The callers are UWorld::SetGameMode (`+350f8e0`, calling the game instance's virtual
+  at +0x338) and UEngine::LoadMap. The UE4SS frame (`+554abd`) is UE4SS's LoadMap hook passing the call through: no Lua
+  on the stack.
+- Why WorldSettings was null: the main menu world loaded was the old one. d9a3ec1 rooted the crew portraits' render
+  targets, made with `CreateRenderTarget2D(B.stand, …)`. That function makes its world context object the new object's
+  outer, and a rooted object keeps its outer alive, so the photo stand, its level and the whole lobby world outlived the
+  raid. Tearing a world down marks its actors for kill and the GC nulls UPROPERTY references to them (ULevel's
+  WorldSettings among them). LoadMap then found the leaked package, and the shipping build has no stale-world check.
+- Fix: the portraits are made inside the game instance (it lives for the session). Rule for anything passed to
+  pve_root: its outer chain must not reach a world (assets, transient textures from ImportFileAsTexture2D and objects
+  made inside the game instance are fine).
+- Not checked in game yet.

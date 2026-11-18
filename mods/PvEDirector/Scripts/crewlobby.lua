@@ -244,7 +244,15 @@ local function photoStep(now)
         local krl = X.lib("/Script/Engine.Default__KismetRenderingLibrary")
         local rt = W.portraits[s.r.id]
         if not rt then
-            rt = krl:CreateRenderTarget2D(B.stand, CFG.PORTRAIT, CFG.PORTRAIT, 2, { R = 0.02, G = 0.02, B = 0.025, A = 1 }, false)
+            -- Made inside the game instance, not the photo stand: CreateRenderTarget2D makes its world context object
+            -- the new texture's outer, and a rooted object keeps its outer alive. With the stand (a lobby actor) as
+            -- outer, the whole lobby world outlived the raid; the game marks a dead world's actors for kill, so the
+            -- leaked level's WorldSettings went null, and loading the main menu again picked that world back up and
+            -- crashed reading WorldSettings->DefaultGameMode (issue #133: on extraction, death or quit to menu).
+            local gi = FindFirstOf("GameInstance")
+            if not valid(gi) then return end
+            rt = krl:CreateRenderTarget2D(gi, CFG.PORTRAIT, CFG.PORTRAIT, 2, { R = 0.02, G = 0.02, B = 0.025, A = 1 }, false)
+            if not valid(rt) then return end
             -- Rooted: a portrait not shown in any slot or hire row had nothing in the engine holding it (the capture
             -- component lets go at the next photo), so it was freed and showing it again crashed the UI paint, as the
             -- minimap's floor plans did (issue #53). One per crewmate, kept for the session.
