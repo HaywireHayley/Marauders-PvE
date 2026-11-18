@@ -2,6 +2,24 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 18 Nov 2026, build 3 (`public-test-20261118.3`)
+
+Raid conditions for events, your ship's engine hum, and nothing reaching a live server any more. On build 1 of 17 Nov
+or later, the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Changes
+
+- **Raid conditions (#78):** pick a set-up for your next raid in the launcher ("Raid conditions", click to cycle) or in
+  the lobby's REGION picker: Baron hunt, Hunted (every crew attacks you), Busy sky, Capital ships (a guaranteed Capital
+  Ship and Dreadnought) or Baron's last stand. Harder ones put more and better loot on bodies. They last the raid; your
+  own F3 settings come back after. Make and share your own in `config/my_raid_conditions.txt`.
+- **Your ship's engine hum** now plays inside (it only started on a network client), and a pod flying into a
+  station's docking area gets the "only ships are able to dock" warning again (#143).
+- **Privacy:** the game's crash and session reports (Sentry) were still reaching their live server offline. Every
+  online service the game calls now goes to the local stand-in instead.
+- **Saves** now carry a format version, so a future update can bring old saves up to date safely (#80).
+- **README:** bug reports point at the launcher's **REPORT** button, which bundles the logs for you.
+
 ## Public test, 18 Nov 2026, build 2 (`public-test-20261118.2`)
 
 Sound and motion the offline game was skipping. On build 1 of 17 Nov or later, the launcher's orange **!** installs

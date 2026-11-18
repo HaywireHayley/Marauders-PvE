@@ -72,3 +72,5 @@ __pycache__/
 
 # Ahtu's full-size map sources (~14 MB each): tools/minimap/ahtu_align.py reads them, only its output is kept
 assets/minimap/ahtu/ahtu-*.png
+config/raid_condition.txt
+config/my_raid_conditions.txt

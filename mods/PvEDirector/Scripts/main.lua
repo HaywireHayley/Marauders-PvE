@@ -536,6 +536,11 @@ local function onTick(ctx)
         -- only true until update() first runs in the menu (raid.world is the menu's own key from then on), so the friends
         -- stub barely ran, and never after a raid.
         tick.menu = (w and w:IsValid() and w:GetFullName():find("/Maps/MainMenu", 1, true) ~= nil) or false
+        -- a raid map gets the picked raid condition (#78), the lobby your own settings again
+        if Conditions and w and w:IsValid() then
+            local okc, errc = pcall(tick.menu and Conditions.restore or Conditions.apply)
+            if not okc then log("raid conditions: " .. tostring(errc)) end
+        end
         tick.menuSince = os.clock()
     end
     -- The load runs at LOAD_TIME_DILATION (20x) until veilUntilAboard sees your pawn, but that only looks every
@@ -787,6 +792,36 @@ local function patchFootsteps()
     return done
 end
 
+-- Other client-only branches worth running offline (#143, kdis 2026-11-18), patched like the footsteps. Station node
+-- classes load with their station, so these are retried every CLIENT_BRANCH_EVERY s, not every update (a name lookup
+-- of an object that doesn't exist yet walks every object). Each entry is done once found.
+--   Base_RaidNode / Base_RaidMovementNode PopupWarning_CantEnterAsPod @20: "if HasAuthority return" before the
+--     "Warning Pods Can't Enter / Only ships are able to dock" popup your pod gets at a station's docking area.
+--   their ubergraphs @288: the same gate before the once-a-second check that sets PlayerIsInPodVisuals (pod or ship).
+local CLIENT_BRANCHES = {
+    ["/Game/Blueprints/NodeSystem/NodeActors/Base_RaidNode.Base_RaidNode_C:PopupWarning_CantEnterAsPod"] = { 20 },
+    ["/Game/Blueprints/NodeSystem/NodeActors/Base_RaidNode.Base_RaidNode_C:ExecuteUbergraph_Base_RaidNode"] = { 288 },
+    ["/Game/Blueprints/NodeSystem/NodeActors/Base_RaidMovementNode.Base_RaidMovementNode_C:PopupWarning_CantEnterAsPod"] = { 20 },
+    ["/Game/Blueprints/NodeSystem/NodeActors/Base_RaidMovementNode.Base_RaidMovementNode_C:ExecuteUbergraph_Base_RaidMovementNode"] = { 288 },
+}
+local CLIENT_BRANCH_EVERY = 10
+local function patchClientBranches()
+    local now = os.clock()
+    if (raid.clientBranchAt or 0) > now then return end
+    raid.clientBranchAt = now + CLIENT_BRANCH_EVERY
+    raid.clientBranches = raid.clientBranches or {}
+    for path, offsets in pairs(CLIENT_BRANCHES) do
+        if not raid.clientBranches[path] then
+            local fn = StaticFindObject(path)
+            if valid(fn) then
+                for _, offset in ipairs(offsets) do pveBpJump(fn:GetAddress(), offset) end
+                raid.clientBranches[path] = true
+                log("client branch patched: " .. path:match("[^.]+$"))
+            end
+        end
+    end
+end
+
 -- Per-raid state, reset whenever the world changes. A world is told apart by name and address: loading the same
 -- map again keeps the name, and checking the previous raid's soldiers after the old world was freed crashed
 -- (IsValid reads the object's memory).
@@ -935,11 +970,16 @@ local function menuClosed(pc)
         pcall(function() wbl:SetInputMode_GameAndUIEx(pc, nil, 0, false) end)
     end
 end
-Tuning.init({ log = log, valid = valid, lib = lib, menuClosed = menuClosed, CFG = CFG, RCFG = Rivals.CFG, CREWCFG = Crew.CFG, hire = Hire, AI = AI, applied = function()
+Tuning.init({ base = function(...) return Conditions.base(...) end, log = log, valid = valid, lib = lib, menuClosed = menuClosed, CFG = CFG, RCFG = Rivals.CFG, CREWCFG = Crew.CFG, hire = Hire, AI = AI, applied = function()
     for _, e in ipairs(raid.bots or {}) do
         if valid(e.bot) then AI.tuneBody(e) end
     end
 end })
+-- Raid conditions (#78, conditions.lua): an event set-up applied while a raid map is loaded, picked in the launcher or
+-- the lobby's REGION picker.
+Conditions = require("conditions")
+Conditions.init({ log = log, project = PROJECT, tuning = Tuning, tables = { Rivals = Rivals.CFG, Crew = Crew.CFG, CFG = CFG } })
+Rivals.conditions = Conditions
 Missions = require("missions")
 Missions.init({ log = log, valid = valid })
 -- Manning a turret yourself (gunseat.lua): the seat's client half (turning, firing, getting up) that never runs offline.
@@ -957,6 +997,7 @@ update = function(pc)
     local worldKey = ("%s@%x/%x"):format(worldName, world:GetAddress(), pc:GetAddress())
     if worldKey ~= raid.world then resetRaid(worldKey) Cover.reset(world) raid.startedAt = os.clock() end
     if not raid.footsteps then raid.footsteps = patchFootsteps() end
+    patchClientBranches()
     if not raid.friendsRefresh then raid.friendsRefresh = patchFriendsRefresh() end
     raid.pcAddr = pc:GetAddress()
     -- PGOS "social service unavailable" overlay, in the menu and in raids: keep it collapsed (removing it crashes the

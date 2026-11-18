@@ -22,6 +22,7 @@ local MAPS = {
 }
 local RANDOM = "RANDOM MAP"
 local RANDOM_REGION = 99 -- our seventh button's region: no map, a random pick
+local CONDITION_REGION = 98 -- our eighth: the raid condition (#78, conditions.lua); each click picks the next one
 local PRESSED = "/SIGISPlugin/Widgets/MainMenu/MatchmakingSettings/SIGIS_MatchmakingRegion_Subwidget.SIGIS_MatchmakingRegion_Subwidget_C:"
     .. "BndEvt__SIGIS_MatchmakingRegion_Subwidget_Btn_MatchmakingSetting_K2Node_ComponentBoundEvent_1_OnButtonPressedEvent__DelegateSignature"
 local CLASS = "/SIGISPlugin/Widgets/MainMenu/MatchmakingSettings/SIGIS_MatchmakingRegion_Subwidget.SIGIS_MatchmakingRegion_Subwidget_C"
@@ -62,12 +63,23 @@ local function live(path)
 end
 
 local lastPress = 0
+local lastRegion -- the region last clicked in the picker: what the game holds as chosen, bar our conditions button
 local function onPressed(ctx)
     local now = os.clock()
     if now - lastPress < 0.5 then return end -- (one click, however many times the event reaches us)
     lastPress = now
     local w = ctx:get()
     local r = w.region
+    if r == CONDITION_REGION then
+        if Conditions then Conditions.cycle() X.log("raid condition: " .. Conditions.picked()) end
+        -- The game has just stored 98 as the chosen region, and it ignores a click on the chosen one: put the map's
+        -- region back, so the next click on this button counts too. (The picker stays open: click again for the next.)
+        local gi = FindFirstOf("SIGISGameInstancePGOS")
+        local back = lastRegion or picked
+        if gi and gi:IsValid() and back then gi.ActiveMMRegion = back end
+        return
+    end
+    lastRegion = r
     if r == RANDOM_REGION then
         picked = nil
         -- (the game's own buttons close the picker through a delegate its parent binds to them only)
@@ -95,6 +107,12 @@ local function dress(w)
     if w.region == RANDOM_REGION then
         name = picked == nil and "[ RANDOM ]" or "RANDOM"
         line, tip = "any map", "A different map each raid, picked at random from all six."
+    elseif w.region == CONDITION_REGION then
+        if not Conditions then return end
+        name = Conditions.picked():upper()
+        line = "raid conditions"
+        tip = Conditions.picked() .. ": " .. Conditions.about() .. "\nClick for the next one. Lasts the raid."
+        if Conditions.map() then tip = tip .. "\nThis one always loads " .. Conditions.map() .. "." end
     elseif MAPS[w.region] then
         local m = MAPS[w.region]
         name = w.region == picked and ("[ " .. m[2] .. " ]") or m[2]
@@ -165,6 +183,15 @@ addRandom = function(like)
     ours[path] = true
     picker[#picker + 1] = path
     dress(b)
+    -- and the eighth, the raid condition (#78)
+    local c = Conditions and StaticFindObject("/Script/UMG.Default__WidgetBlueprintLibrary"):Create(pc, like:GetClass(), pc)
+    if not (c and c:IsValid()) then return end
+    c.region = CONDITION_REGION
+    box:AddChildToWrapBox(c)
+    path = pathOf(c)
+    ours[path] = true
+    picker[#picker + 1] = path
+    dress(c)
 end
 
 -- Every frame in the lobby (cheap unless a new picker button is waiting), from lobbylabel.lua.
@@ -217,6 +244,10 @@ function M.tick()
         findBoxes()
     end
     local label = picked ~= nil and MAPS[picked][2] or RANDOM
+    if Conditions and Conditions.map() then -- a raid condition's map wins (#78)
+        for _, m in pairs(MAPS) do if m[1] == Conditions.map() then label = m[2] end end
+    end
+    if Conditions and not Conditions.isNormal() then label = label .. " + " .. Conditions.picked():upper() end
     for i = #boxes, 1, -1 do
         local w = live(boxes[i])
         if w then setText(w, label) else table.remove(boxes, i) end

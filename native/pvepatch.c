@@ -222,6 +222,8 @@ __declspec(dllexport) int pve_bp_jump(void *L) {
     int num = *(int *)(fn + UFUNCTION_SCRIPT + 8);
     if (!code || at < 11 || at + 5 > num) return 0;
     if (code[at - 11] == 0x68 && code[at - 2] == 0x17 && code[at - 1] == 0x16 && code[at] == 0x07) code[at] = 0x06;
+    /* or right after `<FinalFunction fn>()` on self with no arguments, e.g. HasAuthority() (#143: station nodes) */
+    else if (code[at - 10] == 0x1c && code[at - 1] == 0x16 && code[at] == 0x07) code[at] = 0x06;
     return 0;
 }
 

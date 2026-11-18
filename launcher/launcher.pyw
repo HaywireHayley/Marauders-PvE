@@ -37,6 +37,10 @@ FEMALE_SETTING = os.path.join(ROOT, "config", "female_player.txt")
 FEMALE_SHARE = os.path.join(ROOT, "config", "female_share.txt")  # percent of other characters who are women (rivals.lua)
 FEMALE_SHARE_DEFAULT = 35
 RAID_LENGTH = os.path.join(ROOT, "config", "raid_length.txt")  # minutes, "default" or "none" (raidtime.lua, #159)
+# Raid conditions (#78): named set-ups in these files ([Name], then "about = ..."), the pick in RAID_CONDITION
+# (conditions.lua reads the same files; the lobby's REGION picker can change it too)
+RAID_CONDITIONS = [os.path.join(ROOT, "config", n) for n in ("raid_conditions.txt", "my_raid_conditions.txt")]
+RAID_CONDITION = os.path.join(ROOT, "config", "raid_condition.txt")
 RAID_LENGTHS = ["default", "15", "30", "45", "60", "90", "120", "none"]  # the slider's stops; the game's own is 25 min
 WINDOW_SETTING = os.path.join(ROOT, "config", "window_mode.txt")  # read by scripts/launch-offline.ps1
 SKIP_INTRO_SETTING = os.path.join(ROOT, "config", "skip_intro.txt")  # read by scripts/mode.ps1
@@ -531,7 +535,7 @@ class App(tk.Tk):
         self.b_give = Button(self.right, "Give items or cash", self.give_items, size=11, pad=(10, 6))
         self.b_give.pack(fill="x", pady=(6, 0))
 
-        tk.Frame(self.right, bg=LINE, height=1).pack(fill="x", pady=(14, 8))
+        tk.Frame(self.right, bg=LINE, height=1).pack(fill="x", pady=(10, 6))
         self.cheat_var = tk.BooleanVar()
         self.female_var = tk.BooleanVar(value=self.read_female())
         self.toggle("Infinite money", self.cheat_var, self.toggle_cheat)
@@ -559,6 +563,16 @@ class App(tk.Tk):
                  highlightthickness=0, bd=0, sliderrelief="flat", sliderlength=18, width=10,
                  cursor="hand2").pack(side="left", fill="x", expand=True, padx=(12, 4))
         self.length_label.config(text=self.raid_length_text(self.length_var.get()))
+        # Raid conditions (#78): the value cycles on a click (right-click goes back); the status line says what it does.
+        # (No line of its own for that: the column is full at 150 % scaling, #147.)
+        cond = tk.Frame(self.right, bg=PANEL)
+        cond.pack(fill="x")
+        tk.Label(cond, text="Raid conditions", bg=PANEL, fg=TEXT, font=font(12), anchor="w").pack(side="left")
+        self.cond_label = tk.Label(cond, bg=PANEL, fg=ORANGE, font=font(12, "SemiBold"), anchor="e", cursor="hand2")
+        self.cond_label.pack(side="right")
+        self.cond_label.bind("<Button-1>", lambda e: self.cycle_condition(1))
+        self.cond_label.bind("<Button-3>", lambda e: self.cycle_condition(-1))
+        self.show_condition()
         self.borderless_var = tk.BooleanVar(value=self.read_borderless())
         if IS_WIN:  # (launch-offline.ps1 applies it; on Linux the game's own video settings do)
             self.toggle("Borderless fullscreen", self.borderless_var, self.toggle_borderless)
@@ -586,7 +600,7 @@ class App(tk.Tk):
         # The window is as big as the grid needs once the details panel holds stand-ins as tall as what refresh() writes.
         self.d_name.config(text="Save")
         self.d_mode.config(text="Save")
-        self.d_info.config(text="Cash\nXP\nStash\nStarted")
+        self.d_info.config(text="Cash   ·   XP\nStash\nStarted")
         self.update_idletasks()
         w, h = max(W, self.winfo_reqwidth()), max(H, self.winfo_reqheight())
         self.geometry(f"{w}x{h}")
@@ -670,7 +684,7 @@ class App(tk.Tk):
             self.cheat_var.set(False)
             return
         self.d_mode.config(text="Infinite money is on" if s.get("cheat") else "Normal save")
-        self.d_info.config(text=f"Cash   {s['cash']:,}\nXP   {s['xp']:,}\nStash   {s['items']} items, {s['stash_rows']} rows\n"
+        self.d_info.config(text=f"Cash   {s['cash']:,}   ·   XP   {s['xp']:,}\nStash   {s['items']} items, {s['stash_rows']} rows\n"
                                 f"Started   {when(s.get('created'))}")
         self.cheat_var.set(bool(s.get("cheat")))
 
@@ -1023,6 +1037,55 @@ class App(tk.Tk):
         i = self.length_var.get()
         self.length_label.config(text=self.raid_length_text(i))
         self.write_setting(RAID_LENGTH, RAID_LENGTHS[i] + "\n")
+
+    @staticmethod
+    def raid_conditions():
+        """[(name, about)] from the shipped and your own conditions files, Normal first (conditions.lua's order)."""
+        out = {"Normal": "The usual raid."}
+        for path in RAID_CONDITIONS:
+            try:
+                with open(path, encoding="utf-8") as f:
+                    name = None
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith("[") and line.endswith("]"):
+                            name = line[1:-1]
+                            out[name] = ""
+                        elif name and line.split("=", 1)[0].strip() == "about" and "=" in line:
+                            out[name] = line.split("=", 1)[1].strip()
+            except OSError:
+                pass
+        return list(out.items())
+
+    def read_condition(self):
+        try:
+            with open(RAID_CONDITION, encoding="utf-8") as f:
+                return f.read().strip() or "Normal"
+        except OSError:
+            return "Normal"
+
+    def show_condition(self, tell=False):
+        conds = dict(self.raid_conditions())
+        name = self.read_condition()
+        if name not in conds:
+            name = "Normal"
+        self.cond_label.config(text=name)
+        if tell:
+            self.say(f"Raid conditions: {name}. {conds[name]} Click again for the next.")
+
+    def cycle_condition(self, step):
+        names = [n for n, _ in self.raid_conditions()]
+        cur = self.read_condition()
+        i = names.index(cur) if cur in names else 0
+        name = names[(i + step) % len(names)]
+        if name == "Normal":
+            try:
+                os.remove(RAID_CONDITION)
+            except OSError:
+                pass
+        else:
+            self.write_setting(RAID_CONDITION, name + "\n")
+        self.show_condition(tell=True)
 
     def read_borderless(self):
         try:

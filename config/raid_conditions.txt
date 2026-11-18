@@ -1,0 +1,46 @@
+# Raid conditions (issue #78): set-ups for community events, or just a change. Pick one in the launcher ("Raid
+# conditions") or in the lobby's REGION picker. A condition lasts the raid; your own F3 settings come back after.
+#
+# Each condition is a [Name] and then key = value lines:
+#   about = the line shown when you pick it
+#   map   = a fixed map (Space_Solo_01, Space_Solo_02, Space_Alpha, Space_Beta, Space_Charlie, Space_Delta)
+#   ships = rival crews guaranteed in these hulls, as bosses (rows from rivals.lua CFG.HULLS, comma-separated)
+#   loot  = more and better loot on bodies (1.5 = half as many items again, worth up to half as much again)
+#   any F3 setting, by its name in config/ai_tuning.txt (e.g. Crews:BARON = 1, Spawns:CREWS = 9)
+#
+# Make your own in config/my_raid_conditions.txt (same layout; a condition with the same name replaces the one here),
+# and share the file with your friends.
+
+[Baron hunt]
+about = The Red Baron is in the raid in his strike frigate, and he goes for any ship he sees. Better loot.
+Crews:BARON = 1
+loot = 1.25
+
+[Hunted]
+about = Every rival crew attacks any ship it sees and boards when it can. Much better loot.
+Crews:ATTACK_CHANCE = 1
+Crews:RUSHERS = 0
+Crews:BOARD_ALL = 0.6
+Crews:BREACH_HULL = 0.7
+loot = 1.5
+
+[Busy sky]
+about = Twice the usual rival crews, and they fight each other in bigger battles.
+Spawns:CREWS = 10
+Spawns:SKIRMISH_MAX = 8
+Spawns:SKIRMISH_SHIPS.2 = 4
+loot = 1.25
+
+[Capital ships]
+about = A Capital Ship and a Dreadnought are in the raid, crewed to fight to the end. Much better loot.
+ships = FrigateCapitalShip_Ship, CapitalDreadnought_Ship
+loot = 1.5
+
+[Baron's last stand]
+about = Charlie, the Baron, a Dreadnought, and every crew out for blood. The hardest raid. The best loot.
+map = Space_Charlie
+Crews:BARON = 1
+ships = CapitalDreadnought_Ship
+Crews:ATTACK_CHANCE = 1
+Crews:RUSHERS = 0
+loot = 2
