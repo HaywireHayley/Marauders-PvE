@@ -200,6 +200,9 @@ local function define()
     add(spawns, X.CFG, {
         { "PARK_RANGE", "Far-off guards sleep beyond (cm)", 0, 40000, 500, "Guards at peace this far from you stop until you come back. 0 = never (costs frame rate)" },
     })
+    add(spawns, require("civilians").CFG, {
+        { "COUNT", "Civilians at mines, ports and prisons", 0, 10, 1, "Miners, workers and prisoners who run instead of fighting. Per station, from the next station you enter. 0 = none" },
+    })
     tabs[#tabs + 1] = spawns
     -- Gear: how well armed rivals, station top-ups and new crew are, by your player level (gearscale.lua). Read when a
     -- person's kit is rolled (crews at the start of a raid, recruits in the hiring list), so a change shows from then.

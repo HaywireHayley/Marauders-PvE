@@ -230,6 +230,20 @@ local function spawnBody(pc, at)
     return valid(body) and body or nil
 end
 
+-- A civilian (issue #81, civilians.lua): a raider body dressed with an empty kit (no gun, no armour, no bag), with a
+-- few things in its pockets. Returns the body (asleep: X.arm wakes it) or nil.
+function R.civilianBody(pc, at, pockets)
+    local body = spawnBody(pc, at)
+    if not body then return nil end
+    equipKit(body, { stacks = 0, meds = 0 })
+    -- Not a defender: the garrison's adoption (placed NPCs, stray sweep) must leave it alone, or it's armed and enlisted.
+    R.civilianAt = R.civilianAt or {}
+    R.civilianAt[body:GetAddress()] = true
+    local bodyAt = math.tointeger(body:GetAddress())
+    for _, name in ipairs(pockets or {}) do X.addItem(bodyAt, FName(name):GetComparisonIndex(), 1) end
+    return body
+end
+
 local function startBody(pc, m, at)
     local body = spawnBody(pc, at)
     if not body then return nil end
@@ -783,7 +797,7 @@ local function hookedPlaced()
                 local ok, name = pcall(function() return n.o:GetClass():GetFName():ToString() end)
                 n.placed = ok and placed[name] == true and not n.o:GetFName():ToString():find("^Default__")
             end
-            if n.placed then out[#out + 1] = n.o end
+            if n.placed and not (R.civilianAt and R.civilianAt[n.o:GetAddress()]) then out[#out + 1] = n.o end
         end
     end
     return out
@@ -794,6 +808,7 @@ local function placedDefenders(st)
     for _, e in ipairs(X.raid().bots) do
         if e.bot and valid(e.bot) then managed[e.bot:GetAddress()] = true end
     end
+    for addr in pairs(R.civilianAt or {}) do managed[addr] = true end -- (civilians.lua's people: not defenders)
     -- From the spawn hook when it's on (the two FindAllOf scans cost ~105 ms in the frame you step into a station and
     -- found the same NPCs: "spawn hook knows 6 ... FindAllOf found 6", 2026-11-15); the scans are the fallback.
     local found
@@ -888,6 +903,10 @@ local function garrisonStation(pc, st)
     else
         X.log(("[rivals] %s: none of its own defenders, %d soldiers"):format(st.name, extra))
         if extra > 0 and X.garrison then X.garrison(pc, st.box, st.name, extra) end
+    end
+    if R.onStation then -- civilians.lua (#81): miners, prisoners and workers where they belong
+        local ok, err = pcall(R.onStation, pc, st)
+        if not ok then X.log("[civilians] " .. tostring(err)) end
     end
 end
 
@@ -1039,6 +1058,7 @@ local function sweepStrays(st, now)
     for _, e in ipairs(X.raid().bots) do
         if e.bot and valid(e.bot) then managed[e.bot:GetAddress()] = true end
     end
+    for addr in pairs(R.civilianAt or {}) do managed[addr] = true end -- (civilians.lua's people: not defenders)
     for _, job in ipairs(S.building or {}) do
         if job.b and valid(job.b.body) then managed[job.b.body:GetAddress()] = true end
     end

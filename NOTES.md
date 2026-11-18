@@ -3470,3 +3470,24 @@ to the floor at 60230,114665,-1203", inside a wall.
   (see "Manning a turret yourself"). No change.
 - Base_Contract_Hold overlaps: covered by missions.lua (flags + Client_CheckMissionEvent); opening the gate too would
   start a second Guard timer. No change.
+
+## Civilians (issue 81, 2026-11-18; civilians.lua)
+- Miners (Mini Mine, Asteroid Mine, Moon Base), prisoners (Penal Colony) and workers (Spaceport, Colony Cruiser, Navy
+  Outpost): CFG.COUNT per matching station (F3 How many "Civilians at mines, ports and prisons", default 3, 0 = off),
+  spawned when you first walk into the station (rivalbodies.lua garrisonStation -> R.onStation). Body: raider body
+  with an empty kit (R.civilianBody: equipKit with no rows gives no gun and no armour) and 1-3 trade items in pockets.
+- Kept out of raid.bots: no soldier, rival or crewmate targets or protects them. Woken with Bots.arm, then the
+  behaviour tree is stopped every update; all movement is MoveToLocation from civilians.lua (space-map branch of
+  main's update). States: work (wander WANDER around home), flee (you in sight within FEAR_RANGE, your gunfire within
+  SHOT_RANGE in the last 3 s via the ServerMultiSimulateWeaponFire hook's raid.playerShotAt, or hurt: run to the
+  farthest of 5 reachable points, Help line), cower (you within CORNER_RANGE while fleeing: stop, crouch, plead).
+  Killed near you: station guards (no faction, not crew) within ALERT_RANGE get e.alert (they come for you).
+- Pitfalls hit: spots taken at random across a station's box were all off limits (12 of 12 at Penal Colony): they
+  start at the station's RaidAINodeStart nodes like a garrison (the nodes are gone once used: a second batch found
+  none). The stray sweep and the placed-NPC spawn hook adopted civilians as armed defenders: R.civilianAt (by address,
+  cleared in R.reset) keeps them out of both. The space-map update returns early: Civilians.update sits there.
+- Verified (Space_Solo_02, Penal Colony, god mode): "3 prisoners", each unarmed with 1 pocket item, 200 hp,
+  wandering; you 8 m away in sight -> flee (23 m off a few s later); you 2.5 m away -> cower; ApplyDamage from you ->
+  "you killed a prisoner ...: 1 guard(s) come for you" and that guard "knows where the player is".
+- Not verified: by eye (animations, crouch, voice), looting a civilian's body, mines and ports (only Penal Colony
+  tested), fleeing from real gunfire.
