@@ -43,6 +43,12 @@ def game_folder():
 
 GAME_LOG = os.path.join(game_folder(), "RaidGame", "Binaries", "Win64", "UE4SS.log")
 NO_WINDOW = 0x08000000
+# Console tools (tasklist, PowerShell) write in the OEM code page, not UTF-8 (issue #139).
+try:
+    CONSOLE_ENCODING = f"cp{ctypes.windll.kernel32.GetOEMCP()}"
+    "".encode(CONSOLE_ENCODING)
+except (AttributeError, OSError, LookupError):
+    CONSOLE_ENCODING = "utf-8"
 START_TIMEOUT = 90     # seconds for the game to appear after Play
 
 ORANGE = "#FF8A24"
@@ -65,13 +71,22 @@ def ps(*args):
     # PVE_PYTHON: launch-offline.ps1 starts the stand-in with this interpreter, not whatever "python" is on PATH.
     env = dict(os.environ, PVE_PYTHON=sys.executable)
     return subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", *args], cwd=ROOT,
-                          creationflags=NO_WINDOW, capture_output=True, text=True, env=env)
+                          creationflags=NO_WINDOW, capture_output=True, text=True, encoding=CONSOLE_ENCODING, errors="replace", env=env)
+
+
+def tasklist_has(image, shown):
+    """Whether tasklist lists a running image. tasklist writes in the console's code page (cp850 on Spanish Windows,
+    issue #139): decoded as UTF-8 an accented character failed and stdout came back None, which crashed the launcher."""
+    try:
+        out = subprocess.run(["tasklist", "/FI", f"IMAGENAME eq {image}", "/NH"], capture_output=True, text=True,
+                             encoding=CONSOLE_ENCODING, errors="replace", creationflags=NO_WINDOW).stdout or ""
+    except OSError:
+        return False
+    return shown.lower() in out.lower()
 
 
 def game_running():
-    out = subprocess.run(["tasklist", "/FI", f"IMAGENAME eq {GAME_EXE}", "/NH"], capture_output=True, text=True,
-                         creationflags=NO_WINDOW).stdout
-    return GAME_EXE[:20].lower() in out.lower()
+    return tasklist_has(GAME_EXE, GAME_EXE[:20])  # tasklist cuts long names to 25 characters
 
 
 def ps_error(result):
@@ -82,9 +97,7 @@ def ps_error(result):
 
 
 def steam_running():
-    out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq steam.exe", "/NH"], capture_output=True, text=True,
-                         creationflags=NO_WINDOW).stdout
-    return "steam.exe" in out.lower()
+    return tasklist_has("steam.exe", "steam.exe")
 
 
 def preflight():
