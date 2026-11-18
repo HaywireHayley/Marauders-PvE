@@ -139,6 +139,12 @@ The game's own controls are unchanged. The mod adds (the launcher's CONTROLS but
 
 Every raid's population and difficulty can be tuned to your liking. Press F3 and open the How many tab: rival crews per raid, people in each crew, guards at each station, and how many ship battles break out around you. Rival ships sets how often crews attack and board, and Difficulty at the top picks a preset. Changes save themselves. Crew numbers take effect from your next raid, and guard numbers from the next station you visit. Save setups you like under Saved setups.
 
+### Civilians
+
+Mines, prisons and ports have a few miners, prisoners or workers going about their business. They're unarmed: they
+run from you, cower and plead when cornered, and carry things of their trade. Kill one where the guards can see and
+they come for you. F3 > How many sets how many (0 turns them off).
+
 ### Raid conditions (events)
 
 Want a different raid for one run, or a community event? Pick **Raid conditions** in the launcher (click to cycle), or
@@ -180,7 +186,7 @@ the game crashed, and your build number. Your Windows user name, Steam ID and in
 Everything below is for working on the mod itself. To just play, use the download above.
 
 New here? Read [CONTRIBUTING.md](CONTRIBUTING.md) for how to send changes, and `NOTES.md` for how everything works
-(it's the full research log, newest findings at the bottom of each section). Every damage and armour number (health, hit zones, vest and helmet ratings, base damage per gun, shotguns) is in [DAMAGE_REFERENCE.md](DAMAGE_REFERENCE.md). Credits are in [CREDITS.md](CREDITS.md).
+(it's the full research log, newest findings at the bottom of each section). Every damage and armour number (health, hit zones, vest and helmet ratings, base damage per gun, shotguns) is in [docs/internals/DAMAGE_REFERENCE.md](docs/internals/DAMAGE_REFERENCE.md). Credits are in [CREDITS.md](CREDITS.md).
 
 ## How it works, in one paragraph
 

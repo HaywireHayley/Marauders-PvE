@@ -1722,7 +1722,7 @@ end
 -- Your last pod breach: { at, time (os.clock), ship } or nil.
 function R.lastBreach() return S and S.breach or nil end
 -- A new world: drop the last raid's ships, crews and stations (they were freed with it; see main.lua resetRaid).
-function R.reset() S = nil shareState() end
+function R.reset() S = nil R.civilianAt = nil shareState() end
 -- Testing (bridge/autofly): a station's centre by (part of) its name.
 function R.stationAt(name)
     for _, st in ipairs(S and S.stations or {}) do

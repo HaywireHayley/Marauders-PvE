@@ -277,6 +277,52 @@ local function relaySalvage(home)
         ok and "" or (" (couldn't update it: " .. tostring(err) .. ")")))
 end
 
+-- Purging salvage while docked (the original game doesn't allow it, and offline nothing stops it: the hold's space door would open
+-- into the station). F on the purge lever or its salvage prompt is SIGISCharacter::ServerInteractComp with the hold's component
+-- "SalvageControlLever" or "SalvageComp"; while the hold is docked that press is cancelled (the component argument is cleared) and the
+-- player gets what a full inventory gives: the HUD's "NOT ENOUGH SPACE" warning, its animation and its error sound, with our text in it.
+-- The prompt stays showing, as in the original; only the press is refused. Registered once (M.init).
+local DOCKED_REFUSAL = "CAN'T PERFORM ACTION WHILE DOCKED"
+local PURGE_COMPS = { SalvageComp = true, SalvageControlLever = true }
+local function guardPurgeWhileDocked()
+    local shownAt, shownToken, original = 0, 0, nil
+    local function refuse()
+        local now = os.clock()
+        if now - shownAt < 1 then return end
+        shownAt = now
+        local hud
+        for _, w in ipairs(FindAllOf("HUD_Main_Widget_C") or {}) do
+            if valid(w) and w:GetFullName():find("In Game Overlay Match", 1, true) then hud = w break end
+        end
+        if not hud then return end
+        local txt = hud.Txt_NotEnoughSpace
+        if not valid(txt) then return end
+        if not original then original = txt:GetText():ToString() end
+        txt:SetText(FText(DOCKED_REFUSAL))
+        hud:NoSpaceForItem()
+        shownToken = shownToken + 1
+        local mine = shownToken
+        ExecuteWithDelay(4500, function()
+            if mine == shownToken and valid(txt) then pcall(function() txt:SetText(FText(original)) end) end
+        end)
+    end
+    local registered = pcall(RegisterHook, "/Script/SIGISPlugin.SIGISCharacter:ServerInteractComp", function(_, comp)
+        local home = raid and raid.home
+        if not valid(home) or home.is_Currently_Docked ~= true then return end
+        local ok, err = pcall(function()
+            local c = comp:get()
+            if not valid(c) or not PURGE_COMPS[c:GetFName():ToString()] then return end
+            local owner = c:GetOwner()
+            if not valid(owner) or owner:GetAddress() ~= home:GetAddress() then return end
+            comp:set(nil)
+            log("salvage: purge refused while docked")
+            refuse()
+        end)
+        if not ok then log("salvage: purge guard failed: " .. tostring(err)) end
+    end)
+    if not registered then log("salvage: couldn't hook ServerInteractComp, purging while docked is not blocked") end
+end
+
 local function updateSpace(pc, worldName)
     local foot = raid.target
     if not raid.home then
@@ -338,6 +384,7 @@ function M.init(ctx)
     CFG, log, valid, lib, dist, Aux = ctx.CFG, ctx.log, ctx.valid, ctx.lib, ctx.dist, ctx.aux
     Rivals, Bots, navReadyAt = ctx.rivals, ctx.bots, ctx.navReadyAt
     require("spacefx").init({ log = log, valid = valid, lib = lib }) -- turret and mine blasts the client side would build (#15)
+    guardPurgeWhileDocked()
     -- Docking at a station ------------------------------------------------------------------------------
     -- Flying into a station's docking volume, RaidDockingComponent::FrigateDocking (server) sets the controller's
     -- DockedVolume and starts the docking ability (Ability_Frigate_BoardStation). Its client half ends with

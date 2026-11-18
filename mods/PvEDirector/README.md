@@ -32,13 +32,14 @@ flowchart TD
 | Area | Modules |
 |---|---|
 | Director | `main.lua` (CFG, tick, update, hooks, keys), `outref.lua` (frees UE4SS's out-param refs), `pveproject.lua` (the project folder, written by mode.ps1, not committed) |
-| Soldiers on stations | `bots.lua` (spawn, wake, arm, patrol, fight), `ai.lua` (difficulty and personalities, see AI_DESIGN.md), `cover.lua` (baked cover, `cover/`), `playareas.lua` (where bots may go), `botdamage.lua`, `hitzones.lua` (your shots at them, #123), `voice.lua`, `voicelines.lua` |
+| Soldiers on stations | `bots.lua` (spawn, wake, arm, patrol, fight), `ai.lua` (difficulty and personalities, see AI_DESIGN.md), `cover.lua` (baked cover, `cover/`), `playareas.lua` (where bots may go), `botdamage.lua`, `hitzones.lua` (your shots at them, #123), `voice.lua`, `voicelines.lua`, `civilians.lua` (unarmed miners, prisoners and workers, #81) |
 | Rival crews | `rivals.lua` (the brain and public API), `rivalcrews.lua` (who they are), `rivalships.lua` (ships, docking, turrets), `rivalbodies.lua` (people on foot), `rivalcombat.lua` (pods, ship fights, boarding), `shipnav.lua` (steering), `gearscale.lua` |
 | Your crew | `hire.lua` (recruits), `crew.lua` (crew in raids), `crewlobby.lua` (crew in the hangar) |
 | Into and out of a raid | `launch.lua` (matchmaking, map travel), `mappick.lua` (map choice), `loading.lua`, `splash.lua`, `lobbylabel.lua`, `loadout.lua` (gear in, loot out, extraction), `raidtime.lua`, `conditions.lua` (raid conditions for events, #78), `killstats.lua`, `quit.lua` |
 | Space maps | `space.lua` (pods, docking, sublevels), `interiors.lua`, `gunseat.lua` (manning a turret), `levelprops.lua` (fans and hum, #143) |
 | Missions and map | `missions.lua` (contracts count offline), `minimap.lua` |
 | Your gear and stash | `gear.lua`, `itemdata.lua`, `female.lua`, `headfit.lua`, `invqol.lua` (sort, search), `invkeys.lua`, `keys.lua` (your key bindings), `guild.lua` (offline guild, #68) |
+| Doors and tools | `blowtorch.lua` (the torch burns a vault door's three locks offline, with diagrams in [BLOWTORCH.md](BLOWTORCH.md)) |
 | Testing | `tuning.lua` (F3 sliders), `debugmenu.lua`, `debugactions.lua`, `debuggive.lua` (F9) |
 
 ## Keys

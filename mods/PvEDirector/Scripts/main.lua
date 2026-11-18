@@ -209,6 +209,7 @@ local Launch = require("launch") -- offline matchmaking, the map travel, the loa
 local Space = require("space") -- space maps: pod guns, docking, level effects, key card, sun, your ship's navmesh
 local DebugActions = require("debugactions") -- the debug menu's buttons (F9) and god mode
 local RaidTime = require("raidtime") -- the launcher's raid length (#159)
+local Blowtorch = require("blowtorch") -- the blowtorch burns a vault door's three locks offline
 AI.init({ log = log, valid = valid, dist = dist })
 
 -- Weapon role-check patches (native/pvepatch.dll applies them when loaded and reports to patch_out.txt).
@@ -607,6 +608,8 @@ local function onTick(ctx)
         -- for shots has seen it drop first.
         ok, err = ppcall("mags", DebugActions.frame, ticker)
         if not ok and not raid.magsFailed then raid.magsFailed = true log("bottomless mags failed: " .. tostring(err)) end
+        ok, err = ppcall("blowtorch", Blowtorch.frame, ticker)
+        if not ok and not raid.torchFailed then raid.torchFailed = true log("blowtorch failed: " .. tostring(err)) end
         if pveBodies then pveBodies() end
         ok, err = ppcall("minimap", Minimap.tick, ticker)
         if not ok then log("minimap failed: " .. tostring(err)) end
@@ -828,7 +831,9 @@ end
 raid = { world = nil }
 -- The modules keep their own reference to the per-raid table: each is handed the new one whenever it's replaced.
 local function shareRaid()
-    for _, m in ipairs({ PlayAreas, Bots, Loadout, Launch, Space, DebugActions, RaidTime, LevelProps }) do m.setRaid(raid) end
+    for _, m in ipairs({ PlayAreas, Bots, Loadout, Launch, Space, DebugActions, RaidTime, LevelProps, Blowtorch, Civilians }) do
+        if m then m.setRaid(raid) end
+    end
 end
 shareRaid()
 
@@ -933,6 +938,7 @@ Crew = require("crew")
 Interiors.init({ log = log, valid = valid })
 LevelProps.init({ log = log, valid = valid, lib = lib })
 RaidTime.init({ log = log, valid = valid })
+Blowtorch.init({ log = log, valid = valid })
 Crew.init({ rivals = Rivals, hire = Hire, AI = AI, lib = lib, voice = Voice, log = log, valid = valid, dist = dist,
     gunseat = Gunseat,
     navLib = navLib, navMesh = navMesh,
@@ -980,6 +986,13 @@ end })
 Conditions = require("conditions")
 Conditions.init({ log = log, project = PROJECT, tuning = Tuning, tables = { Rivals = Rivals.CFG, Crew = Crew.CFG, CFG = CFG } })
 Rivals.conditions = Conditions
+-- Civilians (#81, civilians.lua): miners, prisoners and workers who run instead of fighting.
+Civilians = require("civilians")
+Civilians.init({ log = log, valid = valid, lib = lib, dist = dist, navLib = navLib, navMesh = navMesh,
+    queryFilter = queryFilter, offLimits = PlayAreas.offLimits, arm = Bots.arm, voice = Voice, female = Female,
+    rivals = Rivals })
+Civilians.setRaid(raid)
+Rivals.onStation = Civilians.station
 Missions = require("missions")
 Missions.init({ log = log, valid = valid })
 -- Manning a turret yourself (gunseat.lua): the seat's client half (turning, firing, getting up) that never runs offline.
@@ -1194,6 +1207,7 @@ update = function(pc)
     if valid(ps) and ps.TeamNumber ~= PLAYER_TEAM then ps.TeamNumber = PLAYER_TEAM end
     local immune = DebugActions.godMode()
     if pawn.bCanBeDamaged == immune then pawn.bCanBeDamaged = not immune end
+    DebugActions.holdStamina(pawn) -- god mode: unlimited stamina
 
     if not raid.loadout and Loadout.ensureHud(pc) then raid.loadout = os.clock() Loadout.applyLoadout(pc) end
     if raid.ownOverlay then Loadout.ensureHud(pc) end -- collapses ours once the game's own overlay appears
@@ -1233,6 +1247,8 @@ update = function(pc)
         if raid.readyAt and valid(raid.target) then
             local ok, err = pcall(Missions.update, pc, raid.world, raid.target)
             if not ok then log("missions: " .. tostring(err)) end
+            local okc, errc = pcall(Civilians.update, pc) -- (#81)
+            if not okc then log("civilians: " .. tostring(errc)) end
             Space.update(pc, worldName)
         end
         return
@@ -1282,6 +1298,7 @@ RegisterHook("/Script/RaidGame.RaidWeapon:ServerMultiSimulateWeaponFire", functi
         local ok, err = pcall(AI.noise, owner:K2_GetActorLocation(), range, "gunshot", owner:GetAddress())
         if not ok then log("gunshot noise failed: " .. tostring(err)) end
     end
+    if valid(owner) and not isBot then raid.playerShotAt = os.clock() end -- (civilians.lua: they run from gunfire)
     if isBot then
         local okr, errr = pcall(Bots.botShot, w, owner)
         if not okr and not raid.reloadErr then raid.reloadErr = true log("bot reload: " .. tostring(errr)) end
