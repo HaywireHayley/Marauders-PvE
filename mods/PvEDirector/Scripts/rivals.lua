@@ -508,7 +508,7 @@ local function survey(pc, shipActor)
             local it = interiorAt(ins:K2_GetActorLocation(), 500)
             if it then
                 it.name = "the " .. ins.SpaceshipToPairTo:GetClass():GetFName():ToString()
-                    :gsub("^Ship_", ""):gsub("_Pawn_Ai_Child_C$", ""):gsub("01", "")
+                    :gsub("^Ship_", ""):gsub("_Pawn_[Aa][Ii]_Child_C$", ""):gsub("01", ""):gsub("(%l)(%u)", "%1 %2")
                 it.frigate = ins.SpaceshipToPairTo
             end
         end
