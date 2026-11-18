@@ -4,6 +4,7 @@
  * bridge/capture_on or bridge/offline_backend exists:
  *   capture_on       log every request (below)
  *   offline_backend  WinHttpConnect to *.nakamacloud.io goes to 127.0.0.1:7350 instead (backend/nakama_standin.py),
+ *                    and every other WinHTTP host too, as /_ext/<host>/<path> (Sentry: nothing reaches a live service),
  *                    as plain HTTP: WINHTTP_FLAG_SECURE is dropped and certificate options on those requests skipped;
  *                    and DNS lookups of anything but local names fail (see "offline: no live hosts").
  *
@@ -86,7 +87,8 @@ typedef struct Req {
     HINTERNET conn, sess;
     int local; /* sent to the stand-in backend */
 } Req;
-typedef struct Conn { HINTERNET h; struct Conn *next; char host[256]; int port; HINTERNET sess; int local; } Conn;
+/* ext: the live host a non-Nakama connection was meant for (offline it goes to the stand-in as /_ext/<host>/<path>) */
+typedef struct Conn { HINTERNET h; struct Conn *next; char host[256]; int port; HINTERNET sess; int local; wchar_t ext[128]; } Conn;
 typedef struct Cb { HINTERNET h; struct Cb *next; WINHTTP_STATUS_CALLBACK fn; } Cb;
 static Req *reqs; static Conn *conns; static Cb *cbs;
 static int seq;
@@ -150,10 +152,16 @@ static void grabHeaders(Req *r) {
 /* ---- wrappers ------------------------------------------------------------------------------------ */
 static HINTERNET (WINAPI *rConnect)(HINTERNET, LPCWSTR, INTERNET_PORT, DWORD);
 static HINTERNET WINAPI hConnect(HINTERNET s, LPCWSTR server, INTERNET_PORT port, DWORD res) {
-    int local = offline && server && wcsstr(server, L"nakamacloud.io");
+    /* Offline, every WinHTTP host goes to the stand-in: Nakama as itself, anything else (Sentry's crash and session
+       reports, seen 2026-11-18) under /_ext/<host>/, so it's answered and logged locally instead of reaching the
+       live service. Local addresses pass unchanged. */
+    int isLocal = server && (!_wcsicmp(server, L"localhost") || !wcscmp(server, L"127.0.0.1") || !wcscmp(server, L"::1"));
+    int local = offline && server && !isLocal;
+    int nakama = local && wcsstr(server, L"nakamacloud.io");
     HINTERNET h = local ? rConnect(s, STANDIN_HOST, STANDIN_PORT, res) : rConnect(s, server, port, res);
     if (h) {
         Conn *c = calloc(1, sizeof *c); c->h = h; c->port = local ? STANDIN_PORT : port; c->sess = s; c->local = local;
+        if (local && !nakama) wcsncpy(c->ext, server, 127);
         WideCharToMultiByte(CP_UTF8, 0, local ? STANDIN_HOST : server, -1, c->host, sizeof c->host - 1, NULL, NULL);
         EnterCriticalSection(&lock); c->next = conns; conns = c; LeaveCriticalSection(&lock);
     }
@@ -165,6 +173,9 @@ static HINTERNET WINAPI hOpenRequest(HINTERNET c, LPCWSTR verb, LPCWSTR obj, LPC
     EnterCriticalSection(&lock);
     Conn *lc = findConn(c);
     int local = lc && lc->local;
+    wchar_t path[2048];
+    if (lc && lc->ext[0]) { _snwprintf(path, 2047, L"/_ext/%ls%ls%ls", lc->ext, obj && obj[0] == L'/' ? L"" : L"/", obj ? obj : L"");
+                            path[2047] = 0; obj = path; }
     LeaveCriticalSection(&lock);
     if (local) fl &= ~WINHTTP_FLAG_SECURE;
     HINTERNET h = rOpenRequest(c, verb, obj, ver, ref, types, fl);

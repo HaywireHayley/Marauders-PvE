@@ -316,6 +316,12 @@ class Handler(BaseHTTPRequestHandler):
     do_GET = do_POST = do_PUT = do_DELETE = handle_any
 
     def route(self, verb, path, q, body):
+        # Other services the game reaches over WinHTTP (Sentry's crash and session reports): pvenet.dll sends them
+        # here as /_ext/<host>/<path> so nothing reaches a live server. Answered with {} and counted.
+        if path.startswith("/_ext/"):
+            host = path.split("/")[2]
+            note_gap("other services", f"{host} {verb} {re.sub(r'[0-9]{6,}', '<n>', '/'.join(path.split('/')[3:5]))}")
+            return {}, f"other service {host}, answered locally"
         st = state["storage"]
         uid = state["user"]["id"]
         if path.startswith("/v2/account/authenticate/") or path == "/v2/account/session/refresh":
