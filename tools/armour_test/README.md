@@ -1,7 +1,7 @@
 # Armour test
 
 A test tool that measures the game's own armour numbers by shooting dummy raiders, and writes them to a text file. It produced every
-vest and helmet rating in `botdamage.lua` and `DAMAGE_REFERENCE.md`. Run it again after a game update to see whether any rating
+vest and helmet rating in `botdamage.lua` and `docs/internals/DAMAGE_REFERENCE.md`. Run it again after a game update to see whether any rating
 changed. It is for test installs only: it is not part of the shipped mod, and installing it does not change the F9 menu code or any
 file of the mod, only a test copy.
 
@@ -12,7 +12,7 @@ file of the mod, only a test copy.
 | `armourtest.lua` | The test itself: the dummies, the aim lock, the hit counting and the result file |
 | `armourtest_hook.lua` | Gives the test its tick, its dummy in the bots list and its F9 button, from one line at the end of `botdamage.lua` |
 | `install.ps1` | Copies the two files into a test install and adds that line (or takes them out again with `-Remove`) |
-| `summarise.py` | Turns the result file into the markdown tables of `DAMAGE_REFERENCE.md` and checks them against `botdamage.lua` |
+| `summarise.py` | Turns the result file into the markdown tables of `docs/internals/DAMAGE_REFERENCE.md` and checks them against `botdamage.lua` |
 
 ## Run it
 
@@ -38,7 +38,7 @@ python tools\armour_test\summarise.py <install>\bridge\armour_test.txt --lua mod
 
 It prints a vest table and a helmet table, and lists every mesh whose measured rating differs from `botdamage.lua`, or that one has
 and the other lacks. A rating that is not a whole number is flagged: check that piece before trusting it. Put changed ratings into the
-VESTS and HELMETS tables of `botdamage.lua` and into `DAMAGE_REFERENCE.md`.
+VESTS and HELMETS tables of `botdamage.lua` and into `docs/internals/DAMAGE_REFERENCE.md`.
 
 ## Take it out
 
@@ -46,7 +46,7 @@ VESTS and HELMETS tables of `botdamage.lua` and into `DAMAGE_REFERENCE.md`.
 
 ## How it measures
 
-DAMAGE_REFERENCE.md, section 8, describes the method: one dummy per piece, 100000 health put back after every hit, the view locked on
+docs/internals/DAMAGE_REFERENCE.md, section 8, describes the method: one dummy per piece, 100000 health put back after every hit, the view locked on
 the part under test, only hits whose line trace met that zone counted, median of 5, every other AI killed. Vest rating is the base
 damage (34 for the STG44) minus the torso damage taken. Helmet rating is the base minus the head damage divided by 3.5.
 
