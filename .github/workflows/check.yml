@@ -19,3 +19,5 @@ jobs:
         run: python scripts/luacheck.py $(git ls-files '*.lua')
       - name: Python compiles
         run: python -m py_compile $(git ls-files '*.py' '*.pyw')
+      - name: Linux mode switch (scripts/pvemode.py, issue #127)
+        run: python scripts/test_pvemode.py

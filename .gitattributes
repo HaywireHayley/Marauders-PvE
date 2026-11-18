@@ -1,0 +1,2 @@
+# Shell scripts run on Linux / Steam Deck: CRLF would break their #! line (issue #127).
+*.sh text eol=lf
