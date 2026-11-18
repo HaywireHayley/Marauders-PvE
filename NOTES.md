@@ -733,6 +733,7 @@ Standing_LegsPlayrate 1.1/0.65) while watching the screen:
   M712 verified 14:06 (13/13 patches): scoped shot raised aim ~2.5 deg, 3 shots = 3 pooled impacts, impact actors
   BasePoolHitEffect_C at the hit point with PS_BulletHit_Concrete, VfxComp active right after the shot. Their
   DecalComp is nil, so bullet-hole decals are unconfirmed. Not watched on screen (an overlay masked screenshots).
+  Later found missing and added by the mod: see "Bullet holes (2026-11-18)" at the end.
 - **Gore (as designed, not an offline bug)**: Mulit_Dismember_Implementation (0x180c4b0) only calls the BP
   DismemberEvent; BotPawn_C AddComponent's a BP_C_SimpleGoreSystem_C (SkeletalMesh = CharacterMesh0, e.g. bone
   lowerarm_l). Its bytecode (all 4 functions) spawns a BP_ChunkActor (generic static Mesh_Hand/Arm/Leg/Foot), blood
@@ -3582,3 +3583,29 @@ reference with flowcharts: [docs/internals/SALVAGE_CHAIN.md](docs/internals/SALV
   "you killed a prisoner ...: 1 guard(s) come for you" and that guard "knows where the player is".
 - Not verified: by eye (animations, crouch, voice), looting a civilian's body, mines and ports (only Penal Colony
   tested), fleeing from real gunfire.
+
+## Bullet holes (2026-11-18; bulletholes.lua, docs/internals/BULLET_IMPACTS.md)
+- Symptom: shots at walls and floors gave particles and sound but no bullet hole (a few marks on metal and blood on a bot
+  came from the game itself). The earlier note above ("DecalComp is nil, so bullet-hole decals are unconfirmed") was right:
+  all 500 pooled impact actors (`RaidPlayerController.PooledImpactActors`, `BasePoolHitEffect_C`) have no decal component, and the
+  Blueprint's ubergraph is empty (kdis), so the pool can never draw one. The decal materials exist and are loaded (38
+  `BulletImpactDecal_<family><n>_MIC`: Concrete, MetalSolid, MetalThin, Wood, Snow, Glass_BulletProof, Sandbag, Wall, Brick, Water,
+  Blood).
+- Not hookable: a Lua hook on `RaidPoolImpactEffect:OnPoolActive` saw 0 activations (native calls it directly). The pool actors
+  carry a `bInUse` flag, so the mod reads that.
+- Fix: `bulletholes.lua`, called every frame from main.lua (`BulletHoles.frame`). Every 0.1 s it looks at the pool; an actor
+  that just became in use, or moved while in use, is a new impact. Its rotation faces along the surface normal, so a 15 cm line
+  trace each side of it along that direction gives the exact point and normal. `GameplayStatics:SpawnDecalAtLocation` then puts a
+  decal of the matching family there (size is half extents, `{ 12, 5, 5 }`, rotated to face into the surface, random roll and
+  variant, 60 s). Surface comes from the name of the actor's `EffectForHit` (`PS_BulletHit_<name>`): Concrete, MetalSolid, Tinplate
+  (MetalThin), Wood, Glass, Snow. Ground, Water, Fabric and Blood get none. Holes are kept in a list and the oldest are destroyed
+  past `MAX_HOLES`. F3, tab "Effects": `BULLET_HOLES`, `HOLE_SECONDS`, `MAX_HOLES`, `HOLE_SIZE`. F9 has a "Bullet holes" on or off button (debugactions.lua).
+- First attempt traced from the camera to the impact point and rejected everything (bots' shots are off your view line); the
+  actor's own forward vector fixed it. First decals were too big (half extents, not full size).
+- How it was tested: the live tracer listed the pool and its properties; a probe watched the actors and logged surface, normal
+  and rotation; then stamped decals while the tester shot walls, floors, metal, wood and glass with a rifle and a shotgun (concrete
+  221, metal 70, wood 30, glass 31, no errors); then the module itself from a harness: no hitch on the first shot, a cap of 10
+  left about 10 holes with the oldest gone.
+- Open: Tinplate, snow and ground impacts (no map tried; the log names any surface that has no hole once); whether the game's own
+  marks double up with ours on some surface (none reported); some shotgun gunshot sounds are silent from one spot (the weapon's
+  own sound, not looked at); the F3 Effects tab and the main.lua wiring are only checked by luacheck until the next restart.
