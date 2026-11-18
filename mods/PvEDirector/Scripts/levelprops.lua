@@ -8,6 +8,10 @@
 --   Base_Broken_OneShots_Parent: PickARandomGoalNumber(), K2_SetTimer(self, "DoAnEvent", FrequencyOfCheck, looping):
 --     every few checks a spark sound and particle burst.
 -- This makes the same calls once per prop; the game runs the timers from then on (nothing per frame in Lua).
+-- Ship interiors (FrigateInside_*, RaidSpaceshipInside): the engine hum, Audio_EngineAmbience.FadeIn(2, 1, 0), is the
+--   client branch of their BeginPlay (`if not IsServer()`, kdis 2026-11-18: FrigateInside_Starter @2115 -> 3976), so
+--   your ship was silent inside. Faded in once per interior; checked every HUM_EVERY s, as interiors spawn later too
+--   (a rival's, when you board it).
 local P = {}
 local X -- log, valid, lib
 local raid
@@ -18,6 +22,7 @@ local KINDS = {
     { cls = "Base_Broken_OneShots_Parent_C", timer = "DoAnEvent", rate = "FrequencyOfCheck", goal = true },
 }
 local PASSES = { 4, 30 } -- seconds into the raid: one pass as you arrive, one for anything that loaded later
+local HUM_EVERY = 15
 
 function P.init(ctx) X = ctx end
 function P.setRaid(r) raid = r end
@@ -33,8 +38,27 @@ end
 
 -- From the director's update with this map's age (seconds): each pass looks for one kind per call (a FindAllOf walks
 -- every object, ~50 ms), so a pass is spread over three updates.
+local function hum(age)
+    local h = raid.hum
+    if not h then h = { next = 4, done = {} } raid.hum = h end
+    if age < h.next then return end
+    h.next = age + HUM_EVERY
+    for _, a in ipairs(FindAllOf("RaidSpaceshipInside") or {}) do
+        if X.valid(a) and not h.done[a:GetAddress()] then
+            h.done[a:GetAddress()] = true
+            local s = a.Audio_EngineAmbience
+            if s and X.valid(s) and not s:IsPlaying() then
+                s:FadeIn(2, 1, 0, 0)
+                X.log("level props: engine hum on in " .. a:GetClass():GetFName():ToString())
+            end
+        end
+    end
+end
+
 function P.update(age)
     if not raid then return end
+    local okh, errh = pcall(hum, age)
+    if not okh then X.log("level props: hum: " .. tostring(errh)) end
     local s = raid.props
     if not s then
         s = { pass = 1, kind = 1, done = {}, started = 0 }

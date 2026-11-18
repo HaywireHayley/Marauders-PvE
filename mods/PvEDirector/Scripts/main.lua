@@ -792,6 +792,36 @@ local function patchFootsteps()
     return done
 end
 
+-- Other client-only branches worth running offline (#143, kdis 2026-11-18), patched like the footsteps. Station node
+-- classes load with their station, so these are retried every CLIENT_BRANCH_EVERY s, not every update (a name lookup
+-- of an object that doesn't exist yet walks every object). Each entry is done once found.
+--   Base_RaidNode / Base_RaidMovementNode PopupWarning_CantEnterAsPod @20: "if HasAuthority return" before the
+--     "Warning Pods Can't Enter / Only ships are able to dock" popup your pod gets at a station's docking area.
+--   their ubergraphs @288: the same gate before the once-a-second check that sets PlayerIsInPodVisuals (pod or ship).
+local CLIENT_BRANCHES = {
+    ["/Game/Blueprints/NodeSystem/NodeActors/Base_RaidNode.Base_RaidNode_C:PopupWarning_CantEnterAsPod"] = { 20 },
+    ["/Game/Blueprints/NodeSystem/NodeActors/Base_RaidNode.Base_RaidNode_C:ExecuteUbergraph_Base_RaidNode"] = { 288 },
+    ["/Game/Blueprints/NodeSystem/NodeActors/Base_RaidMovementNode.Base_RaidMovementNode_C:PopupWarning_CantEnterAsPod"] = { 20 },
+    ["/Game/Blueprints/NodeSystem/NodeActors/Base_RaidMovementNode.Base_RaidMovementNode_C:ExecuteUbergraph_Base_RaidMovementNode"] = { 288 },
+}
+local CLIENT_BRANCH_EVERY = 10
+local function patchClientBranches()
+    local now = os.clock()
+    if (raid.clientBranchAt or 0) > now then return end
+    raid.clientBranchAt = now + CLIENT_BRANCH_EVERY
+    raid.clientBranches = raid.clientBranches or {}
+    for path, offsets in pairs(CLIENT_BRANCHES) do
+        if not raid.clientBranches[path] then
+            local fn = StaticFindObject(path)
+            if valid(fn) then
+                for _, offset in ipairs(offsets) do pveBpJump(fn:GetAddress(), offset) end
+                raid.clientBranches[path] = true
+                log("client branch patched: " .. path:match("[^.]+$"))
+            end
+        end
+    end
+end
+
 -- Per-raid state, reset whenever the world changes. A world is told apart by name and address: loading the same
 -- map again keeps the name, and checking the previous raid's soldiers after the old world was freed crashed
 -- (IsValid reads the object's memory).
@@ -967,6 +997,7 @@ update = function(pc)
     local worldKey = ("%s@%x/%x"):format(worldName, world:GetAddress(), pc:GetAddress())
     if worldKey ~= raid.world then resetRaid(worldKey) Cover.reset(world) raid.startedAt = os.clock() end
     if not raid.footsteps then raid.footsteps = patchFootsteps() end
+    patchClientBranches()
     if not raid.friendsRefresh then raid.friendsRefresh = patchFriendsRefresh() end
     raid.pcAddr = pc:GetAddress()
     -- PGOS "social service unavailable" overlay, in the menu and in raids: keep it collapsed (removing it crashes the
