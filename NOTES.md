@@ -3452,3 +3452,21 @@ to the floor at 60230,114665,-1203", inside a wall.
   collapsed), including the ActiveMMRegion reset; loot on a killed body by eye; Linux launcher.
 - The bridge mod has its own Lua state: probe the director's globals (Conditions...) with bridge/profile_on plus
   bridge/dir_eval.lua, not `send.sh "lua ..."`.
+
+## #143 leftovers: ship hum, pod hint, camera turrets, hold contracts (2026-11-18)
+- Ship interiors: FrigateInside_Starter BeginPlay `if not IsServer jump 3976`; the client side is only
+  `Audio_EngineAmbience.FadeIn(2, 1, 0)`. Verified silent offline (IsPlaying false in your Starter). levelprops.lua
+  now fades it in per RaidSpaceshipInside (every 15 s, for interiors spawned later); verified IsPlaying true in your
+  FrigateInside_Starter_C and a rival's FrigateInside_Fast_Ai_C. Not checked by ear.
+- Pod hint: Base_RaidNode / Base_RaidMovementNode PopupWarning_CantEnterAsPod @20 and their ubergraphs @288 return
+  early `if HasAuthority()`. The gate is `1C <FinalFunction HasAuthority> 16 07`, not the `68 <CallMath> 17 16 07`
+  pve_bp_jump knew, so the first try logged "patched" and changed nothing (kdis showed it): pvepatch.c now also accepts
+  a no-argument FinalFunction on self before the JumpIfNot. main.lua CLIENT_BRANCHES patches the four, retried every
+  10 s (station classes load later). Verified: both decode as `jump`; calling PopupWarning_CantEnterAsPod on a node
+  with your pawn made a new Popup01_Widget_C in the viewport. Not checked: a real pod flying into a docking area, and
+  what PlayerIsInPodVisuals changes on screen.
+- Camera turrets (Base_CameraTurret01, ship periscopes): authority side turns the barrel anim and plays the turning
+  sound; the skipped side only turns SpringArmNewOne to the controller's view, which already follows the mouse offline
+  (see "Manning a turret yourself"). No change.
+- Base_Contract_Hold overlaps: covered by missions.lua (flags + Client_CheckMissionEvent); opening the gate too would
+  start a second Guard timer. No change.
