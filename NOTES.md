@@ -2794,7 +2794,8 @@ space salvaging doesn't work.
   Salvage key = R (InputSettings action "Salvage"; key handler 0x1838f90 -> ServerOnSalvage 0x183d4c0 -> 0x185e800,
   spawns DefaultShipInsideSalvage in the interior). Verified in Space_Solo_01: R took a wreck aboard (SalvageFull,
   Industrial_InsideSalvage_01_C spawned in the hold). Not yet tested: looting it, unloading (0x182e990).
-  OnSpaceSalvageChange (from OnRep_HasSpaceSavage) has no Blueprint implementation, so nothing lost there.
+  OnSpaceSalvageChange (from OnRep_HasSpaceSavage) has no Blueprint implementation, so nothing lost there. **Wrong for
+  FrigateInside_Starter_C**: it does implement it (door, lever panel), see issue 134 below.
 - **Contract inspect prompt (pvepatch "Contract inspect prompt")**: ShouldShowContractInteraction (0x8fc9c0)
   `jae` at 0x8fc9f6 NOPed so InteractionDetection offers inspect objects. Patch applies (25/25 on a fresh launch);
   the on-screen prompt is not yet seen (also depended on the HUD fix above).
@@ -3162,3 +3163,17 @@ to the floor at 60230,114665,-1203", inside a wall.
   pve_root: its outer chain must not reach a world (assets, transient textures from ImportFileAsTexture2D and objects
   made inside the game instance are fine).
 - Not checked in game yet.
+
+## Salvage in the hold stayed behind a shut door (issue 134; main.lua relaySalvage)
+- Report (Taki, build .6, confirmed live 17 Nov on master, Space_Solo_01, starter frigate): after R the hold's airlock
+  stays shut, the lever panel reads "LOCKED / NO SALVAGE DETECTED", yet the lever offers "F" PURGE SALVAGE.
+- Read live: the wreck's inside salvage (Industrial_InsideSalvage_01_C) spawns right at the interior's SalvageSpawn
+  (child of SalvageComp tagged "Salvage", which 0x17d9dd0 looks up), not hidden; the interior's SalvageFull (+0x3c8),
+  HadSpaceSalvageAlready and the frigate's SalvageFull (+0xc38) are all true, CurrentSalvageActor (+0x3d0) set.
+- What's missing is FrigateInside_Starter_C's Blueprint OnSpaceSalvageChange (door open, panel), which only the native
+  OnRep_HasSpaceSavage calls. Replication callbacks don't run on the authority, and offline the game is it.
+  Calling `inside:OnRep_HasSpaceSavage()` by hand opened the door and the salvage could be looted.
+- Fix: main.lua relaySalvage watches your interior's SalvageFull in updateSpace and calls OnRep_HasSpaceSavage on each
+  change (pickup and purge). Same pattern likely behind #74 (salvage gone on docking): check the other OnRep_* there.
+- Careful in bridge probes: calling methods on a possibly-null object wrapper inside pcall crashed the game in UE4SS
+  (null read 0x18); check `o ~= nil and o:IsValid()` first.

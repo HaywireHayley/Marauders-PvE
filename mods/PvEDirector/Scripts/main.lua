@@ -3030,12 +3030,31 @@ local function startSpaceNav(pc, home)
     log(("space navmesh: rebuilding %d volumes (your ship's interior included: %s)"):format(#vols, tostring(valid(home))))
 end
 
+-- Salvage in your hold (issue #134). Taking a wreck aboard (R) spawns its inside salvage at the hold's SalvageSpawn and
+-- sets the interior's SalvageFull, but the door, the lever panel ("LOCKED / NO SALVAGE DETECTED") and the purge prompt's
+-- state are the Blueprint's OnSpaceSalvageChange, which only OnRep_HasSpaceSavage calls. A replication callback never
+-- runs on the authority, and offline you are it: the salvage sat behind the shut door. So each change is relayed here.
+function relaySalvage(home) -- (global: main.lua is at the 200-local limit, as addInteriorNav)
+    local full = home.SalvageFull == true
+    if raid.salvageFull == nil then
+        raid.salvageFull = full
+        if not full then return end
+    elseif raid.salvageFull == full then
+        return
+    end
+    raid.salvageFull = full
+    local ok, err = pcall(function() home:OnRep_HasSpaceSavage() end)
+    log(("salvage: hold %s%s"):format(full and "full: door opened" or "empty",
+        ok and "" or (" (couldn't update it: " .. tostring(err) .. ")")))
+end
+
 local function updateSpace(pc, worldName)
     local foot = raid.target
     if not raid.home then
         raid.home = homeInterior(foot)
         if not valid(raid.home) then return end
     end
+    if valid(raid.home) then relaySalvage(raid.home) end
     if not raid.navStarted then startSpaceNav(pc, raid.home) return end
     if not raid.navReady then
         raid.navReady = navReadyAt(pc, raid.home.InSideComp:K2_GetComponentLocation())
