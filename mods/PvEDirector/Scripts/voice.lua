@@ -37,7 +37,7 @@ function M.step()
         cue = X.lib(path)
     end
     if X.valid(cue) then
-        X.root(math.tointeger(cue:GetAddress()))
+        X.root(cue)
         cues[path] = cue
     end
     if #queue == 0 then X.log("voices: all lines loaded") end

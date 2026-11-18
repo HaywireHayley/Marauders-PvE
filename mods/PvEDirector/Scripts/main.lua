@@ -227,7 +227,35 @@ local pveRollKit = package.loadlib(PATCH_DLL, "pve_roll_kit") -- (bot, item tabl
 local pveAddItem = package.loadlib(PATCH_DLL, "pve_add_item") -- (bot, row, stack)
 local pveKeepWorn = package.loadlib(PATCH_DLL, "pve_keep_worn") -- (bot): empties its bags and pockets
 local pveLoad = package.loadlib(PATCH_DLL, "pve_load") -- (path as an FName index): assets the cooked registry doesn't list
-local pveRoot = package.loadlib(PATCH_DLL, "pve_root") -- (object address): keeps it from the garbage collector
+-- pveRoot(object): keeps it from the garbage collector for good (pve_root, UObject::AddToRoot). Mods hold assets in Lua
+-- tables, which the collector can't see. Never anything a world owns: a rooted object keeps its outer alive, so rooting
+-- one kept a whole lobby world through the raid, and loading the menu again picked that dead world up and crashed
+-- (issue 133). Those are refused with a log line; make such objects inside the game instance instead.
+local pveRoot
+do
+    local root = package.loadlib(PATCH_DLL, "pve_root") -- (object address)
+    local function worldOwner(o)
+        local outer = o:GetOuter()
+        for _ = 1, 32 do
+            if not valid(outer) then return nil end
+            local class = outer:GetClass():GetFName():ToString()
+            if class == "World" or class == "Level" then return outer:GetFullName() end
+            outer = outer:GetOuter()
+        end
+    end
+    pveRoot = function(o)
+        if not root or not valid(o) then return false end
+        local ok, owner = pcall(worldOwner, o)
+        if ok and owner then
+            log(("root: refused %s (a world owns it: %s)"):format(o:GetFullName(), owner))
+            return false
+        end
+        -- (if the check itself failed, root it as before: an unrooted mesh or sound can be freed in use, the #53 crash)
+        if not ok then log("root: couldn't check the outers of " .. o:GetFullName() .. ": " .. tostring(owner)) end
+        root(math.tointeger(o:GetAddress()))
+        return true
+    end
+end
 local pveStashRows = package.loadlib(PATCH_DLL, "pve_stash_rows") -- (inventory component, rows)
 local pveLooseAssets = package.loadlib(PATCH_DLL, "pve_loose_assets")
 if pveLooseAssets then pveLooseAssets() end

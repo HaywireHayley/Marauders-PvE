@@ -57,7 +57,7 @@ local function mesh(path)
     m = X.lib(path)
     if not valid(m) then pcall(LoadAsset, path) m = X.lib(path) end
     if not valid(m) then return nil end
-    X.root(math.tointeger(m:GetAddress()))
+    X.root(m)
     meshes[path] = m
     return m
 end
@@ -256,7 +256,7 @@ local function photoStep(now)
             -- Rooted: a portrait not shown in any slot or hire row had nothing in the engine holding it (the capture
             -- component lets go at the next photo), so it was freed and showing it again crashed the UI paint, as the
             -- minimap's floor plans did (issue #53). One per crewmate, kept for the session.
-            X.root(math.tointeger(rt:GetAddress()))
+            X.root(rt)
         end
         local c = B.cap.CaptureComponent2D
         c.TextureTarget = rt

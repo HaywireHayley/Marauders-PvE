@@ -154,7 +154,7 @@ function L.arm(pc)
         tex = X.lib("/Script/Engine.Default__KismetRenderingLibrary"):ImportFileAsTexture2D(pc, DIR .. "travel.png")
         if not X.valid(tex) then return end
         if not X.root then return end -- unrooted it can be freed mid-travel: keep the game's own picture instead
-        X.root(math.tointeger(tex:GetAddress()))
+        X.root(tex)
         travelTex = tex
     end
     local d = s.DefaultLoadingScreen

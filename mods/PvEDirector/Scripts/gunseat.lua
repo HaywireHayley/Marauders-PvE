@@ -79,8 +79,8 @@ local function stand(pc, why)
     end
     if valid(t) then
         pcall(function()
-            if valid(pc) and t.ControllerHere and t.ControllerHere:IsValid()
-                and t.ControllerHere:GetAddress() == pc:GetAddress() then t.ControllerHere = nil end
+            local c = t.ControllerHere -- (valid: the game can leave a freed controller here)
+            if valid(pc) and valid(c) and c:GetAddress() == pc:GetAddress() then t.ControllerHere = nil end
         end)
         pcall(function() t.IsOccupied = false end)
     end

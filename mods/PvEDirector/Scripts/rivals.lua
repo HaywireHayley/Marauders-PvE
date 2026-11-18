@@ -1543,7 +1543,7 @@ local function gearCatalog()
                 mesh = lib(path)
             end
             if valid(mesh) then
-                X.root(math.tointeger(mesh:GetAddress()))
+                X.root(mesh)
                 table.insert(cat[key], mesh)
             end
         end
