@@ -19,6 +19,7 @@ local PROJECT = require("pveproject") -- the install folder (".../MaraudersPvE/"
 local Out = require("outref") -- releases UE4SS's out-param registry refs (outref.lua)
 local GearScale = require("gearscale") -- rivals' and crew's gear follows your player level
 local Interiors = require("interiors") -- interiors seen from open space: hidden while you're outside them
+local LevelProps = require("levelprops") -- fans, reels, ambience and sparks the client side would start (#143)
 local BotDamage = require("botdamage") -- your shots at bots: armour, shotgun pellets, a clear path to the hit zones (#123)
 
 local CFG = {
@@ -790,7 +791,7 @@ end
 raid = { world = nil }
 -- The modules keep their own reference to the per-raid table: each is handed the new one whenever it's replaced.
 local function shareRaid()
-    for _, m in ipairs({ PlayAreas, Bots, Loadout, Launch, Space, DebugActions, RaidTime }) do m.setRaid(raid) end
+    for _, m in ipairs({ PlayAreas, Bots, Loadout, Launch, Space, DebugActions, RaidTime, LevelProps }) do m.setRaid(raid) end
 end
 shareRaid()
 
@@ -893,6 +894,7 @@ Hire.init({ log = log, valid = valid, lib = lib, AI = AI, tiers = function() ret
     rollKit = Rivals.rollKit, lobby = CrewLobby })
 Crew = require("crew")
 Interiors.init({ log = log, valid = valid })
+LevelProps.init({ log = log, valid = valid, lib = lib })
 RaidTime.init({ log = log, valid = valid })
 Crew.init({ rivals = Rivals, hire = Hire, AI = AI, lib = lib, voice = Voice, log = log, valid = valid, dist = dist,
     gunseat = Gunseat,
@@ -1102,6 +1104,10 @@ update = function(pc)
             end)
             log(ok and "your input: game only (arrived)" or ("your input on arrival failed: " .. tostring(err)))
         end
+    end
+    if raid.inputDone then
+        local okp, errp = pcall(LevelProps.update, age)
+        if not okp then log("level props: " .. tostring(errp)) end
     end
     if space and raid.readyAt then
         local aff = Aux.due("autofly", 1) and io.open(PROJECT .. "bridge/autofly", "r") -- testing: "<station name>" or "x y z"; gone = stop

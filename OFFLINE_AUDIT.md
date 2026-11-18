@@ -120,7 +120,7 @@ not scanned yet: run it there too (it adds to the same JSON).
 | `FrigateInside_Starter / Fast / Strike` | `FadeIn` (an audio component) | **Lead:** ambience inside your ship may be missing offline; listen for it |
 | `Base_CameraTurret01`, `Turret_LargeTurret01`, `SubNodeActorTurret` | `K2_SetWorldRotation` on the remote side | Probably the replicated aim on clients; the server side turns them. Check camera turret seats (#31 territory) |
 | `rc_FPS_AnimBP`, `rc_AI_FPS_AnimBP` | `Force_WalkFootstepSound`, `Force_Crouch_FootstepSound`, `PlayCameraShake` | Footsteps were item 19's lead; confirms the skipped side really plays them |
-| `MA_RotatingParent_Simple / _WithAmbience`, `Base_Broken_OneShots_Parent` | `K2_SetTimer(LoopThisActor / DoAnEvent)`, `FadeIn` | Rotating props and broken-machinery one-shots stay still and silent offline. Cheap to restart the same way |
+| `MA_RotatingParent_Simple / _WithAmbience`, `Base_Broken_OneShots_Parent` | `K2_SetTimer(LoopThisActor / DoAnEvent)`, `FadeIn` | **Fixed** (2026-11-18): `levelprops.lua` makes the same calls once per prop (verified: 44 timers running on Space_Alpha, 17 ambience sounds playing, a rendered fan turning) |
 | `Base_RaidNode`, `Base_RaidMovementNode` | `PlayerIsInPodVisuals`, `RunSimplePopup` (can't enter as a pod) | The station's "you're in a pod" hint; low |
 | `Base_Contract_Hold` | `CharacterOverlapped / CharacterEndOverlapped` (behind IsLocalController) | Item 12 (hold-area contracts) |
 | `Proj40mm`, `Node_Colony_Cruiser` | nothing visible after the diff | Probably fine |

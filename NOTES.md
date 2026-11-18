@@ -3393,3 +3393,17 @@ to the floor at 60230,114665,-1203", inside a wall.
   raid started normally. Hand-written RemainingTime 2700 counted down (2693 after 7 s). launcher/test_ui.py 12/12.
   NOT tested: a land map, what happens when a set length runs out (#159 noted one process exit at timer end), whether
   the space gate's arrival depends on the round time.
+
+## Level props: fans, reels, ambience and sparks start offline (2026-11-18, issue #143)
+- Cause (decompiled with tools/offline-audit/kdis.py): `MA_RotatingParent_Simple` / `_WithAmbience` start
+  `K2_SetTimer(self, "LoopThisActor", Frequency, true)` from BeginPlay only `if not IsServer()`, and `_WithAmbience` also
+  `Audio.FadeIn(1, 1, 0)` there when `ShouldPlaySound`. `Base_Broken_OneShots_Parent` does `PickARandomGoalNumber()` and
+  `K2_SetTimer(self, "DoAnEvent", FrequencyOfCheck, true)` (every few checks: SpawnSoundAtLocation + particle burst) on
+  the same side. Offline the game is the server, so none of it ran: fans and tape reels stood still and were silent.
+  (The Simple one also starts in MainMenu, which is why lobby props turned.) `LoopThisActor` only turns the mesh while
+  `WasRecentlyRendered(1)`, so running timers on unseen props costs next to nothing.
+- Fix: `levelprops.lua` makes the same calls once per prop, 4 s and 30 s into a raid (one class per update: each is a
+  FindAllOf), tracked by address in the per-raid table. The game runs the timers from then on.
+- Verified (Space_Alpha): "level props: 44 started", `K2_IsTimerActive` true on 26/26 rotating, 17/17 ambience and 1/1
+  broken props, 17 ambience Audio components playing, and a rendered fan's yaw going -30 -> -45 between two reads.
+  Not checked by ear or eye in normal play; land raids and station interiors not checked.
