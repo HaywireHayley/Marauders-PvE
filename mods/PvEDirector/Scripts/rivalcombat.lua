@@ -928,6 +928,18 @@ local function playerBoarding(now)
         end
         return
     end
+    -- The breach prompt ("BREACH BOOST READY" when the pod's nose is on a hull in range, issue #77): the pod's BeginPlay
+    -- starts its looping 0.1 s Timed_BreachCheck timer (BreachCheck -> SetAbleToBreach -> the HUD's
+    -- SetUIAbleToPodBreach) only on the non-authority branch, which never runs offline. Started here once per pod;
+    -- from then on the game runs it itself.
+    local podAddr = pawn:GetAddress()
+    if S.breachTimerPod ~= podAddr then
+        S.breachTimerPod = podAddr
+        local ok, err = pcall(function()
+            lib("/Script/Engine.Default__KismetSystemLibrary"):K2_SetTimer(pawn, "Timed_BreachCheck", 0.1, true, 0, 0)
+        end)
+        if not ok then X.log("[rivals] pod breach prompt timer: " .. tostring(err)) end
+    end
     local here = pawn:K2_GetActorLocation()
     -- the pod's course: its velocity, or its nose while it's barely moving
     local v = pawn:GetVelocity()
