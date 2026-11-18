@@ -3417,3 +3417,13 @@ to the floor at 60230,114665,-1203", inside a wall.
 - Verified (Space_Alpha): "level props: 44 started", `K2_IsTimerActive` true on 26/26 rotating, 17/17 ambience and 1/1
   broken props, 17 ambience Audio components playing, and a rendered fan's yaw going -30 -> -45 between two reads.
   Not checked by ear or eye in normal play; land raids and station interiors not checked.
+
+## God mode: unlimited stamina (2026-11-18; debugactions.lua holdStamina, main.lua update)
+- Problem: god mode (bridge/god.txt, the F9 button) only set `bCanBeDamaged = false` on the player's pawn. Sprinting and swinging
+  still drained stamina, so a long test run kept stopping to wait for it to refill. An earlier test copy of main.lua held
+  stamina, but that never reached the repo.
+- Fix: `holdStamina(pawn)` in debugactions.lua, called from the main.lua update right after the immunity line. While god mode is on,
+  four times a second (Aux.due), if the pawn's `Stamina` is below its `MaxStamina` it is set to `MaxStamina`. Both are properties of
+  `PlayerPawn_C` (hud_dump.txt lists Stamina, MaxStamina, StaminaRegainRate). A pod or ship pawn has neither, so the guarded read
+  gives nil and nothing happens there. The game log gets one line the first time it acts ("god mode: stamina held at its maximum").
+- Left alone: the weapon values (StaminaADSModifier, StaminaRechargeRate) and the HUD stamina bar's own burn display.

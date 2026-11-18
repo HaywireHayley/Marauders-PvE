@@ -20,6 +20,21 @@ local function godMode()
     return Aux.god == true
 end
 
+-- God mode is no stamina drain either: while it is on, the player pawn's Stamina is put back to its maximum four times a second
+-- (PlayerPawn_C has Stamina and MaxStamina; a pod or ship pawn has neither, which the pcall and the type check skip).
+local staminaSaid = false
+local function holdStamina(pawn)
+    if not Aux.due("godStamina", 0.25) or not godMode() then return end
+    local ok, st, mx = pcall(function() return pawn.Stamina, pawn.MaxStamina end)
+    if ok and type(st) == "number" and type(mx) == "number" and mx > 0 and st < mx then
+        pcall(function() pawn.Stamina = mx end)
+        if not staminaSaid then
+            staminaSaid = true
+            log(("god mode: stamina held at its maximum (%.0f of %.0f when first read)"):format(st, mx))
+        end
+    end
+end
+
 local function toggleGodMode()
     if godMode() then os.remove(GOD_FILE) else
         local f = io.open(GOD_FILE, "w")
@@ -82,6 +97,7 @@ function M.init(ctx)
 end
 
 M.godMode = godMode
+M.holdStamina = holdStamina
 M.frame = Give.frame -- bottomless mags, every frame in a raid (main.lua)
 
 return M
