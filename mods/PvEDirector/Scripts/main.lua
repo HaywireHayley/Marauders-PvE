@@ -6,7 +6,7 @@
 --   2. spawns soldiers at the map's AINodeStart nodes, away from the player
 --   3. keeps them awake, and gives them the player as enemy once they see/hear the player or get shot
 -- Keys: F3 = AI tuning menu (tuning.lua), F9 = debug menu (debugmenu.lua: god mode, extract now, spawn a soldier, a
---       crew attacks you, open the gates, give a gun, test raid), F2 = your body female or male,
+--       crew attacks you, open the gates, give a gun, bottomless mags, test raid), F2 = your body female or male,
 --       N / M / B = minimap on or off / full overview / next task (minimap.lua).
 -- With the offline backend, the lobby's Start Matchmaking loads a space map, where you start in your ship
 -- (launch.lua); space maps get the loadout and extraction but no soldiers.
@@ -590,6 +590,10 @@ local function onTick(ctx)
         end
         ok, err = ppcall("ragdolls", settleRagdolls)
         if not ok then log("ragdoll settling failed: " .. tostring(err)) end
+        -- F9 bottomless mags puts back what a shot took off the clip. It runs after the sections above so anything that reads the clip
+        -- for shots has seen it drop first.
+        ok, err = ppcall("mags", DebugActions.frame, ticker)
+        if not ok and not raid.magsFailed then raid.magsFailed = true log("bottomless mags failed: " .. tostring(err)) end
         if pveBodies then pveBodies() end
         ok, err = ppcall("minimap", Minimap.tick, ticker)
         if not ok then log("minimap failed: " .. tostring(err)) end
