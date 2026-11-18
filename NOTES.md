@@ -3314,6 +3314,31 @@ to the floor at 60230,114665,-1203", inside a wall.
   read the components they switch before and after.
 - Gotcha: IsDedicatedServer is false offline (standalone), unlike IsServer; the first version of the scan had it the
   wrong way round.
+## Offline backend: coverage tally, tournaments, the gift box (issue 80, 2026-11-18; backend/nakama_standin.py)
+- Writes were already crash-safe (state.json, loadout.json, cosmetics.json go through a .tmp + os.replace). Write
+  coalescing NOT done: state.json is ~18 KB, and the launcher stops the stand-in by killing it, so a delayed write
+  could lose a purchase. Not worth that risk for now.
+- Coverage: the stand-in counts what nothing answers, by kind: "unknown rpcs", "unhandled endpoints" (ids replaced by
+  <id>), "empty collections" (listed while empty: twitch on every login). backend/coverage.json, count + first/last
+  time, added to across sessions, written by the 1 s watcher thread only when something new was counted. REPORT zips
+  it. Seen so far: `guild_getinfo` (the guild page's Nakama half; guild.lua fills that widget itself, so answering it
+  isn't needed), twitch empty, and GET /v2/tournament, which is now answered as "no tournaments" (the live list was
+  empty in the capture too).
+- Gifts work offline already: the lobby's GIFT tab (MainOverlay Btn_TEMP_MainBtn_Gift) lists the gifts collection
+  sent in masterstartfunction. Claiming is the client's own delete gifts + put inventory (captured online), which the
+  generic storage path handles. A gift is only an item row ({"value": "Mat49Rifle"}); the game picks the stack when it
+  shows it: a gun with a full magazine, 9mmAmmo 30/60, BandageAid 1/3. Some showed the Twitch badge (which ones
+  depends on the client, not the stand-in).
+- backend/gifts_in.txt: item rows, one per line; the stand-in moves them into the gift box within a second (new
+  5-digit keys, never one already in gifts or the stash). For the mod or the launcher to hand out rewards (#78's loot
+  for harder raids). The client reads gifts at login, so they show from the next login.
+- Tested in game (2026-11-18, throwaway save gifts-test, MainMenu): 2 x (Mat49Rifle, BandageAid, 9mmAmmo) queued
+  through gifts_in.txt, all six shown in GIFTS. NOT tested: claiming a gift into the stash by dragging (no input
+  from the bridge), whether ED_CheckForGiftsNow can make the lobby re-read gifts without a new login.
+  tools/test_standin_gaps.py covers the tally, the tournament answer and the gift hand-off.
+- Windows dev note: `pvemode.py steam-run` started the Shipping exe without its working directory, and Steam
+  relaunched the stock game (folder already back to stock). It's meant for Linux, where Steam supplies the
+  environment; on Windows use the launcher or launch-offline.ps1.
 ## Pod breach prompt (issue 77, 2026-11-18; rivalcombat.lua playerBoarding)
 - Cause: Ship_DropPod_Pawn_C's BeginPlay (ubergraph 10670: `if not HasAuthority() jump 7935`) starts its looping
   0.1 s timer `K2_SetTimer(self, 'Timed_BreachCheck', 0.1, true)` (at 8781) only on the non-authority branch.

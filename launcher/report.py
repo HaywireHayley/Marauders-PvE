@@ -2,7 +2,7 @@
 
     report.build(root, game_folder, save_dir=None, crash=True) -> path of the zip
 
-Holds: the mod's logs (backend/last_game.log, server.log, standin_err.log), the game's UE4SS.log (its last 4 MB), the
+Holds: the mod's logs (backend/last_game.log, server.log, standin_err.log, coverage.json), the game's UE4SS.log (its last 4 MB), the
 newest crash report from the last three days (CrashContext.runtime-xml, and its UE4Minidump.dmp if `crash`), the build
 (version.txt), Windows and Python versions, and the save's state.json if `save_dir` is given.
 Before zipping, text files lose what identifies the player: the Windows user name (and user folder) in paths, Steam IDs,
@@ -80,6 +80,7 @@ def build(root, game_folder, save_dir=None, crash=True, out_dir=None):
         "last_game.log": os.path.join(root, "backend", "last_game.log"),
         "server.log": os.path.join(root, "backend", "server.log"),
         "standin_err.log": os.path.join(root, "backend", "standin_err.log"),
+        "coverage.json": os.path.join(root, "backend", "coverage.json"),  # what the stand-in can't answer (#80)
         "UE4SS.log": os.path.join(game_folder, "RaidGame", "Binaries", "Win64", "UE4SS.log"),
         "version.txt": os.path.join(root, "version.txt"),
     }
