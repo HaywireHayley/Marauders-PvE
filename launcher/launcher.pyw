@@ -2,6 +2,7 @@
 the orange (255,138,36), the title art on the raid backdrop, thin rules and lower-left captions."""
 import ctypes
 import os
+import queue
 import shutil
 import subprocess
 import sys
@@ -9,6 +10,7 @@ import threading
 import tempfile
 import time
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import filedialog
 import webbrowser
 from datetime import datetime
@@ -63,8 +65,27 @@ DANGER = "#E0533D"
 W, H = 1060, 660
 
 
+# The launcher's face is Bahnschrift (Windows 10/11). Elsewhere the first installed fallback is used, with bold standing
+# in for Bahnschrift's SemiBold and Bold styles (issue #147): Tk otherwise substitutes something unpredictable.
+FONT_FALLBACKS = ("Bahnschrift", "Segoe UI", "DejaVu Sans", "Liberation Sans", "Helvetica")
+_family = None
+
+
+def pick_family(installed):
+    names = {f.lower(): f for f in installed}
+    return next((names[f.lower()] for f in FONT_FALLBACKS if f.lower() in names), "TkDefaultFont")
+
+
 def font(size, weight=""):
-    return ("Bahnschrift " + weight if weight else "Bahnschrift", size)
+    global _family
+    if _family is None:
+        try:
+            _family = pick_family(tkfont.families())
+        except (tk.TclError, RuntimeError):  # no Tk root yet: decide on the first call that has one
+            return ("Bahnschrift " + weight if weight else "Bahnschrift", size)
+    if _family == "Bahnschrift":
+        return ("Bahnschrift " + weight if weight else "Bahnschrift", size)
+    return (_family, size, "bold" if weight else "normal")
 
 
 def ps(*args):
@@ -128,16 +149,26 @@ class Button(tk.Label):
 
     def __init__(self, parent, text, command, kind="plain", size=12, pad=(16, 8)):
         self.colors = {"main": (ORANGE, INK, "#FFA64F"), "plain": (PANEL_HI, TEXT, "#2A313B"), "danger": (PANEL_HI, DANGER, "#2A313B")}[kind]
+        # Tab reaches it (an orange ring shows focus) and Enter or Space presses it, as a real button (issue #147).
         super().__init__(parent, text=text, bg=self.colors[0], fg=self.colors[1], font=font(size, "SemiBold"), padx=pad[0], pady=pad[1],
-                         cursor="hand2")
+                         cursor="hand2", takefocus=True, highlightthickness=2, highlightcolor=ORANGE,
+                         highlightbackground=parent.cget("bg"))
         self.command, self.enabled = command, True
-        self.bind("<Button-1>", lambda e: self.enabled and self.command())
+        self.bind("<Button-1>", lambda e: self.press())
+        # "break": the launcher window's own Enter (PLAY) doesn't fire as well
+        self.bind("<Return>", lambda e: (self.press(), "break")[1])
+        self.bind("<space>", lambda e: (self.press(), "break")[1])
         self.bind("<Enter>", lambda e: self.enabled and self.config(bg=self.colors[2]))
         self.bind("<Leave>", lambda e: self.enabled and self.config(bg=self.colors[0]))
 
+    def press(self):
+        if self.enabled:
+            self.command()
+
     def enable(self, on):
         self.enabled = on
-        self.config(bg=self.colors[0] if on else PANEL, fg=self.colors[1] if on else "#4A525E", cursor="hand2" if on else "arrow")
+        self.config(bg=self.colors[0] if on else PANEL, fg=self.colors[1] if on else "#4A525E", cursor="hand2" if on else "arrow",
+                    takefocus=on)
 
 
 # The mod's keys, as the CONTROLS dialog lists them (keep in step with README.md's "Controls" table).
@@ -156,38 +187,74 @@ CONTROLS = [
 
 
 class Dialog(tk.Toplevel):
-    """A small dark window in the launcher's style."""
+    """A small dark window in the launcher's style.
+
+    A normal window with a title bar, owned by the launcher (transient: kept above it, minimised with it). It used to be
+    borderless, and could open underneath the launcher while holding the grab, so every click went nowhere and the
+    launcher looked frozen (issue #147). Now it's built hidden, centred on the launcher, and takes the grab only once
+    it's on screen. Escape or the title bar's X closes it."""
 
     def __init__(self, app, title):
-        super().__init__(app)
+        super().__init__(app, bg=PANEL)
+        self.withdraw()  # until show(): no flash at the default position
         self.app = app
-        self.overrideredirect(True)
-        self.configure(bg=LINE)
+        self.title(title)
+        self.resizable(False, False)
+        self.transient(app)
         self.body = tk.Frame(self, bg=PANEL, padx=26, pady=20)
-        self.body.pack(padx=1, pady=1)
+        self.body.pack()
         tk.Label(self.body, text=title.upper(), bg=PANEL, fg=ORANGE, font=font(15, "SemiBold")).pack(anchor="w")
         tk.Frame(self.body, bg=ORANGE, height=2, width=400).pack(anchor="w", pady=(6, 14))
-        self.transient(app)
+        self.bind("<Escape>", lambda e: self.destroy())
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
 
     def show(self):
         self.update_idletasks()
-        x = self.app.winfo_rootx() + (W - self.winfo_width()) // 2
-        y = self.app.winfo_rooty() + (H - self.winfo_height()) // 2
-        # A borderless window can open underneath the launcher, and with the grab set it then blocks every click while
-        # out of sight (the launcher looked frozen). Kept above it, and Escape always closes it. (Placed after -topmost,
-        # which otherwise moves it to the screen's corner.)
-        self.attributes("-topmost", True)
-        self.lift()
-        self.geometry(f"+{x}+{y}")
-        self.update_idletasks()
-        self.grab_set()
+        x = self.app.winfo_rootx() + (self.app.winfo_width() - self.winfo_reqwidth()) // 2
+        y = self.app.winfo_rooty() + (self.app.winfo_height() - self.winfo_reqheight()) // 2
+        self.geometry(f"+{max(0, x)}+{max(0, y)}")
+        dark_title_bar(self)
+        self.deiconify()
+        self.lift(self.app)
+        try:
+            self.wait_visibility()  # a grab on a window that isn't mapped yet fails or grabs nothing
+            self.grab_set()
+        except tk.TclError:
+            pass  # closed already, or another grab: it still works, only without blocking the launcher
         self.focus_force()
-        self.bind("<Escape>", lambda e: self.destroy())
 
     def row(self):
         f = tk.Frame(self.body, bg=PANEL)
         f.pack(anchor="e", pady=(18, 0))
         return f
+
+
+def wrap(pixels):
+    """A text wrap width given in pixels at 100 % display scaling, as points: it grows with the fonts (issue #147)."""
+    return f"{pixels * 0.75:g}p"
+
+
+def dark_title_bar(window):
+    """Windows 10/11 draws the window's title bar dark, to match the launcher (no-op elsewhere or on older Windows)."""
+    try:
+        window.update_idletasks()
+        hwnd = ctypes.windll.user32.GetParent(window.winfo_id())
+        on = ctypes.c_int(1)
+        for attribute in (20, 19):  # DWMWA_USE_IMMERSIVE_DARK_MODE (20H1+), and its number before that
+            if ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, attribute, ctypes.byref(on), ctypes.sizeof(on)) == 0:
+                break
+    except (AttributeError, OSError):
+        pass
+
+
+def entry(parent, size=14, width=32):
+    """A text box in the launcher's style (its colours come from App.theme)."""
+    return tk.Entry(parent, font=font(size), width=width)
+
+
+def check(parent, text, var, size=12, command=None, **kw):
+    """A checkbox in the launcher's style (its colours come from App.theme)."""
+    return tk.Checkbutton(parent, text=text, variable=var, command=command, font=font(size), **kw)
 
 
 class App(tk.Tk):
@@ -197,6 +264,13 @@ class App(tk.Tk):
         self.geometry(f"{W}x{H}")
         self.resizable(False, False)
         self.configure(bg=INK)
+        self.theme()
+        dark_title_bar(self)
+        # Background threads (starting the game, tidying up, updates) never touch Tk themselves: Tk isn't thread-safe, and
+        # calling it from another thread can now and then crash or freeze the window (issue #147). They hand the main
+        # thread a function through ui(), and pump() runs it.
+        self.ui_queue = queue.Queue()
+        self.after(50, self.pump)
         icon = os.path.join(ROOT, "assets", "launcher", "icon.ico")
         if os.path.exists(icon):
             self.iconbitmap(icon)
@@ -221,6 +295,8 @@ class App(tk.Tk):
         self.bind("<Return>", lambda e: self.launch())
         self.bind("<Delete>", lambda e: self.current() and self.delete())
         self.bind("<F2>", lambda e: self.current() and self.rename())
+        self.bind("<Up>", lambda e: self.step(-1, e))  # (#147) arrow keys move through the saves
+        self.bind("<Down>", lambda e: self.step(1, e))
         self.after(1000, self.watch)
         self.check_update()
         self.protocol("WM_DELETE_WINDOW", self.close)
@@ -233,6 +309,55 @@ class App(tk.Tk):
             self.say("Putting the game back to normal (the launcher was closed while you played)...")
             threading.Thread(target=self.tidy_after_close, daemon=True).start()
 
+    def theme(self):
+        """The shared look of text boxes and checkboxes, in Tk's option database: one place to change it (issue #147).
+        Widgets made after this take these unless they're given their own."""
+        for pattern, value in (
+                ("*Entry.background", INK), ("*Entry.foreground", TEXT), ("*Entry.insertBackground", ORANGE),
+                ("*Entry.relief", "flat"), ("*Entry.highlightThickness", 1), ("*Entry.highlightColor", ORANGE),
+                ("*Entry.highlightBackground", INK),
+                ("*Checkbutton.background", PANEL), ("*Checkbutton.foreground", TEXT), ("*Checkbutton.selectColor", INK),
+                ("*Checkbutton.activeBackground", PANEL), ("*Checkbutton.activeForeground", TEXT),
+                ("*Checkbutton.borderWidth", 0), ("*Checkbutton.highlightThickness", 1),
+                ("*Checkbutton.highlightColor", ORANGE), ("*Checkbutton.highlightBackground", PANEL),
+                ("*Checkbutton.cursor", "hand2")):
+            self.option_add(pattern, value)
+
+    def destroy(self):
+        # pump() and watch() re-arm themselves: cancel them, or they fire into a window that's gone
+        for pending in self.tk.splitlist(self.tk.call("after", "info")):
+            try:
+                self.after_cancel(pending)
+            except tk.TclError:
+                pass
+        super().destroy()
+
+    def ui(self, fn):
+        """Runs fn on the main thread, soon. The only way a background thread may change the window."""
+        self.ui_queue.put(fn)
+
+    def pump(self):
+        while True:
+            try:
+                fn = self.ui_queue.get_nowait()
+            except queue.Empty:
+                break
+            try:
+                fn()
+            except Exception:  # one failed update mustn't stop the pump
+                import traceback
+                traceback.print_exc()
+        self.after(50, self.pump)
+
+    def step(self, delta, event=None):
+        if isinstance(getattr(event, "widget", None), tk.Scale):
+            return  # the slider uses the arrow keys itself
+        ids = [s["id"] for s in getattr(self, "items", [])]
+        if not ids:
+            return
+        i = ids.index(self.selected) if self.selected in ids else 0
+        self.select(ids[max(0, min(len(ids) - 1, i + delta))])
+
     def tidy_after_close(self):
         stop_standin()
         try:
@@ -240,7 +365,7 @@ class App(tk.Tk):
         except OSError:
             pass
         ps("-File", os.path.join(ROOT, "scripts", "mode.ps1"), "online")
-        self.after(0, self.tidied)
+        self.ui(self.tidied)
 
     def tidied(self):
         self.tidying = False
@@ -264,8 +389,16 @@ class App(tk.Tk):
 
     # Layout ---------------------------------------------------------------------------------------------------------
     def build(self):
+        # (#147) A grid with minimum sizes, not fixed pixel positions: with Windows display scaling the fonts grow, and
+        # so do the panels and the window, instead of the text being cut off.
+        self.columnconfigure(0, minsize=620)
+        self.columnconfigure(1, minsize=368)
+        self.rowconfigure(0, minsize=130)  # the title art
+        # weight: on a screen too short for everything (1080p at 150 %), this row gives up the difference, so the status
+        # line stays on screen; inside the details panel PLAY was packed first and keeps its place too
+        self.rowconfigure(1, minsize=474, weight=1)
         left = tk.Frame(self, bg=INK)
-        left.place(x=36, y=130, width=620, height=474)
+        left.grid(row=1, column=0, sticky="nsew", padx=(36, 0))
         head = tk.Frame(left, bg=INK)
         head.pack(fill="x")
         tk.Label(head, text="SAVES", bg=INK, fg=TEXT, font=font(17, "SemiBold")).pack(side="left")
@@ -278,13 +411,13 @@ class App(tk.Tk):
         self.list_box.pack(fill="both", expand=True)
 
         right = tk.Frame(self, bg=PANEL)
-        right.place(x=656, y=130, width=368, height=474)
+        right.grid(row=1, column=1, sticky="nsew", padx=(0, 36))
         self.right = tk.Frame(right, bg=PANEL, padx=22, pady=18)
         self.right.pack(fill="both", expand=True)
         # PLAY first, so it keeps its place at the bottom whatever else the panel holds
         self.play = Button(self.right, "PLAY", self.launch, "main", 20, (10, 12))
         self.play.pack(side="bottom", fill="x", pady=(12, 0))
-        self.d_name = tk.Label(self.right, bg=PANEL, fg=TEXT, font=font(18, "SemiBold"), anchor="w", wraplength=310, justify="left")
+        self.d_name = tk.Label(self.right, bg=PANEL, fg=TEXT, font=font(18, "SemiBold"), anchor="w", wraplength=wrap(310), justify="left")
         self.d_name.pack(fill="x")
         self.d_mode = tk.Label(self.right, bg=PANEL, fg=ORANGE, font=font(11), anchor="w")
         self.d_mode.pack(fill="x", pady=(2, 8))
@@ -348,28 +481,23 @@ class App(tk.Tk):
         build = (update.installed() or "").replace("public-test-", "") or "dev"
         tag = tk.Label(self, text=f"OFFLINE  PvE   ·   build {build}", bg=INK, fg=ORANGE_DIM, font=font(11, "SemiBold"))
 
-        # Fonts grow with Windows display scaling (the launcher is DPI aware) but these pixel sizes don't: make the panels
-        # as tall as the details panel needs, and the window to match.
-        self.d_name.config(text="Save")  # stand-ins as tall as what refresh() writes there
+        self.status.grid(row=2, column=0, sticky="ew", padx=(36, 0), pady=18)
+        tag.grid(row=2, column=1, sticky="e", padx=(0, 36), pady=18)
+        # The window is as big as the grid needs once the details panel holds stand-ins as tall as what refresh() writes.
+        self.d_name.config(text="Save")
         self.d_mode.config(text="Save")
         self.d_info.config(text="Cash\nXP\nStash\nStarted")
         self.update_idletasks()
-        ph =max(474, right.winfo_reqheight(), self.right.winfo_reqheight())
-        left.place_configure(height=ph)
-        right.place_configure(height=ph)
-        y = 130 + ph + 18
-        h = max(H, y + self.status.winfo_reqheight() + 18)
-        self.status.place(x=36, y=y, width=690)
-        tag.place(x=W - 36, y=y, anchor="ne")
-        self.geometry(f"{W}x{h}")
+        w, h = max(W, self.winfo_reqwidth()), max(H, self.winfo_reqheight())
+        self.geometry(f"{w}x{h}")
 
-        canvas = tk.Canvas(self, width=W, height=h, bg=INK, highlightthickness=0)
-        canvas.place(x=0, y=0)
+        canvas = tk.Canvas(self, width=w, height=h, bg=INK, highlightthickness=0)
+        canvas.place(x=0, y=0, relwidth=1, relheight=1)  # the backdrop, behind the grid
         tk.Misc.lower(canvas)  # behind the panels (Canvas.lower is for its own items)
         back = Image.open(os.path.join(ROOT, "assets", "loading", "backdrop.png")).convert("RGB")
-        scale = max(W / back.width, h / back.height)
+        scale = max(w / back.width, h / back.height)
         back = back.resize((int(back.width * scale) + 1, int(back.height * scale) + 1))
-        back = back.crop((0, 0, W, h))
+        back = back.crop((0, 0, w, h))
         back = ImageEnhance.Brightness(back).enhance(0.28)
         logo = Image.open(os.path.join(ROOT, "assets", "menu", "logo.png")).convert("RGBA")
         logo.thumbnail((400, 100))
@@ -378,9 +506,7 @@ class App(tk.Tk):
         canvas.create_image(0, 0, image=self.back_art, anchor="nw")
 
     def toggle(self, text, var, command):
-        tk.Checkbutton(self.right, text=text, variable=var, command=command, bg=PANEL, fg=TEXT, selectcolor=INK, activebackground=PANEL,
-                       activeforeground=TEXT, font=font(12), anchor="w", justify="left", wraplength=300, bd=0, highlightthickness=0,
-                       cursor="hand2").pack(fill="x")
+        check(self.right, text, var, command=command, anchor="w", justify="left", wraplength=wrap(300)).pack(fill="x")
 
     def refresh(self):
         for w in self.list_box.winfo_children():
@@ -457,19 +583,18 @@ class App(tk.Tk):
             return
         d = Dialog(self, "New save")
         tk.Label(d.body, text="Name", bg=PANEL, fg=MUTED, font=font(11)).pack(anchor="w")
-        name = tk.Entry(d.body, bg=INK, fg=TEXT, insertbackground=ORANGE, relief="flat", font=font(14), width=32)
+        name = entry(d.body)
         name.pack(fill="x", ipady=5, pady=(2, 12))
         name.insert(0, f"Save {len(self.items) + 1}")
         name.select_range(0, "end")
         tk.Label(d.body, text=f"Stash size in rows  ({saves.STASH_H} is normal, {saves.STASH_MIN} to {saves.STASH_MAX})",
                  bg=PANEL, fg=MUTED, font=font(11)).pack(anchor="w")
-        rows = tk.Entry(d.body, bg=INK, fg=TEXT, insertbackground=ORANGE, relief="flat", font=font(14), width=8)
+        rows = entry(d.body, width=8)
         rows.pack(anchor="w", ipady=5, pady=(2, 2))
         rows.insert(0, str(saves.STASH_H))
         tk.Label(d.body, text="This can't be changed later.", bg=PANEL, fg=MUTED, font=font(10)).pack(anchor="w", pady=(0, 10))
         cheat = tk.BooleanVar()
-        tk.Checkbutton(d.body, text="Start with lots of gear and infinite money (for testing)", variable=cheat, bg=PANEL, fg=TEXT, selectcolor=INK,
-                       activebackground=PANEL, activeforeground=TEXT, font=font(12), bd=0, highlightthickness=0).pack(anchor="w")
+        check(d.body, "Start with lots of gear and infinite money (for testing)", cheat).pack(anchor="w")
         tk.Label(d.body, text="A new save starts from scratch: level 1, nothing unlocked,\nand just a pistol in your stash.", bg=PANEL,
                  fg=MUTED, font=font(10), justify="left").pack(anchor="w", pady=(8, 0))
         problem = tk.Label(d.body, text="", bg=PANEL, fg=ORANGE, font=font(11), justify="left")
@@ -510,7 +635,7 @@ class App(tk.Tk):
         grid.pack(anchor="w")
         for i, (key, what, where) in enumerate(CONTROLS):
             tk.Label(grid, text=key, bg=PANEL, fg=ORANGE, font=font(12, "SemiBold"), anchor="w").grid(row=i, column=0, sticky="nw", padx=(0, 14), pady=2)
-            tk.Label(grid, text=what, bg=PANEL, fg=TEXT, font=font(11), anchor="w", justify="left", wraplength=380).grid(row=i, column=1, sticky="w", pady=2)
+            tk.Label(grid, text=what, bg=PANEL, fg=TEXT, font=font(11), anchor="w", justify="left", wraplength=wrap(380)).grid(row=i, column=1, sticky="w", pady=2)
             tk.Label(grid, text=where, bg=PANEL, fg=MUTED, font=font(10), anchor="w").grid(row=i, column=2, sticky="w", padx=(14, 0), pady=2)
         r = d.row()
         Button(r, "Close", d.destroy, "main", 11, (14, 6)).pack(side="left")
@@ -531,7 +656,7 @@ class App(tk.Tk):
         d = Dialog(self, "Import saves")
         tk.Label(d.body, text="Bring saves in from a backup zip (made with Back up), or from an older copy of the mod: pick "
                  "its folder and every save in it is copied here. Nothing at the source is changed.",
-                 bg=PANEL, fg=TEXT, font=font(11), justify="left", wraplength=480).pack(anchor="w")
+                 bg=PANEL, fg=TEXT, font=font(11), justify="left", wraplength=wrap(480)).pack(anchor="w")
 
         def run(path):
             d.destroy()
@@ -554,15 +679,14 @@ class App(tk.Tk):
 
     def report_problem(self):
         d = Dialog(self, "Report a problem")
-        tk.Label(d.body, wraplength=520, text="Makes one zip on your Desktop with the logs from your last game, for a Discord post or a "
+        tk.Label(d.body, wraplength=wrap(520), text="Makes one zip on your Desktop with the logs from your last game, for a Discord post or a "
                  "GitHub issue. Your Windows user name, Steam IDs and in-game name are taken out first.",
                  bg=PANEL, fg=TEXT, font=font(11), justify="left").pack(anchor="w")
         with_save = tk.BooleanVar(value=False)
         with_dump = tk.BooleanVar(value=True)
         for text, var in (("Include the selected save (helps with stash and progress problems)", with_save),
                           ("Include the last crash dump (helps most with crashes; it holds part of the game's memory)", with_dump)):
-            tk.Checkbutton(d.body, text=text, variable=var, bg=PANEL, fg=TEXT, selectcolor=INK, activebackground=PANEL,
-                           activeforeground=TEXT, font=font(11), anchor="w").pack(anchor="w", pady=(8, 0))
+            check(d.body, text, var, size=11, anchor="w").pack(anchor="w", pady=(8, 0))
 
         def make():
             s = self.current()
@@ -584,7 +708,7 @@ class App(tk.Tk):
     def rename(self):
         s = self.current()
         d = Dialog(self, "Rename save")
-        name = tk.Entry(d.body, bg=INK, fg=TEXT, insertbackground=ORANGE, relief="flat", font=font(14), width=32)
+        name = entry(d.body)
         name.pack(fill="x", ipady=5)
         name.insert(0, s["name"])
         name.select_range(0, "end")
@@ -610,7 +734,7 @@ class App(tk.Tk):
 
     def confirm(self, title, text, label, action):
         d = Dialog(self, title)
-        tk.Label(d.body, text=text, bg=PANEL, fg=TEXT, font=font(12), justify="left", wraplength=400).pack(anchor="w")
+        tk.Label(d.body, text=text, bg=PANEL, fg=TEXT, font=font(12), justify="left", wraplength=wrap(400)).pack(anchor="w")
 
         def yes():
             d.destroy()
@@ -654,7 +778,7 @@ class App(tk.Tk):
         d = Dialog(self, "Give items or cash")
         tk.Label(d.body, text=f"Into {s['name']}'s stash. Type to search the item list.", bg=PANEL, fg=MUTED,
                  font=font(11)).pack(anchor="w")
-        search = tk.Entry(d.body, bg=INK, fg=TEXT, insertbackground=ORANGE, relief="flat", font=font(13), width=32)
+        search = entry(d.body, 13)
         search.pack(fill="x", ipady=4, pady=(4, 6))
         box = tk.Frame(d.body, bg=PANEL)
         box.pack(fill="x")
@@ -678,17 +802,17 @@ class App(tk.Tk):
         line = tk.Frame(d.body, bg=PANEL)
         line.pack(fill="x", pady=(8, 0))
         tk.Label(line, text="How many", bg=PANEL, fg=MUTED, font=font(11)).pack(side="left")
-        count = tk.Entry(line, bg=INK, fg=TEXT, insertbackground=ORANGE, relief="flat", font=font(13), width=6)
+        count = entry(line, 13, 6)
         count.pack(side="left", ipady=3, padx=(8, 8))
         count.insert(0, "1")
         tk.Frame(d.body, bg=LINE, height=1).pack(fill="x", pady=(12, 10))
         cash_line = tk.Frame(d.body, bg=PANEL)
         cash_line.pack(fill="x")
         tk.Label(cash_line, text="Cash", bg=PANEL, fg=MUTED, font=font(11)).pack(side="left")
-        cash = tk.Entry(cash_line, bg=INK, fg=TEXT, insertbackground=ORANGE, relief="flat", font=font(13), width=12)
+        cash = entry(cash_line, 13, 12)
         cash.pack(side="left", ipady=3, padx=(8, 8))
         cash.insert(0, str(s["cash"]))
-        note = tk.Label(d.body, text="", bg=PANEL, fg=ORANGE, font=font(11), justify="left", wraplength=400)
+        note = tk.Label(d.body, text="", bg=PANEL, fg=ORANGE, font=font(11), justify="left", wraplength=wrap(400))
         note.pack(anchor="w", pady=(10, 0))
 
         def add():
@@ -841,14 +965,14 @@ class App(tk.Tk):
 
         def work():
             rel = update.newer(update.latest(), current)
-            self.after(0, lambda: self.show_update(rel))
+            self.ui(lambda: self.show_update(rel))
         threading.Thread(target=work, daemon=True).start()
 
     def show_update(self, release):
         self.release = release
         if release and self.update_check_var.get():
             self.update_button.config(text=f"UPDATE TO {release['tag'].replace('public-test-', 'BUILD ')}")
-            self.update_badge.place(x=W - 36, y=40, anchor="ne")
+            self.update_badge.place(relx=1.0, x=-36, y=40, anchor="ne")
         else:
             self.update_badge.place_forget()
 
@@ -863,7 +987,7 @@ class App(tk.Tk):
         size = f" ({rel['size'] / 1e6:.0f} MB)" if rel.get("size") else ""
         tk.Label(d.body, text=f"{rel['tag']} is out; you have {update.installed()}.\n\nUPDATE downloads it{size}, checks it, and "
                               "installs it over this folder. Your saves and launcher settings are kept. The launcher restarts "
-                              "when it's done.", bg=PANEL, fg=TEXT, font=font(12), justify="left", wraplength=400).pack(anchor="w")
+                              "when it's done.", bg=PANEL, fg=TEXT, font=font(12), justify="left", wraplength=wrap(400)).pack(anchor="w")
 
         def page():
             d.destroy()
@@ -887,21 +1011,21 @@ class App(tk.Tk):
 
         def progress(done, total):
             text = f"Downloading {rel['tag']}... {done * 100 // total}%" if total else f"Downloading {rel['tag']}..."
-            self.after(0, lambda: self.say(text))
+            self.ui(lambda: self.say(text))
 
         def work():
             tmp = tempfile.mkdtemp(prefix="pve-update-")
             try:
                 path = update.download(rel, tmp, progress)
-                self.after(0, lambda: self.say("Installing..."))
+                self.ui(lambda: self.say("Installing..."))
                 version = update.install(path)
             except Exception as e:
                 err = str(e) or type(e).__name__
-                self.after(0, lambda: self.update_failed(rel, err))
+                self.ui(lambda: self.update_failed(rel, err))
                 return
             finally:
                 shutil.rmtree(tmp, ignore_errors=True)
-            self.after(0, lambda: self.update_done(version))
+            self.ui(lambda: self.update_done(version))
         threading.Thread(target=work, daemon=True).start()
 
     def update_failed(self, rel, err):
@@ -960,7 +1084,7 @@ class App(tk.Tk):
             self.launch_error = ps_error(result)
             self.started = 0
             return
-        self.after(0, lambda: self.say("Playing. Leave this window open: it saves when you close the game."))
+        self.ui(lambda: self.say("Playing. Leave this window open: it saves when you close the game."))
 
     def watch(self):
         # Tidying up only starts once the game has been seen running: until then "no game" just means it's still starting.
@@ -987,7 +1111,7 @@ class App(tk.Tk):
         except OSError:
             pass
         ps("-File", os.path.join(ROOT, "scripts", "mode.ps1"), "online")
-        self.after(0, self.done)
+        self.ui(self.done)
 
     def done(self):
         self.running = False
