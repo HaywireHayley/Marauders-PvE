@@ -3,7 +3,7 @@
 How a shot from you becomes damage on a bot in this mod, with every number that decides it: health, hit zone multipliers,
 armour ratings for every vest and helmet, base damage per gun, and the shotgun volley. Written 2026-11-18 for issue #123
 (`botdamage.lua`, `hitzones.lua`). The research log with the reasoning is the section "Your shots at bots" in
-[NOTES.md](NOTES.md); this file is the lookup table.
+[NOTES.md](../../NOTES.md); this file is the lookup table.
 
 Every number below says where it came from:
 

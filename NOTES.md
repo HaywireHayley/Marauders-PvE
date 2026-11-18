@@ -25,6 +25,9 @@ Game: `<game folder>` (Steam app 1789480). Engine **UE 4.26.2** (crash context),
   spawn <ClassPath> [dist], dump/sdk/usmap/actors, anything else = console command.
 - `config/` — UE4SS-settings.ini (engine override 4.27 needed for the scan to succeed; hot reload on, Ctrl+R) + mods.txt.
 - `dumps/` — CXXHeaderDump, UE4SS_ObjectDump.txt, Mappings.usmap (taken in the main menu).
+- `docs/internals/`: how the game works inside, read out of the running game: chains of calls with flowcharts, number
+  tables, what is still unknown (index: `docs/README.md`). Start there before probing a system again; the research log
+  with the reasoning stays in this file.
 - `.github/workflows/check.yml` — CI on every push/PR: scripts/luacheck.py over every tracked .lua (Lua 5.4 via lupa, so
   the 200-locals limit too) and py_compile over every .py/.pyw. Needs no game files.
 
@@ -3124,7 +3127,7 @@ to the floor at 60230,114665,-1203", inside a wall.
   CDOs or fresh reads). Not reproduced in a raid yet.
 
 ## Your shots at bots: armour, shotguns, meshes (2026-11-18; botdamage.lua, issue #123 follow up to the hit zones)
-- Every number below, and the full per piece tables (all 24 vests, all 30 helmets, damage per zone, base damage per gun, shotgun volleys, how it was measured, what is still unknown), is in DAMAGE_REFERENCE.md at the repo root. Update that file when a rating or a base damage changes.
+- Every number below, and the full per piece tables (all 24 vests, all 30 helmets, damage per zone, base damage per gun, shotgun volleys, how it was measured, what is still unknown), is in docs/internals/DAMAGE_REFERENCE.md at the repo root. Update that file when a rating or a base damage changes.
 - hitzones.lua gives a bot the player's capsules, so the game's damage function reads a zone. Three things were still missing on a bot, and botdamage.lua does them. main.lua requires it, passes it the raid's bots and calls `BotDamage.frame(ticker)` every frame after the aim section (profiler section "damage"). CFG.PLAYER_DAMAGE = false turns all of it off and leaves the game's flat damage.
 - Armour. The function takes the victim's armour rating off each hit, flat, before the zone multiplier: ((shot damage minus armour) x projectiles) x limb multiplier. A bot has no armour items, only a helmet mesh (component "Helemt") and a vest mesh ("ChestSlot"), so every hit did the full damage. The game's own rifle damage cannot be changed from Lua, so a hit that did exactly a known gun's base damage times 4, 3.5 or 1 (tolerance 0.03) gets min(rating, base) x that multiplier handed back as health. Head is 3.5 on soldiers and raiders, 4.0 was seen on guards. A hit times 0.5 (a leg) is never refunded, see the zones below.
 - Ratings were measured, not taken from guides (2026-11-18, test install). A raider dummy wearing ONE piece (dressed through the game's kit step, pve_roll_kit), 100000 health, 5 m ahead, shot with the STG44 (34 a hit) with the view locked on the part under test; only hits whose line trace met that zone counted, 5 per zone. Vest rating = 34 minus the torso damage; helmet rating = 34 minus the head damage divided by 3.5. Every set of 5 hits was identical and every rating came out a whole number. All 24 vests and 30 helmets in the item table were measured, and the table in botdamage.lua names each by the mesh it puts on (the row it comes from is the comment). A mesh that is not listed is matched by the longest listed name inside it, else counted as 0 and logged once. Vests: 13 (BAHeavyVest, Full Panzer chest and rig), 12 (Full Sherman, Heavy Pilot), 11 (Panzer, Sherman), 10 (CE Full Plate, Full Plate, Pilot Armour), 9 (CE Plate, Half Plate, Plate Rig), 8 (BA Flak, Mk3 Flak), 7 (M1 and M2 Flak), 6 (Leather Jerkin), 5 (Pouch Rig). Helmets run from 14 (Warden Riot) and 13 (Custom PSH) down to 3 (Cloth Cap). The community guide numbers this replaces were 9 for Panzer and 11 for Full Panzer (measured 11 and 13); Heavy Stahlhelm 12 and Security Helmet 7 matched. The raw test output (rows, hits, meshes) is the file armour_test.txt of the test install, not in the repo.
@@ -3138,7 +3141,7 @@ to the floor at 60230,114665,-1203", inside a wall.
 - The throw. A volley throws the bots it hits: 900 cm/s base (x1.25 sawed off, x1.15 Terminator), scaled by the share of pellets that hit and falling to nothing at 1000 cm, over 14 steps 0.12 s apart. A ragdolled or dead bot gets the velocity on all bodies below the pelvis, a live one a nudge (30% sideways, 120 up, once). The numbers are a stand in: the exe has FireImpulse, DamageImpulse and bHasKnockback strings, but the properties read back empty.
 - Meshes. A bot's helmet, vest and backpack are skeletal meshes of their own, and they block the weapon traces like the body does. hitzones.lua frees only the body mesh, on channels 3 and 15, so a bullet that met a helmet first, or a trace on another channel (projectile guns use 9 to 14), stopped on a mesh and did the flat damage: a guard in a Security helmet took 34 and 136 from the same shot. Once a bot has its capsules, every skeletal and static mesh on it ignores the channels the capsules block (3 and 9 to 15). Three bots a second at most; a bot that has no capsules after 5 looks is left alone.
 - Raw findings, kept because they are odd. Bare head, STG44: 416.5 a hit, which is 34 x 3.5 x 3.5, so the head multiplier is applied twice when no helmet is worn (an earlier run mixed in 119, which is 34 x 3.5, never explained). A helmeted head applies it once, the only reading that gives whole number ratings. It may be deliberate (so an unarmoured headshot always kills) or a bug on our side. Bare leg: 8.5 of 34 on the raider dummies (x0.25), and every one of the 54 pieces left it at 8.5. Bare arm and bare torso: 34. Vest rating = 34 minus the torso damage (arm damage was identical); helmet rating = 34 minus the head damage divided by 3.5; arm and leg damage under a helmet matched the bare values.
-- Rating tiers. Vests: 13 BAHeavyVest, FullPanzerChest, FullPanzerRig; 12 the Full Sherman pair and HeavyPilotArmourChest; 11 Panzer and Sherman chests and rigs; 10 CEFullPlate, FullPlateChest, PilotArmourChest; 9 CEPlate, HalfPlateChest, PlateRig; 8 BAFlakVest and the Mk3 flak pair; 7 M1 flak chest and rig, M2 flak chest; 6 LeatherJerkinChest; 5 PouchRig. Helmets run from 3 (Cloth Cap) to 14 (Warden Riot Helmet); the full list by mesh is in the VESTS and HELMETS tables of botdamage.lua and in DAMAGE_REFERENCE.md.
+- Rating tiers. Vests: 13 BAHeavyVest, FullPanzerChest, FullPanzerRig; 12 the Full Sherman pair and HeavyPilotArmourChest; 11 Panzer and Sherman chests and rigs; 10 CEFullPlate, FullPlateChest, PilotArmourChest; 9 CEPlate, HalfPlateChest, PlateRig; 8 BAFlakVest and the Mk3 flak pair; 7 M1 flak chest and rig, M2 flak chest; 6 LeatherJerkinChest; 5 PouchRig. Helmets run from 3 (Cloth Cap) to 14 (Warden Riot Helmet); the full list by mesh is in the VESTS and HELMETS tables of botdamage.lua and in docs/internals/DAMAGE_REFERENCE.md.
 - How a bot's rating is found. The helmet is the skeletal mesh component named "Helemt" and the vest the one named "ChestSlot" (the game's own spelling). The mesh asset name is looked up in the exact tables, then by the longest listed name contained in it, else the piece is rated 0 and one line is logged. Some meshes carry a doubled name (Full_Plate_Skel_01_Full_Plate_Skel_01); the tables hold them as the game reports them. The result is cached per bot (e.armour).
 - Health and head multipliers from the value dump: you 100 HP with head 3.25; BotPawn_C 80 HP, head 3.5; BotPawnMilitary_C 200 HP, head 3.5; guards 200 HP and head 4.0 (from logs, not the dump). Rival and crew bodies get 100 HP (crew plus 10 a level) from rivals.lua. The refund accepts 4, 3.5 and 1 as the multiplier because of the guards.
 - What the value dump holds. The F9 dump of 192 rows is complete: fire rate, stamina, durability, ADS and ammo values per item, and attachment adjustments (all zero except two). It holds NO damage, recoil, spread or pellet property for any gun, which is why base damage comes from logged hits and the patch notes. The Terminator shotgun failed to spawn for the dump.
@@ -3230,6 +3233,32 @@ to the floor at 60230,114665,-1203", inside a wall.
   change (pickup and purge). Same pattern likely behind #74 (salvage gone on docking): check the other OnRep_* there.
 - Careful in bridge probes: calling methods on a possibly-null object wrapper inside pcall crashed the game in UE4SS
   (null read 0x18); check `o ~= nil and o:IsValid()` first.
+
+## Purging salvage while docked is refused (space.lua guardPurgeWhileDocked)
+- The original game never let you purge the hold's salvage while docked (the space door would open into the station).
+  Offline nothing stopped it. Tester report: purge worked while docked.
+- Read live: F on the purge object is SIGISCharacter::ServerInteractComp with the hold's component named "SalvageComp"
+  (RaidUseableDockedSalvageComponent, the prompt) or "SalvageControlLever" (same class, the lever mesh). StartInteraction,
+  ProcessInteraction and ServerInteract did not carry that press. A RegisterHook pre callback that calls `comp:set(nil)`
+  cancels the interaction, so the press does nothing and the prompt stays on screen as in the original.
+- Fix: hook ServerInteractComp once in Space.init. While the player's hold (raid.home) has is_Currently_Docked true and the
+  component belongs to that hold and is one of the two names above, the press is cancelled. Undocked, purging is untouched.
+- Feedback: the same thing a full inventory gives. The HUD overlay's HUD_Main_Widget_C (instance "In Game Overlay Match") has
+  Txt_NotEnoughSpace; set its text, call hud:NoSpaceForItem() (plays Anim_NotEnoughSpace and the error sound), put the
+  original text back after 4.5 s. Rate limited to one per second. Reached natively as SIGISInventoryComponent
+  Client_NoSpaceInInventory -> SIGISHUD BP_NoSpaceForItem -> MatchHUD_C / HUD_Main_Widget_C NoSpaceForItem.
+- Tried and dropped: switching the lever's collision off (the F prompt vanished; tester wanted it kept) and
+  PlayerController:ClientMessage (text did not show). HUD_Message_SubWidget_C works but sits small in the top right
+  with no sound.
+- Also learned while testing salvage: a destroyed actor still passes IsValid and shows in FindAllOf until garbage
+  collection (about every 60 s) and reads location 0 0 0, so check the location when watching wrecks.
+  K2_TeleportTo returns false without an error when the destination overlaps geometry; use
+  K2_SetActorLocationAndRotation(loc, rot, false, {}, true) and verify the new position.
+  Salvage survived docking for menu spawned and level wrecks (issue 74 not reproduced there).
+- Tested in game: docked press shows the warning and sound and does nothing, undocked purge works.
+
+The whole chain (pickup, purge, docking, the Blueprint findings, the HUD refusal route and how it was dumped) has its own
+reference with flowcharts: [docs/internals/SALVAGE_CHAIN.md](docs/internals/SALVAGE_CHAIN.md).
 
 ## Linux / Steam Deck via Proton (issue 127; scripts/pvemode.py, linux/)
 - Design (the issue's option B): Marauders' Steam launch option `"<project>/linux/marauders-offline.sh" %command%`

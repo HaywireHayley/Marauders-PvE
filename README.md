@@ -180,7 +180,7 @@ the game crashed, and your build number. Your Windows user name, Steam ID and in
 Everything below is for working on the mod itself. To just play, use the download above.
 
 New here? Read [CONTRIBUTING.md](CONTRIBUTING.md) for how to send changes, and `NOTES.md` for how everything works
-(it's the full research log, newest findings at the bottom of each section). Every damage and armour number (health, hit zones, vest and helmet ratings, base damage per gun, shotguns) is in [DAMAGE_REFERENCE.md](DAMAGE_REFERENCE.md). Credits are in [CREDITS.md](CREDITS.md).
+(it's the full research log, newest findings at the bottom of each section). Every damage and armour number (health, hit zones, vest and helmet ratings, base damage per gun, shotguns) is in [docs/internals/DAMAGE_REFERENCE.md](docs/internals/DAMAGE_REFERENCE.md). Credits are in [CREDITS.md](CREDITS.md).
 
 ## How it works, in one paragraph
 

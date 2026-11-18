@@ -26,7 +26,7 @@ later, the launcher's orange **!** installs this one for you, keeping your saves
 - **Damage on enemies (#123, #154):** helmets and vests now protect the soldiers wearing them, by how good the piece
   is, and head, body and leg hits count differently. Shotguns work: each shot fires its pellets, and armour is taken
   off each one. Hits no longer stop on a bot's helmet, vest or backpack before reaching the body behind. The numbers
-  are in `DAMAGE_REFERENCE.md`.
+  are in `docs/internals/DAMAGE_REFERENCE.md`.
 - **Raid length (#159):** a new launcher setting: 25 minutes (the game's own), 15, 30, 45, 60, 90 or 120 minutes, or
   no limit. It takes effect from your next raid.
 - **Breach prompt in pods (#77):** flying a pod at a ship now shows "BREACH BOOST READY" and "F" BREACH when you're

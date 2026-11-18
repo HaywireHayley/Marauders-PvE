@@ -1,4 +1,4 @@
-"""Turns the armour test's result file into the tables of DAMAGE_REFERENCE.md, and checks them against botdamage.lua:
+"""Turns the armour test's result file into the tables of docs/internals/DAMAGE_REFERENCE.md, and checks them against botdamage.lua:
 python tools/armour_test/summarise.py <armour_test.txt> [--lua mods/PvEDirector/Scripts/botdamage.lua]
 
 The test (tools/armour_test/README.md) writes bridge/armour_test.txt in the install folder. This reads its SUMMARY block, works
