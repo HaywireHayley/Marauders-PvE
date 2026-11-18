@@ -21,9 +21,14 @@ issue number, what was verified and what wasn't).
 - CI (`.github/workflows/check.yml`) runs `scripts/luacheck.py` on every Lua file and compiles every Python file.
 
 ## Checks before a PR
-- Lua: `python scripts/luacheck.py <files>` (needs `pip install lupa`). It catches Lua's **200-locals limit**:
-  `main.lua` is at it. Add new helpers to a module, a table, or as a global function (as `addInteriorNav` does), not
-  as another top-level `local`.
+- Lua: `python scripts/luacheck.py <files>` (needs `pip install lupa`). It catches Lua's **200-locals limit** (active
+  locals in one chunk or function).
+- Where new code goes: in the module that owns that system (`bots.lua` soldiers, `playareas.lua` where bots may go,
+  `loadout.lua` your gear in and loot out, `launch.lua` matchmaking and the loading veil, `space.lua` space maps,
+  `debugactions.lua` the F9 buttons, plus the older `rivals.lua`, `crew.lua`, `minimap.lua`...), or a new module with
+  the same shape (`local M = {}`, `M.init(ctx)` taking main's helpers, `M.setRaid(r)` if it reads the per-raid table
+  and listed in main.lua's `shareRaid`, `return M`). `main.lua` keeps only the director: CFG, onTick, update, hooks and
+  keys (101 of its 200 locals in use, 2026-11-17). No globals to dodge the limit.
 - Python: `python -m py_compile <files>`. The launcher can be driven headless the way `launcher/test_launcher.py`
   does it (it screenshots the window and dialogs).
 - In game is the real test. Use a throwaway save (the launcher's new-save dialog, "lots of gear" for a cheat save),

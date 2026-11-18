@@ -3197,3 +3197,41 @@ to the floor at 60230,114665,-1203", inside a wall.
   pvenet's WinHTTP redirect work under Wine, does the Shipping exe start without EAC under Proton, where the prefix keeps
   Saved/ (crash reports, GameUserSettings.ini). Not done: a Linux GUI launcher (the Tk one is Windows-only), report.py
   in the prefix, a Steam Input layout.
+
+## main.lua and its modules (refactor, 2026-11-17)
+- Why: main.lua had 200 active locals in its chunk, Lua 5.4's limit, so new helpers went in as globals (addInteriorNav,
+  relaySalvage for #134, godMode, PveResetRaid, PVE_patchFriends, PveMenuBusy...) or into the `Aux` table. Measured by
+  appending locals until load() refuses: 200 before, 101 after.
+- Moved verbatim (comments with their code) into modules with the usual shape (`local M = {}`, `M.init(ctx)`, `return M`):
+  - `bots.lua`: sections 2-6 (KINDS, wake/arm/spawnBot, factions and foes, reapDead, parking, patrols, noises, cover,
+    combatHints, updateBots, animate, trackTargets) and station garrisons (spawnGarrison, spawnQueued). The old
+    `Aux.parked/openLog/botShot/advancePoint/isMelee/meleeHints/pathLen/longWay` are `M.*` there.
+  - `playareas.lua`: where bots may go (sealed, offLimits) and the old `Aux.inBox/findAll/scan/mapPlayAreas/rescan`.
+  - `loadout.lua`: ensureHud, applyLoadout, the donor-soldier gun, floor loot, extractNow, the extraction hooks and the
+    back-to-menu step (`returnAfterExtract`, called where that block sat in update).
+  - `launch.lua`: matchmaking (onStartMatchmaking, the captain button, launchMatch, its mm/launching/launchShip state)
+    and the space-map loading veil (veilUntilAboard). onTick asks `Launch.busy()` and `Launch.fire()`.
+  - `space.lua`: pod guns, docking hooks, level effects, key card, sun, the interior navmesh (addInteriorNav,
+    startSpaceNav), relaySalvage and updateSpace (`Space.update`).
+  - `debugactions.lua`: god mode and the F9 buttons (Debug.init).
+- The per-raid table: resetRaid replaces `raid`, so every module keeps its own reference and main's `shareRaid()` hands
+  the new table to each (`M.setRaid`) right after the reset. A new module that reads `raid` needs adding to that list.
+  (The older modules still take a `raid = function() return raid end` getter; both work.)
+- Kept in main.lua: CFG, valid/log/dist helpers, the patch DLL entry points, ragdoll settling, gc and the profiler,
+  onTick, the land navmesh (startNav, navMesh, navReadyAt), footstep/friends patches, resetRaid, update (lobby stash
+  rows, input on arrival, flag files), the gunfire/whizz/death hooks and the keys. `Aux` now only holds `due` (shared
+  with the modules as `ctx.aux`) and `unlessTyping`.
+- Globals made locals again: Out, GearScale, the menu helpers (Quit, InvKeys, LobbyLabel, InvQol), onTick's state
+  (`tick.world/menu/menuSince/...`), resetRaid, patchFriendsRefresh, the mouse check, godMode, addInteriorNav,
+  relaySalvage. Still globals on purpose: PveMapPick and PveGuild (lobbylabel.lua reads them), Hire, Crew, CrewLobby,
+  Missions (other modules read them), PVE_PROF/PVE_ALLOC/PVE_GC (profiler, bridge/dir_eval.lua).
+- Verified: luacheck on every file; a scan for names each module reads but doesn't declare (only the globals above);
+  every line of the old main.lua is in the new files apart from the renamed call sites; main.lua and every module load
+  under lupa with UE4SS stubbed, registering the same 27 hooks, key binds and loops and logging the same lines as before
+  (only the order of hook registration differs).
+- In game (2026-11-17, throwaway cheat save, the branch's Lua copied over the game's): login and lobby; lobby launch
+  button -> matchmaking -> Space_Alpha, veil, loadout, floor loot, key card, play areas, space navmesh, aboard after 19 s;
+  a rival boarded (bridge/rivals_board), took cover, peeked, switched to the crewmate, was killed; F9 extract -> main
+  menu. Spaceport_01 land raid: navmesh, 8 soldiers, donor gun and ammo, god mode on/off, F9 spawn soldier, a fight with
+  cover and a bot reload, F9 extract with 3 items. No Lua errors in UE4SS.log. Note: bridge/debug_cmd is only read in
+  a raid (update returns early in the lobby), so its "testraid" does nothing from the menu, as before.
