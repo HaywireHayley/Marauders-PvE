@@ -22,6 +22,15 @@ import report
 import saves
 import update
 
+# Linux / Steam Deck (issue #127): Steam starts the game through the launch option (linux/marauders-offline.sh ->
+# scripts/pvemode.py steam-run), which switches the folder offline, runs the stand-in, and puts everything back when the
+# game closes. There the launcher manages saves and settings, and its PLAY picks the save and asks Steam to start the game.
+IS_WIN = os.name == "nt"
+if not IS_WIN:
+    sys.path.insert(0, os.path.join(saves.ROOT, "scripts"))
+    import pvemode
+STEAM_APPID = "1789480"  # Marauders (steamapps/appmanifest_1789480.acf)
+
 ROOT = saves.ROOT
 GAME_EXE = "RaidGame-Win64-Shipping.exe"
 FEMALE_SETTING = os.path.join(ROOT, "config", "female_player.txt")
@@ -107,6 +116,8 @@ def tasklist_has(image, shown):
 
 
 def game_running():
+    if not IS_WIN:
+        return pvemode.game_running()
     return tasklist_has(GAME_EXE, GAME_EXE[:20])  # tasklist cuts long names to 25 characters
 
 
@@ -118,13 +129,64 @@ def ps_error(result):
 
 
 def steam_running():
+    if not IS_WIN:
+        for pid in os.listdir("/proc"):
+            try:
+                with open(f"/proc/{pid}/comm", encoding="utf-8", errors="replace") as f:
+                    if f.read().strip() in ("steam", "steamwebhelper"):
+                        return True
+            except OSError:
+                continue
+        return False
     return tasklist_has("steam.exe", "steam.exe")
+
+
+def open_url(url):
+    """steam:// links and folders, with the desktop's handler."""
+    if IS_WIN:
+        os.startfile(url)
+    else:
+        subprocess.Popen(["xdg-open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def reveal(path):
+    """Shows a file in the file manager (Linux: opens its folder)."""
+    try:
+        if IS_WIN:
+            subprocess.Popen(["explorer", "/select,", path])
+        else:
+            open_url(os.path.dirname(path))
+    except OSError:
+        pass
+
+
+def linux_launch_option():
+    """Whether Steam's launch option for Marauders runs linux/marauders-offline.sh, read from every Steam user's
+    localconfig.vdf: True, False, or None when there's no Steam config to tell from."""
+    found = None
+    for root in pvemode.steam_roots():
+        users = os.path.join(root, "userdata")
+        for user in (os.listdir(users) if os.path.isdir(users) else []):
+            try:
+                with open(os.path.join(users, user, "config", "localconfig.vdf"), encoding="utf-8", errors="replace") as f:
+                    text = f.read()
+            except OSError:
+                continue
+            found = False
+            at = text.find('"' + STEAM_APPID + '"')
+            while at >= 0:
+                if "marauders-offline.sh" in text[at:at + 3000].split("}", 1)[0]:
+                    return True
+                at = text.find('"' + STEAM_APPID + '"', at + 1)
+    return found
 
 
 def preflight():
     """Why PLAY can't work right now, in words a player can act on; None when everything it needs is in place.
     Without this a missing piece only showed as "The game didn't start" after START_TIMEOUT."""
     game = game_folder()
+    if not os.path.isfile(os.path.join(game, "RaidGame", "Binaries", "Win64", GAME_EXE)) and not IS_WIN:
+        return f"Can't find the game in {game}. Run linux/install.sh again (or set config/game_path.txt)."
     if not os.path.isfile(os.path.join(game, "RaidGame", "Binaries", "Win64", GAME_EXE)):
         return f"Can't find the game in {game}. Run Install.bat again (developers: set config\\game_path.txt)."
     for need in ("dwmapi.dll", "UE4SS.dll", "Mods"):
@@ -136,6 +198,8 @@ def preflight():
 
 
 def stop_standin():
+    if not IS_WIN:
+        return  # on Linux pvemode.py steam-run starts and stops it
     ps("-Command", "Get-CimInstance Win32_Process -Filter \"Name LIKE 'python%.exe'\" | Where-Object { $_.CommandLine -match "
                    "'nakama_standin' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }")
 
@@ -273,12 +337,29 @@ class App(tk.Tk):
         self.after(50, self.pump)
         icon = os.path.join(ROOT, "assets", "launcher", "icon.ico")
         if os.path.exists(icon):
-            self.iconbitmap(icon)
+            try:
+                if IS_WIN:
+                    self.iconbitmap(icon)
+                else:  # (X11 Tk can't read .ico as a bitmap)
+                    self.icon_image = ImageTk.PhotoImage(Image.open(icon))
+                    self.iconphoto(True, self.icon_image)
+            except (tk.TclError, OSError):
+                pass
         saves.adopt_existing()
         # A save still marked active means a launcher was closed while its game ran: finish that game's tidy-up now.
         left_playing = saves.active() is not None
         playing = game_running()
-        if not playing:
+        if not IS_WIN:
+            # Linux: Steam's launch option (pvemode.py steam-run) activates and settles saves, and may be starting a game
+            # right now. Only a game left offline a while ago with nothing running is put back (as its next start would).
+            left_playing = False
+            try:
+                stale = time.time() - os.path.getmtime(pvemode.DIRTY) > START_TIMEOUT
+            except OSError:
+                stale = False
+            if stale and not playing:
+                pvemode.recover()
+        elif not playing:
             saves.settle()
         self.selected = None
         self.running = False
@@ -364,7 +445,10 @@ class App(tk.Tk):
             shutil.copyfile(GAME_LOG, os.path.join(ROOT, "backend", "last_game.log"))
         except OSError:
             pass
-        ps("-File", os.path.join(ROOT, "scripts", "mode.ps1"), "online")
+        if IS_WIN:
+            ps("-File", os.path.join(ROOT, "scripts", "mode.ps1"), "online")
+        else:
+            pvemode.recover()
         self.ui(self.tidied)
 
     def tidied(self):
@@ -461,7 +545,8 @@ class App(tk.Tk):
                  sliderrelief="flat", sliderlength=18, width=10, cursor="hand2").pack(fill="x", pady=(0, 6))
         self.share_label.config(text=f"{self.share_var.get()}%")
         self.borderless_var = tk.BooleanVar(value=self.read_borderless())
-        self.toggle("Borderless fullscreen", self.borderless_var, self.toggle_borderless)
+        if IS_WIN:  # (launch-offline.ps1 applies it; on Linux the game's own video settings do)
+            self.toggle("Borderless fullscreen", self.borderless_var, self.toggle_borderless)
         self.skip_intro_var = tk.BooleanVar(value=self.read_skip_intro())
         self.toggle("Skip the intro video", self.skip_intro_var, self.toggle_skip_intro)
         self.unlock_looks_var = tk.BooleanVar(value=self.read_unlock_looks())
@@ -650,7 +735,7 @@ class App(tk.Tk):
         except OSError as e:
             return self.say(f"Couldn't back up: {e}")
         self.say(f"Backed up to {os.path.basename(path)} (Desktop). IMPORT brings it back.")
-        subprocess.Popen(["explorer", "/select,", path])
+        reveal(path)
 
     def import_saves(self):
         d = Dialog(self, "Import saves")
@@ -698,7 +783,7 @@ class App(tk.Tk):
                 return self.say(f"Couldn't make the report: {e}")
             d.destroy()
             self.say(f"Report saved: {os.path.basename(path)} ({len(files)} files). Attach it to your Discord post or issue.")
-            subprocess.Popen(["explorer", "/select,", path])
+            reveal(path)
 
         r = d.row()
         Button(r, "Cancel", d.destroy, size=11, pad=(14, 6)).pack(side="left", padx=(0, 8))
@@ -1058,7 +1143,7 @@ class App(tk.Tk):
         problem = preflight()
         if problem and not steam_running() and problem.startswith("Start Steam"):
             try:  # (#98) start it for you rather than only saying so
-                os.startfile("steam://open/main")
+                open_url("steam://open/main")
                 self.say("Starting Steam... press PLAY again once it's up.")
             except OSError:
                 self.say(problem)
@@ -1073,7 +1158,27 @@ class App(tk.Tk):
         s = self.current()
         self.show_selected()
         self.say(f"Starting {s['name']}...")
-        threading.Thread(target=self.start_game, args=(s["id"],), daemon=True).start()
+        threading.Thread(target=self.start_game if IS_WIN else self.start_game_linux, args=(s["id"],), daemon=True).start()
+
+    def start_game_linux(self, sid):
+        """Linux: the launch option does the rest (pvemode.py steam-run plays the save named in config/linux_save.txt)."""
+        if linux_launch_option() is False:
+            self.launch_error = ("Steam's launch option for Marauders isn't set: run linux/install.sh and paste the line it "
+                                 "prints into Marauders > Properties > Launch options.")
+            self.started = 0
+            return
+        with open(pvemode.SAVE_SETTING, "w", encoding="utf-8") as f:
+            f.write(sid + "\n")
+        if pvemode.setting(pvemode.STEAM_SETTING, "on") == "off":
+            with open(pvemode.STEAM_SETTING, "w", encoding="utf-8") as f:
+                f.write("on\n")  # PLAY here means the mod, even if the launch option was switched to the stock game
+        try:
+            open_url("steam://rungameid/" + STEAM_APPID)
+        except OSError as e:
+            self.launch_error = f"couldn't ask Steam to start the game ({e})."
+            self.started = 0
+            return
+        self.ui(lambda: self.say("Steam is starting the game. Leave this window open: it shows when your game is saved."))
 
     def start_game(self, sid):
         stop_standin()
@@ -1104,6 +1209,15 @@ class App(tk.Tk):
 
     def finish(self):
         time.sleep(3)
+        if not IS_WIN:
+            # steam-run settles the save and puts the folder back once the game is gone: wait for it to finish
+            deadline = time.time() + 60
+            while os.path.exists(pvemode.DIRTY) and time.time() < deadline:
+                time.sleep(1)
+            if os.path.exists(pvemode.DIRTY):
+                pvemode.recover()
+            self.ui(self.done)
+            return
         stop_standin()
         saves.settle()
         try:  # going back to stock removes the game log: this keeps the last one
@@ -1128,7 +1242,21 @@ class App(tk.Tk):
 def single_instance(wait=0.0):
     """True if this is the only launcher. A second one used to tidy up a game the first had just started (settle()
     before the game was up), so that raid's progress never reached the save. A second launch now brings the first
-    window forward and quits. Windows drops the mutex when the process ends, even in a crash."""
+    window forward and quits. Windows drops the mutex when the process ends, even in a crash; on Linux the lock file's
+    lock goes with the process the same way (the window can't be brought forward there: it says so instead)."""
+    if not IS_WIN:
+        import fcntl
+        single_instance.handle = open(os.path.join(tempfile.gettempdir(), "marauders-offline-launcher.lock"), "w")
+        deadline = time.time() + wait
+        while True:
+            try:
+                fcntl.flock(single_instance.handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return True
+            except OSError:
+                if time.time() >= deadline:
+                    print("The Marauders Offline launcher is already open.")
+                    return False
+                time.sleep(0.25)
     kernel, user = ctypes.windll.kernel32, ctypes.windll.user32
     kernel.CreateMutexW.restype = ctypes.c_void_p
     deadline = time.time() + wait

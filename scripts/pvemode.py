@@ -411,6 +411,33 @@ def steam_run(argv):
 
 
 # Commands ------------------------------------------------------------------------------------------------------------
+def desktop_entry(apps=None):
+    """Adds "Marauders Offline" to the desktop's app menu (Desktop Mode on a Deck): the launcher window, for saves and
+    settings. Only when Tk and Pillow are there (SteamOS ships neither); PLAY in Steam works without it. Returns what to
+    tell the player."""
+    missing = []
+    for module in ("tkinter", "PIL.ImageTk"):
+        try:
+            __import__(module)
+        except ImportError:
+            missing.append({"tkinter": "Tk (python3-tk)", "PIL.ImageTk": "Pillow (python3-pil, python3-pil.imagetk)"}[module])
+    if missing:
+        return ("\nThe launcher window (saves and settings, Desktop Mode) needs " + " and ".join(missing) + ", which this "
+                "Python doesn't have. Not needed to play: use the commands below for saves.")
+    apps = apps or os.path.join(os.path.expanduser("~"), ".local", "share", "applications")
+    os.makedirs(apps, exist_ok=True)
+    path = os.path.join(apps, "marauders-offline.desktop")
+    icon = os.path.join(ROOT, "assets", "launcher", "icon.ico")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("[Desktop Entry]\nType=Application\nName=Marauders Offline\n"
+                "Comment=Saves and settings for the Marauders offline mod\n"
+                f'Exec="{sys.executable}" "{os.path.join(ROOT, "launcher", "launcher.pyw")}"\n'
+                f'Path={ROOT}\n' + (f"Icon={icon}\n" if os.path.exists(icon) else "") +
+                "Terminal=false\nCategories=Game;\n")
+    os.chmod(path, 0o755)
+    return f"\nAdded 'Marauders Offline' to your app menu ({path}): the launcher window for saves and settings."
+
+
 def cmd_install():
     problem = path_problem(ROOT)
     if problem:
@@ -432,6 +459,7 @@ def cmd_install():
     if not LINUX:
         say("\nOn Windows, use Install.bat and the launcher instead.")
         return
+    say(desktop_entry())
     say("\nLast step, in Steam: Marauders > Properties > General > Launch options, paste this line:\n\n"
         f'    "{wrapper}" %command%\n\n'
         "Then PLAY in Steam starts the offline mod (from Game Mode too), and the game folder goes back to stock when\n"
