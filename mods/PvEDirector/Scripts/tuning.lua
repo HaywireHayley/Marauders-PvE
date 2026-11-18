@@ -298,7 +298,10 @@ local function save()
     local f = io.open(SAVE_FILE, "w")
     if not f then return X.log("tuning: can't write " .. SAVE_FILE) end
     for _, r in ipairs(rows) do
-        if get(r) ~= r.default then f:write(r.id, "=", tostring(get(r)), "\n") end
+        -- a raid condition (conditions.lua) changes some settings for one raid: what's saved is your own value
+        local v = get(r)
+        if X.base then v = X.base(r.t, r.k, r.i, v) end
+        if v ~= r.default then f:write(r.id, "=", tostring(v), "\n") end
     end
     f:close()
 end
@@ -340,6 +343,14 @@ function T.init(ctx)
     local n = load()
     loadMine()
     X.log(("tuning: %d settings, %d changed from the defaults, %d saved presets (F3 in a raid)"):format(#rows, n, #mine))
+end
+
+-- A setting by its id (as in config/ai_tuning.txt, e.g. "Crews:BARON" or "Spawns:CREW_SIZE.2"): the table, key and
+-- index it lives at, for conditions.lua. nil if there's no such setting.
+function T.row(id)
+    for _, r in ipairs(rows) do
+        if r.id == id or r.oldId == id then return r.t, r.k, r.i end
+    end
 end
 
 -- The menu ------------------------------------------------------------------------------------------------------

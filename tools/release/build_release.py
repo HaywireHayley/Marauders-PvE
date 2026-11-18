@@ -37,6 +37,7 @@ FILES = [  # (from, to), relative to the dev tree and the release
     ("native/pvenet.dll", "native/pvenet.dll"),
     ("native/pvepatch.dll", "native/pvepatch.dll"),
     ("config/UE4SS-settings.ini", "config/UE4SS-settings.ini"),
+    ("config/raid_conditions.txt", "config/raid_conditions.txt"),  # the raid conditions (#78, conditions.lua)
     ("tools/ue4ss/dwmapi.dll", "tools/ue4ss/dwmapi.dll"),
     ("tools/ue4ss/UE4SS.dll", "tools/ue4ss/UE4SS.dll"),
     ("tools/release/install.ps1", "scripts/install.ps1"),

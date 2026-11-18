@@ -41,6 +41,7 @@ local function onStartMatchmaking(kind)
             or CFG.MAP_POOL
         local map = pool[math.random(#pool)]
         if PveMapPick and PveMapPick.map() then map = PveMapPick.map() end -- picked in the REGION box (mappick.lua)
+        if Conditions and Conditions.map() then map = Conditions.map() end -- a raid condition's fixed map (#78)
         local pin = io.open(MAP_PIN, "r")
         if pin then map = pin:read("l") or map pin:close() end
         mm = { at = os.clock() + CFG.MM_SEARCH_SECONDS, map = map, kind = kind }

@@ -224,7 +224,11 @@ local function spawnShip(pc, c, at)
     if #spots == 0 then spots = S.shipSpawns end
     if #spots == 0 and not at then return false end
     at = at or pick(spots)
-    local design = c.baron and R.baron.design() or weighted(CFG.HULLS)
+    local design = c.baron and R.baron.design()
+    if not design and c.hullRow then -- a raid condition's guaranteed hull (#78, rivalcrews.lua makeCrews)
+        for _, d in ipairs(CFG.HULLS) do if d.row == c.hullRow then design = d end end
+    end
+    design = design or weighted(CFG.HULLS)
     local cls = loadClass("/Game/Blueprints/Ships/" .. design.pawn)
     local tree = lib(CFG.SHIP_TREE)
     if not (cls and valid(tree)) then return false end
