@@ -2,6 +2,30 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 17 Nov 2026, build 8 (`public-test-20261117.8`)
+
+Fixes the **crash on leaving a raid**, plus the salvage hold door, giving items to a save, a rebuilt launcher and
+Linux / Steam Deck support. On build 1 or later from today, the launcher's orange **!** installs this one for you; from
+yesterday's build 4 or older, download it by hand.
+
+### Changes
+
+- **Crash on leaving a raid (#133):** `EXCEPTION_ACCESS_VIOLATION reading address 0x0000000000000268` on extracting,
+  dying, leaving through a space gate or quitting to the main menu, for anyone with hired crew. The crew portraits in
+  the lobby kept the old lobby world alive through the raid, and loading the menu again picked up that dead world. Your
+  save wasn't corrupted: the game crashed before it could save what you brought back. No need to delete or remake
+  your profile.
+- **Salvage hold (#134):** after you take a wreck's salvage aboard, the hold's door now opens and the lever panel shows
+  it, so you can loot the salvage.
+- **Launcher:** give items or cash to a save (#136); fixed garbled text from Windows on non-English systems (#139);
+  window scaling, fonts, keyboard use and proper dialogs reworked (#147).
+- **Linux / Steam Deck (#127):** play through Proton with a Steam launch option. See the README. Not tested under real
+  Proton yet, so tell us how it goes.
+- **Bots** animate at your display's frame rate (up to 120 Hz), so walking and aiming look smooth on fast monitors.
+- **F9 gun list:** the gun variants (Terminator, Heavy Liberator, Thompson Special and more) can be given for testing.
+- Under the hood: the mod's two biggest scripts are split into smaller modules, and checks that stop this kind of
+  crash from coming back. If something that used to work broke, send a REPORT from the launcher.
+
 ## Public test, 17 Nov 2026, build 7 (`public-test-20261117.7`)
 
 Another **airlock crash** fixed, a **crew gunner** that actually turns the guns, and a smoother menu. On build 1 or later
