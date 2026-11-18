@@ -3609,3 +3609,69 @@ reference with flowcharts: [docs/internals/SALVAGE_CHAIN.md](docs/internals/SALV
 - Open: Tinplate, snow and ground impacts (no map tried; the log names any surface that has no hole once); whether the game's own
   marks double up with ours on some surface (none reported); some shotgun gunshot sounds are silent from one spot (the weapon's
   own sound, not looked at); the F3 Effects tab and the main.lua wiring are only checked by luacheck until the next restart.
+
+## Co-op join: the login never creates a player (2026-11-18; native/pvetrace.dll, tools/profile/dump_image.py)
+
+The joining client's connection is accepted and dropped ~3 s later. Measured on the host with
+array-length-only probes (10 Hz), reproduced many times:
+- `world.NetDriver.ClientConnections` 0 -> 1 -> 0 in ~3 s; `GameState.PlayerArray` **stays 1**,
+  so the server never creates a PlayerState for the joiner. Map load, the bare `PlayerController`
+  the client spawns at +5 s, and the bounce to MainMenu are all consequences, not causes.
+- `GameModeBase:HandleStartingNewPlayer` fires for the host's own entry every raid but **never**
+  for a joiner (control is the same hook). `RestartPlayer` registers but never fires even for the
+  local player, so a non-firing `RestartPlayer` proves nothing: UE4SS only sees ProcessEvent calls.
+- Never fire either: `GameLiftPlayerController:ServerAcceptPlayer` / `ServerRemovePlayer`,
+  every EAC/SIGIS RPC, `K2_OnLogout`, any kick RPC.
+- Tried and did NOT change it: `player_battle_session_id=<the host's MatchSessionID>`, `player_id`,
+  `UseDebugLogin=true` on the client's game instance, and filling `SIGISGameMode.ConnectedPlayerIds`
+  (@gamemode+0x3D8, empty on a listen host, MaxPlayers 50) from native code before the join.
+  The last one is "very likely not the gate", not disproven: UE4SS cannot stringify array elements,
+  so the ids the engine sees were never verified.
+- Next instrument: the login lives in native code with no UFunction wrapper. The vtable route is
+  mapped (below); a trampoline hook on the candidate is what will confirm it, because the login
+  rejection leaves no observable RPC.
+
+**Correction to "Co-op host+join attempt" above:** the UTF-16 option strings at 0x40998c8 are NOT
+join options the exe parses. They sit next to `...erController::HandleOnUrlChanged` with `?code=` and
+`?error=` beside them, and nothing in the loaded image references them - no rip-relative reference in
+`.xtext`/`.xcode`/`.arch` (2- and 3-byte forms) and no absolute pointer in any data section. They are
+the CEF login page's result parameters. Experiments varying PID/psid/CREW/CPT/NUM could not have worked.
+
+## Reading this exe (2026-11-18)
+
+- **The file is packed; only memory has code.** `.xtext`/`.xcode`/`.arch` are encrypted on disk:
+  disassembling a known code RVA in the file gives nonsense (`and al,0x88`), the same RVA in the
+  live process gives real code. All analysis must read the running process (or a dump of it).
+- **`.data2` holds code too** - not just data. Small stubs like `ret 0` (0x7e0290, the shared empty
+  override), `mov al,1; ret` (0x7e0320), `xor al,al; ret` (0x7e0330) live there, so "section name"
+  does not tell you thunk vs body.
+- **UFunction + 0xD8 is `Func`,** and it points at a `.data2` thunk (`jmp <abs>`) that jumps to the
+  real implementation in `.xcode`. `HandleStartingNewPlayer`: UFunction -> 0x3588a80 -> **0xd7b8ab0**.
+  UFunction objects are allocated 0xE0 apart, so +0xE0 is the *next* object's vtable, not a field.
+  This converts "find a function in a 246 MB blob" into "read one pointer".
+- **GameMode vtable map** (`ShootingRangeGameMode_C`, instance vtable RVA **0x4599ed8**, 420 slots):
+  396 resolve; most are tiny `.data2` overrides. Only slots **0** (0xa0518f0) and **23** (0xc9f9b10)
+  reach substantial `.xcode` code. `PreLogin`/`Login` are not identified yet; shape-matching by
+  argument registers was inconclusive (a first pass gave a false positive at slot 96 because the
+  scanner ran past the function's `ret` into the next function - bound the scan at `ret`/`int3`).
+- **Tools fixed:** `tools/profile/refs.py` and `strfind.py` only scanned `.data2`/`.xcode` for
+  references, so they found nothing on this build; both now include `.xtext` and `.arch`.
+  `procmem` opens its process handle at import - reload it after the game restarts or reads fail at
+  the old base. New: `tools/profile/dump_image.py` writes the live image to a PE (ImageBase patched
+  to the runtime base) for Ghidra.
+
+## Probing hazards that cost crashes (2026-11-18)
+
+- **Do not dereference a fresh `UNetConnection`.** Reading `conn.State` / `conn.OwningActor` at the
+  moment a client connects killed the host twice (crash dumps 15:16:09 and 15:18:56,
+  `EXCEPTION_ACCESS_VIOLATION`, 37 UE4SS frames above the game's). `pcall` cannot catch it.
+  Reading only array *lengths* (`ClientConnections:GetArrayNum()`, `GameState.PlayerArray:GetArrayNum()`)
+  is safe and was enough for every measurement above.
+- **Never assign a Lua table to a `TArray` UPROPERTY** (`gm.ConnectedPlayerIds = {...}` kills the
+  game instantly). Filling such an array needs native code (`native/arrwrite.c` pattern: point the
+  array's Data at a static block, set Num/Max).
+- **A probe calling `FindFirstOf` at 1 Hz during a load kills or freezes the second client** (full
+  object scan, 30-45 ms each). Re-run with the probe off before blaming the game.
+- Harness: the host is shot by its own AI if left alone - `bridge/god.txt` makes it immune.
+  `PvEBridge` goes permanently deaf after a world change (its LoopAsync stops after the first
+  successful hook), and at the splash it only answers with PvEDirector enabled.
