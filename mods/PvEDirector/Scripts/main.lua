@@ -25,10 +25,11 @@ local CFG = {
     POINT_BLANK = 300,       -- a noise this close starts a fight at once
     PERCEIVE_RANGE = 7000,   -- bots size up hostile bodies (you, other factions) within this range
     ANIM_FAR = 6000,         -- bots farther than this from the camera animate the engine's cheap way (not drawn = no pose)
-    ANIM_SLOW_FAR = 4000,    -- bots at peace farther than this from the camera run animate() ANIM_SLOW_HZ a second, not every frame
-    ANIM_SLOW_HZ = 10,
-    ANIM_HZ = 30,            -- every fighting or busy bot (cover, investigating, running) runs animate() this often
-    ANIM_PEACE_HZ = 15,      -- ...and a bot at peace nearer than ANIM_SLOW_FAR this often (gait and posture only change slowly)
+    ANIM_HZ_LOW = 60,        -- every bot, near or far, runs animate() this many times a second...
+    ANIM_HZ_HIGH = 120,      -- ...or this many while the game runs faster than ANIM_HI_FPS (never more: 120 is the ceiling)
+    ANIM_HI_FPS = 120,
+    ANIM_BUDGET = 14,        -- most animate() calls in one frame; bots over it wait for the next frame (a crowd can't stall one)
+    ANIM_PEACE_HZ = 15,      -- aim upkeep of a bot at peace (nothing changes until it has a target, which is caught at once)
     -- Parking (Aux.parked): a guard or soldier at peace farther than PARK_RANGE from you is frozen and skipped until you
     -- come back within 85% of that or it's hurt. 0 = never park.
     PARK_RANGE = 15000,
@@ -1926,7 +1927,7 @@ local function updateBots(pc)
             local dt = math.min(1, now - (e.perceivedAt or now))
             e.perceivedAt = now
             local here = e.updAt or e.bot:K2_GetActorLocation()
-            e.lastAt = here -- trackTargets: how far from the camera (ANIM_SLOW_FAR)
+            e.lastAt = here
             local mine = factionOf(e)
             -- Size up every hostile body within range: the first spotted (nearest first) is the foe; otherwise
             -- the nearest one heard.
@@ -2082,7 +2083,7 @@ end
 -- 0.65 aiming) and overwrites anything we write (post-hooks on BlueprintUpdateAnimation don't fire). Legs
 -- slid whenever the bot moved faster than that. So match the speed to the legs instead: 1.1 → 220, 0.65 → 130.
 local SPEED_PER_LEG_RATE, CROUCH_ANIM_SPEED = 200, 132
-local function animate(e)
+local function animate(e, now)
     local bot = e.bot
     -- Posture, every frame: the tree crouches between updates. In cover only low cover crouches (to hide);
     -- otherwise crouches are cut short by standUntil. (NavAgentProps.bCanCrouch can't be written from Lua.)
@@ -2090,7 +2091,8 @@ local function animate(e)
     local wantCrouch
     if c and c.state ~= "moving" then wantCrouch = c.low and c.state == "hiding"
     elseif c or e.standUntil then wantCrouch = false end
-    if wantCrouch ~= nil and bot.bIsCrouched ~= wantCrouch then
+    local crouched = bot.bIsCrouched -- read once: Crouch() only takes effect on the next movement tick anyway
+    if wantCrouch ~= nil and crouched ~= wantCrouch then
         if wantCrouch then bot:Crouch(false) else bot:UnCrouch(false) end
     end
 
@@ -2135,9 +2137,12 @@ local function animate(e)
     -- (the game's aim modifier holds a 550 run to ~330). Smoothed so the gait doesn't flicker frame to frame.
     local rate = anim.Standing_LegsPlayrate
     if not (rate and rate > 0) then rate = 1.1 end
-    local natural = running and CFG.SPRINT_SPEED or bot.bIsCrouched and CROUCH_ANIM_SPEED or SPEED_PER_LEG_RATE * rate
+    local natural = running and CFG.SPRINT_SPEED or crouched and CROUCH_ANIM_SPEED or SPEED_PER_LEG_RATE * rate
     local want = speed > 30 and math.max(0.6, math.min(CFG.LEG_RATE_MAX, speed / natural)) or 1
-    e.animScale = (e.animScale or 1) + (want - (e.animScale or 1)) * 0.5 -- at ANIM_HZ: settles in ~0.1 s
+    -- settles in ~0.1 s whatever the rate (a half step per 1/30 s)
+    local k = 1 - 0.5 ^ (math.min(now - (e.animAt or now - 1 / 30), 0.2) * 30)
+    e.animAt = now
+    e.animScale = (e.animScale or 1) + (want - (e.animScale or 1)) * k
     mesh.GlobalAnimRateScale = e.animScale
     -- That scale is for the legs. The gun's own montage (bolt, pump, recoil) plays at 1.0 on its mesh, so the arms'
     -- matching montage is held at 1.0 too or the two drift apart while the bot moves.
@@ -2145,15 +2150,17 @@ local function animate(e)
         local m = anim:GetCurrentActiveMontage()
         if valid(m) then anim:Montage_SetPlayRate(m, 1 / e.animScale) end
     end
+    -- The top speed is worked out in `walk` and written once at the end (it was up to four writes and two reads).
+    local walk
     if running then
-        move.MaxWalkSpeed = CFG.SPRINT_SPEED
-    elseif bot.bIsCrouched then
+        walk = CFG.SPRINT_SPEED
+    elseif crouched then
         anim.Crouching_Legs_Playrate = 1
     else
         -- top speed: brisker than the blueprint's slow walk, faster still when strafing in a fight
         local base = ((not c or c.state == "moving") and e.fighting and e.los) and CFG.STRAFE_ANIM_SCALE
             or CFG.MOVE_ANIM_SCALE
-        move.MaxWalkSpeed = SPEED_PER_LEG_RATE * rate * base
+        walk = SPEED_PER_LEG_RATE * rate * base
     end
     -- Stepping between the cover spot and its firing point: fast, with no sideways speed cap (AI.tuneBody's
     -- strafe factor would hold the 60 unit side-step to ~110/s).
@@ -2165,44 +2172,54 @@ local function animate(e)
         move.MaxAcceleration = quick and CFG.PEEK_ACCEL or e.baseAccel
         move.MaxMoveBackAndStrafeSpeed = quick and 1 or (e.mind and e.mind.profile.strafe or 0.6)
     end
-    if quick then move.MaxWalkSpeed = CFG.PEEK_SPEED end
+    if quick then walk = CFG.PEEK_SPEED end
     -- The game slows an aiming bot to half its top speed (measured: forward x 0.5, sideways x 0.5 x the strafe cap),
     -- so fights were walked at 75-95 and strafed at 115-145 while you walk at 280. Every speed above is meant as the
     -- real one. Crouched speed isn't set here each frame, so it's left alone.
-    local crouched = bot.bIsCrouched
     local targeting = not running and not crouched and bot:IsTargeting()
     if targeting then
-        move.MaxWalkSpeed = move.MaxWalkSpeed / CFG.AIM_SLOWDOWN
+        walk = walk / CFG.AIM_SLOWDOWN
     end
     -- No faster than the legs can carry them at LEG_RATE_MAX (the aim slowdown is divided out the same way).
     if not running and not crouched then
         local cap = natural * CFG.LEG_RATE_MAX / (targeting and CFG.AIM_SLOWDOWN or 1)
-        if move.MaxWalkSpeed > cap then move.MaxWalkSpeed = cap end
+        if walk > cap then walk = cap end
     end
+    if walk then move.MaxWalkSpeed = walk end
 end
 
 trackTargets = function()
     if not raid.spawned then return end
     reapDead()
-    -- Bots past ANIM_SLOW_FAR from the camera (where updateBots last saw them) animate ANIM_SLOW_HZ times a second, not
-    -- every frame: animate() is ~a dozen engine reads and writes a bot, and with 20-30 bots in a station it was most of
-    -- the director's 2-3 ms a frame. Posture, speed caps and leg rates a tenth of a second late don't show at that range.
-    -- The rest animate ANIM_HZ times a second: every frame was ~1.2 ms a frame and 3 MB of garbage a second in a
-    -- 20-bot fight (the aim section, profile.txt, 2026-11-14), and the collector stepping through that was worse.
+    -- Every bot animates ANIM_HZ_LOW times a second, ANIM_HZ_HIGH while the game runs faster than ANIM_HI_FPS: the
+    -- pose follows the director's inputs (gait, speed, posture) as often as it can be told apart. The frame rate is
+    -- measured here (smoothed, with a margin so it doesn't flip between the two). A call is ~a dozen engine reads and
+    -- writes (~1.2 ms a frame and 3 MB of garbage a second for 20 bots every frame, profile.txt 2026-11-14), so at
+    -- most ANIM_BUDGET run in one frame, starting where the last frame stopped so no bot starves.
     -- reapDead has just checked every bot in raid.bots is valid and alive and dropped the rest, and nothing is freed
     -- before the frame ends: the loops below don't ask the engine again (two calls per bot per loop, every frame).
     local now = os.clock()
-    local cam = raid.camAt
-    for _, e in ipairs(raid.bots) do
-        if not e.parked then
-            local calm = not (e.fighting or e.cover or e.investigate or e.followRun or e.meleeRun)
-            local far = calm and cam and e.lastAt and dist(e.lastAt, cam) > CFG.ANIM_SLOW_FAR
-            if now >= (e.animNext or 0) then
-                e.animNext = now + 1 / (far and CFG.ANIM_SLOW_HZ or calm and CFG.ANIM_PEACE_HZ or CFG.ANIM_HZ)
-                animate(e)
-            end
+    local dt = now - (raid.trackAt or now)
+    raid.trackAt = now
+    if dt > 0 and dt < 0.25 then raid.fps = raid.fps and (raid.fps + (1 / dt - raid.fps) * 0.05) or 1 / dt end
+    local fps, hz = raid.fps or 60, raid.animHz or CFG.ANIM_HZ_LOW
+    if fps > CFG.ANIM_HI_FPS + 5 then hz = CFG.ANIM_HZ_HIGH elseif fps < CFG.ANIM_HI_FPS - 5 then hz = CFG.ANIM_HZ_LOW end
+    raid.animHz = hz
+    local bots, step = raid.bots, 1 / hz
+    local n, left, from = #bots, CFG.ANIM_BUDGET, raid.animFrom or 0
+    local nextFrom = from + 1
+    for k = 1, n do
+        local e = bots[(from + k - 1) % n + 1]
+        local due = e.animNext or 0
+        if now >= due and not e.parked then
+            if left <= 0 then nextFrom = from + k - 1 break end
+            left = left - 1
+            -- on a grid of 1/hz (not now + 1/hz), so a rate near the frame rate isn't halved by rounding up to a frame
+            e.animNext = due > now - step and due + step or now + step
+            animate(e, now)
         end
     end
+    raid.animFrom = n > 0 and nextFrom % n or 0
     for _, e in ipairs(raid.bots) do
         -- Hide / lean out on time to the frame, not on the 0.5 s update.
         local c = e.cover
@@ -2223,14 +2240,14 @@ trackTargets = function()
             local pawn = foeOf(e)
             if e.inCombat and pawn and state ~= "hiding" and not sprinting then setEnemy(e, pawn) end
         end
-        -- Aim upkeep, ANIM_HZ a second (focus is kept by the controller between calls), or at once when what the bot
+        -- Aim upkeep, hz a second (focus is kept by the controller between calls), or at once when what the bot
         -- should be doing changes. Only the aiming pose follows the aim up and down, and only it plays the arms' firing
         -- montage. The native shooting code turns it on now and then: from the hip a bot shoots at you with its gun
         -- level or pointing down.
         local want = (e.fighting and not sprinting and state ~= "hiding") and true or false
         if alive and (now >= (e.aimNext or 0) or want ~= e.aimWant) then
-            -- (at peace: ANIM_PEACE_HZ, like animate(); nothing changes until want does, which is caught at once)
-            e.aimNext, e.aimWant = now + 1 / ((want or e.fighting) and CFG.ANIM_HZ or CFG.ANIM_PEACE_HZ), want
+            -- (at peace: ANIM_PEACE_HZ; nothing changes until want does, which is caught at once)
+            e.aimNext, e.aimWant = now + 1 / ((want or e.fighting) and hz or CFG.ANIM_PEACE_HZ), want
             local pawn = foeOf(e)
             local aiming = (want and pawn) and true or false
             if e.bot:IsTargeting() ~= aiming then e.bot:ServerSetTargeting(aiming) end

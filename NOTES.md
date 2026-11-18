@@ -3124,3 +3124,23 @@ to the floor at 60230,114665,-1203", inside a wall.
 - The F9 picker only had the base guns, so the variants could not be given for testing. Added 13 rows: Terminator, Heavy Liberator, Heavy MG42, Heavy Thompson, Thompson Special, APS, Custom Mat 49, M712 Special, Sterling Special, Sterling (short), Viper Mk1, Mini Thumper, M1911 G.
 - Kind (0 long gun, 1 pistol) and magazine size for each are checked against assets/saves/items.json (type and max), the same source as the rest of the list. Sterling (short), Mini Thumper and M1911 G are type 1, so they go in the pistol slot.
 - Only the GUNS table changed. No row was removed or edited, and the give path is untouched. These rows were used from the F9 menu in game while testing guns against armoured bots.
+## Bots animate at the display's rate (2026-11-17; main.lua trackTargets and animate)
+- Before: animate() ran CFG.ANIM_HZ (30) times a second for a fighting or busy bot, ANIM_PEACE_HZ (15) for one at peace,
+  and ANIM_SLOW_HZ (10) past ANIM_SLOW_FAR (4000) from the camera. On a 120 or 144 Hz display that is a fraction of the
+  frame rate, so gait, posture and the leg rate stepped. (This replaces the rates in the 2026-11-14 performance notes above.)
+- Now every bot, near or far, runs animate() CFG.ANIM_HZ_LOW (60) times a second, or CFG.ANIM_HZ_HIGH (120) while the
+  game's smoothed frame rate is over CFG.ANIM_HI_FPS (120) plus 5; it drops back to 60 under 115, so it doesn't flip
+  between the two. 120 is the ceiling. The frame rate is measured in trackTargets (the gap between its calls, smoothed).
+- CFG.ANIM_BUDGET (14) caps the animate() calls in one frame. Bots over it wait for the next frame, and the next frame
+  starts where this one stopped (raid.animFrom), so no bot starves and a crowd can't stall one frame. A bot's next time is
+  on a grid of 1/hz (due + step, not now + step), so a rate close to the frame rate isn't halved by rounding up to a
+  whole frame.
+- animate(e, now): crouch is read once; the leg rate smoothing is by time (k = 1 minus 0.5 to the power of dt x 30, dt
+  capped at 0.2 s), so it settles in about 0.1 s at any rate (it was a fixed half step per call, tuned for 30 Hz); the
+  top speed is worked out in a local and written once at the end (it was up to four writes and two reads). The aim
+  upkeep of a fighting bot runs at the same rate; one at peace keeps ANIM_PEACE_HZ.
+- Removed from CFG: ANIM_SLOW_FAR, ANIM_SLOW_HZ, ANIM_HZ. The engine's own cheaper animation past ANIM_FAR (6000) is
+  unchanged.
+- Cost to watch: a call is about a dozen engine reads and writes. With every bot animating every frame the 2026-11-14
+  profile showed about 1.2 ms a frame and 3 MB of garbage a second for 20 bots; the budget bounds it. The cost at 60
+  and at 120 Hz in a full raid was not measured separately: bridge/profile_on puts the aim section in profile.txt.
