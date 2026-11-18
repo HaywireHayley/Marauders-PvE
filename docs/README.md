@@ -14,6 +14,7 @@ probe the same system again.
 | --- | --- |
 | [SALVAGE_CHAIN.md](internals/SALVAGE_CHAIN.md) | Salvage from wreck to hold to airlock, offline behaviour, docking, the purge guard, how a refusal is shown on screen. |
 | [DAMAGE_REFERENCE.md](internals/DAMAGE_REFERENCE.md) | How a shot becomes damage on a bot: health, hit zones, every vest and helmet rating, base damage per gun, shotguns. |
+| [SPACE_GATE.md](internals/SPACE_GATE.md) | When the space gate arrives, why the on screen countdown disagreed with it, the launcher's Space gate setting, and the test record. |
 
 Two older references still sit at the top of the repo, written by the maintainers: [OFFLINE_AUDIT.md](../OFFLINE_AUDIT.md)
 (code that never runs offline) and [AI_DESIGN.md](../AI_DESIGN.md). They can move into `internals/` when the maintainers

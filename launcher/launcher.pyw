@@ -37,11 +37,13 @@ FEMALE_SETTING = os.path.join(ROOT, "config", "female_player.txt")
 FEMALE_SHARE = os.path.join(ROOT, "config", "female_share.txt")  # percent of other characters who are women (rivals.lua)
 FEMALE_SHARE_DEFAULT = 35
 RAID_LENGTH = os.path.join(ROOT, "config", "raid_length.txt")  # minutes, "default" or "none" (raidtime.lua, #159)
+GATE_TIME = os.path.join(ROOT, "config", "gate_time.txt")  # minutes, "instant" or "default": when the space gate arrives (raidtime.lua)
 # Raid conditions (#78): named set-ups in these files ([Name], then "about = ..."), the pick in RAID_CONDITION
 # (conditions.lua reads the same files; the lobby's REGION picker can change it too)
 RAID_CONDITIONS = [os.path.join(ROOT, "config", n) for n in ("raid_conditions.txt", "my_raid_conditions.txt")]
 RAID_CONDITION = os.path.join(ROOT, "config", "raid_condition.txt")
 RAID_LENGTHS = ["default", "15", "30", "45", "60", "90", "120", "none"]  # the slider's stops; the game's own is 25 min
+GATE_TIMES = ["default", "instant", "5", "10", "15"]  # the space gate slider's stops; the game's own is 5 min into the raid
 WINDOW_SETTING = os.path.join(ROOT, "config", "window_mode.txt")  # read by scripts/launch-offline.ps1
 SKIP_INTRO_SETTING = os.path.join(ROOT, "config", "skip_intro.txt")  # read by scripts/mode.ps1
 UNLOCK_LOOKS_SETTING = os.path.join(ROOT, "config", "unlock_all_looks.txt")  # read by the Nakama stand-in at login
@@ -563,6 +565,17 @@ class App(tk.Tk):
                  highlightthickness=0, bd=0, sliderrelief="flat", sliderlength=18, width=10,
                  cursor="hand2").pack(side="left", fill="x", expand=True, padx=(12, 4))
         self.length_label.config(text=self.raid_length_text(self.length_var.get()))
+        gate = tk.Frame(self.right, bg=PANEL)
+        gate.pack(fill="x")
+        tk.Label(gate, text="Space gate", bg=PANEL, fg=TEXT, font=font(12), anchor="w").pack(side="left")
+        self.gate_label = tk.Label(gate, bg=PANEL, fg=ORANGE, font=font(12, "SemiBold"), width=8, anchor="e")
+        self.gate_label.pack(side="right")
+        self.gate_var = tk.IntVar(value=self.read_gate_time())
+        tk.Scale(gate, from_=0, to=len(GATE_TIMES) - 1, resolution=1, orient="horizontal", variable=self.gate_var,
+                 showvalue=False, command=self.change_gate_time, bg=ORANGE, troughcolor=PANEL_HI, activebackground=ORANGE,
+                 highlightthickness=0, bd=0, sliderrelief="flat", sliderlength=18, width=10,
+                 cursor="hand2").pack(side="left", fill="x", expand=True, padx=(12, 4))
+        self.gate_label.config(text=self.gate_time_text(self.gate_var.get()))
         # Raid conditions (#78): the value cycles on a click (right-click goes back); the status line says what it does.
         # (No line of its own for that: the column is full at 150 % scaling, #147.)
         cond = tk.Frame(self.right, bg=PANEL)
@@ -1037,6 +1050,24 @@ class App(tk.Tk):
         i = self.length_var.get()
         self.length_label.config(text=self.raid_length_text(i))
         self.write_setting(RAID_LENGTH, RAID_LENGTHS[i] + "\n")
+
+    def read_gate_time(self):
+        try:
+            with open(GATE_TIME, encoding="utf-8") as f:
+                return GATE_TIMES.index(f.read().strip().lower())
+        except (OSError, ValueError):
+            return 0
+
+    @staticmethod
+    def gate_time_text(i):
+        v = GATE_TIMES[i]
+        return v if v in ("default", "instant") else f"{v} min"
+
+    def change_gate_time(self, _=None):
+        # when the space gate arrives in the next raid, counted from the start of the raid (raidtime.lua)
+        i = self.gate_var.get()
+        self.gate_label.config(text=self.gate_time_text(i))
+        self.write_setting(GATE_TIME, GATE_TIMES[i] + "\n")
 
     @staticmethod
     def raid_conditions():

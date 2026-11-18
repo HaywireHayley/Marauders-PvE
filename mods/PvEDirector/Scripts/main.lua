@@ -611,6 +611,8 @@ local function onTick(ctx)
         ok, err = ppcall("blowtorch", Blowtorch.frame, ticker)
         if not ok and not raid.torchFailed then raid.torchFailed = true log("blowtorch failed: " .. tostring(err)) end
         if pveBodies then pveBodies() end
+        ok, err = ppcall("gatetext", RaidTime.frame)
+        if not ok and not raid.gateTextFailed then raid.gateTextFailed = true log("space gate countdown failed: " .. tostring(err)) end
         ok, err = ppcall("minimap", Minimap.tick, ticker)
         if not ok then log("minimap failed: " .. tostring(err)) end
         -- Rival breaching pods fly frame by frame (rivals.lua).
