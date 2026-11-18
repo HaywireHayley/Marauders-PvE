@@ -3327,3 +3327,17 @@ to the floor at 60230,114665,-1203", inside a wall.
 - Windows dev note: `pvemode.py steam-run` started the Shipping exe without its working directory, and Steam
   relaunched the stock game (folder already back to stock). It's meant for Linux, where Steam supplies the
   environment; on Windows use the launcher or launch-offline.ps1.
+## Pod breach prompt (issue 77, 2026-11-18; rivalcombat.lua playerBoarding)
+- Cause: Ship_DropPod_Pawn_C's BeginPlay (ubergraph 10670: `if not HasAuthority() jump 7935`) starts its looping
+  0.1 s timer `K2_SetTimer(self, 'Timed_BreachCheck', 0.1, true)` (at 8781) only on the non-authority branch.
+  Timed_BreachCheck = BreachCheck() -> SetAbleToBreach(it) -> MatchHUD.HUD_Widget.SetUIAbleToPodBreach(bool), which shows
+  HUD_Main_Widget's Border_isAbleToBreach ("... BREACH BOOST READY ..."). Offline we're the authority, so the border
+  stayed Collapsed while BreachCheck was true. F (and ramming) still breached, since they call BreachCheck themselves.
+  Same pattern as the salvage scan timer (#134 / pvepatch) and issue #143.
+- Fix: playerBoarding (every frame while you're in a pod) starts the same timer once per pod through
+  KismetSystemLibrary:K2_SetTimer(pod, "Timed_BreachCheck", 0.1, true, 0, 0); the game runs it from there.
+- Tested in game (2026-11-18, Space_Solo_01, gifts-test save, pod from RaidUseableComp_DropPod01 via
+  pawn:ServerInteractComp): pod parked 1200 off your own hull, nose on it: BreachCheck true, border 1 -> 4 within a
+  tick, "BREACH BOOST READY" on screen (screenshot); moved to open space: false, border back to 1. No errors. NOT
+  tested: a real flight onto a rival hull with a real F press, the escape pod after your ship dies.
+- Bridge: pawn:ServerInteractComp(comp) (with pawn.LastInteractionComp = comp) uses a seat, pod bay etc. like F does.
