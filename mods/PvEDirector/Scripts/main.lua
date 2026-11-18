@@ -19,6 +19,7 @@ local PROJECT = require("pveproject") -- the install folder (".../MaraudersPvE/"
 local Out = require("outref") -- releases UE4SS's out-param registry refs (outref.lua)
 local GearScale = require("gearscale") -- rivals' and crew's gear follows your player level
 local Interiors = require("interiors") -- interiors seen from open space: hidden while you're outside them
+local BotDamage = require("botdamage") -- your shots at bots: armour, shotgun pellets, a clear path to the hit zones (#123)
 
 local CFG = {
     BOTS = 8,                -- soldiers per raid (0 = use the game mode's NumberNormal/Guard/MilitaryAI)
@@ -155,6 +156,7 @@ local CFG = {
     OFFLINE_BACKEND_FLAG = PROJECT .. "bridge/offline_backend",
     GIVE_GUN = true,         -- no gun in the loadout (or no stand-in): hand the player a soldier's gun...
     START_MAGS = 4,          -- ...and this many magazines of its ammo in the left pocket
+    PLAYER_DAMAGE = true,    -- your shots at bots get armour, shotgun pellets and a clear path to the hit zones (botdamage.lua); false: the game's flat damage
 }
 
 local TREE = "/Game/Blueprints/Pawns/BotBehavior.BotBehavior"
@@ -584,6 +586,10 @@ local function onTick(ctx)
         raid.frames = (raid.frames or 0) + 1 -- for the status line's fps (testers' logs had no frame data at all)
         local ok, err = ppcall("aim", Bots.trackTargets)
         if not ok then log("aim tracking failed: " .. tostring(err)) end
+        if CFG.PLAYER_DAMAGE then
+            ok, err = ppcall("damage", BotDamage.frame, ticker)
+            if not ok and not raid.damageFailed then raid.damageFailed = true log("bot damage failed: " .. tostring(err)) end
+        end
         if raid.navReady then
             ok, err = ppcall("cover", function() Cover.setNav(raid.navMesh) Cover.step(ticker) end)
             if not ok then log("cover baking failed: " .. tostring(err)) end
@@ -929,6 +935,7 @@ Missions.init({ log = log, valid = valid })
 -- Manning a turret yourself (gunseat.lua): the seat's client half (turning, firing, getting up) that never runs offline.
 Gunseat.init({ log = log, valid = valid })
 Minimap.init({ log = log, valid = valid, lib = lib, missions = Missions, raid = function() return raid end })
+BotDamage.init({ log = log, valid = valid, bots = function() return raid.spawned and raid.bots end })
 
 -- Main update ---------------------------------------------------------------------------------------
 local pgosOverlay = { w = nil, findAt = 0 } -- the PGOS social overlay, kept collapsed (see update)
