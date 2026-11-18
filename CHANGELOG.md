@@ -2,6 +2,20 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 18 Nov 2026, build 2 (`public-test-20261118.2`)
+
+Sound and motion the offline game was skipping. On build 1 of 17 Nov or later, the launcher's orange **!** installs
+this one for you, keeping your saves.
+
+### Changes
+
+- **Stations come alive (#143):** fans and tape reels turn, machinery hums, and broken machinery sparks again. They
+  waited on a timer only the live servers' players started.
+- **Footsteps (#143):** you and the soldiers now make the settling footstep when you stop walking or running, and
+  landing from a fall shakes your camera again.
+- **For contributors:** every top-level folder has a short README, with diagrams of how the game's online services
+  are replaced offline, how the mod runs each frame, and how we find what the game skips offline.
+
 ## Public test, 18 Nov 2026, build 1 (`public-test-20261118`)
 
 Working shotguns and armour on enemies, a raid length setting, and the breach prompt in pods. On build 1 of 17 Nov or
