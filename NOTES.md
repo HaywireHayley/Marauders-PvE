@@ -3470,3 +3470,31 @@ to the floor at 60230,114665,-1203", inside a wall.
   (see "Manning a turret yourself"). No change.
 - Base_Contract_Hold overlaps: covered by missions.lua (flags + Client_CheckMissionEvent); opening the gate too would
   start a second Guard timer. No change.
+
+## Space object explosions and sounds (2026-11-18, issue #15)
+- Symptom: turrets (flak, rocket, triple, radar dishes) and mines (small, nuclear) died or went off with no blast and no sound.
+  Their damage and removal worked.
+- Cause (decompiled with tools/offline-audit/kdis.py): `SubNodeActorTurret_C`'s OnDeathEvent (ubergraph offset 591) and
+  `SubNodeActorMine_C`'s ubergraph build the blast (`Exploder Class`, spawned deferred then finished) and play the sound
+  (`Destroyed_Sound`, `Sound_Explode`) only behind `if GetLocalRole() != 3`, the client half. Offline our role is 3. The mine's
+  radial damage comes before the gate (offset 43; the `JumpIfNot` is at 221 to 459) and ran fine, which is why mines still hurt.
+  The exploder Blueprints (`/Game/Blueprints/Exploders/`) have particles and a destructible but no audio: the sound is always the
+  dying object's own.
+- Not fixable with `pve_bp_jump`: the gate is `NotEqual_ByteByte(GetLocalRole, 3)`, not the `CallMath(self)` or no argument
+  `FinalFunction` shapes it patches. `bpbranch.py` does not list `GetLocalRole` compares either, so this one never showed in its
+  output (a search of dumped bytecode for `GetLocalRole` finds them).
+- Fix: `spacefx.lua` (loaded from `Space.init`) hooks the native `RaidSubNodeActor_Turret:NetOnDeathEvent` (it fires offline; native
+  hooks on OnDeathEvent, HealthChanged and OnRep_Health did not) and `Actor:K2_DestroyActor` for a `*NodeMine*` whose mesh is
+  already hidden. Each reads `Exploder Class` and its sound off the actor, spawns the blast at its place and plays the sound with
+  `SpawnSoundAtLocation` (`PlaySoundAtLocation` and `PlaySound2D` from a probe seemed silent). Once per actor, pcall everywhere. A
+  first mine hook on `ApplyRadialDamageWithFalloff` was followed by a game crash on the nuclear mine, so it is not used.
+- How it was tested: the F9 spawner and Log explosions showed no effect near a killed turret; kdis read the gate; then each effect
+  was made by hand from the probe runner, one at a time with a countdown, asking the tester what they saw and heard (radar dish and
+  flak turret: blast and sound; small and nuclear mine: blast and sound, no crash; the rocket turret had no live instance); then
+  the real hooks were registered from a probe and every turret type was killed in play: all work, naval base turrets included.
+  The mine hook through a real trigger is not separately reported yet.
+- The test tools are in `tools/space_test/` (F9 rows: Start a space raid, the space object, exploder and salvage spawners, Kill, Poke,
+  Log explosions, Log salvage; `install.py` puts them into a test copy). The full chain, class and property table, flowcharts, the
+  probe and the order of the testing: [docs/internals/SPACE_OBJECT_DEATH.md](docs/internals/SPACE_OBJECT_DEATH.md).
+- Open: mines through a real trigger in play; the rocket and triple turret by hand; a turret's hit sparks and a mine's
+  `Sound_Triggered` were not checked for the same gate.

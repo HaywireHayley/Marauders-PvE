@@ -337,6 +337,7 @@ end
 function M.init(ctx)
     CFG, log, valid, lib, dist, Aux = ctx.CFG, ctx.log, ctx.valid, ctx.lib, ctx.dist, ctx.aux
     Rivals, Bots, navReadyAt = ctx.rivals, ctx.bots, ctx.navReadyAt
+    require("spacefx").init({ log = log, valid = valid, lib = lib }) -- turret and mine blasts the client side would build (#15)
     -- Docking at a station ------------------------------------------------------------------------------
     -- Flying into a station's docking volume, RaidDockingComponent::FrigateDocking (server) sets the controller's
     -- DockedVolume and starts the docking ability (Ability_Frigate_BoardStation). Its client half ends with
