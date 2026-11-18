@@ -1198,6 +1198,7 @@ update = function(pc)
     if valid(ps) and ps.TeamNumber ~= PLAYER_TEAM then ps.TeamNumber = PLAYER_TEAM end
     local immune = DebugActions.godMode()
     if pawn.bCanBeDamaged == immune then pawn.bCanBeDamaged = not immune end
+    DebugActions.holdStamina(pawn) -- god mode: unlimited stamina
 
     if not raid.loadout and Loadout.ensureHud(pc) then raid.loadout = os.clock() Loadout.applyLoadout(pc) end
     if raid.ownOverlay then Loadout.ensureHud(pc) end -- collapses ours once the game's own overlay appears
