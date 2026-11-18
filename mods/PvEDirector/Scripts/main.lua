@@ -207,6 +207,7 @@ local Loadout = require("loadout") -- your loadout and HUD, a gun when you have 
 local Launch = require("launch") -- offline matchmaking, the map travel, the loading veil on space maps
 local Space = require("space") -- space maps: pod guns, docking, level effects, key card, sun, your ship's navmesh
 local DebugActions = require("debugactions") -- the debug menu's buttons (F9) and god mode
+local RaidTime = require("raidtime") -- the launcher's raid length (#159)
 AI.init({ log = log, valid = valid, dist = dist })
 
 -- Weapon role-check patches (native/pvepatch.dll applies them when loaded and reports to patch_out.txt).
@@ -789,7 +790,7 @@ end
 raid = { world = nil }
 -- The modules keep their own reference to the per-raid table: each is handed the new one whenever it's replaced.
 local function shareRaid()
-    for _, m in ipairs({ PlayAreas, Bots, Loadout, Launch, Space, DebugActions }) do m.setRaid(raid) end
+    for _, m in ipairs({ PlayAreas, Bots, Loadout, Launch, Space, DebugActions, RaidTime }) do m.setRaid(raid) end
 end
 shareRaid()
 
@@ -892,6 +893,7 @@ Hire.init({ log = log, valid = valid, lib = lib, AI = AI, tiers = function() ret
     rollKit = Rivals.rollKit, lobby = CrewLobby })
 Crew = require("crew")
 Interiors.init({ log = log, valid = valid })
+RaidTime.init({ log = log, valid = valid })
 Crew.init({ rivals = Rivals, hire = Hire, AI = AI, lib = lib, voice = Voice, log = log, valid = valid, dist = dist,
     gunseat = Gunseat,
     navLib = navLib, navMesh = navMesh,
@@ -1084,6 +1086,7 @@ update = function(pc)
     -- AI, so no navmesh or soldiers there.
     if not (space or worldName:find("/Maps/Raids/", 1, true)) then return end
     raid.space = space
+    RaidTime.update() -- the launcher's raid length, once per raid (raidtime.lua, #159)
     if space and not raid.revealed then Launch.veilUntilAboard(pc, world) end
     -- Arriving, the mouse didn't turn the camera until you'd opened and closed the inventory (Tab): the lobby's
     -- mouse-screen input (cursor, game and UI) carried into the raid, and the loading screen sat over the viewport while

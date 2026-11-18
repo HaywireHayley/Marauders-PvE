@@ -36,6 +36,8 @@ GAME_EXE = "RaidGame-Win64-Shipping.exe"
 FEMALE_SETTING = os.path.join(ROOT, "config", "female_player.txt")
 FEMALE_SHARE = os.path.join(ROOT, "config", "female_share.txt")  # percent of other characters who are women (rivals.lua)
 FEMALE_SHARE_DEFAULT = 35
+RAID_LENGTH = os.path.join(ROOT, "config", "raid_length.txt")  # minutes, "default" or "none" (raidtime.lua, #159)
+RAID_LENGTHS = ["default", "15", "30", "45", "60", "90", "120", "none"]  # the slider's stops; the game's own is 25 min
 WINDOW_SETTING = os.path.join(ROOT, "config", "window_mode.txt")  # read by scripts/launch-offline.ps1
 SKIP_INTRO_SETTING = os.path.join(ROOT, "config", "skip_intro.txt")  # read by scripts/mode.ps1
 UNLOCK_LOOKS_SETTING = os.path.join(ROOT, "config", "unlock_all_looks.txt")  # read by the Nakama stand-in at login
@@ -534,16 +536,29 @@ class App(tk.Tk):
         self.female_var = tk.BooleanVar(value=self.read_female())
         self.toggle("Infinite money", self.cheat_var, self.toggle_cheat)
         self.toggle("Play as a woman  (F2 switches in game)", self.female_var, self.toggle_female)
+        # sliders are one row each (label, slider, value): the settings column only just fits at 150 % scaling (#147)
         share = tk.Frame(self.right, bg=PANEL)
-        share.pack(fill="x", pady=(4, 0))
+        share.pack(fill="x", pady=(2, 0))
         tk.Label(share, text="Female enemies and crew", bg=PANEL, fg=TEXT, font=font(12), anchor="w").pack(side="left")
         self.share_label = tk.Label(share, bg=PANEL, fg=ORANGE, font=font(12, "SemiBold"), width=5, anchor="e")
         self.share_label.pack(side="right")
         self.share_var = tk.IntVar(value=self.read_share())
-        tk.Scale(self.right, from_=0, to=100, resolution=5, orient="horizontal", variable=self.share_var, showvalue=False,
+        tk.Scale(share, from_=0, to=100, resolution=5, orient="horizontal", variable=self.share_var, showvalue=False,
                  command=self.change_share, bg=ORANGE, troughcolor=PANEL_HI, activebackground=ORANGE, highlightthickness=0, bd=0,
-                 sliderrelief="flat", sliderlength=18, width=10, cursor="hand2").pack(fill="x", pady=(0, 6))
+                 sliderrelief="flat", sliderlength=18, width=10,
+                 cursor="hand2").pack(side="left", fill="x", expand=True, padx=(12, 4))
         self.share_label.config(text=f"{self.share_var.get()}%")
+        length = tk.Frame(self.right, bg=PANEL)
+        length.pack(fill="x")
+        tk.Label(length, text="Raid length", bg=PANEL, fg=TEXT, font=font(12), anchor="w").pack(side="left")
+        self.length_label = tk.Label(length, bg=PANEL, fg=ORANGE, font=font(12, "SemiBold"), width=8, anchor="e")
+        self.length_label.pack(side="right")
+        self.length_var = tk.IntVar(value=self.read_raid_length())
+        tk.Scale(length, from_=0, to=len(RAID_LENGTHS) - 1, resolution=1, orient="horizontal", variable=self.length_var,
+                 showvalue=False, command=self.change_raid_length, bg=ORANGE, troughcolor=PANEL_HI, activebackground=ORANGE,
+                 highlightthickness=0, bd=0, sliderrelief="flat", sliderlength=18, width=10,
+                 cursor="hand2").pack(side="left", fill="x", expand=True, padx=(12, 4))
+        self.length_label.config(text=self.raid_length_text(self.length_var.get()))
         self.borderless_var = tk.BooleanVar(value=self.read_borderless())
         if IS_WIN:  # (launch-offline.ps1 applies it; on Linux the game's own video settings do)
             self.toggle("Borderless fullscreen", self.borderless_var, self.toggle_borderless)
@@ -990,6 +1005,24 @@ class App(tk.Tk):
         value = self.share_var.get()
         self.share_label.config(text=f"{value}%")
         self.write_setting(FEMALE_SHARE, f"{value}\n")
+
+    def read_raid_length(self):
+        try:
+            with open(RAID_LENGTH, encoding="utf-8") as f:
+                return RAID_LENGTHS.index(f.read().strip().lower())
+        except (OSError, ValueError):
+            return 0
+
+    @staticmethod
+    def raid_length_text(i):
+        v = RAID_LENGTHS[i]
+        return {"default": "25 min", "none": "no limit"}.get(v, f"{v} min")
+
+    def change_raid_length(self, _=None):
+        # the oxygen countdown of the next raid (raidtime.lua sets the game's own timer at raid start)
+        i = self.length_var.get()
+        self.length_label.config(text=self.raid_length_text(i))
+        self.write_setting(RAID_LENGTH, RAID_LENGTHS[i] + "\n")
 
     def read_borderless(self):
         try:
