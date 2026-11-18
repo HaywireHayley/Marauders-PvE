@@ -21,3 +21,5 @@ jobs:
         run: python -m py_compile $(git ls-files '*.py' '*.pyw')
       - name: Linux mode switch (scripts/pvemode.py, issue #127)
         run: python scripts/test_pvemode.py
+      - name: Offline backend (the stand-in's login, stash, schema and coverage; issue #80)
+        run: python tools/test_standin_flow.py && python tools/test_standin_gaps.py

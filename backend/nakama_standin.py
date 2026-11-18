@@ -95,13 +95,40 @@ def new_state():
             put("gifts", kv["key"], kv["value"], user["id"])
     meta = user.get("metadata")
     user["metadata"] = json.loads(meta) if isinstance(meta, str) else (meta or {})
-    return {"user": user, "storage": storage, "master": {k: master[k] for k in ("messages", "prestige", "raidertime")
+    return {"schema": SCHEMA, "user": user, "storage": storage, "master": {k: master[k] for k in ("messages", "prestige", "raidertime")
                                                          if k in master}}
+
+
+# The save format's version (issue #80). A change to how state.json is laid out bumps it and adds a step to MIGRATIONS
+# that brings an older save up to date, so no stand-in update strands a player's save. Saves from before this field
+# are schema 0, which matches schema 1.
+SCHEMA = 1
+MIGRATIONS = {
+    0: lambda s: None,  # 0 -> 1: only the field itself
+}
+
+
+def migrate(s):
+    """Brings a loaded save up to SCHEMA. Returns True if anything changed. A save from a newer stand-in is left as
+    it is (and logged): migrating backwards could lose what the newer version added."""
+    have = s.get("schema", 0)
+    if have > SCHEMA:
+        log(f"state.json is schema {have}, newer than this stand-in ({SCHEMA}): an older build is reading a newer save")
+        return False
+    for v in range(have, SCHEMA):
+        MIGRATIONS[v](s)
+        s["schema"] = v + 1
+    if have != SCHEMA:
+        log(f"state.json migrated from schema {have} to {SCHEMA}")
+    return have != SCHEMA
 
 
 def load_state():
     if os.path.exists(STATE):
         s = json.load(open(STATE, encoding="utf-8"))
+        if migrate(s):
+            save_state(s)
+            return s
         write_loadout(s)
         write_cosmetics(s)
         return s
