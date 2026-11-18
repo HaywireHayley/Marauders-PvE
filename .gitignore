@@ -26,6 +26,8 @@ backend/loadout.json
 backend/cosmetics.json
 backend/checkout.txt
 backend/ship_*.txt
+backend/gifts_in.txt
+backend/coverage.json
 backend/*.log
 backend/crew*.lua
 config/game_path.txt
