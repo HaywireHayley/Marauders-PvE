@@ -48,8 +48,9 @@ and run `Install.bat` again if the game moved.
 ### Linux / Steam Deck (experimental)
 
 Not yet tested under real Proton: if you try it, please say how it went in
-[#127](https://github.com/HaywireHayley/Marauders-PvE/issues/127) or on the Discord. There is no launcher window on
-Linux: Steam's own **PLAY** button starts the mod through a launch option, so it works from Game Mode on a Deck too.
+[#127](https://github.com/HaywireHayley/Marauders-PvE/issues/127) or on the Discord. Steam's own **PLAY** button starts
+the mod through a launch option, so it works from Game Mode on a Deck too. The launcher window (saves and settings) is
+optional on Linux: it's there in Desktop Mode if your Python has Tk and Pillow.
 
 1. **Unzip** the folder somewhere permanent, e.g. `~/Games/MaraudersOffline`. Internal storage is safest; spaces in the
    path are fine, non-English letters aren't. On a Deck, do this in **Desktop Mode**.
@@ -65,8 +66,30 @@ Linux: Steam's own **PLAY** button starts the mod through a launch option, so it
 4. Press **PLAY** in Steam (Game Mode works). The first time, a save called "Save 1" is made for you. In the game's
    lobby, gear up, pick a map and press **START RAID**.
 
-**On a Deck:** the mod's own keys (F3, F6, F9, N, M, B; see Controls below) need a keyboard, or bind them to buttons
-in Steam Input. No ready-made layout yet.
+**The launcher window (Desktop Mode, optional):** if your Python has Tk and Pillow (most desktop Linux does; SteamOS
+doesn't: `python3-tk` and `python3-pil.imagetk` on Debian/Ubuntu), `install.sh` adds **Marauders Offline** to your app
+menu. It's the same launcher as on Windows: make, back up, import and pick saves, give items, settings, REPORT. Its
+**PLAY** picks the save and asks Steam to start Marauders, and the launch option does the rest; it tells you when your
+game is saved. Without Tk, use the `pvemode.py` commands below; PLAY in Steam works either way.
+
+**Steam Deck controls:** the mod's keys (see Controls below) are keyboard keys, so give them buttons in Steam Input:
+Marauders → **controller icon → Edit layout**. Start from Steam's **Keyboard (WASD) and Mouse** template (or the game's
+own controller support if it works for you) and add:
+
+| Deck control | Key | Mod action |
+|---|---|---|
+| **L4** (back grip, upper left) | F6 | Your crew menu |
+| **R4** (back grip, upper right) | F3 | AI tuning menu |
+| **L5** (back grip, lower left) | N | Minimap on or off |
+| **R5** (back grip, lower right) | M | Minimap overview |
+| **D-pad down** | B | Minimap: follow the next task |
+| **View (⧉) + D-pad left** (or a radial menu) | K | Move item between stash and bags |
+| **View (⧉) + D-pad right** (or a radial menu) | J | Discard item (press twice) |
+| **Right trackpad** | mouse, click = left click | The F3 / F6 menus and the stash are mouse-driven |
+
+F9 (debug) and F2 fit on a radial menu on the left trackpad if you want them. Not tried on a Deck yet: if you set it
+up, please share what worked in [#127](https://github.com/HaywireHayley/Marauders-PvE/issues/127) (Steam can also share
+a layout as a community layout).
 
 **Saves** (in a terminal, in the folder):
 

@@ -3301,3 +3301,27 @@ to the floor at 60230,114665,-1203", inside a wall.
   and intended); every line of the old file is in the new ones, apart from the rewritten call sites and R.reset's
   shareState(); under lupa with UE4SS stubbed, old and new export the same 254 `R` keys, register the same 4 hooks,
   and run R.init / R.reset cleanly.
+
+## Linux launcher window and Deck controls (issue 127, 2026-11-18; launcher.pyw IS_WIN, pvemode.desktop_entry)
+- The launcher runs on Linux. There it doesn't switch the folder or run the stand-in: Steam's launch option
+  (pvemode.py steam-run) does. Its PLAY writes config/linux_save.txt, switches config/linux_offline.txt back on, and
+  opens steam://rungameid/1789480 (app id from steamapps/appmanifest_1789480.acf). watch() then sees the game through
+  pvemode.game_running (/proc cmdlines), and finish() waits for backup/offline_applied to go (steam-run's tidy-up),
+  calling pvemode.recover() after 60 s if it's still there.
+- linux_launch_option() reads every Steam user's userdata/*/config/localconfig.vdf: if Marauders' block (until its
+  first "}") has no marauders-offline.sh, PLAY says to paste the launch option instead of starting the stock game. No
+  config found = can't tell, PLAY goes ahead.
+- Startup on Linux never settles a save (steam-run may be starting a game right then). It only recovers when the dirty
+  marker is older than START_TIMEOUT (90 s) and no game runs.
+- Also Linux-only: a flock in /tmp for the single instance, xdg-open for folders and steam:// links, the .ico through
+  PIL + iconphoto, and no "Borderless fullscreen" box (launch-offline.ps1 applies it; on Linux the game's own video
+  settings do).
+- install.sh (pvemode install) adds ~/.local/share/applications/marauders-offline.desktop when Tk and Pillow import,
+  else says which packages are missing.
+- Deck controls: README table (back grips F6 / F3 / N / M, D-pad down B, View + D-pad K / J, right trackpad as
+  mouse), set up by hand in Steam's layout editor. No .vdf layout file shipped: can't make or check one without a Deck.
+- Tested: test_pvemode.py in WSL Ubuntu (15 tests, 2 new: desktop entry, launch-option check). The real launcher
+  window in WSLg: opens, says why PLAY can't start with the Windows game path. Full PLAY cycle against a fake game and
+  fake Steam (the dirty marker and a process named like the game for 6 s): "Steam is starting the game" -> "Saving..."
+  -> "Saved", save written, launch option switch back on. Windows: launcher/test_ui.py 12/12.
+  NOT tested: a real Steam / Proton / Deck, the window on a real desktop (WSLg wouldn't give a screenshot), Game Mode.

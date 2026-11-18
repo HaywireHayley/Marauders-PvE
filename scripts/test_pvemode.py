@@ -237,5 +237,56 @@ class SteamRun(unittest.TestCase):
         self.assertEqual(snapshot(self.game), self.before)
 
 
+class LauncherOnLinux(unittest.TestCase):
+    """The launcher window's Linux side (needs Tk and Pillow: skipped without them)."""
+
+    def setUp(self):
+        try:
+            import tkinter  # noqa: F401
+            import PIL.ImageTk  # noqa: F401
+        except ImportError:
+            self.skipTest("no Tk / Pillow")
+        self.tmp = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_desktop_entry(self):
+        msg = pvemode.desktop_entry(os.path.join(self.tmp, "apps"))
+        path = os.path.join(self.tmp, "apps", "marauders-offline.desktop")
+        self.assertIn("app menu", msg)
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        self.assertIn("launcher.pyw", text)
+        self.assertIn("Type=Application", text)
+
+    @unittest.skipUnless(pvemode.LINUX, "Linux only")
+    def test_launch_option_check(self):
+        import importlib.machinery
+        import importlib.util
+        src = os.path.join(pvemode.ROOT, "launcher", "launcher.pyw")
+        spec = importlib.util.spec_from_loader("launcher_t", importlib.machinery.SourceFileLoader("launcher_t", src))
+        launcher = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(launcher)
+        steam = os.path.join(self.tmp, "Steam")
+        launcher.pvemode.steam_roots = lambda: [steam]
+        self.assertIsNone(launcher.linux_launch_option())  # no Steam config: can't tell, PLAY tries anyway
+        cfg = os.path.join(steam, "userdata", "123", "config")
+        os.makedirs(cfg)
+        vdf = os.path.join(cfg, "localconfig.vdf")
+
+        def write(option):
+            with open(vdf, "w", encoding="utf-8") as f:
+                f.write('"UserLocalConfigStore"\n{\n\t"Software"\n\t{\n\t\t"Valve"\n\t\t{\n\t\t\t"Steam"\n\t\t\t{\n'
+                        '\t\t\t\t"apps"\n\t\t\t\t{\n\t\t\t\t\t"1789480"\n\t\t\t\t\t{\n\t\t\t\t\t\t"LastPlayed"\t\t"1"\n'
+                        + (f'\t\t\t\t\t\t"LaunchOptions"\t\t"{option}"\n' if option else "") +
+                        '\t\t\t\t\t}\n\t\t\t\t\t"440"\n\t\t\t\t\t{\n\t\t\t\t\t\t"LaunchOptions"\t\t"marauders-offline.sh"\n'
+                        '\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n')
+        write(None)
+        self.assertIs(launcher.linux_launch_option(), False)  # (another game's option doesn't count)
+        write('\\"/home/deck/Games/MaraudersOffline/linux/marauders-offline.sh\\" %command%')
+        self.assertIs(launcher.linux_launch_option(), True)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
