@@ -2,6 +2,28 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 18 Nov 2026, build 1 (`public-test-20261118`)
+
+Working shotguns and armour on enemies, a raid length setting, and the breach prompt in pods. On build 1 of 17 Nov or
+later, the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Changes
+
+- **Damage on enemies (#123, #154):** helmets and vests now protect the soldiers wearing them, by how good the piece
+  is, and head, body and leg hits count differently. Shotguns work: each shot fires its pellets, and armour is taken
+  off each one. Hits no longer stop on a bot's helmet, vest or backpack before reaching the body behind. The numbers
+  are in `DAMAGE_REFERENCE.md`.
+- **Raid length (#159):** a new launcher setting: 25 minutes (the game's own), 15, 30, 45, 60, 90 or 120 minutes, or
+  no limit. It takes effect from your next raid.
+- **Breach prompt in pods (#77):** flying a pod at a ship now shows "BREACH BOOST READY" and "F" BREACH when you're
+  close enough to breach. Pressing F always worked; nothing told you.
+- **Linux / Steam Deck (#127):** the launcher window now works on Linux too (saves and settings; its PLAY starts the
+  game through Steam), and the README has a Steam Deck button layout for the mod's keys. Still not tested under real
+  Proton or on a Deck: if you try it, please report in #161.
+- **F9 debug menu:** a Bottomless mags toggle (#155).
+- **REPORT** now also includes a short list of the game requests the offline backend can't answer yet, which tells us
+  which missing features players actually run into (#80).
+
 ## Public test, 17 Nov 2026, build 8 (`public-test-20261117.8`)
 
 Fixes the **crash on leaving a raid**, plus the salvage hold door, giving items to a save, a rebuilt launcher and
