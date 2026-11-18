@@ -3228,4 +3228,10 @@ to the floor at 60230,114665,-1203", inside a wall.
 - Verified: luacheck on every file; a scan for names each module reads but doesn't declare (only the globals above);
   every line of the old main.lua is in the new files apart from the renamed call sites; main.lua and every module load
   under lupa with UE4SS stubbed, registering the same 27 hooks, key binds and loops and logging the same lines as before
-  (only the order of hook registration differs). **Not checked in game** at the time of writing.
+  (only the order of hook registration differs).
+- In game (2026-11-17, throwaway cheat save, the branch's Lua copied over the game's): login and lobby; lobby launch
+  button -> matchmaking -> Space_Alpha, veil, loadout, floor loot, key card, play areas, space navmesh, aboard after 19 s;
+  a rival boarded (bridge/rivals_board), took cover, peeked, switched to the crewmate, was killed; F9 extract -> main
+  menu. Spaceport_01 land raid: navmesh, 8 soldiers, donor gun and ammo, god mode on/off, F9 spawn soldier, a fight with
+  cover and a bot reload, F9 extract with 3 items. No Lua errors in UE4SS.log. Note: bridge/debug_cmd is only read in
+  a raid (update returns early in the lobby), so its "testraid" does nothing from the menu, as before.
