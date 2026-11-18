@@ -111,9 +111,17 @@ local function makeCrews(slots, kind)
     local n = CFG.CREWS > 0 and math.floor(CFG.CREWS) or math.min(CFG.MAX_CREWS, math.max(0, slots - 1))
     local size = CFG.CREW_SIZE
     local baron = (tonumber(CFG.BARON) or 0) >= 1 and R.baron.design() ~= nil
-    if baron then n = math.max(n, 1) end
+    -- A raid condition's guaranteed hulls (#78, conditions.lua): the crews after the Baron's fly them, fight to the
+    -- death and attack what they see, like a boss.
+    local ships = R.conditions and R.conditions.ships() or {}
+    local first = baron and 2 or 1
+    n = math.max(n, first - 1 + #ships)
     for i = 1, n do table.insert(crews, newCrew(i, used, size)) end
     if baron then R.baron.make(crews[1], used) end
+    for j, row in ipairs(ships) do
+        local c = crews[first - 1 + j]
+        c.hullRow, c.diehard, c.rusher, c.aggression = row, true, false, 1
+    end
     return crews
 end
 

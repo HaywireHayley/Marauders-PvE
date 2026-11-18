@@ -536,6 +536,11 @@ local function onTick(ctx)
         -- only true until update() first runs in the menu (raid.world is the menu's own key from then on), so the friends
         -- stub barely ran, and never after a raid.
         tick.menu = (w and w:IsValid() and w:GetFullName():find("/Maps/MainMenu", 1, true) ~= nil) or false
+        -- a raid map gets the picked raid condition (#78), the lobby your own settings again
+        if Conditions and w and w:IsValid() then
+            local okc, errc = pcall(tick.menu and Conditions.restore or Conditions.apply)
+            if not okc then log("raid conditions: " .. tostring(errc)) end
+        end
         tick.menuSince = os.clock()
     end
     -- The load runs at LOAD_TIME_DILATION (20x) until veilUntilAboard sees your pawn, but that only looks every
@@ -935,11 +940,16 @@ local function menuClosed(pc)
         pcall(function() wbl:SetInputMode_GameAndUIEx(pc, nil, 0, false) end)
     end
 end
-Tuning.init({ log = log, valid = valid, lib = lib, menuClosed = menuClosed, CFG = CFG, RCFG = Rivals.CFG, CREWCFG = Crew.CFG, hire = Hire, AI = AI, applied = function()
+Tuning.init({ base = function(...) return Conditions.base(...) end, log = log, valid = valid, lib = lib, menuClosed = menuClosed, CFG = CFG, RCFG = Rivals.CFG, CREWCFG = Crew.CFG, hire = Hire, AI = AI, applied = function()
     for _, e in ipairs(raid.bots or {}) do
         if valid(e.bot) then AI.tuneBody(e) end
     end
 end })
+-- Raid conditions (#78, conditions.lua): an event set-up applied while a raid map is loaded, picked in the launcher or
+-- the lobby's REGION picker.
+Conditions = require("conditions")
+Conditions.init({ log = log, project = PROJECT, tuning = Tuning, tables = { Rivals = Rivals.CFG, Crew = Crew.CFG, CFG = CFG } })
+Rivals.conditions = Conditions
 Missions = require("missions")
 Missions.init({ log = log, valid = valid })
 -- Manning a turret yourself (gunseat.lua): the seat's client half (turning, firing, getting up) that never runs offline.

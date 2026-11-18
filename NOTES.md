@@ -3429,3 +3429,26 @@ to the floor at 60230,114665,-1203", inside a wall.
 - Verified (Space_Alpha): "level props: 44 started", `K2_IsTimerActive` true on 26/26 rotating, 17/17 ambience and 1/1
   broken props, 17 ambience Audio components playing, and a rendered fan's yaw going -30 -> -45 between two reads.
   Not checked by ear or eye in normal play; land raids and station interiors not checked.
+
+## Raid conditions (issue 78, 2026-11-18; conditions.lua, config/raid_conditions.txt)
+- A condition is a named set-up applied while a raid map is loaded: F3 settings by their ai_tuning.txt id
+  (`Crews:BARON`, `Spawns:CREWS`...), `ships` (rival crews guaranteed in those hulls, boss-like: diehard, aggression 1,
+  no rushing; rivalcrews.lua makeCrews sets `c.hullRow`, rivalships.lua honours it), `map` (wins over the lobby pick,
+  launch.lua), `loot` (multiplies rivals CFG CARRY_BAG, MEDS max, CARRY_CAP_MIN/SHARE and CARRY_JACKPOT: bodies'
+  carried loot, rivalbodies.lua rollCarried; floor and container loot are the game's and unchanged).
+- Applied in onTick on a new non-menu world, restored on the menu world. Original values are kept per table slot;
+  tuning.lua's save() asks `X.base` so F3 never saves a condition's value as yours.
+- Picked from the launcher ("Raid conditions" row: click cycles, right-click back, status line says what it does) or
+  the lobby's REGION picker: an eighth button (region 98) cycles. The game ignores a click on the region it holds as
+  chosen, so after a conditions click mappick.lua puts SIGISGameInstancePGOS.ActiveMMRegion back to the last region
+  clicked (or the picked map's). The pick is config/raid_condition.txt.
+- Verified in game (Space_Charlie via START RAID, "Baron's last stand"): log "raid conditions: Baron's last stand (3
+  settings, loot x2, ships CapitalDreadnought_Ship, map Space_Charlie)"; the lobby button's matchmaking chose
+  Space_Charlie; five crews launched incl. "Red Baron's Strike Frigate" and a Dreadnought; in the raid BARON=1,
+  CARRY_BAG 4-10 (2-5), CARRY_CAP_MIN 3000, JACKPOT 0.1, ATTACK_CHANCE 1, RUSHERS 0; back in the menu all back to the
+  user's values and config/ai_tuning.txt unchanged. "Hunted" on a later launch: 4 settings, loot x1.5, map from the
+  lobby pick. Launcher: test_ui.py passes; the row fits at 150 % after Cash and XP share a line.
+- Not verified: the lobby picker button with a real mouse (the picker couldn't be opened from code: its widget stays
+  collapsed), including the ActiveMMRegion reset; loot on a killed body by eye; Linux launcher.
+- The bridge mod has its own Lua state: probe the director's globals (Conditions...) with bridge/profile_on plus
+  bridge/dir_eval.lua, not `send.sh "lua ..."`.

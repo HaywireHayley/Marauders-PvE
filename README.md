@@ -139,6 +139,21 @@ The game's own controls are unchanged. The mod adds (the launcher's CONTROLS but
 
 Every raid's population and difficulty can be tuned to your liking. Press F3 and open the How many tab: rival crews per raid, people in each crew, guards at each station, and how many ship battles break out around you. Rival ships sets how often crews attack and board, and Difficulty at the top picks a preset. Changes save themselves. Crew numbers take effect from your next raid, and guard numbers from the next station you visit. Save setups you like under Saved setups.
 
+### Raid conditions (events)
+
+Want a different raid for one run, or a community event? Pick **Raid conditions** in the launcher (click to cycle), or
+in the game's lobby: open the REGION box and click the conditions button under the maps (each click picks the next).
+They last the raid; your own F3 settings come back after it.
+
+- **Baron hunt:** the Red Baron is in the raid and goes for any ship he sees.
+- **Hunted:** every rival crew attacks any ship it sees and boards when it can.
+- **Busy sky:** twice the crews, and bigger battles between them.
+- **Capital ships:** a Capital Ship and a Dreadnought, crewed to fight to the end.
+- **Baron's last stand:** Charlie, the Baron, a Dreadnought and every crew out for blood.
+
+Harder conditions put more and better loot on bodies. Make your own in `config/my_raid_conditions.txt` and share
+the file with friends: `config/raid_conditions.txt` explains the layout.
+
 **Hold off game updates:** an update to Marauders is unlikely, but if one came it could break the mod. In Steam,
 right-click Marauders → **Properties → Updates** and set it to **Only update this game when I launch it**. The mod's
 launcher starts the game without going through Steam, so playing offline won't trigger an update.
@@ -148,10 +163,7 @@ launcher starts the game without going through Steam, so playing offline won't t
 - Rarely, dark flat slabs hang in space on the solo maps. ([#9](https://github.com/HaywireHayley/Marauders-PvE/issues/9))
 - Dead boarders' legs can stretch into odd poses. ([#10](https://github.com/HaywireHayley/Marauders-PvE/issues/10))
 - The status line can say "in space" while you're aboard another crew's ship. ([#11](https://github.com/HaywireHayley/Marauders-PvE/issues/11))
-- There's a short hitch when you first enter a station. After a hitch, blue gaps can flash at the screen's corners.
-  Fewer rival crews (F3) makes it rarer. ([#12](https://github.com/HaywireHayley/Marauders-PvE/issues/12))
 - Space_Solo_02 now and then finds no stations, so that raid has no station tasks. ([#13](https://github.com/HaywireHayley/Marauders-PvE/issues/13))
-- AI ships can get stuck on rocks or station hulls for a while. ([#14](https://github.com/HaywireHayley/Marauders-PvE/issues/14))
 - Some explosion effects and sounds, and some extraction prompts, are missing offline. ([#15](https://github.com/HaywireHayley/Marauders-PvE/issues/15))
 
 Soldiers on a station you haven't reached yet stay asleep until you get close. That's deliberate, to save performance.
