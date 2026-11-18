@@ -1,5 +1,5 @@
 # Kismet bytecode disassembler (UE 4.26, cooked): one line per statement, with offsets, jumps and names.
-# kdis.py <UFunction hex> [from] [to]
+# kdis.py <UFunction hex> [from] [to]; or import it: decode(code(func)) -> [(offset, text)]
 import sys, struct
 import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
 import procmem as m, gbase
@@ -16,21 +16,19 @@ def name(p, field):  # UObject name at +0x18, FField name at +0x28
         except Exception: cache[p] = '?%x' % p
     return cache[p]
 
-f = int(sys.argv[1], 16); d, n = m.q(f + 0x60), struct.unpack('<i', m.read(f + 0x68, 4))[0]
-c = m.read(d, n)
 
 class P:
-    def __init__(s, i): s.i = i
-    def b(s): v = c[s.i]; s.i += 1; return v
-    def u16(s): v = struct.unpack_from('<H', c, s.i)[0]; s.i += 2; return v
-    def u32(s): v = struct.unpack_from('<I', c, s.i)[0]; s.i += 4; return v
-    def f32(s): v = struct.unpack_from('<f', c, s.i)[0]; s.i += 4; return v
-    def q(s): v = struct.unpack_from('<Q', c, s.i)[0]; s.i += 8; return v
+    def __init__(s, i, c): s.i = i; s.c = c
+    def b(s): v = s.c[s.i]; s.i += 1; return v
+    def u16(s): v = struct.unpack_from('<H', s.c, s.i)[0]; s.i += 2; return v
+    def u32(s): v = struct.unpack_from('<I', s.c, s.i)[0]; s.i += 4; return v
+    def f32(s): v = struct.unpack_from('<f', s.c, s.i)[0]; s.i += 4; return v
+    def q(s): v = struct.unpack_from('<Q', s.c, s.i)[0]; s.i += 8; return v
     def fld(s): return name(s.q(), True)
     def obj(s): return name(s.q(), False)
     def args(s):
         out = []
-        while c[s.i] != 0x16: out.append(s.e())
+        while s.c[s.i] != 0x16: out.append(s.e())
         s.i += 1
         return out
     def e(s):
@@ -56,14 +54,14 @@ class P:
         if t == 0x1D: return str(struct.unpack('<i', struct.pack('<I', s.u32()))[0])
         if t == 0x1E: return '%g' % s.f32()
         if t == 0x1F:
-            j = c.index(0, s.i); v = c[s.i:j].decode('latin-1'); s.i = j + 1; return repr(v)
+            j = s.c.index(0, s.i); v = s.c[s.i:j].decode('latin-1'); s.i = j + 1; return repr(v)
         if t == 0x34:
             j = s.i
-            while c[j] or c[j + 1]: j += 2
-            v = c[s.i:j].decode('utf-16-le'); s.i = j + 2; return repr(v)
+            while s.c[j] or s.c[j + 1]: j += 2
+            v = s.c[s.i:j].decode('utf-16-le'); s.i = j + 2; return repr(v)
         if t == 0x20: return s.obj()
         if t == 0x21: nm = fname(s.u32()); s.u32(); s.u32(); return 'N"%s"' % nm
-        if t in (0x22, 0x23): v = struct.unpack_from('<fff', c, s.i); s.i += 12; return str(v)
+        if t in (0x22, 0x23): v = struct.unpack_from('<fff', s.c, s.i); s.i += 12; return str(v)
         if t == 0x24: return 'byte %d' % s.b()
         if t == 0x25: return '0'
         if t == 0x26: return '1'
@@ -82,21 +80,21 @@ class P:
         if t == 0x2E: cl = s.obj(); return 'cast<%s>(%s)' % (cl, s.e())
         if t == 0x2F:
             st = s.obj(); s.u32(); out = []
-            while c[s.i] != 0x30: out.append(s.e())
+            while s.c[s.i] != 0x30: out.append(s.e())
             s.i += 1; return '%s{%s}' % (st, ', '.join(out))
         if t == 0x31:
             a = s.e(); out = []
-            while c[s.i] != 0x32: out.append(s.e())
+            while s.c[s.i] != 0x32: out.append(s.e())
             s.i += 1; return '%s = [%s]' % (a, ', '.join(out))
         if t in (0x39, 0x3B): # SetSet / SetMap: lvalue, count, elements (map: key, value...)
             a = s.e(); s.u32(); out = []
-            while c[s.i] not in (0x3A, 0x3C): out.append(s.e())
+            while s.c[s.i] not in (0x3A, 0x3C): out.append(s.e())
             s.i += 1; return '%s = {%s}' % (a, ', '.join(out))
         if t in (0x3D, 0x3F, 0x65): # SetConst / MapConst / ArrayConst: property(ies), count, elements
             s.q()
             if t == 0x3F: s.q()
             s.u32(); out = []; end = {0x3D: 0x3E, 0x3F: 0x40, 0x65: 0x66}[t]
-            while c[s.i] != end: out.append(s.e())
+            while s.c[s.i] != end: out.append(s.e())
             s.i += 1; return '{%s}' % ', '.join(out)
         if t == 0x33: return s.fld()
         if t in (0x35, 0x36): return str(s.q())
@@ -127,12 +125,29 @@ class P:
         if t == 0x6D: return s.fld()
         raise ValueError('token %02x at %d' % (t, s.i - 1))
 
-a = int(sys.argv[2]) if len(sys.argv) > 2 else 0
-b = int(sys.argv[3]) if len(sys.argv) > 3 else n
-p = P(a)
-while p.i < min(b, n):
-    at = p.i
-    try: txt = p.e()
-    except Exception as ex: print('%6d  !! %s' % (at, ex)); break
-    if len(txt) > 220: txt = txt[:220] + '...'
-    print('%6d  %s' % (at, txt))
+
+def code(f):
+    """A UFunction's bytecode (Script at +0x60, its size at +0x68)."""
+    d, n = m.q(f + 0x60), struct.unpack('<i', m.read(f + 0x68, 4))[0]
+    return m.read(d, n) if d and 0 < n < 4000000 else b''
+
+
+def decode(c, a=0, b=None):
+    """[(offset, statement text)] for bytecode c from offset a to b; stops at the first token it can't read."""
+    out, p = [], P(a, c)
+    b = len(c) if b is None else min(b, len(c))
+    while p.i < b:
+        at = p.i
+        try: txt = p.e()
+        except Exception as ex: out.append((at, '!! %s' % ex)); break
+        out.append((at, txt))
+    return out
+
+
+if __name__ == '__main__':
+    c = code(int(sys.argv[1], 16))
+    a = int(sys.argv[2]) if len(sys.argv) > 2 else 0
+    b = int(sys.argv[3]) if len(sys.argv) > 3 else len(c)
+    for at, txt in decode(c, a, b):
+        if len(txt) > 220: txt = txt[:220] + '...'
+        print('%6d  %s' % (at, txt))

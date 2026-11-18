@@ -105,13 +105,36 @@ Typically "if IsServer, skip cosmetic work". If so, offline skips it (direction 
 hold, object spawner and `PlayerPawn`; those usually gate server gameplay, which runs offline, but their "remote"
 branch (client cosmetics) does not.
 
+## Blueprint branches that never run offline (2026-11-18, issue #143)
+`tools/offline-audit/bpbranch.py` decodes every loaded Blueprint function (kdis.py) and, for each `HasAuthority` /
+`IsServer` / `IsStandalone` branch (all true offline; `IsDedicatedServer` is false), takes the side that never runs,
+follows its flow (jumps, both sides of later branches, push/pop) and keeps only what the authority side can't reach.
+It lists the calls there and flags timers, HUD/widget, effect, sound, spawn and OnRep calls. Scanned in a Space_Solo_01
+raid (988 Blueprint classes loaded, 27 functions with such branches). Lobby, land maps and station interiors on foot
+not scanned yet: run it there too (it adds to the same JSON).
+
+| Where | What offline skips | Triage |
+|---|---|---|
+| `Ship_DropPod_Pawn` BeginPlay | `K2_SetTimer(Timed_BreachCheck, 0.1 s)`: BreachCheck -> HUD "BREACH BOOST READY" and the world "F BREACH" prompt | **Fixed** (#77): the director starts the timer per pod |
+| Every frigate pawn's BeginPlay (Starter, Fast, Scout, VIP, Frigate01, Capital, Red Baron strike; `Ship_Ai_CapitalShipFrigate01`) | `K2_SetTimer(ShipHealthCheck, 1 s)`: `DamageEffects_ShipHull(hull)`, `DamageEffects_Engine/Turret(hull <= 0)`; also the hit-react HUD blendable | **Lead.** Started by hand on your hull at 25 %: no visible difference from 18 m (smoke was already there). Next: read what DamageEffects_* toggle and compare those components |
+| `FrigateInside_Starter / Fast / Strike` | `FadeIn` (an audio component) | **Lead:** ambience inside your ship may be missing offline; listen for it |
+| `Base_CameraTurret01`, `Turret_LargeTurret01`, `SubNodeActorTurret` | `K2_SetWorldRotation` on the remote side | Probably the replicated aim on clients; the server side turns them. Check camera turret seats (#31 territory) |
+| `rc_FPS_AnimBP`, `rc_AI_FPS_AnimBP` | `Force_WalkFootstepSound`, `Force_Crouch_FootstepSound`, `PlayCameraShake` | Footsteps were item 19's lead; confirms the skipped side really plays them |
+| `MA_RotatingParent_Simple / _WithAmbience`, `Base_Broken_OneShots_Parent` | `K2_SetTimer(LoopThisActor / DoAnEvent)`, `FadeIn` | Rotating props and broken-machinery one-shots stay still and silent offline. Cheap to restart the same way |
+| `Base_RaidNode`, `Base_RaidMovementNode` | `PlayerIsInPodVisuals`, `RunSimplePopup` (can't enter as a pod) | The station's "you're in a pod" hint; low |
+| `Base_Contract_Hold` | `CharacterOverlapped / CharacterEndOverlapped` (behind IsLocalController) | Item 12 (hold-area contracts) |
+| `Proj40mm`, `Node_Colony_Cruiser` | nothing visible after the diff | Probably fine |
+
+Fix pattern for the timer ones (as #77): `KismetSystemLibrary:K2_SetTimer(actor, "<name>", <rate>, true, 0, 0)` once
+per actor from the director; the game runs it from then on, so it costs nothing per frame in Lua.
+
 ## Limits
 - Functions Denuvo moved into `.xcode` were not scanned.
 - Inlined OnRep logic, or server code doing the same thing by another route, can make an item a false alarm. That
   is why the "certain" ones are only those whose triggering event has no other caller.
 - Identical-code folding makes a few names wrong: e.g. `CraftingWidget::GetRecipeIcon` in the evac functions is
   a shared one-line getter, not crafting.
-- Blueprint findings say where a check is, not which way it branches.
+- bpauth.py says where a check is, not which way it branches; bpbranch.py does (for the true-offline checks above).
 - Only classes loaded at scan time were covered (a Spaceport raid). Space-only Blueprints that weren't loaded are missing.
 
 ## Fix approach (per item, verify each in game)
@@ -124,7 +147,7 @@ branch (client cosmetics) does not.
 ## Re-running
 Game running offline (menu is enough for natives; be in a raid for Blueprints). Scripts take output paths:
 `objs.py natives.json` → `impl.py natives.json` → `names.py natives.json names.json` → `gates.py names.json gates.json`
-→ `onrep.py natives.json` → `bpev.py bpev.json <addrs>` → `bpauth.py`. They read the module base and
+→ `onrep.py natives.json` → `bpev.py bpev.json <addrs>` → `bpauth.py` → `bpbranch.py out.json` (in each kind of map). They read the module base and
 `GUObjectArray` from UE4SS.log and names from `dumps/UE4SS_ObjectDump.txt`; `bpauth.py` reads the live FName pool
 (address taken from `FName::ToString`, RVA `0x58ceb40` in this build). `data/review.txt` is the per-function gate
 list with the calls each skipped side makes.

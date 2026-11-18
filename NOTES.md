@@ -3302,6 +3302,18 @@ to the floor at 60230,114665,-1203", inside a wall.
   shareState(); under lupa with UE4SS stubbed, old and new export the same 254 `R` keys, register the same 4 hooks,
   and run R.init / R.reset cleanly.
 
+## Blueprint authority branches: bpbranch.py (issue 143, 2026-11-18; tools/offline-audit/bpbranch.py, kdis.py)
+- kdis.py is importable now: `decode(code(func))` -> [(offset, text)]; the CLI is unchanged.
+- bpbranch.py <out.json>: for each loaded Blueprint function, every `if not HasAuthority/IsServer/IsStandalone jump T`
+  (and the Not_PreBool form) -> the side that never runs offline, walked through jumps, branches and push/pop, minus
+  whatever the authority side also reaches; the calls there, flagged when they look visible. ~14 s for 988 classes.
+  Results and triage: OFFLINE_AUDIT.md "Blueprint branches that never run offline". It found the pod breach timer (#77)
+  by itself, and the same shape on every frigate pawn (ShipHealthCheck, 1 s: DamageEffects_ShipHull/Engine/Turret).
+- ShipHealthCheck test (Space_Solo_01, your Starter hull cut to 25 %, timer started from the bridge, looked at from a
+  pod 18 m off): no difference seen; the hull already trailed smoke before. Not shipped. Next: kdis DamageEffects_* and
+  read the components they switch before and after.
+- Gotcha: IsDedicatedServer is false offline (standalone), unlike IsServer; the first version of the scan had it the
+  wrong way round.
 ## Offline backend: coverage tally, tournaments, the gift box (issue 80, 2026-11-18; backend/nakama_standin.py)
 - Writes were already crash-safe (state.json, loadout.json, cosmetics.json go through a .tmp + os.replace). Write
   coalescing NOT done: state.json is ~18 KB, and the launcher stops the stand-in by killing it, so a delayed write
