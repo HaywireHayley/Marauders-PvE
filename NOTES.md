@@ -3120,6 +3120,10 @@ to the floor at 60230,114665,-1203", inside a wall.
   height is what stops them ("can't get the guns on the ..., too far above or below us"); before, a pitch hold was silent.
 - Not done: a second gunner (only one crewmate is the gunner; they already work every turret on the hull).
 
+## F9 gun list: the rest of the guns (2026-11-17; debuggive.lua)
+- The F9 picker only had the base guns, so the variants could not be given for testing. Added 13 rows: Terminator, Heavy Liberator, Heavy MG42, Heavy Thompson, Thompson Special, APS, Custom Mat 49, M712 Special, Sterling Special, Sterling (short), Viper Mk1, Mini Thumper, M1911 G.
+- Kind (0 long gun, 1 pistol) and magazine size for each are checked against assets/saves/items.json (type and max), the same source as the rest of the list. Sterling (short), Mini Thumper and M1911 G are type 1, so they go in the pistol slot.
+- Only the GUNS table changed. No row was removed or edited, and the give path is untouched. These rows were used from the F9 menu in game while testing guns against armoured bots.
 ## Bots animate at the display's rate (2026-11-17; main.lua trackTargets and animate)
 - Before: animate() ran CFG.ANIM_HZ (30) times a second for a fighting or busy bot, ANIM_PEACE_HZ (15) for one at peace,
   and ANIM_SLOW_HZ (10) past ANIM_SLOW_FAR (4000) from the camera. On a 120 or 144 Hz display that is a fraction of the
