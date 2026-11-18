@@ -12,7 +12,7 @@ L = lupa.LuaRuntime()
 LOAD = L.eval('function(src, name) local f, e = load(src, "=" .. name) return e or "ok" end')
 LIMIT = 200
 # Files allowed under the minimum until they're split, each with the issue that splits it. Remove the line when it's done.
-TIGHT = {"rivals.lua": "issue #149"}
+TIGHT = {}  # (rivals.lua was here until #149 split it)
 
 
 def headroom(src, name):
