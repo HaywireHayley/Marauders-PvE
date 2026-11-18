@@ -3376,3 +3376,20 @@ to the floor at 60230,114665,-1203", inside a wall.
   tick, "BREACH BOOST READY" on screen (screenshot); moved to open space: false, border back to 1. No errors. NOT
   tested: a real flight onto a rival hull with a real F press, the escape pod after your ship dies.
 - Bridge: pawn:ServerInteractComp(comp) (with pawn.LastInteractionComp = comp) uses a seat, pod bay etc. like F does.
+
+## Raid length from the launcher (issue 159, 2026-11-18; raidtime.lua, launcher "Raid length")
+- The raid's countdown: RaidGameState.RemainingTime (seconds) and bTimerPaused; RaidGameMode (gs.AuthorityGameMode,
+  also for the SpaceGameMode_C subclass) RoundTime 1500 (25 min), WarmupTime 15, GameOverideTime 0,
+  TimeTillEvacSpawn 300 (space gate). GameState.ElapsedTime doesn't match the round (128 vs 175 s gone), don't use it.
+- During the warmup RemainingTime holds the warmup's 15 s countdown, and the round then restarts it from RoundTime.
+  Writing RemainingTime or pausing in the warmup is wrong: a length came out wrong, and a pause would hold the warmup.
+- raidtime.lua: config/raid_length.txt = minutes (5-240) | "default" | "none". Sets gm.RoundTime at once; once
+  RemainingTime > WarmupTime + 1 the round is running: "none" sets bTimerPaused; a raid first seen already running
+  gets the time gone carried onto the new length. Once per raid (raid.lengthSet).
+- Launcher: a "Raid length" slider (25 min default, 15, 30, 45, 60, 90, 120, no limit). Both sliders are one row now
+  (label, slider, value): with the new one the settings column clipped at 150 % scaling.
+- Tested in game (Space_Solo_01, relaunched each time): 60 -> "raid length: 60 min", 3541 s left a minute in, RoundTime
+  3600; 15 -> 883 s left at the round start, RoundTime 900; none -> paused at 1488 s and still 1488 ten seconds later,
+  raid started normally. Hand-written RemainingTime 2700 counted down (2693 after 7 s). launcher/test_ui.py 12/12.
+  NOT tested: a land map, what happens when a set length runs out (#159 noted one process exit at timer end), whether
+  the space gate's arrival depends on the round time.
