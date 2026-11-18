@@ -3325,3 +3325,54 @@ to the floor at 60230,114665,-1203", inside a wall.
   fake Steam (the dirty marker and a process named like the game for 6 s): "Steam is starting the game" -> "Saving..."
   -> "Saved", save written, launch option switch back on. Windows: launcher/test_ui.py 12/12.
   NOT tested: a real Steam / Proton / Deck, the window on a real desktop (WSLg wouldn't give a screenshot), Game Mode.
+## Blueprint authority branches: bpbranch.py (issue 143, 2026-11-18; tools/offline-audit/bpbranch.py, kdis.py)
+- kdis.py is importable now: `decode(code(func))` -> [(offset, text)]; the CLI is unchanged.
+- bpbranch.py <out.json>: for each loaded Blueprint function, every `if not HasAuthority/IsServer/IsStandalone jump T`
+  (and the Not_PreBool form) -> the side that never runs offline, walked through jumps, branches and push/pop, minus
+  whatever the authority side also reaches; the calls there, flagged when they look visible. ~14 s for 988 classes.
+  Results and triage: OFFLINE_AUDIT.md "Blueprint branches that never run offline". It found the pod breach timer (#77)
+  by itself, and the same shape on every frigate pawn (ShipHealthCheck, 1 s: DamageEffects_ShipHull/Engine/Turret).
+- ShipHealthCheck test (Space_Solo_01, your Starter hull cut to 25 %, timer started from the bridge, looked at from a
+  pod 18 m off): no difference seen; the hull already trailed smoke before. Not shipped. Next: kdis DamageEffects_* and
+  read the components they switch before and after.
+- Gotcha: IsDedicatedServer is false offline (standalone), unlike IsServer; the first version of the scan had it the
+  wrong way round.
+## Offline backend: coverage tally, tournaments, the gift box (issue 80, 2026-11-18; backend/nakama_standin.py)
+- Writes were already crash-safe (state.json, loadout.json, cosmetics.json go through a .tmp + os.replace). Write
+  coalescing NOT done: state.json is ~18 KB, and the launcher stops the stand-in by killing it, so a delayed write
+  could lose a purchase. Not worth that risk for now.
+- Coverage: the stand-in counts what nothing answers, by kind: "unknown rpcs", "unhandled endpoints" (ids replaced by
+  <id>), "empty collections" (listed while empty: twitch on every login). backend/coverage.json, count + first/last
+  time, added to across sessions, written by the 1 s watcher thread only when something new was counted. REPORT zips
+  it. Seen so far: `guild_getinfo` (the guild page's Nakama half; guild.lua fills that widget itself, so answering it
+  isn't needed), twitch empty, and GET /v2/tournament, which is now answered as "no tournaments" (the live list was
+  empty in the capture too).
+- Gifts work offline already: the lobby's GIFT tab (MainOverlay Btn_TEMP_MainBtn_Gift) lists the gifts collection
+  sent in masterstartfunction. Claiming is the client's own delete gifts + put inventory (captured online), which the
+  generic storage path handles. A gift is only an item row ({"value": "Mat49Rifle"}); the game picks the stack when it
+  shows it: a gun with a full magazine, 9mmAmmo 30/60, BandageAid 1/3. Some showed the Twitch badge (which ones
+  depends on the client, not the stand-in).
+- backend/gifts_in.txt: item rows, one per line; the stand-in moves them into the gift box within a second (new
+  5-digit keys, never one already in gifts or the stash). For the mod or the launcher to hand out rewards (#78's loot
+  for harder raids). The client reads gifts at login, so they show from the next login.
+- Tested in game (2026-11-18, throwaway save gifts-test, MainMenu): 2 x (Mat49Rifle, BandageAid, 9mmAmmo) queued
+  through gifts_in.txt, all six shown in GIFTS. NOT tested: claiming a gift into the stash by dragging (no input
+  from the bridge), whether ED_CheckForGiftsNow can make the lobby re-read gifts without a new login.
+  tools/test_standin_gaps.py covers the tally, the tournament answer and the gift hand-off.
+- Windows dev note: `pvemode.py steam-run` started the Shipping exe without its working directory, and Steam
+  relaunched the stock game (folder already back to stock). It's meant for Linux, where Steam supplies the
+  environment; on Windows use the launcher or launch-offline.ps1.
+## Pod breach prompt (issue 77, 2026-11-18; rivalcombat.lua playerBoarding)
+- Cause: Ship_DropPod_Pawn_C's BeginPlay (ubergraph 10670: `if not HasAuthority() jump 7935`) starts its looping
+  0.1 s timer `K2_SetTimer(self, 'Timed_BreachCheck', 0.1, true)` (at 8781) only on the non-authority branch.
+  Timed_BreachCheck = BreachCheck() -> SetAbleToBreach(it) -> MatchHUD.HUD_Widget.SetUIAbleToPodBreach(bool), which shows
+  HUD_Main_Widget's Border_isAbleToBreach ("... BREACH BOOST READY ..."). Offline we're the authority, so the border
+  stayed Collapsed while BreachCheck was true. F (and ramming) still breached, since they call BreachCheck themselves.
+  Same pattern as the salvage scan timer (#134 / pvepatch) and issue #143.
+- Fix: playerBoarding (every frame while you're in a pod) starts the same timer once per pod through
+  KismetSystemLibrary:K2_SetTimer(pod, "Timed_BreachCheck", 0.1, true, 0, 0); the game runs it from there.
+- Tested in game (2026-11-18, Space_Solo_01, gifts-test save, pod from RaidUseableComp_DropPod01 via
+  pawn:ServerInteractComp): pod parked 1200 off your own hull, nose on it: BreachCheck true, border 1 -> 4 within a
+  tick, "BREACH BOOST READY" on screen (screenshot); moved to open space: false, border back to 1. No errors. NOT
+  tested: a real flight onto a rival hull with a real F press, the escape pod after your ship dies.
+- Bridge: pawn:ServerInteractComp(comp) (with pawn.LastInteractionComp = comp) uses a seat, pod bay etc. like F does.

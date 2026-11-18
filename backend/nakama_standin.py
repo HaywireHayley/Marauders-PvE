@@ -23,6 +23,10 @@ CHECKOUT = os.path.join(HERE, "checkout.txt")  # item ids taken into a raid, wri
 SHIP_STOLEN = os.path.join(HERE, "ship_stolen.txt")  # table row of a ship you took the helm of, written by the mod
 SHIP_LOST = os.path.join(HERE, "ship_lost.txt")  # you died: the ship you took in isn't coming back
 SHIP_GATE = os.path.join(HERE, "ship_gate.txt")  # written by the mod: 1 in a space gate, 0 back out of it
+GIFTS_IN = os.path.join(HERE, "gifts_in.txt")  # item rows to put in your gift box, one per line (mod, launcher, you)
+# What the client asked for that nothing answers (issue #80): unknown RPCs, unhandled endpoints, collections read
+# while empty. Counted across sessions, so it shows which missing features players actually reach.
+COVERAGE = os.path.join(HERE, "coverage.json")
 # The starting account: the private capture of a real account when this PC has one (capture/ is never shared),
 # else seed.json, the anonymous account that releases and the shared repository ship.
 SEED = os.path.join(HERE, "..", "capture", "seed", "account.json")
@@ -155,6 +159,59 @@ def write_cosmetics(s):
 
 
 state = None
+coverage = {"dirty": False, "data": None}
+
+
+def note_gap(kind, name):
+    """Counts one request nothing answers. Call with the lock held; flush_coverage writes it out."""
+    data = coverage["data"]
+    if data is None:
+        try:
+            with open(COVERAGE, encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, ValueError):
+            data = {}
+        coverage["data"] = data
+    entry = data.setdefault(kind, {}).setdefault(name, {"count": 0, "first": stamp()})
+    entry["count"] += 1
+    entry["last"] = stamp()
+    coverage["dirty"] = True
+
+
+def flush_coverage():
+    """Writes coverage.json if anything new was counted. Call with the lock held."""
+    if not coverage["dirty"]:
+        return
+    coverage["dirty"] = False
+    tmp = COVERAGE + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(coverage["data"], f, indent=1, sort_keys=True)
+        os.replace(tmp, COVERAGE)
+    except OSError:
+        pass
+
+
+def add_gifts(rows):
+    """Puts item rows in the gift box (the lobby's GIFTS grid; claiming one turns it into a stash item with the same
+    key). A gift is just a row: what the game makes of it when claimed is its own default for that item. Call with the
+    lock held."""
+    gifts = state["storage"].setdefault("gifts", {})
+    taken = set(gifts) | set(state["storage"].get("inventory", {}))
+    added = []
+    for row in rows:
+        if not re.fullmatch(r"[A-Za-z0-9_]+", row):
+            log(f"gift skipped, not an item row: {row[:60]!r}")
+            continue
+        key = str(uuid.uuid4().int % 90000 + 10000)
+        while key in taken:
+            key = str(uuid.uuid4().int % 90000 + 10000)
+        taken.add(key)
+        now = stamp()
+        gifts[key] = {"value": json.dumps({"value": row}), "user_id": state["user"]["id"], "version": uuid.uuid4().hex,
+                      "create_time": now, "update_time": now, "permission_read": 1, "permission_write": 1}
+        added.append(row)
+    return added
 
 
 def obj_out(col, key, o):
@@ -306,6 +363,8 @@ class Handler(BaseHTTPRequestHandler):
             items = sorted(st.get(col, {}).items())
             limit, start = int(q.get("limit", 100)), int(q.get("cursor") or 0)
             page = [obj_out(col, k, o) for k, o in items[start:start + limit]]
+            if not items:
+                note_gap("empty collections", col)
             out = {"objects": page} if page else {}
             if start + limit < len(items):
                 out["cursor"] = str(start + limit)
@@ -328,8 +387,12 @@ class Handler(BaseHTTPRequestHandler):
                     pass
             res = rpc(name, arg)
             if res is None:
+                note_gap("unknown rpcs", name)
                 return {"payload": "{}"}, f"UNKNOWN rpc {name} body={json.dumps(arg)[:300]}"
             return {"payload": json.dumps(res)}, f"rpc {name}"
+        if path == "/v2/tournament" and verb == "GET":  # the live list was empty too (capture): no tournaments
+            return {}, "tournaments: none"
+        note_gap("unhandled endpoints", f"{verb} {re.sub(r'[0-9a-f-]{32,36}', '<id>', path)}")
         return {}, f"UNHANDLED body={json.dumps(body)[:300]}"
 
 
@@ -389,6 +452,14 @@ def watch_checkout():
     from SIGISGameInstanceNakama.ExtractedLoot). The PvEDirector mod writes the ids it loaded to checkout.txt."""
     while True:
         time.sleep(1)
+        gifts = take_file(GIFTS_IN)
+        with lock:
+            flush_coverage()
+            if gifts:
+                added = add_gifts([line.strip() for line in gifts.splitlines() if line.strip()])
+                if added:
+                    save_state(state)
+                    log(f"gifts: {added} in the gift box (shown at the next login)")
         row = take_file(SHIP_STOLEN)
         lost = take_file(SHIP_LOST)
         gate = take_file(SHIP_GATE)
