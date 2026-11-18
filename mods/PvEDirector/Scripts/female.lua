@@ -33,7 +33,7 @@ local function load(path)
         known[path] = false
         return false
     end
-    X.root(math.tointeger(mesh:GetAddress())) -- the garbage collector can't see this table
+    X.root(mesh) -- the garbage collector can't see this table
     known[path] = mesh
     return mesh
 end

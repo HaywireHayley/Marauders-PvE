@@ -430,7 +430,7 @@ local function holdTurrets()
         local t = e.actor
         if valid(t) then
             local free = true
-            pcall(function() free = not (t.ControllerHere and t.ControllerHere:IsValid()) end)
+            pcall(function() free = not valid(t.ControllerHere) end) -- (valid: the game can leave a freed controller here)
             if free then
                 t.ControllerHere = S.pc
                 table.insert(S.held, t)
@@ -450,7 +450,7 @@ local function releaseTurrets()
         if valid(t) and not (seat and seat:GetAddress() == t:GetAddress()) then
             pcall(function()
                 local c = t.ControllerHere
-                if c and c:IsValid() and valid(S.pc) and c:GetAddress() == S.pc:GetAddress() then t.ControllerHere = nil end
+                if valid(c) and valid(S.pc) and c:GetAddress() == S.pc:GetAddress() then t.ControllerHere = nil end
             end)
         end
     end

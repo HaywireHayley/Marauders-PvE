@@ -3235,3 +3235,19 @@ to the floor at 60230,114665,-1203", inside a wall.
   menu. Spaceport_01 land raid: navmesh, 8 soldiers, donor gun and ammo, god mode on/off, F9 spawn soldier, a fight with
   cover and a bot reload, F9 extract with 3 items. No Lua errors in UE4SS.log. Note: bridge/debug_cmd is only read in
   a raid (update returns early in the lobby), so its "testraid" does nothing from the menu, as before.
+
+## Lua and launcher practices made into checks (2026-11-17)
+- `scripts/luacheck.py` measures each file's headroom under Lua's 200-locals limit (as many extra top-level locals as
+  still compile, put in front of the file) and fails CI under 20. It found **rivals.lua at exactly 200 (0 to spare)**:
+  allowed as a named exception until #149 splits it. main.lua: 99 to spare after #146.
+- main.lua `pveRoot(object)` replaces the raw `pve_root(address)`: it walks the object's outers and refuses (logged:
+  `root: refused ... (a world owns it: Level ...)`) anything a World or Level owns, the #133 leak. Callers (crewlobby,
+  female, loading, rivals, voice) pass the object. Checked with lupa stubs: a stand-owned render target refused, a game
+  instance one and an asset rooted, nothing rooted without pvepatch.dll.
+- Audit of raw `:IsValid()` calls: nearly all are on fresh lookups (StaticFindObject/FindFirstOf, class objects, CDOs,
+  hook contexts). The exceptions were a game-held pointer, `turret.ControllerHere` (crew.lua twice, gunseat.lua), which
+  can point at a freed controller: now `valid()`.
+- Launcher (#147, PR #148): background threads go through `App.ui(fn)` and a 50 ms pump; grid layout with wrap widths in
+  points; font fallback; dialogs are owned windows that grab only once visible; keyboard focus and Enter/Space on
+  buttons; Tk option-database theme; `launcher/test_ui.py` (12 headless tests). Tk's font cache is per process on
+  Windows: a scaling test must run in its own process or it leaks into the others.
