@@ -3333,8 +3333,8 @@ to the floor at 60230,114665,-1203", inside a wall.
   Results and triage: OFFLINE_AUDIT.md "Blueprint branches that never run offline". It found the pod breach timer (#77)
   by itself, and the same shape on every frigate pawn (ShipHealthCheck, 1 s: DamageEffects_ShipHull/Engine/Turret).
 - ShipHealthCheck test (Space_Solo_01, your Starter hull cut to 25 %, timer started from the bridge, looked at from a
-  pod 18 m off): no difference seen; the hull already trailed smoke before. Not shipped. Next: kdis DamageEffects_* and
-  read the components they switch before and after.
+  pod 18 m off): no difference seen; the hull already trailed smoke before. Not shipped, and not needed: rivals.lua
+  hullDamageFx (2026-11-14, "Rival hulls" above) already lights those emitters and calls DamageEffects_* itself.
 - Gotcha: IsDedicatedServer is false offline (standalone), unlike IsServer; the first version of the scan had it the
   wrong way round.
 ## Offline backend: coverage tally, tournaments, the gift box (issue 80, 2026-11-18; backend/nakama_standin.py)
