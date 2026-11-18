@@ -209,6 +209,7 @@ local Launch = require("launch") -- offline matchmaking, the map travel, the loa
 local Space = require("space") -- space maps: pod guns, docking, level effects, key card, sun, your ship's navmesh
 local DebugActions = require("debugactions") -- the debug menu's buttons (F9) and god mode
 local RaidTime = require("raidtime") -- the launcher's raid length (#159)
+local Blowtorch = require("blowtorch") -- the blowtorch burns a vault door's three locks offline
 AI.init({ log = log, valid = valid, dist = dist })
 
 -- Weapon role-check patches (native/pvepatch.dll applies them when loaded and reports to patch_out.txt).
@@ -602,6 +603,8 @@ local function onTick(ctx)
         -- for shots has seen it drop first.
         ok, err = ppcall("mags", DebugActions.frame, ticker)
         if not ok and not raid.magsFailed then raid.magsFailed = true log("bottomless mags failed: " .. tostring(err)) end
+        ok, err = ppcall("blowtorch", Blowtorch.frame, ticker)
+        if not ok and not raid.torchFailed then raid.torchFailed = true log("blowtorch failed: " .. tostring(err)) end
         if pveBodies then pveBodies() end
         ok, err = ppcall("minimap", Minimap.tick, ticker)
         if not ok then log("minimap failed: " .. tostring(err)) end
@@ -793,7 +796,7 @@ end
 raid = { world = nil }
 -- The modules keep their own reference to the per-raid table: each is handed the new one whenever it's replaced.
 local function shareRaid()
-    for _, m in ipairs({ PlayAreas, Bots, Loadout, Launch, Space, DebugActions, RaidTime, LevelProps }) do m.setRaid(raid) end
+    for _, m in ipairs({ PlayAreas, Bots, Loadout, Launch, Space, DebugActions, RaidTime, LevelProps, Blowtorch }) do m.setRaid(raid) end
 end
 shareRaid()
 
@@ -898,6 +901,7 @@ Crew = require("crew")
 Interiors.init({ log = log, valid = valid })
 LevelProps.init({ log = log, valid = valid, lib = lib })
 RaidTime.init({ log = log, valid = valid })
+Blowtorch.init({ log = log, valid = valid })
 Crew.init({ rivals = Rivals, hire = Hire, AI = AI, lib = lib, voice = Voice, log = log, valid = valid, dist = dist,
     gunseat = Gunseat,
     navLib = navLib, navMesh = navMesh,

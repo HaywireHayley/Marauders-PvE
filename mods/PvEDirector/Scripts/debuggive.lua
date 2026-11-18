@@ -22,7 +22,7 @@ local GUNS = {
     { "LiberatorShotgun", "Liberator", 0, 4 }, { "TrenchShotgun", "Trench gun", 0, 5 },
     { "SawedOffDouble", "Sawed-off", 1, 2 }, { "LongDoubleBarrel", "Double barrel", 0, 2 },
     { "Jackhammer", "Jackhammer", 0, 10 }, { "LPOFlamethrower", "LPO flamethrower", 0, 100 },
-    { "ChinaLake", "China Lake", 0, 3 },
+    { "ChinaLake", "China Lake", 0, 3 }, { "BlowTorch", "Blowtorch", 0, 250 },
     { "TerminatorShotgun", "Terminator", 0, 1 }, { "HeavyLiberatorShotgun", "Heavy Liberator", 0, 4 },
     { "HeavyMG42Rifle", "Heavy MG42", 0, 50 }, { "HeavyThompsonSMG", "Heavy Thompson", 0, 30 }, { "ThompsonSpecial", "Thompson Special", 0, 30 },
     { "APSRifle", "APS", 0, 20 }, { "CustomMat49", "Custom Mat 49", 0, 30 }, { "M712SpecialSMG", "M712 Special", 0, 20 },

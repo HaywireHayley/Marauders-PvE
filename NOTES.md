@@ -3417,3 +3417,30 @@ to the floor at 60230,114665,-1203", inside a wall.
 - Verified (Space_Alpha): "level props: 44 started", `K2_IsTimerActive` true on 26/26 rotating, 17/17 ambience and 1/1
   broken props, 17 ambience Audio components playing, and a rendered fan's yaw going -30 -> -45 between two reads.
   Not checked by ear or eye in normal play; land raids and station interiors not checked.
+
+## Blowtorch locks: the vault door could not be opened (2026-11-18; blowtorch.lua, BLOWTORCH.md; reported on Discord, no issue)
+- Symptom: the vault door says "F requires blowtorch"; firing the torch at its three metal pieces (top, middle, bottom lock)
+  changes nothing. The torch does hurt soldiers.
+- Cause (decompiled with tools/offline-audit/kdis.py, live logs from a test raid): `Base_BlowTorch_C` only plays flame, light and
+  sound; its damage is native (`RaidWeapon_Tool`). `Door_BlowTorch_C` has no damage code: three `RaidLockVolumeComponent` boxes
+  (`RaidLockVolume_Top / _Middle / _Bottom`, native Health 300, hidden, about 14 x 7 x 11 cm either side of the middle, 60 cm
+  apart in a column) and the event `LockDamaged(LockName, HealthPercent)`, which the native weapon code is meant to call. Offline
+  nothing reaches the boxes: no health change, no `LockDamaged`. When a lock reaches 0 the door waits `Delay(10)`, scales the
+  latch down (about 5 s), and after the last latch the vault door opens.
+- Fix: `blowtorch.lua` (`frame(pc)` from the director's per-frame section). While the torch fires (`BurstCounter` above 0), every
+  0.1 s, on each door near you the lock whose box middle is nearest your aim line (camera, up to 3 m, within 30 cm) loses
+  50 health a second of 300, and the door is told with its own `LockDamaged(FName, share 0 to 1)`. When a door's three locks are at 0
+  it sets `bIsUnlocked`, which the "F requires blowtorch" prompt checks. State is `raid.torch`, new each raid. The boxes are looked
+  for every 10 s while firing only.
+- Also: the Blowtorch is in the F9 gun list (`debuggive.lua`, 250 charge), so it can be spawned for testing.
+- Mistakes on the way: testing points along the aim against the boxes burned all three locks at once (the box test counted the
+  camera as inside all three), so the nearest line to the aim is used. The door takes the share as 0 to 1 (it stored 0.9667 for
+  290 of 300). The latch's fall starting exactly 10 s after its lock hits 0 is the door's own Delay, not lag.
+- Verified (the test copy of this logic, 2026-11-18): the three locks burned one at a time, only the aimed one glowing and falling;
+  the latches fell 10 s after each lock reached 0; `Door_OpenClose01` finished about 1 s after the last latch (the vault door
+  opened). blowtorch.lua itself: [fill in after the test run].
+- Not done: explosive barrels and gas cans. Their Blueprint (`00_UA_Exploder_Base`) only takes damage from a flamethrower or fire
+  grenade area (`ReceiveAnyDamage`), from explosion damage as a radial hit (`ReceiveRadialDamage`), or from `GenTakenDamage(Amount)`,
+  which looks like what a gun's hit calls. A plain damage hit and an explosion-type hit sent to a gas can (10 health) and a barrel
+  (42) changed nothing. It is not known that the real torch sets them off, so they are left alone; if it does, calling
+  `GenTakenDamage` from the burn loop is the likely fix (separate change). The decompiled flow is drawn in BLOWTORCH.md.
