@@ -20,6 +20,8 @@ trailer/
 # --- your own saves, settings and logs ---
 backend/state*.json
 backend/saves/
+# the launcher's marker for the save in play (launcher/saves.py ACTIVE)
+backend/active_save.txt
 backend/loadout.json
 backend/cosmetics.json
 backend/checkout.txt
