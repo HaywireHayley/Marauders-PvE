@@ -386,6 +386,42 @@ def set_cheat(sid, on):
     _write(os.path.join(SAVES, sid, "meta.json"), meta)
 
 
+def item_rows():
+    """Every item row a stash can hold, for the give-items picker (the game's test rows left out)."""
+    return sorted((r for r in _read(ITEMS) if not r.lower().startswith("test")), key=str.lower)
+
+
+def give(sid, row, count):
+    """Adds count of an item row to a save's stash, filling stacks up to the item's maximum and packing them into free
+    cells. Returns how many went in: fewer than asked when the stash is full."""
+    items = _read(ITEMS)
+    if row not in items:
+        raise ValueError(f"no item called {row}")
+    it = items[row]
+    path = os.path.join(SAVES, sid, "state.json")
+    state = _read(path)
+    grid = Grid(state, items, stash_rows(_meta(sid)))
+    # Ammo and stackables go in stacks of up to max; anything else (a gun's max is its loaded magazine) one apiece.
+    per = max(int(it["max"] or 1), 1) if it["type"] == 18 or it["stackable"] else 1
+    given = 0
+    while given < count:
+        n = min(per, count - given)
+        if not _put(state, grid, items, row, n if per > 1 else None):
+            break
+        given += n
+    if given:
+        _write(path, state)
+    return given
+
+
+def set_cash(sid, amount):
+    """Sets a save's cash. A cheat save keeps its infinite money (the stand-in puts it back after every purchase)."""
+    path = os.path.join(SAVES, sid, "state.json")
+    state = _read(path)
+    _stat(state, "cash", max(0, int(amount)))
+    _write(path, state)
+
+
 def undo_last_raid(sid):
     """Back to the moment the last raid started: for a raid that ended without an extraction you wanted."""
     folder = os.path.join(SAVES, sid)
