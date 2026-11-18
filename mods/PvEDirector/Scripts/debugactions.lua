@@ -1,6 +1,7 @@
 -- The debug menu's buttons (debugmenu.lua, F9) and god mode (moved out of main.lua).
 local PROJECT = require("pveproject")
 local Debug = require("debugmenu")
+local Holes = require("bulletholes").CFG -- the bullet holes switch (bulletholes.lua, also F3 Effects)
 local Give = require("debuggive") -- the gun and ammo picker and bottomless mags
 local M = {}
 
@@ -58,6 +59,13 @@ function M.init(ctx)
         { id = "god", label = function() return "God mode: " .. (godMode() and "ON" or "off") end,
           help = "You can't be hurt. Stays on until you turn it off",
           run = function() toggleGodMode() return "God mode " .. (godMode() and "on" or "off") end },
+        { id = "bulletholes", label = function() return "Bullet holes: " .. (Holes.BULLET_HOLES ~= 0 and "ON" or "off") end,
+          help = "Holes in walls and floors where shots land. Holes already there stay until they fade",
+          run = function()
+              Holes.BULLET_HOLES = Holes.BULLET_HOLES ~= 0 and 0 or 1
+              log("bullet holes " .. (Holes.BULLET_HOLES ~= 0 and "ON" or "OFF") .. " (debug menu)")
+              return "Bullet holes " .. (Holes.BULLET_HOLES ~= 0 and "on" or "off")
+          end },
         { id = "extract", label = "Extract now", help = "Leave with everything you carry",
           when = function() return raid.navReady or raid.space end, unusable = "Not available here", closes = true,
           run = function() Loadout.extractNow() return "Extracting" end },
