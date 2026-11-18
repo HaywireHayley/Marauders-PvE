@@ -210,6 +210,7 @@ local Space = require("space") -- space maps: pod guns, docking, level effects, 
 local DebugActions = require("debugactions") -- the debug menu's buttons (F9) and god mode
 local RaidTime = require("raidtime") -- the launcher's raid length (#159)
 local Blowtorch = require("blowtorch") -- the blowtorch burns a vault door's three locks offline
+local BulletHoles = require("bulletholes") -- bullet holes in walls and floors, which the offline game never makes
 AI.init({ log = log, valid = valid, dist = dist })
 
 -- Weapon role-check patches (native/pvepatch.dll applies them when loaded and reports to patch_out.txt).
@@ -610,6 +611,8 @@ local function onTick(ctx)
         if not ok and not raid.magsFailed then raid.magsFailed = true log("bottomless mags failed: " .. tostring(err)) end
         ok, err = ppcall("blowtorch", Blowtorch.frame, ticker)
         if not ok and not raid.torchFailed then raid.torchFailed = true log("blowtorch failed: " .. tostring(err)) end
+        ok, err = ppcall("bulletholes", BulletHoles.frame, ticker)
+        if not ok and not raid.holesFailed then raid.holesFailed = true log("bullet holes failed: " .. tostring(err)) end
         if pveBodies then pveBodies() end
         ok, err = ppcall("minimap", Minimap.tick, ticker)
         if not ok then log("minimap failed: " .. tostring(err)) end
@@ -939,6 +942,7 @@ Interiors.init({ log = log, valid = valid })
 LevelProps.init({ log = log, valid = valid, lib = lib })
 RaidTime.init({ log = log, valid = valid })
 Blowtorch.init({ log = log, valid = valid })
+BulletHoles.init({ log = log, valid = valid })
 Crew.init({ rivals = Rivals, hire = Hire, AI = AI, lib = lib, voice = Voice, log = log, valid = valid, dist = dist,
     gunseat = Gunseat,
     navLib = navLib, navMesh = navMesh,

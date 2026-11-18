@@ -274,6 +274,15 @@ local function define()
         end
         tabs[#tabs + 1] = mates
     end
+    -- Effects: bullet holes the offline game never makes (bulletholes.lua). Read as shots land, so a change shows at once.
+    local fx = { name = "Effects" }
+    add(fx, require("bulletholes").CFG, {
+        { "BULLET_HOLES", "Bullet holes in walls and floors", 0, 1, 1, "1 = on, 0 = off. Concrete, metal, wood, glass and snow. Blood on a bot is the game's own" },
+        { "HOLE_SECONDS", "How long a bullet hole lasts (seconds)", 10, 300, 5, "Then it fades out" },
+        { "MAX_HOLES", "Most bullet holes at once", 0, 500, 10, "The oldest go first. Lower = better frame rate in long firefights" },
+        { "HOLE_SIZE", "Bullet hole size (cm, half width)", 2, 12, 0.5, "5 = a 10 cm hole" },
+    })
+    tabs[#tabs + 1] = fx
     tabs[#tabs + 1] = { name = "Saved setups", rows = {}, mine = true }
 end
 
