@@ -3177,3 +3177,23 @@ to the floor at 60230,114665,-1203", inside a wall.
   change (pickup and purge). Same pattern likely behind #74 (salvage gone on docking): check the other OnRep_* there.
 - Careful in bridge probes: calling methods on a possibly-null object wrapper inside pcall crashed the game in UE4SS
   (null read 0x18); check `o ~= nil and o:IsValid()` first.
+
+## Linux / Steam Deck via Proton (issue 127; scripts/pvemode.py, linux/)
+- Design (the issue's option B): Marauders' Steam launch option `"<project>/linux/marauders-offline.sh" %command%`
+  runs `pvemode.py steam-run`, which does what the launcher's PLAY does: settle/activate the save (config/linux_save.txt
+  or the last played), start the stand-in, switch the folder offline (same files as mode.ps1), then run Steam's command
+  with RaidGame.exe (EAC bootstrapper) swapped for RaidGame-Win64-Shipping.exe plus -nosplash, and
+  `WINEDLLOVERRIDES=dwmapi=n,b` so Wine loads UE4SS's proxy instead of its own dwmapi. On exit: stand-in stopped,
+  folder back to stock, save settled. Steam supplies Proton, its prefix and steam_api.
+- Unclean exits: offline() writes backup/offline_applied; every pvemode command (and steam-run first thing) puts the
+  folder back when it's there and no game is running. SIGTERM/SIGINT/SIGHUP (Steam's stop) tidy up in a finally.
+- Safety: `pvemode.py steam off` (config/linux_offline.txt) makes the same launch option exec Steam's command unchanged.
+- pveproject.lua gets the Wine form of the project path (`Z:/home/...`): the Lua runs inside the game. pvenet.dll finds
+  the project from its own module path, which Wine reports in the same form.
+- Tested: scripts/test_pvemode.py on Windows and on Linux (WSL Ubuntu, Python 3.12), with a fake game folder and a fake
+  Proton: play and tidy up, SIGTERM mid-game, switched off, unclean-exit recovery, libraryfolders.vdf with an SD-card
+  library with a space in its path; linux/install.sh and the wrapper on a copy of the project.
+- **Not tested: anything under real Proton.** Open questions in #127: does UE4SS 3.0.1 load with dwmapi=n,b, does
+  pvenet's WinHTTP redirect work under Wine, does the Shipping exe start without EAC under Proton, where the prefix keeps
+  Saved/ (crash reports, GameUserSettings.ini). Not done: a Linux GUI launcher (the Tk one is Windows-only), report.py
+  in the prefix, a Steam Input layout.

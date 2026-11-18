@@ -32,6 +32,23 @@ Your online game is safe: the launcher switches the game to offline mode only wh
 to stock when you close the game. If your PC crashes mid-game, open the launcher once and close it again (or run
 `Uninstall.bat`) before starting Marauders from Steam. Full instructions are in `README.txt` in the zip.
 
+### Linux and Steam Deck (experimental, not yet tested under Proton)
+
+The game runs under Proton; the mod's DLLs and UE4SS are Windows files that run inside it. There's no launcher window
+on Linux: Steam's PLAY button starts the mod through a launch option, so it works from Game Mode too.
+
+1. Unzip the folder somewhere permanent (internal storage is safest; a path with spaces is fine, non-English letters
+   aren't). You need Python 3.9 or newer, which SteamOS has.
+2. In a terminal (Desktop Mode on a Deck), run `sh linux/install.sh` in that folder. It finds the game in your Steam
+   libraries, SD cards included, and prints a line to paste into **Marauders > Properties > General > Launch options**:
+   `"/path/to/MaraudersOffline/linux/marauders-offline.sh" %command%`
+3. Press PLAY in Steam. The game folder is switched to offline for that game and put back to stock when it closes. If
+   the game is killed or the Deck loses power, the next start (or any `pvemode.py` command) puts it back first.
+
+Saves: `python3 scripts/pvemode.py saves`, `use <id>`, `new <name> [--cheat]`. To play the normal online game, clear
+the launch option, or run `python3 scripts/pvemode.py steam off` (`on` switches the mod back on). Details and what
+still needs testing: [#127](https://github.com/HaywireHayley/Marauders-PvE/issues/127).
+
 ### Controls
 
 The game's own controls are unchanged. The mod adds (the launcher's CONTROLS button shows the same list):

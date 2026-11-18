@@ -45,6 +45,10 @@ FILES = [  # (from, to), relative to the dev tree and the release
     ("tools/release/README.txt", "README.txt"),
     ("CREDITS.md", "CREDITS.md"),
     ("tools/release/PvEBridge_main.lua", "mods/PvEBridge/Scripts/main.lua"),
+    # Linux / Steam Deck (issue #127): the mode switch without PowerShell, the Steam launch option, the installer
+    ("scripts/pvemode.py", "scripts/pvemode.py"),
+    ("linux/marauders-offline.sh", "linux/marauders-offline.sh"),
+    ("linux/install.sh", "linux/install.sh"),
 ]
 # Your own names, IDs and account strings that must never ship, one per line (untracked: they're private too).
 _private = os.path.join(os.path.dirname(os.path.abspath(__file__)), "private.txt")
@@ -137,7 +141,7 @@ def check():
     found = []
     for dirpath, _, files in os.walk(DEST):
         for name in files:
-            if name.endswith((".lua", ".py", ".pyw", ".ps1", ".txt", ".ini", ".json", ".bat", ".md")):
+            if name.endswith((".lua", ".py", ".pyw", ".ps1", ".sh", ".txt", ".ini", ".json", ".bat", ".md")):
                 path = os.path.join(dirpath, name)
                 with open(path, encoding="utf-8", errors="ignore") as f:
                     if bad.search(f.read()):
@@ -209,7 +213,15 @@ def main():
         for dirpath, _, files in os.walk(DEST):
             for name in files:
                 path = os.path.join(dirpath, name)
-                z.write(path, os.path.join(NAME, os.path.relpath(path, DEST)))
+                arc = os.path.join(NAME, os.path.relpath(path, DEST)).replace("\\", "/")
+                if name.endswith(".sh"):  # executable when unzipped on Linux (a Windows build has no mode bits)
+                    info = zipfile.ZipInfo.from_file(path, arc)
+                    info.external_attr = (0o100755 << 16)
+                    info.compress_type = zipfile.ZIP_DEFLATED
+                    with open(path, "rb") as f:
+                        z.writestr(info, f.read())
+                else:
+                    z.write(path, arc)
     count = sum(len(f) for _, _, f in os.walk(DEST))
     print(f"{DEST}: {count} files\n{zip_path}: {os.path.getsize(zip_path) / 1e6:.0f} MB")
 

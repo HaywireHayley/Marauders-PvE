@@ -56,6 +56,20 @@ PLAYING
     effect from your next raid, guard numbers from the next station you visit. Save setups you like under "Saved setups".
 
 
+LINUX AND STEAM DECK  (experimental: not yet tested under Proton, please report how it goes)
+--------------------
+  No launcher window on Linux: Steam's PLAY button starts the mod through a launch option (Game Mode works too).
+  1. Unzip this folder somewhere permanent (internal storage is safest; no non-English letters in the path).
+  2. In a terminal, in this folder:   sh linux/install.sh
+     It finds the game in your Steam libraries and prints a line for
+     Marauders > Properties > General > Launch options, like:
+         "/home/deck/MaraudersOffline/linux/marauders-offline.sh" %command%
+  3. Press PLAY in Steam. The game folder goes offline for that game and back to stock when it closes; if the game
+     is killed or the Deck loses power, the next start puts it back first.
+  Saves:  python3 scripts/pvemode.py saves | use <id> | new <name> [--cheat]
+  Online again:  clear the launch option, or  python3 scripts/pvemode.py steam off   ("steam on" to switch back)
+
+
 IS MY ONLINE GAME SAFE?
 -----------------------
   PLAY switches the game folder to offline mode (it adds the mod loader, and points the game's backend at your own PC),
