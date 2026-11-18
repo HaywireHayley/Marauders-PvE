@@ -1,6 +1,7 @@
 -- The debug menu's buttons (debugmenu.lua, F9) and god mode (moved out of main.lua).
 local PROJECT = require("pveproject")
 local Debug = require("debugmenu")
+local Give = require("debuggive") -- the gun and ammo picker and bottomless mags
 local M = {}
 
 local log, valid, Aux -- from main.lua (M.init)
@@ -77,9 +78,10 @@ function M.init(ctx)
               return "Loading " .. CFG.MAP
           end },
     } })
-    Debug.addActions(require("debuggive").actions()) -- pick a gun or ammo type and get it (F9)
+    Debug.addActions(Give.actions()) -- pick a gun or ammo type and get it, bottomless mags (F9)
 end
 
 M.godMode = godMode
+M.frame = Give.frame -- bottomless mags, every frame in a raid (main.lua)
 
 return M

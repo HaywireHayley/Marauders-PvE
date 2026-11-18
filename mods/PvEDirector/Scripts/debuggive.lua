@@ -74,8 +74,63 @@ end
 
 local function inRaid() return controller() ~= nil end
 
+-- Bottomless mags (F9): a toggle that puts back every round a shot takes. No game flags: bInfiniteClip and bInfiniteAmmo change how
+-- the clip reads (the code that watches it for shots never sees one), and finding the flags searched the world twice a second.
+-- Each frame, after whatever reads the clip has seen it drop, what the shot took is put back. For the player the loaded rounds are
+-- the StackAmount of the gun's own SIGIS item (found by UniqueItemGUID == gun.UUIDSIGIS); the weapon's CurrentAmmoInClip only
+-- follows it, so putting that property back alone changes nothing. Both are put back. One property read a frame, nothing searched.
+local bottomless = false
+local last = {} -- the gun's address and item, the item's stack and the clip as of the last frame
+
+local function valid(o)
+    local ok, v = pcall(function() return o ~= nil and o:IsValid() end)
+    return ok and v
+end
+
+local function findItem(gun)
+    local guid = gun.UUIDSIGIS:ToString()
+    for _, it in ipairs(FindAllOf("SIGISInventoryItem") or {}) do
+        if valid(it) and it.UniqueItemGUID:ToString() == guid then return it end
+    end
+    return nil
+end
+
+-- Every frame in a raid (main.lua, after the section that reads the clip for shots).
+function G.frame(pc)
+    if not bottomless then return end
+    local pawn = pc.Pawn
+    if not valid(pawn) then return end
+    local gun = pawn.CurrentWeapon
+    if not valid(gun) then last = {} return end
+    local addr = gun:GetAddress()
+    if last.addr ~= addr then -- a different gun: find its item once, then count from what it holds now
+        last = { addr = addr, item = findItem(gun), at = os.clock() }
+    elseif not valid(last.item) and os.clock() - last.at > 1 then
+        last.item, last.at = findItem(gun), os.clock()
+    end
+    local clip = gun.CurrentAmmoInClip
+    local item = last.item
+    local stack = valid(item) and item.StackAmount or nil
+    if type(clip) == "number" and type(last.clip) == "number" and clip < last.clip then
+        gun.CurrentAmmoInClip = last.clip
+        clip = last.clip
+    end
+    if type(stack) == "number" and type(last.stack) == "number" and stack < last.stack then
+        item.StackAmount = last.stack
+        stack = last.stack
+    end
+    last.clip, last.stack = clip, stack
+end
+
 function G.actions()
     return {
+        { id = "bottomless", label = function() return "Bottomless mags: " .. (bottomless and "ON" or "off") end,
+          help = "Guns never run dry: every shot is put back", when = inRaid, unusable = "In a raid, on foot",
+          run = function()
+              bottomless = not bottomless
+              last = {}
+              return bottomless and "Bottomless mags on" or "Bottomless mags off"
+          end },
         { id = "gunpick", label = function() return ("Gun: %s   (click for the next one)"):format(GUNS[gi][2]) end,
           help = "Choose the gun the Give me button below gives", when = inRaid, unusable = "In a raid, on foot",
           run = function() gi = gi % #GUNS + 1 return "Gun: " .. GUNS[gi][2] end },
