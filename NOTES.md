@@ -1230,6 +1230,16 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
   surrounding bytes. main.lua FOOTSTEP_BRANCHES holds the offsets, applied once per world. Tools: tools/offline-audit/bpseq, bpwin, bpserver.
 - Other IsServer sites in those ubergraphs (player 17357, 22810, 27791; bots 14316, 16650) are untouched. Player ones checked 2026-11-08:
   17357 montage check after a Delay, 22810 a RaidBot test (not a branch), 27791 landing camera shake. None is a sound.
+- 2026-11-18 (#143): the "montage check" ones ARE a sound. `AnimNotify_ReturnedToIdle` / `_ReturnedToIdleRun` (fired when
+  you stop walking / running) enter the ubergraph at 17347: `if IsServer: stop`, else (no montage playing) the crouch or
+  walk step via `Force_*FootstepSound` -> the normal step path at 13545. So stopping was silent offline, for you and the
+  bots (their copy: 14327). Patched both (player 17368, bots 14327: the JumpIfNot offsets; the notes' 17357/14316 are
+  the IsServer calls before them), plus the landing camera shake (27802; your own camera only). 16650 in the bots' graph
+  only stores IsServer into IsServerVersion: not a branch, left alone.
+  Verified (Space_Alpha): kdis shows all three as plain jumps after a relaunch; firing AnimNotify_ReturnedToIdle and
+  _ReturnedToIdleRun on your anim instance each produced a new Footstep_Metal_walk01_Cue AudioComponent. Not checked by
+  ear; the landing shake not checked (needs a real fall). Counting footstep AudioComponents "attached to the player"
+  missed them: count them anywhere, by address, before and after.
 - 2026-11-08 "footsteps only sometimes": the player's PlayFootstepSound has its OWN gate (offset 1288: `if not IsServer -> sound`, else only
   the footprint decals), so your walk/sprint/crouch steps were silent while bots' (their copy has no gate) and the jump/land foley
   (JumpStartFoleySound/LandFoleySound, ungated) played. Patched the same way (FOOTSTEP_BRANCHES); the sound path's pop returns to the
