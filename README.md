@@ -190,6 +190,9 @@ small local server that answers what the real backend used to (account, stash, l
 | `tools/` | Research and build tools: `release/build_release.py` makes the player zip |
 | `cover/` | Cover points per map, for the AI |
 
+Most folders have a short README of their own. `backend/README.md` has diagrams of how the game's online services are
+replaced offline, and why that takes so much guessing.
+
 ## Setting it up on your PC
 
 1. **Have Marauders installed through Steam**, and **Python 3.9 or newer** from python.org (tick "Add Python to PATH").
