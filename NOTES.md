@@ -370,6 +370,18 @@ Why bots did nothing, and the fix for each (all automated in PvEDirector):
   rewritten every 5 s while polling works. Commands wait during loading screens (no ticker then).
   PvEDirector still queues key-bind jobs from other threads (same pattern; fine so far).
 
+- **What else the game reaches offline (2026-11-18).** Menu plus a Space_Alpha raid, capture_on, pvenet.log and the
+  WinHTTP log. pvenet only blocked raw DNS lookups (getaddrinfo & co.); WinHTTP resolves inside winhttp.dll, so a
+  WinHTTP host other than Nakama went **live**: sentry.dll posted a session envelope (`{"type":"session",
+  "status":"abnormal"...}`, 314 bytes) to o293983.ingest.sentry.io and got 200. Fix: offline, pvenet sends every
+  non-local WinHTTP host to the stand-in, others as `/_ext/<host>/<path>`; the stand-in answers `{}` and counts them in
+  coverage.json under "other services". Verified: the envelope arrives as `/_ext/o293983.ingest.sentry.io/api/.../envelope/`,
+  answered, counted. Blocked lookups (raw sockets, still blocked, nothing needs them so far): api.gameanalytics.com from
+  the exe every ~8 s (analytics over its own TLS stack: redirecting it would need a fake certificate, not worth it), and
+  marauderea2...nakamacloud.io from nakama-cpp.dll (the realtime socket: parties, matchmaker, notifications; the mod
+  does matchmaking itself). Not seen this run: Vivox, EOS, the AWS GraphQL ApiUrl, the PGOS overlay (libcef). Those
+  modules are hooked, so a lookup would show in pvenet.log; matchmaking through the lobby button wasn't exercised.
+  pvenet.log only exists if a capture/ folder does.
 ## Raid loadout from the stash (WORKING, 2026-10-30)
 - Live flow: the raid server calls SIGISPlayerController::Client_GetEquippedItems; the client reads its equip=true
   inventory from Nakama and answers Server_AwsN_EquippedItemsReturned(FString) (thunk 0xa778f0, _Validate vtable

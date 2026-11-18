@@ -26,13 +26,17 @@ flowchart LR
     PG -- "pgos_config.ini swapped by mode.ps1" --> DEAD
     AWS -. "dead offline" .-x DEAD
     MOD -- "hooks START MATCHMAKING,<br/>opens the raid map itself" --> AWS
+    SN["sentry.dll<br/>(crash and session reports)"] --> NET
+    NET -- "other WinHTTP hosts →<br/>/_ext/&lt;host&gt;/..." --> SI
     MOD <-- "loadout.json, cosmetics.json →<br/>← checkout.txt, ship_*.txt" --> SI
     SI <--> ST[("state.json<br/>your save")]
 ```
 
 - **Nakama** (account, storage, RPCs): `native/pvenet.dll` catches the game's WinHTTP calls and points
-  `*.nakamacloud.io` at this stand-in, without TLS. Anything else the game tries to resolve fails, so nothing live is
-  ever contacted.
+  `*.nakamacloud.io` at this stand-in, without TLS. Any other WinHTTP host (so far only Sentry's crash and session
+  reports) comes here too, as `/_ext/<host>/<path>`: answered with `{}` and counted in `coverage.json` under "other
+  services". Raw-socket lookups of anything that isn't local fail: GameAnalytics from the exe, and Nakama's realtime
+  socket from nakama-cpp (nothing needs them yet). With a `capture/` folder, `capture/pvenet.log` lists each one.
 - **PGOS** (Tencent's crew and matchmaking service): `scripts/mode.ps1 offline` swaps its config to `127.0.0.1:1`.
   Nothing answers there; the mod does the crew and matchmaking parts itself (`launch.lua`, `crewlobby.lua`).
 - **The raid server's stash work** (what you take in, what you bring out) goes through files in this folder, written

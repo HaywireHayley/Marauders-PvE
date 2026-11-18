@@ -113,7 +113,8 @@ python3 scripts/pvemode.py steam off
 (`steam on` switches it back.) If the game is killed or the Deck loses power mid-game, the next PLAY puts the game
 folder back to stock before anything else.
 
-**Something wrong?** Attach `backend/last_game.log` and `backend/server.log` from the folder to a post in
+**Something wrong?** Press **REPORT** in the launcher window and attach the zip it makes. Without the launcher window,
+attach `backend/last_game.log` and `backend/server.log` from the folder instead. Post either in
 [#127](https://github.com/HaywireHayley/Marauders-PvE/issues/127) or on the Discord.
 
 ### Controls
@@ -156,8 +157,9 @@ launcher starts the game without going through Steam, so playing offline won't t
 Soldiers on a station you haven't reached yet stay asleep until you get close. That's deliberate, to save performance.
 All open known issues: [known-issue label](https://github.com/HaywireHayley/Marauders-PvE/issues?q=is%3Aissue+is%3Aopen+label%3Aknown-issue).
 
-**Found a bug?** [Open an issue](https://github.com/HaywireHayley/Marauders-PvE/issues) and attach `backend\last_game.log`
-and `backend\server.log` from your install folder, with a line on what you were doing.
+**Found a bug?** Press **REPORT** in the launcher. It saves one zip to your Desktop with the logs, the crash report if
+the game crashed, and your build number. Your Windows user name, Steam ID and in-game name are taken out first.
+[Open an issue](https://github.com/HaywireHayley/Marauders-PvE/issues) or post on the Discord with that zip and a line on what you were doing.
 
 ---
 
