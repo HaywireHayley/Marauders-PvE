@@ -246,11 +246,12 @@ do
     pveRoot = function(o)
         if not root or not valid(o) then return false end
         local ok, owner = pcall(worldOwner, o)
-        if not ok or owner then
-            log(("root: refused %s (%s)"):format(o:GetFullName(),
-                ok and ("a world owns it: " .. owner) or ("couldn't check its outers: " .. tostring(owner))))
+        if ok and owner then
+            log(("root: refused %s (a world owns it: %s)"):format(o:GetFullName(), owner))
             return false
         end
+        -- (if the check itself failed, root it as before: an unrooted mesh or sound can be freed in use, the #53 crash)
+        if not ok then log("root: couldn't check the outers of " .. o:GetFullName() .. ": " .. tostring(owner)) end
         root(math.tointeger(o:GetAddress()))
         return true
     end
