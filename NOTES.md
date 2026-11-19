@@ -3931,3 +3931,23 @@ during `ClientSetHUD`, so it never materialises a controller for the join at all
 Next: widen the server dump past `0x200` to place `State`, and instrument the client's send path
 (`UNetConnection::SendRawBunch`/`FlushNet`) to see whether the client stops sending because its own
 connection object died or because it is waiting for something.
+
+### Widening to 0x600: the server still ticks the connection while the client is silent (2026-11-19)
+
+Second server-side run with the diff range widened from `0x200` to `0x600`. `UNetConnection::State`
+still shows no `3 -> 1` transition, and no single byte in `0x00..0x600` behaves like a state enum.
+
+What the widened dump did show, and it is worth more than the enum would have been: with
+`LastReceiveTime` **frozen from the first sample** (`86.889` for the whole window), fields at
+`0x1EA..0x1F5`, `0x1F8`, `0x248` and `0x480..0x48B` **kept changing every 100 ms**. Those look like
+outgoing ack/timer/hash bookkeeping, which means the server is still actively ticking the
+connection - it believes the connection is alive - while the client transmits nothing.
+
+So the drop is not a close at all. Nobody sends a close: the server keeps an open, ticking
+connection, and the client simply stops transmitting. That tightens the earlier reading ("the
+client goes silent and the server only cleans up") into "the server never even notices anything is
+wrong until the connection is eventually reaped".
+
+Practical note on the sampler: the `State` hunt has now cost two runs. A cleaner way to place it is
+to watch a value that must move - send one packet and diff - rather than looking for an enum that
+may be bitfielded or living outside the dumped range.
