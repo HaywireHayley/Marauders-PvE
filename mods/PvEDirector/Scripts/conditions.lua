@@ -7,6 +7,7 @@
 --   map   = Space_Charlie                  (a fixed map: it wins over the map picked in the lobby)
 --   ships = FrigateCapitalShip_Ship, ...  (rival crews guaranteed in these hulls: rivals.lua CFG.HULLS rows)
 --   loot  = 1.5                            (more and better loot on bodies: x items in a bag, x the value cap)
+--   mines = 20                             (x the map's space mines: minefield.lua copies each one near itself)
 --   any F3 setting by its id in config/ai_tuning.txt, e.g. Crews:BARON = 1, Spawns:CREWS = 9, Crews:ATTACK_CHANCE = 1
 -- The pick is config/raid_condition.txt (a name; missing = Normal), set by the launcher or the lobby's REGION picker.
 --
@@ -38,7 +39,7 @@ local function readFile(path, byName)
                 list[#list + 1] = cur
                 byName[name] = cur
             end
-            cur.values, cur.about, cur.map, cur.ships, cur.loot = {}, nil, nil, nil, nil -- yours replaces the shipped one
+            cur.values, cur.about, cur.map, cur.ships, cur.loot, cur.mines = {}, nil, nil, nil, nil, nil -- yours replaces the shipped one
         elseif cur and k then
             k = trim(k)
             if k == "about" then cur.about = v
@@ -47,6 +48,7 @@ local function readFile(path, byName)
                 cur.ships = {}
                 for row in v:gmatch("[^,%s]+") do cur.ships[#cur.ships + 1] = row end
             elseif k == "loot" then cur.loot = tonumber(v)
+            elseif k == "mines" then cur.mines = tonumber(v)
             elseif tonumber(v) then cur.values[#cur.values + 1] = { k, tonumber(v) }
             end
         end
@@ -109,6 +111,8 @@ end
 function M.map() local c = byName(picked) return c and c.map end
 -- Hull rows guaranteed among the rival crews (rivalcrews.lua makeCrews), or nil.
 function M.ships() return active and active.ships end
+-- How many times the map's space mines this raid has (minefield.lua), or nil.
+function M.mines() return active and active.mines end
 
 -- Where a key points: an F3 setting id ("Crews:BARON", "Spawns:CREW_SIZE.2"), or Table.KEY[.index] for anything in
 -- X.tables (e.g. Rivals.CARRY_JACKPOT).
@@ -175,7 +179,7 @@ function M.apply()
     end
     X.log(("raid conditions: %s (%d settings%s%s%s)%s"):format(c.name, n,
         loot ~= 1 and (", loot x" .. loot) or "", c.ships and (", ships " .. table.concat(c.ships, " ")) or "",
-        c.map and (", map " .. c.map) or "", #bad > 0 and (" -- unknown: " .. table.concat(bad, ", ")) or ""))
+        (c.map and (", map " .. c.map) or "") .. (c.mines and (", mines x" .. c.mines) or ""), #bad > 0 and (" -- unknown: " .. table.concat(bad, ", ")) or ""))
 end
 
 return M
