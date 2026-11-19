@@ -3869,3 +3869,23 @@ client launch is required per attempt, so a failed run costs a full 50 s cycle.
 Dead ends confirmed this round, in order: `PendingNetGame`/`NetDriver`/`ServerConnection`
 `GetAddress()` is 0 after the fallback (stale wrappers); property reads return `userdata`, and
 `v:get()` returns a function; polling the client's bridge during the join gets no reply at all.
+
+## Client RPC hooks fire; the connection is still unreachable from Lua (2026-11-19)
+
+A Lua mod that registers `RegisterHook` on `PlayerController:ClientRestart`, `ClientSetHUD`,
+`ClientGotoState` and `ClientTravel` proves two things and closes one door:
+
+- **The hooks fire on the client**, including `ClientRestart` - so the client does receive the
+  restart RPC, it just never reaches `BeginPlay`. That is a sharper statement than "before BeginPlay".
+- **`GetAddress()` on the connection is 0 even during connect.** Inside the hook, while the join is
+  live, `PendingNetGame.NetDriver.ServerConnection:GetAddress()` returns 0, so the probe has nothing
+  to read. The Lua route to `UNetConnection::State` is therefore closed in this UE4SS build, not
+  merely awkward: every property wrapper either reads 0 or returns a function.
+
+Getting the connection's pointer needs C++ (a mod DLL walking `UPendingNetGame`/`UNetDriver`
+directly), not Lua. That is a bigger build than anything so far and is the honest next step.
+
+Design note for whoever reuses the trick: the hook mod writes its probe command into
+`bridge2/vth_cmd.txt` with `io`, which works from a mod's script (unlike a bridge chunk) and needs
+no bridge round-trip. But both game instances load the same mod, so the hook log must be namespaced
+per instance or it interleaves host and client lines - the run above muddied itself that way.
