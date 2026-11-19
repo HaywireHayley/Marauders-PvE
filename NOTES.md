@@ -3609,3 +3609,19 @@ reference with flowcharts: [docs/internals/SALVAGE_CHAIN.md](docs/internals/SALV
 - Open: Tinplate, snow and ground impacts (no map tried; the log names any surface that has no hole once); whether the game's own
   marks double up with ours on some surface (none reported); some shotgun gunshot sounds are silent from one spot (the weapon's
   own sound, not looked at); the F3 Effects tab and the main.lua wiring are only checked by luacheck until the next restart.
+## Space gate time (2026-11-18; raidtime.lua, docs/internals/SPACE_GATE.md)
+- Request (Discord, ChurchOfHusk_Enjoyer): choose when the space gate arrives (instant, 5, 10, 15 minutes), because the custom
+  raid length also moved the gate's countdown. Launcher: "Space gate" slider under "Raid length" (default, instant, 5, 10, 15),
+  config/gate_time.txt (default, instant, or minutes up to 240).
+- Cause: the real gate comes TimeTillEvacSpawn (300 s) into the raid whatever the raid's length, but the HUD's "Spacegate
+  arrives in" counts to the last 20 minutes of the raid (fixed 20), so a 60 minute raid said about 40 minutes and the gate came
+  at 5. The two agree only in the stock 25 minute raid.
+- Fix: raidtime.lua writes gm.TimeTillEvacSpawn in the warmup (a write in the raid does nothing; measured), and M.frame writes
+  the countdown text every frame as TimeTillEvacSpawn minus the time gone, on the two live text blocks named
+  Txt_SpacegateTimeArriveIn (the third, under /SIGISPlugin/, is the unused template). The HUD rewrites its text about once a
+  second and its functions never reach a Lua hook, so a per frame write is the way. Found once, never searched for again.
+- Verified (Space raid, length 60, gate 10): log "space gate: set to arrive 600 s"; EvacSpawned false at 585 s, true at 600 s;
+  countdown read 06:23 at 229 s, 00:09 at 591 s, no flicker (live test from a probe).
+- Not verified: the countdown as the mod's own code from launch (the first launch with it is the next test), instant, 15
+  minutes, a raid shorter than the gate time, no limit raids, the launcher slider on screen (no Tk on the test machine).
+- A game crash happened while live tests of the text scan were running; the log shows no error and the cause is not proven.
