@@ -130,7 +130,7 @@ end
 
 -- Your name as the stand-in knows it (its save's display_name: what the game shows for you, getsteaminfo's nick).
 local function myName()
-    local f = io.open(X.project .. "backend/state.json", "r")
+    local f = io.open(require("pvebackend") .. "state.json", "r")
     if not f then return nil end
     local text = f:read("a")
     f:close()

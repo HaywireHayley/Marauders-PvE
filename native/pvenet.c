@@ -3,7 +3,8 @@
  * redirecting Nakama to the local stand-in backend. Loaded from the PvEBridge with package.loadlib(path, "*") when
  * bridge/capture_on or bridge/offline_backend exists:
  *   capture_on       log every request (below)
- *   offline_backend  WinHttpConnect to *.nakamacloud.io goes to 127.0.0.1:7350 instead (backend/nakama_standin.py),
+ *   offline_backend  WinHttpConnect to *.nakamacloud.io goes to 127.0.0.1:7350 instead (backend/nakama_standin.py;
+ *                    env PVE_STANDIN_PORT picks another port: a co-op joiner's own stand-in, scripts/launch-joiner.ps1),
  *                    and every other WinHTTP host too, as /_ext/<host>/<path> (Sentry: nothing reaches a live service),
  *                    as plain HTTP: WINHTTP_FLAG_SECURE is dropped and certificate options on those requests skipped;
  *                    and DNS lookups of anything but local names fail (see "offline: no live hosts").
@@ -30,7 +31,7 @@
 static char project[MAX_PATH];
 static void at(char *out, size_t n, const char *rel) { snprintf(out, n, "%s%s", project, rel); }
 #define STANDIN_HOST L"127.0.0.1"
-#define STANDIN_PORT 7350
+static INTERNET_PORT STANDIN_PORT = 7350; /* env PVE_STANDIN_PORT overrides it, read in start() */
 
 static CRITICAL_SECTION lock;
 static FILE *out, *dbg;
@@ -432,7 +433,14 @@ static DWORD WINAPI start(LPVOID p) {
     }
     at(flag, sizeof flag, "capture\\pvenet.log");
     dbg = fopen(flag, "a");
-    if (dbg) { fprintf(dbg, "nakama -> %s\n", offline ? "local stand-in 127.0.0.1:7350" : "live"); fflush(dbg); }
+    char portEnv[16];
+    DWORD pl = GetEnvironmentVariableA("PVE_STANDIN_PORT", portEnv, sizeof portEnv);
+    if (pl && pl < sizeof portEnv) { int p = atoi(portEnv); if (p > 0 && p < 65536) STANDIN_PORT = (INTERNET_PORT)p; }
+    if (dbg) {
+        if (offline) fprintf(dbg, "nakama -> local stand-in 127.0.0.1:%u\n", (unsigned)STANDIN_PORT);
+        else fprintf(dbg, "nakama -> live\n");
+        fflush(dbg);
+    }
     /* Modules can load later (and the game may load nakama-cpp on demand): re-scan every few seconds. */
     for (int round = 0; ; round++) {
         HMODULE mods[1024]; DWORD need = 0;

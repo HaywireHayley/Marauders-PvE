@@ -148,11 +148,11 @@ local CFG = {
     -- game's raider mode and close the game when loaded this way.
     MAP_POOL = { "Space_Solo_01", "Space_Solo_02", "Space_Alpha", "Space_Beta", "Space_Charlie", "Space_Delta" },
     -- The player starts with the stash loadout the local Nakama stand-in keeps (while OFFLINE_BACKEND_FLAG exists).
-    LOADOUT_FILE = PROJECT .. "backend/loadout.json",
-    COSMETICS_FILE = PROJECT .. "backend/cosmetics.json", -- your head, body and voice (the stand-in's cosequipped)
-    CHECKOUT_FILE = PROJECT .. "backend/checkout.txt",
-    SHIP_LOST_FILE = PROJECT .. "backend/ship_lost.txt",
-    SHIP_GATE_FILE = PROJECT .. "backend/ship_gate.txt",
+    LOADOUT_FILE = require("pvebackend") .. "loadout.json",
+    COSMETICS_FILE = require("pvebackend") .. "cosmetics.json", -- your head, body and voice (the stand-in's cosequipped)
+    CHECKOUT_FILE = require("pvebackend") .. "checkout.txt",
+    SHIP_LOST_FILE = require("pvebackend") .. "ship_lost.txt",
+    SHIP_GATE_FILE = require("pvebackend") .. "ship_gate.txt",
     EXTRACT_SECONDS = 3,     -- after extracting, back to the main menu this much later
     OFFLINE_BACKEND_FLAG = PROJECT .. "bridge/offline_backend",
     GIVE_GUN = true,         -- no gun in the loadout (or no stand-in): hand the player a soldier's gun...

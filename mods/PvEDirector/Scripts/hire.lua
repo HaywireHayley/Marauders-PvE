@@ -12,7 +12,7 @@ local Gear = require("gear")
 local GearScale = require("gearscale") -- kits follow your player level
 local Lines = require("voicelines")
 
-local SAVE_FILE = PROJECT .. "backend/crew.lua"
+local SAVE_FILE = require("pvebackend") .. "crew.lua"
 local CMD_FILE = PROJECT .. "bridge/crew_cmd" -- testing: a menu action per line
 
 local CFG = {

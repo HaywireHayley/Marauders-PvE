@@ -4126,3 +4126,29 @@ Telling the two instances apart in the log: both append to the same `UE4SS.log`.
   out of the host's stash, and its extraction/death would write back to the same save. A joiner needs its own
   stand-in account (or its own stand-in), or the director should skip loadout/extraction when it is not the authority.
 - Not played: moving, fighting, looting, extracting on the client; whether the host's bots target the joiner.
+
+### A joiner with its own save (2026-11-19, later; scripts/launch-joiner.ps1)
+
+`powershell -File scripts\launch-joiner.ps1 [-N 2] [-Name Marauder2]` after the host is up, then
+`scripts/bsend.sh bridge2 join`. Player N gets:
+
+- **its own stand-in**: `nakama_standin.py --port 7349+N --dir backend\joiners\<N> --name <Name>`. `--dir` moves
+  every per-player file (state.json, loadout/cosmetics/checkout, ship files, gifts, coverage, server.log) into that
+  folder; a new account there starts from the anonymous `seed.json` (never this PC's private capture) with a new user
+  id and the given name. The old default (`backend\`, port 7350) is unchanged.
+- **pvenet.dll pointed at it**: env `PVE_STANDIN_PORT` (pvenet.dll rebuilt, `gcc -shared -O2 -s ... -lws2_32`, same
+  imports and size as before).
+- **the director pointed at it**: `mods/PvEDirector/Scripts/pvebackend.lua` returns env `PVE_BACKEND` or
+  `<project>/backend/`; main.lua (loadout, cosmetics, checkout, ship lost/gate), rivals.lua (ship stolen), hire.lua
+  (crew save) and guild.lua (your name) use it.
+- its own `bridge<N>\` (with the `offline_backend` flag copied in) and `tmp<N>\` as TEMP.
+
+Tested in game (host Spaceport_01 listen, every mod on in both copies): the joiner logged in to its own stand-in on
+7351, its raid start took **its own** equipped kit (flak vest, Brodie helmet, MAT-49, ammo) out of its own save, and
+it spawned **holding the MAT-49**: the director's `Server_AwsN_EquippedItemsReturned` is a server RPC, so on a client
+it asks the host, which equips the joiner. The host's stash was byte-identical before and after (33 items, same
+hash), and the host's stand-in logged no request from the joiner. `tools/test_standin_flow.py` and
+`test_standin_gaps.py` pass.
+
+Not tested: the joiner extracting or dying (whether loot and losses land in its own save the way they do for the
+host), a joiner on another PC (the scripts assume both copies on one machine), N > 2.
