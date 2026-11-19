@@ -4101,3 +4101,28 @@ PvEDirector 0, then `bsend.sh bridge2 join`. Host and client had the same module
 - Every player's displayed name reads `伸Хɯ` on both ends (host and joiner alike). It does not come from PNAME (a
   Base64 PNAME on the host changed nothing), so the name source is elsewhere; not chased. `RAID_OPTS` was left as is.
 - No launcher or in-game co-op UI: joining is the bridge `join` verb only.
+
+### Co-op with PvEDirector on both sides (2026-11-19, later; main.lua onTick)
+
+Both instances with every mod on (the client too), host Spaceport_01 listen, client `join`: **no freeze**. The
+earlier freeze came from diagnostic hook scripts, not the director. The client gets its controller and pawn, and all
+16 of its `BotPawn_C` are replicated (`HasAuthority` false), so the client's director spawns no soldiers of its own.
+
+**Bug found and fixed:** the host's director restarted the raid when the joiner arrived. A second batch of soldiers
+(8 -> 16), floor loot placed again, the stash checked out again. Cause: the director ticks on
+`MainPlayerController_C:ReceiveTick`, which on a host also fires for the joiner's server-side controller, and
+`update()` keys the raid on `world@addr/pc@addr`, so every switch between the two controllers ran `resetRaid`. Fix: at
+the top of `onTick`, a controller whose `IsLocalController()` is false is skipped (remembered per address, cleared per
+world). Tested: host 6 bots before the join, 6 after, one `co-op: ignoring a joining player's controller` line, no
+second spawn or floor-loot line, joiner has its pawn.
+
+Telling the two instances apart in the log: both append to the same `UE4SS.log`. Raid lines carry the world address
+(`navmesh generation started for World ...@<world>/<pc>`); match it against `FindFirstOf("MainPlayerController_C")
+:GetWorld():GetAddress()` on each bridge.
+
+**Still open:**
+- The client's director still runs its arrival steps: navmesh, HUD, cosmetics, and `loadout: ... checked out of it`
+  from the stand-in stash. Both instances use the same stand-in account here, so a joiner with real gear would take it
+  out of the host's stash, and its extraction/death would write back to the same save. A joiner needs its own
+  stand-in account (or its own stand-in), or the director should skip loadout/extraction when it is not the authority.
+- Not played: moving, fighting, looting, extracting on the client; whether the host's bots target the joiner.
