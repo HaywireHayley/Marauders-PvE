@@ -629,6 +629,8 @@ local function onTick(ctx)
         ok, err = ppcall("bulletholes", BulletHoles.frame, ticker)
         if not ok and not raid.holesFailed then raid.holesFailed = true log("bullet holes failed: " .. tostring(err)) end
         if pveBodies then pveBodies() end
+        ok, err = ppcall("gatetext", RaidTime.frame)
+        if not ok and not raid.gateTextFailed then raid.gateTextFailed = true log("space gate countdown failed: " .. tostring(err)) end
         ok, err = ppcall("minimap", Minimap.tick, ticker)
         if not ok then log("minimap failed: " .. tostring(err)) end
         -- Rival breaching pods fly frame by frame (rivals.lua).
@@ -1005,6 +1007,8 @@ end })
 Conditions = require("conditions")
 Conditions.init({ log = log, project = PROJECT, tuning = Tuning, tables = { Rivals = Rivals.CFG, Crew = Crew.CFG, CFG = CFG } })
 Rivals.conditions = Conditions
+Minefield = require("minefield")
+Minefield.init({ log = log, valid = valid, conditions = Conditions })
 -- Civilians (#81, civilians.lua): miners, prisoners and workers who run instead of fighting.
 Civilians = require("civilians")
 Civilians.init({ log = log, valid = valid, lib = lib, dist = dist, navLib = navLib, navMesh = navMesh,
@@ -1266,6 +1270,7 @@ update = function(pc)
         if raid.readyAt and valid(raid.target) then
             local ok, err = pcall(Missions.update, pc, raid.world, raid.target)
             if not ok then log("missions: " .. tostring(err)) end
+            pcall(Minefield.update, pc)
             local okc, errc = pcall(Civilians.update, pc) -- (#81)
             if not okc then log("civilians: " .. tostring(errc)) end
             Space.update(pc, worldName)

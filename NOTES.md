@@ -4152,3 +4152,30 @@ hash), and the host's stand-in logged no request from the joiner. `tools/test_st
 
 Not tested: the joiner extracting or dying (whether loot and losses land in its own save the way they do for the
 host), a joiner on another PC (the scripts assume both copies on one machine), N > 2.
+
+## Space gate time (2026-11-18; raidtime.lua, docs/internals/SPACE_GATE.md)
+- Request (Discord, ChurchOfHusk_Enjoyer): choose when the space gate arrives (instant, 5, 10, 15 minutes), because the custom
+  raid length also moved the gate's countdown. Launcher: "Space gate" slider under "Raid length" (default, instant, 5, 10, 15),
+  config/gate_time.txt (default, instant, or minutes up to 240).
+- Cause: the real gate comes TimeTillEvacSpawn (300 s) into the raid whatever the raid's length, but the HUD's "Spacegate
+  arrives in" counts to the last 20 minutes of the raid (fixed 20), so a 60 minute raid said about 40 minutes and the gate came
+  at 5. The two agree only in the stock 25 minute raid.
+- Fix: raidtime.lua writes gm.TimeTillEvacSpawn in the warmup (a write in the raid does nothing; measured), and M.frame writes
+  the countdown text every frame as TimeTillEvacSpawn minus the time gone, on the two live text blocks named
+  Txt_SpacegateTimeArriveIn (the third, under /SIGISPlugin/, is the unused template). The HUD rewrites its text about once a
+  second and its functions never reach a Lua hook, so a per frame write is the way. Found once, never searched for again.
+- Verified (Space raid, length 60, gate 10): log "space gate: set to arrive 600 s"; EvacSpawned false at 585 s, true at 600 s;
+  countdown read 06:23 at 229 s, 00:09 at 591 s, no flicker (live test from a probe).
+- Not verified: the countdown as the mod's own code from launch (the first launch with it is the next test), instant, 15
+  minutes, a raid shorter than the gate time, no limit raids, the launcher slider on screen (no Tk on the test machine).
+- A game crash happened while live tests of the text scan were running; the log shows no error and the cause is not proven.
+
+## Minefield raid condition (2026-11-19, no issue)
+- `mines = N` in a raid condition (conditions.lua M.mines) has minefield.lua copy each space mine the map placed
+  (RaidSubNodeActor classes with `NodeMine` in the name: Small_NodeMine_C, Nuclear_NodeMine_C) N - 1 times, scattered
+  up to 90 m around it (at least 15 m away), with `world:SpawnActor(mine:GetClass(), at, rot)`. Once per world, 8 s
+  into the space map, looking for up to 90 s; at most 400 copies. Shipped condition: [Minefield], mines = 20, loot 1.25.
+- Verified: Space_Alpha, twice: "14 mines on the map, 266 more spawned", then "20 mines, 380 more" (the cap).
+- Not verified: the copies seen, triggered or exploding in play. Another tool was driving the same game install during
+  the test (opening Spaceport_01 on every bridge load and restarting the game), so whether the game stays up with 400
+  extra mines is unknown. Test this first: a raid with Minefield picked, fly around a field for a few minutes.
