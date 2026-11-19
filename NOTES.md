@@ -3979,3 +3979,32 @@ first qword.
 client definitely has a live NetDriver - `FindFirstOf("NetDriver")` resolves one) and read
 `ServerConnection` at `0x88` from it. That reaches the connection through a pointer rather than by
 hunting for it, and the driver object exists from boot.
+
+### NetDriver route: found a driver, but the connection's layout does not match the dump (2026-11-19)
+
+`ndscan=0xVT[:secs]` finds an object by vtable, takes `*(obj+0x88)` as `ServerConnection`, then
+diff-samples that pointer at 10 Hz. This is the first route that does not need a race window: the
+NetDriver exists from boot.
+
+Measured on the host first, so the client can be armed with only its own module base:
+
+- `FindFirstOf("NetDriver"):GetAddress()` works (unlike the pending-netgame wrappers).
+- Host NetDriver vtable = `0x7ff769209428`, module base `0x7ff765060000` -> **RVA `0x41a9428`**
+  (the connection class vtable sits 0x3d8 below it, at `0x41a9050`).
+
+One client cycle:
+
+- `NDHIT obj=f966a5db78 ServerConnection=f966a5dcb0` - a driver instance **was** found, and
+  `+0x88` was non-null, which is what a client's driver should hold.
+- But sampling that pointer gave `lrt` values like `5.7e300`, i.e. **garbage as a double**, and
+  140 samples of churn at `0x18`, `0x60/0x61`, `0x70..0x87`, `0xf8`, `0x100`, `0x120..0x148`.
+
+So one of two assumptions is wrong: either the object found is not the game's NetDriver (some other
+class with that vtable is unlikely, but a *different driver* - demo/replication - is possible), or
+`0x88` is not `ServerConnection` for the connection class on this build. The dump that gave the
+offsets was generated from this same build, so the more likely error is the first: the scan hits the
+first matching object in memory, which may not be the driver in use.
+
+**Next:** before trusting `+0x88`, verify the object really is a `UNetDriver` - log `*(obj+0x10)`
+(Class) and compare it against the Class pointer of the driver that `FindFirstOf` returns on the
+host, and log `*(obj+0x190)` (NetDriverName, an FName) which should spell `GameNetDriver`.
