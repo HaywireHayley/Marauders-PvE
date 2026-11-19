@@ -3791,3 +3791,47 @@ disarm on the first hit and the command itself consumes them.
 
 **Not fixed.** No patch is in place. The next instrument is the client's PlayerController class
 vtable armed before it connects, which needs the `obj=`/`base=` question above settled first.
+
+## The address puzzle is solved: UE4SS's tostring() is not the UObject (2026-11-19)
+
+`tostring(actor)` in this UE4SS build returns a **wrapper** object, not the UObject. Proof from one
+live host, same process:
+
+- `FindFirstOf("ShootingRangeGameMode_C")` and `FindFirstOf("MainPlayerController_C")` both
+  stringify to distinct addresses, but **the first qword at both is the same value**
+  (`0x7FFF0E766C80`), and `VirtualQueryEx` + `GetMappedFileNameW` put it in **UE4SS.dll**, not in
+  the game. That is why every shape check reported "0 in module" and why `obj=` wraps of those
+  addresses produced nonsense tables.
+- `obj:GetAddress()` returns the real UObject. For the same PlayerController it gives a different
+  address, whose first qword is `0x7FF769608738` - allocation base `0x7FF765060000`, file
+  `RaidGame-Win64-Shipping.exe`. So the real class vtable is at **RVA 0x45A8738** and everything
+  derived from `gbase + rva` was correct all along.
+
+Rules that follow: use `GetAddress()` (or `obj=` with an address that came from `GetAddress`),
+never `tostring()`, when a vtable is wanted. `GetClass()` stringifies as `UClass: 0x...` and is
+fine for identity, not for addresses.
+
+## Bridge chunks must be one line (2026-11-19)
+
+`bsend`/the probe inbox read a single line, so a Lua chunk containing newlines is truncated at the
+first one and the reply is just the echoed code. Multi-statement chunks have to be joined with
+spaces. Replies are `HH:MM:SS = <value>`; match `=\s*(.+)$`, and remember actor `tostring` prints
+`AActor: 0x...`.
+
+## Client PlayerController trace, with a real vtable this time (2026-11-19)
+
+With `vt = client_base + 0x45A8738` (the class vtable, wrapped before connecting), one join logs
+**78** virtual calls on the client's PlayerController, including a console command
+`ENABLEALLSCREENMESSAGES` and a `"Maar..."` name string - and **not one travel call**. The client
+does not decide to leave at the game layer; the give-up is beneath it (engine network failure).
+
+Server side of the same join: `ps=3 pcs=2 pawns=1`. The joiner's PlayerController exists and its
+`Pawn` is a pointer whose object is already invalid by the time it is inspected, i.e. the server
+completed the join and then tore the pawn down when the client left. `SpectatorPawn` count is 0, so
+"the joiner is made a spectator" is not supported by this evidence.
+
+Open lead for next time: the client fails *after* `ClientSetHUD` and *before* its controller's
+`BeginPlay`, with no game-level travel, so the failure is in the engine's pending-netgame/connection
+path. That is below every vtable wrapped so far; the next instrument wants
+`UNetDriver`/`UPendingNetGame` state (or the connection's close reason) rather than more game
+classes.
