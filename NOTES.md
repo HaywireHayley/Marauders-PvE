@@ -3889,3 +3889,45 @@ Design note for whoever reuses the trick: the hook mod writes its probe command 
 `bridge2/vth_cmd.txt` with `io`, which works from a mod's script (unlike a bridge chunk) and needs
 no bridge round-trip. But both game instances load the same mod, so the hook log must be namespaced
 per instance or it interleaves host and client lines - the run above muddied itself that way.
+
+## Server side: the client goes silent, the server only cleans up (2026-11-19)
+
+Server-side sampler: probe command `drv=0xADDR` walks `UNetDriver::ClientConnections` (offset
+`0x90`, TArray) and byte-diffs each connection's first `0x200` bytes at 10 Hz. Offsets come from
+the game's own reflection dump (884 headers, `sdk` verb):
+
+| field | offset |
+|---|---|
+| `UPendingNetGame::NetDriver` | `0x30` |
+| `UNetDriver::ServerConnection` | `0x88` |
+| `UNetDriver::ClientConnections` | `0x90` |
+| `UNetDriver::World` | `0x140` |
+| `APlayerController::Player` | `0x298` |
+| `APlayerController::NetConnection` | `0x418` |
+| `UNetConnection::Driver` | `0x58` |
+| `UNetConnection::LastReceiveTime` | `0x1D0` |
+
+One join, 70 samples at 10 Hz:
+
+- `ClientConnections` num: `0` (29 samples) -> **`1` (41 samples)** -> `0`. So a join connection
+  exists server-side for about 4 s.
+- `LastReceiveTime`: `85.371` -> `85.622` -> **`85.702`, then frozen for 39 samples (3.9 s)** while
+  the connection was still in the array. The client's last packet arrives ~0.33 s after the
+  connection is first observed, and then nothing.
+- Byte diffs at the drop touch only `0x168..0x172` and `0x1D2..0x1F5`, which look like ack/hash
+  counters. **Nothing in `0x00..0x168` changes**, so `UNetConnection::State` (not reflected) is
+  either outside that range or not a plain byte - the earlier assumption that it sits just before
+  `Children` (`0x48`) is unsupported by this data.
+
+**What this settles:** the client stops sending and the server does not close the connection - it
+lingers ~4 s and is then cleaned up. Together with #24 (traffic stops both ways with no close
+packet) the initiator is the client's send path, not a server kick. That is a different conclusion
+from "the server rejects the joiner", and it is the first time the drop has been located on the
+wire with a timestamp rather than inferred.
+
+**Also confirmed:** the client's `NetConnection` is 0 and it only ever holds `MenuPlayerController_C`
+during `ClientSetHUD`, so it never materialises a controller for the join at all.
+
+Next: widen the server dump past `0x200` to place `State`, and instrument the client's send path
+(`UNetConnection::SendRawBunch`/`FlushNet`) to see whether the client stops sending because its own
+connection object died or because it is waiting for something.
