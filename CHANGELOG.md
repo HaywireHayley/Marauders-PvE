@@ -2,6 +2,24 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 19 Nov 2026, build 4 (`public-test-20261118.4`)
+
+Civilians, bullet holes, and explosions you can see. On build 1 of 17 Nov or later, the launcher's orange **!**
+installs this one for you, keeping your saves.
+
+### Changes
+
+- **Civilians (#81):** a few unarmed miners, prisoners and workers at the mines, the Penal Colony and the ports. They
+  go about their work, run when you come close or start shooting, and plead when cornered. Each carries a few things
+  of their trade. Kill one and nearby station guards come for you. F3 > How many sets how many (0 turns them off).
+- **Bullet holes** now show on walls, floors and other surfaces offline.
+- **Turret and mine explosions** and their sounds now show in space (#15).
+- **Space gate:** choose when it arrives, and its countdown is right again.
+- **Blowtorch** burns through a vault door's locks offline.
+- **God mode** also gives unlimited stamina.
+- **Salvage** can't be purged while docked any more.
+- **AI frigates** are named "the Scout Frigate", not their internal class name.
+
 ## Public test, 18 Nov 2026, build 3 (`public-test-20261118.3`)
 
 Raid conditions for events, your ship's engine hum, and nothing reaching a live server any more. On build 1 of 17 Nov
