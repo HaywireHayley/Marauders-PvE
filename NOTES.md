@@ -4008,3 +4008,42 @@ first matching object in memory, which may not be the driver in use.
 **Next:** before trusting `+0x88`, verify the object really is a `UNetDriver` - log `*(obj+0x10)`
 (Class) and compare it against the Class pointer of the driver that `FindFirstOf` returns on the
 host, and log `*(obj+0x190)` (NetDriverName, an FName) which should spell `GameNetDriver`.
+
+### The NetDriver scan was finding its own stack; the dump offsets are right (2026-11-19, later)
+
+Verified on a single offline instance, menu map opened with `?listen`, probe loaded from the bridge
+with `lua package.loadlib("<repo>/native/vtprobe.dll","*")` (no loader mod needed: `package` is
+reachable from a `lua` chunk, and `"*"` loads the DLL without calling an export).
+
+- **At the main menu there is no NetDriver at all.** `FindAllOf` returns 0 for `NetDriver`,
+  `IpNetDriver`, `DemoNetDriver`, `SteamNetDriver` and the beacon classes, and
+  `FindFirstOf("NetDriver")` is nil. The earlier "the client has a live NetDriver from boot" was
+  wrong (it was most likely read after a failed join, from a stale wrapper). A client's game driver
+  only exists during the join.
+- **A listen host holds exactly one**: `IpNetDriver_<n>`, `NetDriverName` = `GameNetDriver`, the
+  same address as `World.NetDriver`. The `Default__IpNetDriver` CDO shares its vtable **and** its
+  Class pointer; only the object flags at `+0x08` tell them apart (`0x40` instance vs `0x31` CDO).
+- **`ndscan` on that host hit `0x19c7e0dbc8`, not the driver at `0x1c128338100`.** The "connection"
+  it then sampled was `obj+0x138`, and the bytes changing there were the probe's own strings
+  (`.../bridge/vth_cmd.txt`, `ndscan=0x...`, its log text). The scanner matches the copy of the
+  vtable value on **its own thread's stack** and stops at the first hit. The client NDHIT in the
+  section above had the same shape (`ServerConnection = obj + 0x138`, a low non-heap address), so
+  that run measured the probe, not the game. The `lrt=5.7e300` garbage is explained; no layout
+  mismatch exists.
+- **The dump offsets hold on the real driver** (`read=` of `0x198` bytes): `+0x00` vtable
+  (RVA `0x41a9428`), `+0x10` Class (= Lua `GetClass():GetAddress()`), `+0x88` ServerConnection = 0
+  and `+0x90` ClientConnections empty (right for a server with nobody joined), `+0x140` World (=
+  Lua's World address exactly), `+0x190` NetDriverName = FName index `0x2e8` (`GameNetDriver`).
+
+Same suspicion applies to the earlier client connection scan ("no coherent UNetConnection"): its
+low-address hit was very likely the same self-match and the heap hit with `Driver=0` looks like the
+`IpConnection` CDO. Its conclusion still stands (nothing live was found), but it says nothing about
+whether a scan *could* have found one.
+
+**Not done:** the scanner was not fixed. `vtprobe.c` lived in a session scratch folder that has
+since been cleared, so only the built `native/vtprobe.dll` (gitignored) remains. A rewritten scan
+must accept a hit only if it lies in a heap region (not a thread stack: skip `MEM_PRIVATE` regions
+that hold a TEB-listed stack, or simply skip the scanning thread's own stack range), has
+`*(obj+0x10)` equal to the IpNetDriver UClass (read from Lua before joining), lacks the CDO flag
+(`0x10`) at `+0x08`, and has `+0x190` = `0x2e8`. It must keep scanning past the first hit. Then
+`+0x88` on the client during the join is the next real measurement.
