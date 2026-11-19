@@ -3757,3 +3757,37 @@ HOST's base for both PIDs, so RVAs computed from it were nonsense - `VirtualQuer
 `0x7FF765060000`, so ASLR really does differ per instance). And the probe's own module-range
 check reads 0 "in module" in the client while still finding 173 executable entries, so the gate
 now trusts executable pages and a two-thirds ratio rather than my range arithmetic.
+
+## Night two: the probe grew teeth, and one address fact that explains the dead ends (2026-11-18/19)
+
+Reached with the same native vtable probe, now with four verbs on its command file:
+
+- `obj=0x<address>` - wrap the vtable **of that object**; the deref happens in-process, so the
+  caller needs no module base. Trusted: an address that came from an object's first qword is a
+  vtable by construction, so the executable-ratio gate is skipped for this path.
+- `vt=0x<address> [trust=1]` - wrap a caller-supplied address, gate on by default.
+- `read=0x<address>:<hex bytes>` - log qwords from that address, page-checked first.
+- `base=1` - log `GetModuleHandleA(NULL)` for the process.
+
+**The address fact.** On a live listen host, `FindFirstOf("MainPlayerController_C")` gives an
+object whose first qword is `0x7FFF0E596C80`, while `base=1` reports the module at
+`0x7FF765060000`. Subtracting gives a 32 GB "RVA", so **that object's vtable is not at
+`gbase + rva`**. The GameMode wrap that worked was measured the other way round - `gbase + 0x4599ED8`
+came out 420/420 executable - so both statements are true and the two classes are not in the same
+mapping. Until this is understood, do not derive a vtable address by adding an RVA to
+`UE4SS.log`'s MainExe base for an arbitrary class; use `obj=` and let the process read its own
+memory.
+
+**Bridge reply parsing.** Replies are `HH:MM:SS = <value>`, so `line.startswith("=")` never
+matches and every lookup silently reads as "not found". That one bug invalidated a whole round of
+"the object does not exist" conclusions (the client PC, the class vtable). Match `=\s*(.+)$`.
+`tostring()` of an actor prints `AActor: 0x...`, not `UObject: 0x...`.
+
+**Where the join stands.** Unchanged from the correction above: the server accepts, creates the
+PlayerState and reaches PostLogin; the client gives up ~3 s later. New this round: the client's
+`GameInstance` and `GameEngine` vtables were wrapped and show only travel/URL plumbing, none of it
+a decision to leave. Re-arming the wrap *after* the `open` command is required, since those slots
+disarm on the first hit and the command itself consumes them.
+
+**Not fixed.** No patch is in place. The next instrument is the client's PlayerController class
+vtable armed before it connects, which needs the `obj=`/`base=` question above settled first.
