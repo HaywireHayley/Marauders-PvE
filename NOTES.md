@@ -4047,3 +4047,57 @@ that hold a TEB-listed stack, or simply skip the scanning thread's own stack ran
 `*(obj+0x10)` equal to the IpNetDriver UClass (read from Lua before joining), lacks the CDO flag
 (`0x10`) at `+0x08`, and has `+0x190` = `0x2e8`. It must keep scanning past the first hit. Then
 `+0x88` on the client during the join is the next real measurement.
+
+## Co-op join works: the host refused a PNAME that isn't Base64 (2026-11-19; native/vtprobe.c, PvEBridge `join`, #26)
+
+**Cause, measured end to end:** the host's GameMode `InitNewPlayer` override (exe RVA `0x98cba0`) reads the joiner's
+`PNAME` option through `FBase64::Decode` (RVA `0x19e5db0`). `Marauder2` is not valid Base64 (9 characters), decodes to
+nothing, and the function returns the error **`"PlayerNick is null"`**. Login fails, the host sends `NMT_Failure` with
+that text, and the client closes. `PNAME=TWFyYXVkZXIy` (Base64 of `Marauder2`) joins: the client spawns its
+`MainPlayerController_C` and `PlayerPawn_C` in the host's Spaceport_01, the host's bots replicate in (client pawn count
+9 -> 33), and the connection stays Open (checked for over a minute, three joins, the last from a fresh client with no
+probes). The host's own `PNAME=Marauder` passed all along only because 8 letters happen to be valid Base64.
+
+The same function also requires a `PID` (`"PlayerID is null"`) and skips both checks only when the world type is
+3/4 (PIE / editor preview, by the look of it). It parses `PID SHIP CREW CPT NUM EOS UPN PNAME psid`; only PNAME is
+Base64-decoded.
+
+How it was found (one session, all on the client unless said):
+- **No NetDriver exists at the main menu** (`FindAllOf` 0 for every driver class). A listen host has exactly one,
+  `IpNetDriver` named `GameNetDriver`. The old scan's "driver" was its own stack (section above).
+- `NotifyOnNewObject("/Script/OnlineSubsystemUtils.IpNetDriver", cb)` from a bridge `lua` chunk fires on the game
+  thread with the real object; `cb` writes `watch=0x<addr>` into the probe's command file. No scanning: a scan pass
+  over a 5.6 GB heap takes ~10 s, longer than the join. `io` and `package.loadlib` are reachable from bridge chunks.
+- **The client does build a UNetConnection** (vtable RVA `0x41a9050`, its `Driver` points back). The earlier "no
+  coherent UNetConnection" was the broken scan.
+- `+0x134` behaves as `UNetConnection::State`: the host's connection is 3 (Open); the client's stays 2 (Pending) until
+  it closes (1). After the fix it goes 2 -> 3.
+- **The "silence" was the client's map load.** The client's driver has `World=0` and its connection does not change
+  at all for ~3.7 s (not even the per-tick field at `0x1f3`); the host's LastReceiveTime is frozen for the same time.
+  "The server keeps ticking while the client is silent" (above) is this load, not a drop.
+- With both instances logging on QueryPerformanceCounter (system-wide), 1 ms sampling: the client went to Closed in
+  the same 2 ms as receiving a host packet; the host was still Open ~9 ms later and closed only on the client's close.
+  So the host answered the Join without closing (UE4's join-failure path sends NMT_Failure and flushes) and the
+  client closed.
+- A hardware write-watch (DR0) on the client's `conn+0x134` caught the closing write with a clean unwind:
+  `UWorld::Tick` -> `ReceivedRawPacket` (`"Packet failed PacketHandler processing."`) -> `UChannel::ReceivedRawBunch`
+  -> control channel `ReceivedBunch` -> `NotifyControlMessage` NMT_Failure (`"NetworkErrors"`,
+  `"GenericConnectionFailed"`) -> `UNetConnection::Close` (RVA `0x31ea2dc`). FStrings copied off the stack in the
+  handler gave `"?failed"` and **`"PlayerNick is null"`**.
+- An execute breakpoint on the host at `InitNewPlayer` captured the Options it received, PNAME included:
+  `?PID=offline2?PNAME=Marauder2?CREW=solo2?...?Name=Marauder233?SplitscreenCount=1`, called from Login (RVA
+  `0x30d0254`) <- SpawnPlayActor <- NMT_Join. The decode function's shape (decoded-size, decode returning bool,
+  UTF-8 to TCHAR) is UE4's `FBase64::Decode(const FString&, FString&)`.
+
+Setup that worked: host = `launch-offline.ps1`, bridge `raid Spaceport_01?listen`, `bridge/god.txt`. Client = same exe
+with its own `TEMP`/`TMP`, `PVE_BRIDGE=<repo>/bridge2/` (holding `offline_backend`), deployed `Mods/mods.txt`
+PvEDirector 0, then `bsend.sh bridge2 join`. Host and client had the same module base this time (`0x7FF765060000`).
+
+**Not done / not tested:**
+- The client ran with PvEDirector **off**, as in every earlier co-op run; earlier notes say its hooks froze a joining
+  client. Co-op with the director on both sides is the next thing to try.
+- Nothing played beyond spawning: no movement, combat, looting or extraction checked on the client, and no second
+  PC. Both instances used the same stand-in account.
+- Every player's displayed name reads `伸Хɯ` on both ends (host and joiner alike). It does not come from PNAME (a
+  Base64 PNAME on the host changed nothing), so the name source is elsewhere; not chased. `RAID_OPTS` was left as is.
+- No launcher or in-game co-op UI: joining is the bridge `join` verb only.

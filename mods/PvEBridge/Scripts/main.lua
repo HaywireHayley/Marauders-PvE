@@ -3,6 +3,7 @@
 --   status            world, game mode, player pawn
 --   dump | sdk | usmap | actors    UE4SS dumpers
 --   find <Class>      list live objects of a class
+--   join [host[:port]] [name] [n]   co-op: join a listen host (PNAME sent Base64, as the host requires)
 --   anything else     run as an Unreal console command
 -- Per-instance bridge dir so two game copies (co-op host + client) don't share cmd/out files.
 -- Set PVE_BRIDGE=<dir>/ in the launching environment; defaults to the single-instance bridge.
@@ -49,6 +50,26 @@ local function status()
     reply("pc=" .. name(pc) .. " | pawn=" .. ((pc and pc:IsValid()) and name(pc.Pawn) or "none"))
 end
 
+-- The host's GameMode reads the joiner's PNAME through FBase64::Decode and refuses the join with NMT_Failure
+-- "PlayerNick is null" when it doesn't decode (NOTES.md, "Co-op join works", #26).
+local function base64(s)
+    local abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+    local out = {}
+    for i = 1, #s, 3 do
+        local a, b, c = s:byte(i, i + 2)
+        local n = (a << 16) | ((b or 0) << 8) | (c or 0)
+        for k = 0, 3 do
+            if k <= 1 or (k == 2 and b) or (k == 3 and c) then
+                local v = (n >> (18 - 6 * k)) & 63
+                out[#out + 1] = abc:sub(v + 1, v + 1)
+            else
+                out[#out + 1] = "="
+            end
+        end
+    end
+    return table.concat(out)
+end
+
 local function console(cmd)
     local pc = FindFirstOf("PlayerController")
     if not (pc and pc:IsValid()) then return reply("no PlayerController for: " .. cmd) end
@@ -89,6 +110,14 @@ local function run(line)
         -- raid <Spaceport_01|MoonBase_01|...>   loads a raid map standalone with the options the raid code needs
         console("open /Game/Maps/Raids/" .. (rest ~= "" and rest or "Spaceport_01")
             .. "?PID=offline1?PNAME=Marauder?CREW=solo1?CPT=1?NUM=1?EOS=offline1?UPN=offline1?psid=1")
+    elseif verb == "join" then
+        -- join [host[:port]] [name] [n]   joins a listen host as co-op player n (default 127.0.0.1:7777, Marauder2, 2)
+        local addr, nick, n = rest:match("^(%S*)%s*(%S*)%s*(%d*)$")
+        n = n ~= "" and n or "2"
+        addr = (addr and addr ~= "") and addr or "127.0.0.1:7777"
+        nick = (nick and nick ~= "") and nick or ("Marauder" .. n)
+        console("open " .. addr .. "?PID=offline" .. n .. "?PNAME=" .. base64(nick) .. "?CREW=solo" .. n
+            .. "?CPT=1?NUM=1?EOS=offline" .. n .. "?UPN=offline" .. n)
     elseif verb == "bot" then
         -- bot [Normal|Guard|Military] [distance]   spawns an AI soldier in front of the player
         local kind, dist = rest:match("^(%a*)%s*(%S*)$")
