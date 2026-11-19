@@ -4153,6 +4153,33 @@ hash), and the host's stand-in logged no request from the joiner. `tools/test_st
 Not tested: the joiner extracting or dying (whether loot and losses land in its own save the way they do for the
 host), a joiner on another PC (the scripts assume both copies on one machine), N > 2.
 
+### A joiner's raid ends in its own save; the gate hooks were the host's (2026-11-19, evening; loadout.lua, #200)
+
+Setup: host on a throwaway save (stand-in started first with `--dir backend\joiners\1 --name HostTest`, env
+`PVE_BACKEND` pointing there, then `launch-offline.ps1`; `Start-Standin` sees the port taken and leaves it), raid
+`Spaceport_01?listen`; joiner `launch-joiner.ps1 -N 2`, `bsend.sh bridge2 join`. Every mod on in both.
+
+- **Extraction, joiner (works):** the host called the joiner's `SIGISInventoryComponent:Client_GetOutWithLoot()` (the
+  server-to-client RPC the game sends when a player gets out). The joiner's director logged "extracted with 4 item(s)",
+  went to its menu, and its own stand-in wrote the 4 kit items back plus XP. The host stayed in its raid; its backend
+  got no request. A client RPC called on the host for a remote controller does **not** run the host's Lua hook.
+- **Death, joiner (works):** `GameplayStatics:ApplyDamage(joinerPawn, 5000)` on the host: the game's own death flow
+  sent the joiner to its menu, its stand-in logged "ship lost", the kit stayed out of its stash (lost). Host unaffected.
+- **Bug, fixed:** `Server_EnterEvacRaidVolume` is a server RPC, so a joiner entering a space gate runs it **on the
+  host**, and the host's hook wrote `ship_gate.txt` = 1 into the **host's** backend: the host's `raid_out.ended` became
+  true (state.json rewritten one second after the joiner's call). A host who then quit or crashed lost their kit
+  instead of getting it back (#49); seen happen to the test host after a restart ("raid start: took []").
+  Fix: the gate hooks (`Server_EnterEvacRaidVolume`, `LeaveEvacRaidVolume`) act only when `ctx:get():IsLocalController()`
+  isn't false. A joiner's client never executes the server RPC, so `EnterEvacRaidVolume` (which clients run, and the
+  host runs too thanks to pvepatch "Space gate extraction") is hooked as well, same filter.
+- Verified after the fix (relaunch of both): joiner's `Server_EnterEvacRaidVolume` -> host state.json untouched,
+  `ended` stays false; the host's own `Server_EnterEvacRaidVolume` -> host `ended` true as before.
+- Lua-initiated calls of a native UFunction did not visibly fire its native hook in one test (the host calling
+  `LeaveEvacRaidVolume` on the joiner's controller left no trace); the RPC that arrived over the network did.
+- **Not verified:** the joiner flying or walking into a real gate (so the `EnterEvacRaidVolume` hook on the joiner is
+  unexercised), a joiner's own ship (one ship, two players is undefined), the host's bots fighting the joiner, the
+  joiner looting, two PCs.
+
 ## Space gate time (2026-11-18; raidtime.lua, docs/internals/SPACE_GATE.md)
 - Request (Discord, ChurchOfHusk_Enjoyer): choose when the space gate arrives (instant, 5, 10, 15 minutes), because the custom
   raid length also moved the gate's countdown. Launcher: "Space gate" slider under "Raid length" (default, instant, 5, 10, 15),
