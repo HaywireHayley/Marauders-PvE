@@ -3612,6 +3612,12 @@ reference with flowcharts: [docs/internals/SALVAGE_CHAIN.md](docs/internals/SALV
 
 ## Co-op join: the login never creates a player (2026-11-18; native/pvetrace.dll, tools/profile/dump_image.py)
 
+**Superseded - see "Correction: the server DOES create a PlayerState" below.** The measurements
+here were taken inside the ~3 s window before PostLogin, so "no PlayerState, the gate is in
+PreLogin/Login" is wrong: the server does create the PlayerState, PreLogin and Login both pass,
+and the client is what gives up. Kept because the probe hazards and the correction to the
+CEF-parameter theory still hold.
+
 The joining client's connection is accepted and dropped ~3 s later. Measured on the host with
 array-length-only probes (10 Hz), reproduced many times:
 - `world.NetDriver.ClientConnections` 0 -> 1 -> 0 in ~3 s; `GameState.PlayerArray` **stays 1**,
@@ -3675,3 +3681,55 @@ the CEF login page's result parameters. Experiments varying PID/psid/CREW/CPT/NU
 - Harness: the host is shot by its own AI if left alone - `bridge/god.txt` makes it immune.
   `PvEBridge` goes permanently deaf after a world change (its LoopAsync stops after the first
   successful hook), and at the splash it only answers with PvEDirector enabled.
+
+## Correction: the server DOES create a PlayerState (2026-11-18; live GameMode probe)
+
+The section "Co-op join: the login never creates a player" is wrong on both of its conclusions,
+and the measurements behind it were taken inside the ~3 s window, before PostLogin ever ran.
+
+Instrument: a native DLL that patches the GameMode's **vtable entries** (not function prologues,
+so no instruction is relocated) and logs each slot's first call with rcx/rdx/r8/r9 and any
+plausible string among them. Loaded through a Lua mod's `package.loadlib`, because this UE4SS
+build has no C++ mod support (`strings UE4SS.dll | grep StartMod` is empty) and bridge command
+chunks are sandboxed. Slots used, all verified live:
+
+- **slot 233 = PreLogin**, RVA **0x17E5320**. Logged with `rdx` = the full join options
+  (`?PID=offline2?PNAME=Marauder2?...?Name=Marauder1?SplitscreenCount=1`) and `r8` = `127.0.0.1`,
+  which is the `(Options, Address, UniqueNetId, ErrorMessage&)` signature.
+- **slot 234 = Login**, RVA **0x30D0060**. Fires *after* PreLogin, so **PreLogin returns true**.
+- Neither writes anything into any ErrorMessage argument (the candidates were watched for 6 s
+  after each call), so **neither call rejects the join**.
+- After Login the host walks the options string character by character (slots 237/257 show UTF-16
+  fragments `Spli`/`eenC` from `SplitscreenCount=1`) and slot 240 receives `"Marauder1"`.
+
+What the server actually holds afterwards, read through the bridge's `lua` verb:
+`FindAllOf("PlayerState")` = **2** while `PlayerController` = 1. So the server created the joiner's
+PlayerState, reached **PostLogin**, and destroyed the PlayerController when the client left.
+
+**Therefore the drop is client-side:** the client loads the map, spawns a bare PlayerController,
+and travels itself back to `/Game/Maps/MainMenu`. The login gate is not the server's PreLogin or
+Login; it is whatever the client decides after it has the map. Next instrument: wrap the client's
+own GameInstance/PlayerController vtable and find the slot that runs immediately before the travel.
+
+String constants recovered from the dump, for the record: `"incompatible_unique_net_id"`
+(PreLogin's uid-mismatch branch, not taken), `"Failed to spawn player controller, GameSession is
+null"` and `"Failed to spawn player controller"` (Login; GameSession is non-null at gm+0x278),
+`"SpectatorOnly=1"` (a post-login branch).
+
+## Reading the bridge with the `lua` verb (2026-11-18)
+
+A bridge line that is not a known verb is run as Lua and answered with `ran: <code>`, which hides
+both the result and any error. The `lua <code>` verb is different: it runs the chunk on the game
+thread and replies `= <return value>`. Use it for every query.
+
+    bsend.sh bridge 'lua return #(FindAllOf("PlayerState") or {})'
+    bsend.sh bridge 'lua local t=FindAllOf("PlayerState") or {} return #t'
+
+`FindAllOf` and `FindFirstOf` work from there; `tostring(obj)` prints `UObject: 0x<address>`, which
+is the object address, and the first qword at that address is its vtable - the cheap way to get a
+class vtable in a process whose base you have not resolved.
+
+Two probe bugs worth keeping: an empty `FString` is `Data=0 Num=0 Max=0`, so a filter that
+requires `Num >= 1` never watches the error buffer it is meant to watch; and re-wrapping a vtable
+whose slots still point at your own stubs fails the "does this look like a vtable" check until the
+stubs are restored first.
