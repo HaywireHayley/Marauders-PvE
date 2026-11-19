@@ -27,7 +27,7 @@ saves.RAID_COPY = os.path.join(TMP, "state.before-last-raid.json")
 saves.ACTIVE = os.path.join(TMP, "active_save.txt")
 saves.STASH_ROWS = os.path.join(TMP, "stash_rows.txt")
 for name in ("FEMALE_SETTING", "FEMALE_SHARE", "WINDOW_SETTING", "SKIP_INTRO_SETTING", "UNLOCK_LOOKS_SETTING",
-             "MINIMIZE_SETTING", "UPDATE_CHECK_SETTING"):
+             "MINIMIZE_SETTING", "UPDATE_CHECK_SETTING", "RAID_CONDITION"):
     setattr(L, name, os.path.join(TMP, name.lower() + ".txt"))
 with open(L.UPDATE_CHECK_SETTING, "w") as f:
     f.write("off\n")  # no network in tests
@@ -181,6 +181,17 @@ class Window(unittest.TestCase):
         self.assertLessEqual(bottom, self.app.winfo_height())
         self.assertLessEqual(self.app.play.winfo_rooty() + self.app.play.winfo_height(),
                              self.app.winfo_rooty() + self.app.winfo_height())
+
+    def test_raid_conditions_keep_the_right_panel_in_the_window(self):
+        # #188: the condition's about line in the status bar widened the left column and pushed the panel off
+        names = [n for n, _ in self.app.raid_conditions()]
+        for _ in names:
+            self.app.cycle_condition(1)
+            settle(self.app, 0.1)
+            right = self.app.play.winfo_rootx() + self.app.play.winfo_width()
+            self.assertLessEqual(right, self.app.winfo_rootx() + self.app.winfo_width(), self.app.cond_label.cget("text"))
+            self.assertTrue(self.app.play.winfo_viewable())
+        self.assertEqual(self.app.cond_label.cget("text"), "Normal")
 
 
 SCALED = r"""

@@ -603,7 +603,9 @@ class App(tk.Tk):
         self.update_button = Button(self.update_badge, "UPDATE", self.offer_update, "plain", 11, (12, 6))
         self.update_button.pack(side="left")
 
-        self.status = tk.Label(self, text="", bg=INK, fg=MUTED, font=font(11), anchor="w", bd=0)
+        # width=1: the label asks for no room of its own and just fills its column (sticky ew). Sized to its text, a long
+        # line (a raid condition's about, #188) widened column 0 and pushed the right-hand panel out of the window.
+        self.status = tk.Label(self, text="", bg=INK, fg=MUTED, font=font(11), anchor="w", bd=0, width=1)
         # the installed build (version.txt, "public-test-20261117.6"), so players can say which one they're on
         build = (update.installed() or "").replace("public-test-", "") or "dev"
         tag = tk.Label(self, text=f"OFFLINE  PvE   ·   build {build}", bg=INK, fg=ORANGE_DIM, font=font(11, "SemiBold"))
