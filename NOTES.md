@@ -3951,3 +3951,31 @@ wrong until the connection is eventually reaped".
 Practical note on the sampler: the `State` hunt has now cost two runs. A cleaner way to place it is
 to watch a value that must move - send one packet and diff - rather than looking for an enum that
 may be bitfielded or living outside the dumped range.
+
+### Client-side vtable scan: no coherent UNetConnection exists to sample (2026-11-19)
+
+`scan=0xVT[:secs]` walks commit-private memory looking for objects whose first qword equals VT.
+The vtable address is the class RVA `0x41A9050` (measured from a live server-side connection)
+plus the client's own module base, which the probe reports via `base=1`.
+
+Two 12-second scans spanning a join, on the client, found only:
+
+- `obj=656ad0ddb0 cls=0 drv=7fff9a4c1836 lrt=0.000` - Class pointer is not a heap address, so not
+  a UObject at all: a coincidental 8-byte match.
+- `obj=1f4661b9d10 cls=1f45bdf8b00 drv=0 lrt=0.000` - plausible Class pointer, but `Driver` at
+  `0x58` is 0 and `LastReceiveTime` never moves, so it is not a live connection.
+
+So the client never holds a constructed `UNetConnection` anywhere in its private heap during the
+join - which fits the rest of the evidence (no join PlayerController, `NetConnection` 0,
+`PendingNetGame.NetDriver.ServerConnection:GetAddress()` 0). Either the object is never built, or
+it exists for less than one scan pass and is freed.
+
+Tell-tale detail worth remembering: a scan for a vtable is only as good as the vtable. A wrong
+or truncated address yields plausible-looking hits, and the fields at `0x10`/`0x58` are what
+separate a real object from a coincidence - so check `Driver` and `LastReceiveTime`, not just the
+first qword.
+
+**Better next step than more connection scanning:** scan for the *NetDriver* vtable instead (the
+client definitely has a live NetDriver - `FindFirstOf("NetDriver")` resolves one) and read
+`ServerConnection` at `0x88` from it. That reaches the connection through a pointer rather than by
+hunting for it, and the driver object exists from boot.
