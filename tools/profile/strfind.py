@@ -14,7 +14,8 @@ for i in range(nsec):
         except OSError: data += b'\0'*min(0x100000, vs-off)
     image[name] = (va, bytes(data))
 code = {}
-for sec in ('.data2',):
+for sec in ('.xtext', '.data2', '.arch', '.xcode'):
+    if sec not in image: continue
     va, data = image[sec]
     a = np.frombuffer(data, dtype=np.uint8)
     n = len(a) - 4

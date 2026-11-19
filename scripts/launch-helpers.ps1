@@ -3,7 +3,7 @@
 # Starts the local Nakama stand-in and waits until it answers on 127.0.0.1:$Port. Returns $null when it's up, else a
 # sentence saying why not. The stand-in used to be started hidden with a fixed 2 s wait and never checked, so when it
 # couldn't start (issue #75) the game sat on "CONNECTING TO BACKEND" forever with nothing to say why.
-function Start-Standin($Project, $Python, $Port = 7350, $TimeoutSec = 15) {
+function Start-Standin($Project, $Python, $Port = 7350, $TimeoutSec = 15, $DataDir = $null, $Name = $null) {
     if (Test-StandinPort $Port) { return $null }
     $Backend = Join-Path $Project 'backend'
     $Err = Join-Path $Backend 'standin_err.log'  # the stand-in writes its startup crash here
@@ -11,9 +11,12 @@ function Start-Standin($Project, $Python, $Port = 7350, $TimeoutSec = 15) {
     # No -Redirect*: with it the stand-in inherits this script's output pipe and the launcher's call never returns.
     # The path is quoted by hand: Windows PowerShell joins -ArgumentList with plain spaces, so an install folder with
     # a space in its path ran "python -I C:\My" and the stand-in never started (the likely cause of #75).
+    $standinArgs = @('-I', "`"$(Join-Path $Backend 'nakama_standin.py')`"", '--port', $Port)
+    # A co-op joiner's own save (scripts/launch-joiner.ps1): its folder and, for a new account, its name.
+    if ($DataDir) { $standinArgs += '--dir', "`"$DataDir`"" }
+    if ($Name) { $standinArgs += '--name', $Name }
     try {
-        $proc = Start-Process $Python -ArgumentList '-I', "`"$(Join-Path $Backend 'nakama_standin.py')`"", '--port', $Port `
-            -WindowStyle Hidden -PassThru
+        $proc = Start-Process $Python -ArgumentList $standinArgs -WindowStyle Hidden -PassThru
     } catch {
         return "the offline backend couldn't start ($Python): $($_.Exception.Message)"
     }

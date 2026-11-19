@@ -5,6 +5,7 @@
 | `setup-dev.ps1` | One-time setup on a new PC (Python packages, finds the game, downloads UE4SS) |
 | `mode.ps1 offline / online / status` | Puts UE4SS, the mods and the offline PGOS config into the game folder, or puts every file back to stock. `online` is always the safe way back. `pvemode.py` is the same for Linux |
 | `launch-offline.ps1`, `launch-helpers.ps1` | Start the stand-in backend and the game in offline mode without the launcher |
+| `launch-joiner.ps1` | Co-op: a second copy of the game as another player with its own offline save (own stand-in on port 7349+N, `backend\joiners\<N>\`), to `join` a listen host |
 | `send.sh`, `bsend.sh`, `waitfor.sh` | Send a command (`"status"`, `"lua <code>"`) into the running game through the PvEBridge mod; replies land in `bridge/out.txt` |
 | `luacheck.py` | Lua syntax check plus headroom under Lua's 200-locals limit (CI runs it) |
 | `pvepaths.py` | Tells the Python tools where the game and this repository are |

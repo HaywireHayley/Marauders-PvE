@@ -1,6 +1,10 @@
 """Local stand-in for the game's Nakama backend (marauderea2.us-east1.nakamacloud.io), for offline play.
 
-    python -I nakama_standin.py [--port 7350]
+    python -I nakama_standin.py [--port 7350] [--dir <folder> [--name <display name>]]
+
+--dir keeps a second player's save apart (co-op, #26): its own state.json, loadout, checkout and ship files in that
+folder, a new account from the anonymous seed.json with its own user id, named --name. The joining game is pointed
+at it by scripts/launch-joiner.ps1 (PVE_STANDIN_PORT for pvenet.dll, PVE_BACKEND for the PvEDirector mod).
 
 pvenet.dll points the game's Nakama connection here (plain HTTP on 127.0.0.1) while bridge/offline_backend
 exists. Implements the REST endpoints the client was seen using (see NOTES.md, "Backend capture"):
@@ -45,6 +49,22 @@ UNLOCK_ALL_SETTING = os.path.join(HERE, "..", "config", "unlock_all_looks.txt")
 ALL_COSMETICS = tuple(str(n) for n in list(range(1, 57)) + list(range(61, 73)) + [84, 85, 86, 87, 88, 89, 90, 92, 93, 94, 95]) + (
     "enM01", "frM01", "frF01", "plM01", "auM01", "usaM01", "usaF01", "huM01", "duM01", "duF01", "roM01", "itM01", "itF01",
     "str01")
+
+
+NAME = None  # --name: display name for an account built in a --dir folder
+
+
+def use_dir(folder, name=None):
+    """Every per-player file in `folder` instead of next to this script; a new account there starts from the
+    anonymous seed.json (never this PC's private capture) as a different user."""
+    global STATE, LOG, LOADOUT, COSMETICS, CHECKOUT, SHIP_STOLEN, SHIP_LOST, SHIP_GATE, GIFTS_IN, COVERAGE, SEED, NAME
+    os.makedirs(folder, exist_ok=True)
+    STATE, LOG, LOADOUT, COSMETICS, CHECKOUT, SHIP_STOLEN, SHIP_LOST, SHIP_GATE, GIFTS_IN, COVERAGE = (
+        os.path.join(folder, f) for f in ("state.json", "server.log", "loadout.json", "cosmetics.json", "checkout.txt",
+                                          "ship_stolen.txt", "ship_lost.txt", "ship_gate.txt", "gifts_in.txt",
+                                          "coverage.json"))
+    SEED = os.path.join(HERE, "seed.json")
+    NAME = name
 
 
 def unlock_all():
@@ -95,6 +115,14 @@ def new_state():
             put("gifts", kv["key"], kv["value"], user["id"])
     meta = user.get("metadata")
     user["metadata"] = json.loads(meta) if isinstance(meta, str) else (meta or {})
+    if NAME:  # a second player (--dir): another user, so nothing the game keys on the user id is shared
+        old = user["id"]
+        user["id"] = str(uuid.uuid4())
+        user["display_name"] = user["username"] = NAME
+        for objs in storage.values():
+            for o in objs.values():
+                if o["user_id"] == old:
+                    o["user_id"] = user["id"]
     return {"schema": SCHEMA, "user": user, "storage": storage, "master": {k: master[k] for k in ("messages", "prestige", "raidertime")
                                                          if k in master}}
 
@@ -541,7 +569,12 @@ def main():
     global state
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=7350)
-    port = ap.parse_args().port
+    ap.add_argument("--dir", help="keep this player's save and files in this folder (a co-op joiner)")
+    ap.add_argument("--name", help="display name of a new account in --dir")
+    args = ap.parse_args()
+    port = args.port
+    if args.dir:
+        use_dir(os.path.abspath(args.dir), args.name)
     state = load_state()
     return_unfinished_raid("the stand-in started")
     log(f"listening on 127.0.0.1:{port} as {state['user']['display_name']} "

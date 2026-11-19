@@ -148,11 +148,11 @@ local CFG = {
     -- game's raider mode and close the game when loaded this way.
     MAP_POOL = { "Space_Solo_01", "Space_Solo_02", "Space_Alpha", "Space_Beta", "Space_Charlie", "Space_Delta" },
     -- The player starts with the stash loadout the local Nakama stand-in keeps (while OFFLINE_BACKEND_FLAG exists).
-    LOADOUT_FILE = PROJECT .. "backend/loadout.json",
-    COSMETICS_FILE = PROJECT .. "backend/cosmetics.json", -- your head, body and voice (the stand-in's cosequipped)
-    CHECKOUT_FILE = PROJECT .. "backend/checkout.txt",
-    SHIP_LOST_FILE = PROJECT .. "backend/ship_lost.txt",
-    SHIP_GATE_FILE = PROJECT .. "backend/ship_gate.txt",
+    LOADOUT_FILE = require("pvebackend") .. "loadout.json",
+    COSMETICS_FILE = require("pvebackend") .. "cosmetics.json", -- your head, body and voice (the stand-in's cosequipped)
+    CHECKOUT_FILE = require("pvebackend") .. "checkout.txt",
+    SHIP_LOST_FILE = require("pvebackend") .. "ship_lost.txt",
+    SHIP_GATE_FILE = require("pvebackend") .. "ship_gate.txt",
     EXTRACT_SECONDS = 3,     -- after extracting, back to the main menu this much later
     OFFLINE_BACKEND_FLAG = PROJECT .. "bridge/offline_backend",
     GIVE_GUN = true,         -- no gun in the loadout (or no stand-in): hand the player a soldier's gun...
@@ -544,6 +544,21 @@ local function onTick(ctx)
             if not okc then log("raid conditions: " .. tostring(errc)) end
         end
         tick.menuSince = os.clock()
+        tick.remote = {}
+    end
+    -- Co-op host: a joiner's MainPlayerController ticks here too. update() keys the raid on the controller's address,
+    -- so every switch between the two restarted the raid (a second batch of soldiers and floor loot, the stash checked
+    -- out again; #26). Only the controller playing on this machine drives the director. Only "remote" is remembered:
+    -- a controller asked in the frame it spawns may not know yet.
+    local me = ctx:get()
+    local meAddr = me:GetAddress()
+    if tick.remote and tick.remote[meAddr] then return end
+    local okLocal, isLocal = pcall(function() return me:IsLocalController() end)
+    if okLocal and isLocal == false then
+        tick.remote = tick.remote or {}
+        tick.remote[meAddr] = true
+        log("co-op: ignoring a joining player's controller (not local)")
+        return
     end
     -- The load runs at LOAD_TIME_DILATION (20x) until veilUntilAboard sees your pawn, but that only looks every
     -- UPDATE_SECONDS (10 game seconds at 20x). Spawning and landing on the deck in those big physics steps cost 3-15

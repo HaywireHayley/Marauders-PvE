@@ -234,7 +234,7 @@ local CFG = {
     -- Each design's interior is its row in the game's FrigData table, except where that row's level is the grey, roofless
     -- ShipBlockOut placeholder (every Interceptor, every Heavy, the Vulture): those get the closest real interior.
     INSIDES = "/Game/Blueprints/Prefabs/ShipInsides/",
-    SHIP_STOLEN_FILE = PROJECT .. "backend/ship_stolen.txt",
+    SHIP_STOLEN_FILE = require("pvebackend") .. "ship_stolen.txt",
     -- Only the ship your pod is flying AT gets an interior (every ship within reach used to: three interiors for one
     -- flight, and after PLAYER_BOARD_MAX of them no ship could be boarded for the rest of the raid).
     PLAYER_BOARD_PREP = 16000,      -- your pod heading for a rival's ship this close: its interior starts loading
