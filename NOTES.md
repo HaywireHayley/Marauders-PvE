@@ -3853,3 +3853,19 @@ travel and the failure must be below them.
 - Consequence for the next attempt: poll while the join is in flight (the client's bridge is alive
   until the world change), not afterwards, and read `UNetConnection::State` and
   `UPendingNetGame::bFailedToConnect` by offset rather than by property name.
+
+## One join window per client launch (2026-11-19)
+
+The client's bridge answers until the join's world change and then never again, so a launch gives
+exactly **one** attempt at measuring. Polling from outside loses that attempt to a race: the
+`open` command and the first poll compete for the same one-command-at-a-time inbox, and by the time
+the poll is answered the client is already travelling.
+
+What that means for the connection-state experiment: do not poll. Pre-arm a **hook**
+(`RegisterHook` on a function that runs during connect) so the capture happens on the game thread
+at the moment the object exists, and have it hand the address to the probe's `read=`. A fresh
+client launch is required per attempt, so a failed run costs a full 50 s cycle.
+
+Dead ends confirmed this round, in order: `PendingNetGame`/`NetDriver`/`ServerConnection`
+`GetAddress()` is 0 after the fallback (stale wrappers); property reads return `userdata`, and
+`v:get()` returns a function; polling the client's bridge during the join gets no reply at all.
