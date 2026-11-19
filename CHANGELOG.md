@@ -2,6 +2,16 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 19 Nov 2026, build 5 (`public-test-20261118.5`)
+
+A minefield. On build 1 of 17 Nov or later, the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Changes
+
+- **Minefield (raid condition):** twenty times the space mines, scattered around every minefield the map has. Pick it
+  in the launcher ("Raid conditions") or the lobby's REGION picker. Better loot. Make your own with `mines = N` in
+  `config/my_raid_conditions.txt`. New and lightly tested: tell us if it slows or crashes your game.
+
 ## Public test, 19 Nov 2026, build 4 (`public-test-20261118.4`)
 
 Civilians, bullet holes, and explosions you can see. On build 1 of 17 Nov or later, the launcher's orange **!**
