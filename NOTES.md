@@ -3733,3 +3733,27 @@ Two probe bugs worth keeping: an empty `FString` is `Data=0 Num=0 Max=0`, so a f
 requires `Num >= 1` never watches the error buffer it is meant to watch; and re-wrapping a vtable
 whose slots still point at your own stubs fails the "does this look like a vtable" check until the
 stubs are restored first.
+
+### Client side: the GameInstance vtable is not where the bounce is decided (2026-11-18)
+
+Same probe, pointed at the client (VTH_DIR per instance, because both copies share one DLL). The
+client's GameInstance vtable was found without resolving a base: bridge2's `lua` returns
+`UObject: 0x...` for `FindFirstOf("GameInstance")`, and the first qword at that address is the
+vtable - 245 slots wrapped, 173 of them executable.
+
+Only **12** virtual calls ran during the join, and none is a travel: slots 192/124 are the console
+`open` command itself (they receive the URL string), and the rest are ordinary engine plumbing. So
+the decision to return to MainMenu happens on another object - the client's PlayerController or
+the engine - not on the GameInstance.
+
+Decompiling those 12 targets without a full analysis does not work: Ghidra bounded three of them
+as 46-50 KB blobs (no analysis means no function boundaries), so the output is unusable. Any
+further client-side work wants either the analysed project or a different measurement, not more
+targeted decompiles.
+
+Two process facts learned the hard way: `Get-Process ... Modules[].BaseAddress` returned the
+HOST's base for both PIDs, so RVAs computed from it were nonsense - `VirtualQueryEx`'s
+`AllocationBase` gave the real one (`0x7FFF0BCF0000` for that client, versus the host's
+`0x7FF765060000`, so ASLR really does differ per instance). And the probe's own module-range
+check reads 0 "in module" in the client while still finding 173 executable entries, so the gate
+now trusts executable pages and a two-thirds ratio rather than my range arithmetic.
