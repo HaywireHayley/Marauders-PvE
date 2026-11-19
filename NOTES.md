@@ -3625,3 +3625,13 @@ reference with flowcharts: [docs/internals/SALVAGE_CHAIN.md](docs/internals/SALV
 - Not verified: the countdown as the mod's own code from launch (the first launch with it is the next test), instant, 15
   minutes, a raid shorter than the gate time, no limit raids, the launcher slider on screen (no Tk on the test machine).
 - A game crash happened while live tests of the text scan were running; the log shows no error and the cause is not proven.
+
+## Minefield raid condition (2026-11-19, no issue)
+- `mines = N` in a raid condition (conditions.lua M.mines) has minefield.lua copy each space mine the map placed
+  (RaidSubNodeActor classes with `NodeMine` in the name: Small_NodeMine_C, Nuclear_NodeMine_C) N - 1 times, scattered
+  up to 90 m around it (at least 15 m away), with `world:SpawnActor(mine:GetClass(), at, rot)`. Once per world, 8 s
+  into the space map, looking for up to 90 s; at most 400 copies. Shipped condition: [Minefield], mines = 20, loot 1.25.
+- Verified: Space_Alpha, twice: "14 mines on the map, 266 more spawned", then "20 mines, 380 more" (the cap).
+- Not verified: the copies seen, triggered or exploding in play. Another tool was driving the same game install during
+  the test (opening Spaceport_01 on every bridge load and restarting the game), so whether the game stays up with 400
+  extra mines is unknown. Test this first: a raid with Minefield picked, fly around a field for a few minutes.

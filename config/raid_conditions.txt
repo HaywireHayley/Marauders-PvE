@@ -5,6 +5,7 @@
 #   about = the line shown when you pick it
 #   map   = a fixed map (Space_Solo_01, Space_Solo_02, Space_Alpha, Space_Beta, Space_Charlie, Space_Delta)
 #   ships = rival crews guaranteed in these hulls, as bosses (rows from rivals.lua CFG.HULLS, comma-separated)
+#   mines = how many times the map's space mines (20 = twenty mines for every one)
 #   loot  = more and better loot on bodies (1.5 = half as many items again, worth up to half as much again)
 #   any F3 setting, by its name in config/ai_tuning.txt (e.g. Crews:BARON = 1, Spawns:CREWS = 9)
 #
@@ -44,3 +45,8 @@ ships = CapitalDreadnought_Ship
 Crews:ATTACK_CHANCE = 1
 Crews:RUSHERS = 0
 loot = 2
+
+[Minefield]
+about = Twenty times the space mines, scattered around every minefield. Fly carefully. Better loot.
+mines = 20
+loot = 1.25

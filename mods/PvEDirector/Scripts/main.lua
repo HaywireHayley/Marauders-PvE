@@ -992,6 +992,8 @@ end })
 Conditions = require("conditions")
 Conditions.init({ log = log, project = PROJECT, tuning = Tuning, tables = { Rivals = Rivals.CFG, Crew = Crew.CFG, CFG = CFG } })
 Rivals.conditions = Conditions
+Minefield = require("minefield")
+Minefield.init({ log = log, valid = valid, conditions = Conditions })
 -- Civilians (#81, civilians.lua): miners, prisoners and workers who run instead of fighting.
 Civilians = require("civilians")
 Civilians.init({ log = log, valid = valid, lib = lib, dist = dist, navLib = navLib, navMesh = navMesh,
@@ -1253,6 +1255,7 @@ update = function(pc)
         if raid.readyAt and valid(raid.target) then
             local ok, err = pcall(Missions.update, pc, raid.world, raid.target)
             if not ok then log("missions: " .. tostring(err)) end
+            pcall(Minefield.update, pc)
             local okc, errc = pcall(Civilians.update, pc) -- (#81)
             if not okc then log("civilians: " .. tostring(errc)) end
             Space.update(pc, worldName)
