@@ -3835,3 +3835,21 @@ Open lead for next time: the client fails *after* `ClientSetHUD` and *before* it
 path. That is below every vtable wrapped so far; the next instrument wants
 `UNetDriver`/`UPendingNetGame` state (or the connection's close reason) rather than more game
 classes.
+
+## UNetDriver / PendingNetGame from Lua: reachable only while the join is live (2026-11-19)
+
+Tried to read the engine's pending-netgame state from Lua, since the game-layer vtables showed no
+travel and the failure must be below them.
+
+- `FindFirstOf("NetDriver")` and `FindFirstOf("PendingNetGame")` both return objects **at the menu
+  after a failed join**, so the objects survive the failure - but `:GetAddress()` on the
+  PendingNetGame, on its `NetDriver` and on `NetDriver.ServerConnection` all return **0**. They are
+  stale: the wrapper still resolves, the UObject behind it is gone. Any read taken after the
+  fallback is meaningless, which is why an earlier "state" read looked plausible and said nothing.
+- Property reads return `userdata` wrappers, not primitives: `p.bFailedToConnect` is a userdata
+  whose `tostring` is `UObject: 0x...`, and `v:get()` returns a *function*. So this build does not
+  let Lua read a bool or an enum property directly; state has to be read from memory at known
+  offsets (the probe's `read=`), sampled during the live join window.
+- Consequence for the next attempt: poll while the join is in flight (the client's bridge is alive
+  until the world change), not afterwards, and read `UNetConnection::State` and
+  `UPendingNetGame::bFailedToConnect` by offset rather than by property name.
