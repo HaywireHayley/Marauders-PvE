@@ -7,6 +7,7 @@
 -- Rows, kinds and magazines from assets/saves/items.json (type 0 = long gun, 1 = pistol; max = magazine / stack), minus
 -- test items, throwables, mines, shields and tools.
 local G = {}
+local Pockets = require("pockets")
 
 local GUNS = {
     { "STG44Rifle", "STG44", 0, 30 }, { "Mat49Rifle", "Mat 49", 0, 36 }, { "MP40Rifle", "MP40", 0, 30 },
@@ -38,7 +39,6 @@ local AMMO = {
     { "12GaugeAmmo", "12 gauge", 20 }, { "40mmAmmo", "40mm", 3 }, { "FlareAmmo", "Flares", 5 }, { "FlameFuel", "Flame fuel", 100 },
     { "DartAmmo", "Darts", 40 },
 }
-local POCKETS = { "PocketLeft", "PocketRight" } -- 2 x 2 cells each
 
 local gi, ai = 1, 1
 
@@ -50,19 +50,11 @@ local function controller()
     return pc
 end
 
--- What the player's inventory holds, by container: { Prim = true, ..., cells = { ["PocketLeft 0 1"] = true } }.
+-- What the player's inventory holds, by container: { Prim = true, ..., cells = { ["PocketLeft 0 1"] = true } }, every
+-- cell an item covers (pockets.lua), not just its corner.
 local function taken()
-    local out = { cells = {} }
-    local inv = FindFirstOf("SIGISInventoryComponent")
-    if not (inv and inv:IsValid()) then return out end
-    inv.StashedItems:ForEach(function(_, e)
-        local it = e:get()
-        if it and it:IsValid() then
-            local con = it.MotherItemGUID:ToString()
-            out[con] = true
-            pcall(function() out.cells[("%s %d %d"):format(con, it.ItemInSlot.Column, it.ItemInSlot.Row)] = true end)
-        end
-    end)
+    local out = {}
+    out.cells = Pockets.cells(FindFirstOf("SIGISInventoryComponent"), function(_, con) out[con] = true end)
     return out
 end
 
@@ -158,19 +150,11 @@ function G.actions()
           help = "Into a free pocket cell", when = inRaid, unusable = "In a raid, on foot",
           run = function()
               local pc = controller()
-              local cells = taken().cells
-              for _, pocket in ipairs(POCKETS) do
-                  for line = 0, 1 do
-                      for col = 0, 1 do
-                          if not cells[("%s %d %d"):format(pocket, col, line)] then
-                              give(pc, AMMO[ai][1], AMMO[ai][3], col, line, pocket)
-                              return ("%d %s in your %s pocket"):format(AMMO[ai][3], AMMO[ai][2],
-                                  pocket == "PocketLeft" and "left" or "right")
-                          end
-                      end
-                  end
-              end
-              return "Your pockets are full"
+              local pocket, col, line = Pockets.find(taken().cells, AMMO[ai][1])
+              if not pocket then return "Your pockets are full" end
+              give(pc, AMMO[ai][1], AMMO[ai][3], col, line, pocket)
+              return ("%d %s in your %s pocket"):format(AMMO[ai][3], AMMO[ai][2],
+                  pocket == "PocketLeft" and "left" or "right")
           end },
     }
 end

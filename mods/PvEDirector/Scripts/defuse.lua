@@ -16,7 +16,7 @@
 -- radial damage, mesh hidden, destroyed; spacefx.lua adds the blast and sound), its reach stretched to your ship.
 local M = {}
 local X -- log, valid, lib, menuClosed
-local Items = require("itemdata")
+local Pockets = require("pockets")
 
 local CFG = {
     SIZE = 6, MINES = 6, TIME = 75,  -- the board and its timer (s)
@@ -32,7 +32,6 @@ local CFG = {
 }
 M.CFG = CFG
 local NOT_CARRIED = { Stash = true, Lobby = true, Shop = true, LootCon = true, Gift = true, scrap = true }
-local POCKETS = { "PocketLeft", "PocketRight" } -- 2 x 2 cells each
 local CELL, GAP = 46, 4
 local HOST = "/SIGISPlugin/Widgets/DebugInfo_Widget.DebugInfo_Widget_C"
 local HIDDEN = { R = 0.32, G = 0.33, B = 0.35, A = 1 }
@@ -112,74 +111,26 @@ local function armed(kind, m)
     return m.Active == true
 end
 
--- An item row's width and height in cells (items.json; the game's own GetGridSizeVector reads 0 x 0), rotated or not.
-local function size(row, rotated)
-    local r = Items.get(row) or {}
-    local w, h = r.w or 1, r.h or 1
-    if rotated then return h, w end
-    return w, h
-end
-
--- What you carry: a ToolKit?, and which pocket cells are taken (every cell an item covers, not just its corner).
+-- What you carry: a ToolKit? (an FName keeps the case it was first made with in the session: the row reads "Toolkit"
+-- in some sessions, "ToolKit" in others), and which cells are taken (pockets.lua: every cell an item covers).
 local function carried()
-    local out = { tool = false, cells = {} }
-    local inv = FindFirstOf("SIGISInventoryComponent")
-    if not X.valid(inv) then return out end
-    inv.StashedItems:ForEach(function(_, e)
-        local it = e:get()
-        if it and it:IsValid() then
-            local con = it.MotherItemGUID:ToString()
-            local row = it.ItemData:ToString()
-            if not NOT_CARRIED[con] and row:lower() == CFG.TOOL:lower() then out.tool = true end -- (an FName keeps the case it was
-            -- first made with in the session: the row reads "Toolkit" in some sessions, "ToolKit" in others)
-            pcall(function()
-                local w, h = size(row, it.bRotated == true or it.bRotated == 1) -- (a number here: 0 is true to Lua)
-                for dc = 0, w - 1 do
-                    for dr = 0, h - 1 do
-                        out.cells[("%s %d %d"):format(con, it.ItemInSlot.Column + dc, it.ItemInSlot.Row + dr)] = true
-                    end
-                end
-            end)
-        end
+    local out = { tool = false }
+    out.cells = Pockets.cells(FindFirstOf("SIGISInventoryComponent"), function(_, con, row)
+        if not NOT_CARRIED[con] and row:lower() == CFG.TOOL:lower() then out.tool = true end
     end)
     return out
 end
 
--- A free spot for an item in a 2 x 2 pocket: column, row, rotated (or nil).
-local function fit(cells, pocket, row)
-    for _, rot in ipairs({ false, true }) do
-        local w, h = size(row, rot)
-        for line = 0, 2 - h do
-            for col = 0, 2 - w do
-                local free = true
-                for dc = 0, w - 1 do
-                    for dr = 0, h - 1 do
-                        if cells[("%s %d %d"):format(pocket, col + dc, line + dr)] then free = false end
-                    end
-                end
-                if free then return col, line, rot end
-            end
-        end
-    end
-end
-
--- Into free pocket space, the way the F9 ammo button gives (debuggive.lua). Nothing goes on top of another item
--- (the corner-only version could put a 2-cell AP mine over something: items stacked like that break the inventory, #239).
+-- Into free pocket space, the way the F9 ammo button gives (debuggive.lua). Nothing goes on top of another item.
 local function giveLoot(pc, loot)
     local cells, given = carried().cells, {}
     for _, l in ipairs(loot) do
-        for _, pocket in ipairs(POCKETS) do
-            local col, line, rot = fit(cells, pocket, l[1])
-            if col then
-                local w, h = size(l[1], rot)
-                for dc = 0, w - 1 do
-                    for dr = 0, h - 1 do cells[("%s %d %d"):format(pocket, col + dc, line + dr)] = true end
-                end
-                pc:Server_AwsN_EquippedItemsReturned(('[{"value":{"equip":true,"value":"%s-%s-%d-100-%d-%d-%d-%s"}}]')
-                    :format(tostring(math.random(10000000, 99999999)), l[1], l[2], col, line, rot and 1 or 0, pocket))
-                given[#given + 1] = l[1]
-                break
-            end
+        local pocket, col, line, rot = Pockets.find(cells, l[1])
+        if pocket then
+            Pockets.claim(cells, pocket, l[1], col, line, rot)
+            pc:Server_AwsN_EquippedItemsReturned(('[{"value":{"equip":true,"value":"%s-%s-%d-100-%d-%d-%d-%s"}}]')
+                :format(tostring(math.random(10000000, 99999999)), l[1], l[2], col, line, rot and 1 or 0, pocket))
+            given[#given + 1] = l[1]
         end
     end
     return given

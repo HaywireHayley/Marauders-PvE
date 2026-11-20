@@ -4515,3 +4515,22 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   station mine again after the changes: won, AP_Mine into PocketLeft's free bottom row, Gunpowder into PocketRight 1,0.
 - Not verified: taking the helm by a real F (tests used Possess); a ship bigger than the starter; nuclear mines (not
   done: towing to the hold is still open in #197); co-op.
+
+## The mod's own pocket items landed on top of each other (#239, 2026-11-20; pockets.lua, loadout.lua, debuggive.lua)
+- Found while looking for what stacks items (#239): `loadout.lua giveAmmo` (ammo for the soldier's gun you get when you
+  enter a raid with no gun) put its stacks into PocketLeft's four cells (0,0 1,0 0,1 1,1) whatever was there, as 1 x 1.
+  But **7.62, .30-06, 5.56, 7.62x54R, flame fuel and darts are 2 x 1** (items.json), so a 7.62 gun's ammo lay two-deep
+  on itself: seen live this round as `762Ammo@PocketLeft 0,0; 762Ammo@PocketLeft 1,0`. Anything already in the left
+  pocket got covered too. Extraction saves it as it is. The F9 ammo button and defuse.lua's loot had the same flaw
+  (free cells from each item's top-left cell only, everything treated as 1 x 1).
+- Fix: pockets.lua maps every cell each item covers (items.json sizes, `bRotated` compared with 1: it reads as a number
+  and 0 is true to Lua) and finds a spot an item fits, rotated if need be. giveAmmo, the F9 ammo button and the defuse
+  loot all use it; giveAmmo stops (and logs "no room for the rest") when the pockets are full.
+- The stand-in's startup repair (#240 section) now also checks PocketLeft and PocketRight (2 x 2) for overlapping items
+  and moves the newer ones to free stash space. Dry run: a copy of a save with two 7.62 stacks at 0,0 and 1,0 got the
+  second moved; every healthy local save, unchanged.
+- Verified in game (Spaceport_01, no gun, a 2 x 1 Fuse put in PocketLeft 0,0 through the save): "put 2 stacks of 762Ammo
+  in free pocket cells", at PocketLeft 0,1 and PocketRight 0,0, the Fuse untouched.
+- Still not found for #239: how the Head slot (#240's three helmets) and the stash cells got doubled. Picking up a
+  dropped helmet while wearing one was the lead, but neither a synthetic F (prompt "F Light Stahlhelm" up) nor
+  `pawn:ServerInteract(pickup)` picked anything up from the bridge, so it couldn't be tried.
