@@ -41,10 +41,10 @@ CHEAT_CASH = 999999999
 # Cosmetics every account owns, on top of the game's own free ones (English voice, head 1, body 6). The mod lets you
 # play as a woman from the start, but the game's cheapest female voice (French, frF01) cost 3500. The game keeps
 # unlocks in playerstats/cosmeticsunlocked as row names joined by "-" and writes the whole list back after a purchase.
-FREE_COSMETICS = ("frF01",)
+FREE_COSMETICS = ("frF01", "57", "58", "59", "60")
 # The launcher's "Unlock all looks and voices" (issue #48): every DT_PlayerAppearance row (heads and bodies are
-# numbered, voices named), read from the running game. Left out: Pirate and Mod (57-60), cost 1 and apparently
-# developer placeholders. Only what's sent at login changes, never the save, so turning it off brings progression back.
+# numbered, voices named), read from the running game. Rows 57-60 (Pirate and Mod, cost 1) aren't here: they're
+# owned by every account (FREE_COSMETICS) and worn from F9 in the lobby, since the Appearance pages never list them (#229). Only what's sent at login changes, never the save, so turning it off brings progression back.
 UNLOCK_ALL_SETTING = os.path.join(HERE, "..", "config", "unlock_all_looks.txt")
 ALL_COSMETICS = tuple(str(n) for n in list(range(1, 57)) + list(range(61, 73)) + [84, 85, 86, 87, 88, 89, 90, 92, 93, 94, 95]) + (
     "enM01", "frM01", "frF01", "plM01", "auM01", "usaM01", "usaF01", "huM01", "duM01", "duF01", "roM01", "itM01", "itF01",

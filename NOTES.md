@@ -4406,5 +4406,26 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   fire for Blueprint-to-Blueprint calls; IsAnimationPlaying from a tick hook didn't catch these animations either, but
   reading it straight after the press does. Synthetic drags (SetCursorPos + mouse_event) don't move items in the menu;
   Server_MoveItem from bridge/dir_eval.lua does, like a drag.
-- Not verified: a visibly changing item (helmet, vest) redressing the character with the fix (the test moved a stock
-  in and out of the secondary slot: it doesn't show on the character); the reporter's exact case.
+- Also verified: the helmet off the head (into the empty secondary slot) and back: the character lost it and got it
+  back, each with the redress line, panels min 1223 / 1224, backdrop min 495 / 522.
+- Not verified: the reporter's exact case by hand (a drag after buying from a trader).
+
+## Hidden outfits: rows 57-60 (#229, 2026-11-20; outfits.lua, debugmenu.lua, stand-in FREE_COSMETICS)
+- DT_PlayerAppearance rows 57-60 ("Pirate"/"Mod", cost 1) were left out of "unlock all" as dev placeholders. They're
+  real: worn through cosequipped they're two outfits, 57 body + 58 head a long brown coat with a brass mask, 59 + 60 the
+  same coat in black with a dark goggled mask (meshes Dev_Pirate_Body_Skel_01 / Dev_Pirate_Head_Skel_01 for 59/60, read
+  off your pawn in a raid). Owned (UnlockedCustomisations had them), the Appearance pages still don't list them: they
+  aren't in the menu's lists, so unlocking alone can't offer them. Rows 73-83 and 91 don't exist.
+- Wearing them: SIGISPlayerController:SetPlayerCosBody(FName) / SetPlayerCosHead(FName) (one NameProperty each, read
+  from the UFunction's ChildProperties at +0x50 with tools/offline-audit/kdis.py's reader: UE4SS ForEachProperty fails on
+  functions). They PUT cosequipped like an Appearance click, but the lobby character only changes at the next page
+  switch, so the selected tab is pressed again (CoreMM_Tab_Pressed with its Which_CoreMenuState).
+- F9 in the lobby: "Hidden outfit: wear the brown/black coat" cycles the two. The stand-in owns 57-60 for every account
+  (FREE_COSMETICS). Picking any listed look in Appearance changes back.
+- The F9 menu was one column of 17 buttons (~1100 px): past the bottom of a 900 or 1080 px window, the last ones
+  (ammo picker, this button) couldn't be reached. Over 10 buttons it now uses two columns; help lines over ~58
+  characters ran into the second column and were shortened.
+- Verified: real F9 clicks in the lobby (1600x900 window) put on each outfit, PUT cosequipped body and head, and showed
+  it at once; a Spaceport_01 raid after that wore 59/60 (cosmetics.json -> applyLoadout).
+- Not verified: the brown coat in a raid (only the black one was loaded), a woman's body with these rows, the crew
+  stands in the lobby wearing them (they're dressed from a donor).

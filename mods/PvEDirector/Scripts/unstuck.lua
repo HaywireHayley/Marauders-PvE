@@ -148,10 +148,10 @@ end
 
 function M.actions(inRaid)
     return {
-        { id = "unstuck", label = "Unstuck", help = ("Back where you last stood, or onto the nearest floor (every %d s)"):format(CFG.COOLDOWN),
+        { id = "unstuck", label = "Unstuck", help = ("Back to where you last stood, or the nearest floor (%d s)"):format(CFG.COOLDOWN),
           when = inRaid, unusable = "Only on foot in a raid", run = M.unstuck },
         { id = "noclip", label = function() return "No collision: " .. (ghost and "ON" or "off") end,
-          help = "Walk through walls and fly (cheat; off again at every map change)",
+          help = "Walk through walls and fly (off at every map change)",
           when = inRaid, unusable = "Only on foot in a raid", run = M.toggleNoclip },
     }
 end
