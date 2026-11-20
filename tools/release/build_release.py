@@ -24,6 +24,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import uuid
 import zipfile
@@ -161,39 +162,24 @@ def check():
     return found
 
 
-FEMALE = os.path.join(SRC, "assets", "female", "pak")
-
-
-def ensure_female():
-    """The female outfit meshes (assets/female/pak) are made per checkout by tools/female/make_female.py from the game's
-    pak and never committed (they're extracted game files). A checkout without them would ship a release without them,
-    breaking the female look for everyone who updates (it nearly happened with build 20261117.4). So they're taken from
-    the latest published release's zip, unchanged."""
-    if os.path.isdir(FEMALE) and any(f.endswith(".uasset") for _, _, fs in os.walk(FEMALE) for f in fs):
-        return
-    import io
-    import urllib.request
-    api = "https://api.github.com/repos/HaywireHayley/Marauders-PvE/releases/latest"
-    with urllib.request.urlopen(urllib.request.Request(api, headers={"User-Agent": "marauders-release-build"})) as r:
-        rel = json.load(r)
-    # The meshes are in the -deps-female zips since build 20261119 (in the main zip before that).
-    assets = [a for a in rel["assets"] if "-deps-female" in a["name"]]
-    assets = assets or [a for a in rel["assets"] if re.fullmatch(rf"{NAME}-[\w.]+\.zip", a["name"])]
-    prefix, n = f"{NAME}/assets/female/pak/", 0
-    for asset in assets:
-        print(f"assets/female/pak missing: taking it from {rel['tag_name']} ({asset['name']})")
-        with urllib.request.urlopen(asset["browser_download_url"]) as r:
-            z = zipfile.ZipFile(io.BytesIO(r.read()))
-        for info in z.infolist():
-            if info.filename.startswith(prefix) and not info.is_dir():
-                out = os.path.join(FEMALE, info.filename[len(prefix):])
-                os.makedirs(os.path.dirname(out), exist_ok=True)
-                with open(out, "wb") as f:
-                    f.write(z.read(info))
-                n += 1
-    if not n:
-        sys.exit("assets/female/pak missing here and not in the latest release: run tools/female/make_female.py")
-    print(f"  {n} files")
+def make_female():
+    """The female outfit meshes (assets/female/pak) are made per checkout from the game's pak by
+    tools/female/make_female.py and never committed (they're extracted game files). Whatever is in that folder is what
+    players get, so it's made again here for every build: meshes left from before a change to make_female.py or
+    assets/female/list.txt would ship as they are, with valid checksums, and every player would keep the old shape.
+    Stops the build if any mesh can't be made (no game, no pak key)."""
+    script = os.path.join(SRC, "tools", "female", "make_female.py")
+    with open(os.path.join(SRC, "assets", "female", "list.txt"), encoding="utf-8") as f:
+        want = len(f.read().split())
+    print("Making the female meshes (tools/female/make_female.py)...")
+    r = subprocess.run([sys.executable, script], cwd=SRC, capture_output=True, text=True)
+    lines = r.stdout.splitlines()
+    made = [l for l in lines if l.split(" ")[1:2] == ["ok"]]
+    if r.returncode or len(made) != want:
+        bad = [l for l in lines if l.strip() and l not in made] + r.stderr.strip().splitlines()[-5:]
+        sys.exit(f"female meshes: {len(made)} of {want} made, so no release (it would ship old or missing meshes).\n"
+                 + "\n".join(bad[:15]))
+    print(f"  {len(made)} meshes")
 
 
 PART_MAX = 9_000_000  # bytes of compressed data per zip (uploads over ~10 MB were cut off, 2026-11-19)
@@ -279,7 +265,7 @@ def main():
     if os.path.exists(DEST):
         shutil.rmtree(DEST)
     os.makedirs(DEST)
-    ensure_female()
+    make_female()
     for src, dst in FILES:
         target = os.path.join(DEST, dst)
         os.makedirs(os.path.dirname(target), exist_ok=True)
