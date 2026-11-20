@@ -648,7 +648,10 @@ local function makeInterior(c)
         return
     end
     S.interiors = (S.interiors or 0) + 1
-    local cls = c.design and loadClass(CFG.INSIDES .. c.design.inside)
+    local path = c.design and c.design.inside
+    local parent = path and CFG.INSIDE_PARENTS[path:match("^(.-/)") or ""]
+    if parent and not loadClass(CFG.INSIDES .. parent) then path = nil end  -- no parent: don't risk the child (#192)
+    local cls = path and loadClass(CFG.INSIDES .. path)
     if not cls then
         X.log(("[rivals] no interior class for the %s: using yours"):format(c.shipName))
         cls = S.homeInside:GetClass()
