@@ -2,6 +2,24 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 20 Nov 2026, build 12 (`public-test-20261120.12`)
+
+Defuse the small mines out in space, from your ship. On build 1 of 17 Nov or later, the launcher's orange **!**
+installs this one for you, keeping your saves.
+
+### Changes
+
+- **Defuse space mines (#197, PR #243):** at the helm, within 30 m of a small space mine, with a **ToolKit** on you,
+  press **R**: the same Minesweeper round as the station mines. Clear it and the mine comes apart: a Fuse, gunpowder and
+  chemicals go into your pockets. Hit a charge or run out of time and it goes off on your ship (500 hull damage, like
+  flying into it). Nuclear mines come later.
+
+### Fixes
+
+- **Station mine defusing (#197, PR #243):** the "You need a ToolKit" prompt could show although you carried one, and
+  the AP mine you get could land on top of another item in your pockets. Both fixed; leaving the helm with the board
+  open now closes it.
+
 ## Public test, 20 Nov 2026, build 11 (`public-test-20261120.11`)
 
 Saves with items stuck on top of each other are repaired. On build 1 of 17 Nov or later, the launcher's orange **!**
