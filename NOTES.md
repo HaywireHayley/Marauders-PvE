@@ -1430,6 +1430,28 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
   MotherItemGUID is a plain slot name, not Stash / pockets / loot / shop / KeyCard / RigSlot*) are compared, and on a
   change it presses LOADOUT that way. Overlay, tab and inventory are kept as paths. Tested by dragging a Brodie
   helmet on and off: "lobby: gear changed, character redressed" each time and the helmet appeared / went at once.
+- Vertex explosions on women's outfits (2026-11-20): parts of some female bodies stretched to the floor while the
+  character moved (user screenshot: a strip from the arm to the feet). make_female.py's buffers() found vertex buffers
+  by their header alone (12, n, 12, n). Skin weights are 4 bone bytes + 4 weight bytes per vertex, so two vertices in a
+  row held wholly by bone 12 read 12, 255, 12, 255: a "buffer" of 255 vertices, reshaped as positions. That zeroed every
+  third uint32 of ~3 KB of LOD1 weights (bone 12 -> 0, the root at the feet; some weights -> 0). 11 meshes had it:
+  Commando_Body (+Blue), Outlaw_Body 01-03, Security_Body (+Army, +Prison), Space_Pirate_Body, Commando_Skel_01,
+  Security_Skel_01. buffers() now also requires the floats to look like centimetres (finite, under 2000, no
+  subnormals: packed bytes read as floats are subnormal, NaN or huge). Checked over all 113: the 11 false hits gone,
+  every real buffer still found; rebuilt Outlaw_Body_Skel_01 differs from the original only inside its two position
+  buffers. Checked in the lobby at LOD1 (SetForcedLOD(2)), old and new Outlaw_Body_Skel_01 side by side on two stands:
+  the old one hangs a flap from the crotch to the floor, the new one doesn't. Not checked: a character moving in a
+  raid. Issue #10 (boarders' legs into spikes) is this bug (the user confirmed it). The release builder remakes the
+  meshes and the updater fetches the changed female deps zip (#257), so the next build carries it.
+- Clipping through vests and plates (2026-11-20): a lobby screenshot showed the chest coming through a plate in two
+  ovals. That stand had a woman's body under a man's plate (my test swapped only the body). Measured over every body
+  x vest/plate/rig pair in the bind pose, LOD0: triangles of the gear rasterised to front and back height fields over
+  x,z, and a body vertex counts if it sat under the gear on the man and is 3 mm or more through it on the woman (same
+  topology, so vertex for vertex). Woman's body + man's gear: 957 of 1032 pairs come through at the bust, up to 3.5 cm
+  on the Outlaw + Half_Plate, exactly the screenshot. Woman's body + woman's gear: 35 pairs with more than 3 vertices,
+  all single vertices at hems, collars and pauldron rims (worst Baron + M1_Flak_Vest, 14), where the man's gear
+  already lets the body show. Nothing to change in make_female.py's shape. The thing to avoid is a woman's body
+  with gear that wasn't swapped too. Not measured: poses other than the bind pose, gear over gear (rig over vest).
 
 ## Launcher and saves (2026-11-07)
 - launcher/launcher.pyw (tkinter, trailer style) + launcher/saves.py. Marauders Offline.lnk here and on the desktop. backend/saves/<id>/{state.json, meta.json, before-last-raid.json}. Play copies a save to backend/state.json (stand-in and scripts still use that path), backend/active_save.txt names it, and closing the game copies it back, stops the stand-in and goes to stock (backend/last_game.log keeps the UE4SS log). Started by launcher: cleanup waits until the game has been seen, or it kills the backend during boot (first version did: "connecting to backend" crash).
@@ -2473,10 +2495,11 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
   debug.upvaluejoin every non-function upvalue to the old module's cell (S, X, Nav, CFG...), add new CFG keys to the
   old table (the tuning menu keeps a reference to it), and copy the new functions into the module table.
 
-## TODO: boarder corpse legs explode into spikes (seen 2026-11-14, not investigated)
+## Boarder corpse legs explode into spikes (seen 2026-11-14, fixed 2026-11-20, #10)
 A Rusty Mule boarder killed on your ship (Space_Alpha, MG42) lay with its legs/feet stretched into a fan of black spikes
 (skinned mesh blowing up on the ragdoll). Torso, pack and helmet fine. Probably a rival kit's lower-body part on a body
 it doesn't fit, or the ragdoll of a pod-spawned body; check rollKit leg pieces vs the female/male body. Bad for footage.
+The female skin weight damage found 2026-11-20 ("Vertex explosions on women's outfits"); the user confirmed it is this.
 
 ## Pod breach input lock (2026-11-14, fix untested)
 - After a pod breach into the Rusty Mule you could pitch and shoot but not turn or walk. ResetIgnoreInputFlags,

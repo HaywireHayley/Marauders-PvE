@@ -119,6 +119,17 @@ def get(path, ext):
     return r.stdout if r.returncode == 0 else None
 
 
+def positions(d, at, n):
+    """Whether n*3 floats at `at` look like vertex positions in centimetres. Skin weights can carry the same header: two
+    vertices in a row held wholly by bone 12 read as 12, 255, 12, 255, and reshaping what followed zeroed bone indices, so
+    those vertices followed the root and stretched to the floor once the character moved (Commando, Outlaw, Security and
+    Space Pirate bodies). Packed bytes read as floats are subnormal, NaN or huge; real positions never are."""
+    for v in struct.unpack_from('<%df' % (n * 3), d, at):
+        a = abs(v)
+        if not a < 2000 or (a and a < 1e-30): return False
+    return True
+
+
 def buffers(d):
     """FPositionVertexBuffer: stride 12, count, then bulk array: element size 12, count."""
     out, p = [], 0
@@ -127,7 +138,7 @@ def buffers(d):
         p = d.find(tag, p)
         if p < 0 or p + 16 > len(d): return out
         a, n, c, e = struct.unpack_from('<IIII', d, p)
-        if c == 12 and n == e and 100 < n < 1000000 and p + 16 + n * 12 <= len(d):
+        if c == 12 and n == e and 100 < n < 1000000 and p + 16 + n * 12 <= len(d) and positions(d, p + 16, n):
             out.append((p + 16, n))
             p += 16 + n * 12
         else:
