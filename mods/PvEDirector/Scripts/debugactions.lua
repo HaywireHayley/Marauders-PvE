@@ -3,6 +3,7 @@ local PROJECT = require("pveproject")
 local Debug = require("debugmenu")
 local Holes = require("bulletholes").CFG -- the bullet holes switch (bulletholes.lua, also F3 Effects)
 local Give = require("debuggive") -- the gun and ammo picker and bottomless mags
+local Unstuck = require("unstuck") -- unstuck and no collision (#198; main.lua runs its update)
 local M = {}
 
 local log, valid, Aux -- from main.lua (M.init)
@@ -101,6 +102,7 @@ function M.init(ctx)
               return "Loading " .. CFG.MAP
           end },
     } })
+    Debug.addActions(Unstuck.actions(function() return onFootIn("any") and (raid.navReady or raid.space) end))
     Debug.addActions(Give.actions()) -- pick a gun or ammo type and get it, bottomless mags (F9)
 end
 

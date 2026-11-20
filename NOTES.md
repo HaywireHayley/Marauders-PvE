@@ -1532,6 +1532,22 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
 - tuning.lua Spawns tab (simplified at the user's request): rival crews (rivals.lua CFG.CREWS, 0 = one per free player slot, 11 on solo maps), crew size min/max (CFG.CREW_SIZE is now one range for every map: offline matchmaking always sends an empty configuration, so only Space_Solo maps are ever loaded; crew maps Space_Alpha..Delta and raider maps Space_Raider_01/02 never), stations per crew min/max, guards per station (MIN_DEFENDERS; a station with no guards of its own also gets this many soldiers, rivals passes the count to spawnGarrison, so main.lua GARRISON is only a fallback and has no slider). BOTS (land raids, debug test raid only) has no slider either. Ranges drawn with rivals.lua between(), which copes with min > max.
 - Verified by bridge: both menus render (screens), god on/off, soldier spawned, gates, extract; CREWS 4 -> next raid "4 rival crews". Real clicks and keys not tested (the window never had focus).
 - Crash once (12:03), ~10 s into a Space_Solo raid with no menu open, while rival hulls loaded: access violation through a UE4SS hook (UE4SS +0x555002 -> game +0x1c3574e -> junk). The next run passed that point. Cause unknown; watch for it.
+- Unstuck and No collision (2026-11-19, #198; unstuck.lua, two F9 buttons, on foot in a land raid or in space).
+  Unstuck: back at the newest spot you walked through on solid ground (MovementMode 1) at least 6 s ago and > 1 m
+  away; a spot is kept each time you've walked 1.5 m (so standing wedged doesn't push the good ones out), 10 kept.
+  No such spot: the nearest navmesh (K2_ProjectPointToNavigation, 4x4x5 m), unless that's where you stand. 30 s
+  cooldown. Spots before navmesh because under the map the nearest navmesh can be a lower floor: Spaceport_01 has
+  walkable floor with navmesh at Z -1441, 17 m below the play area (the first version put me there). A navmesh point
+  sat 108 cm above the feet there, so "where you stand" is 1 m across and 2 m up or down.
+  No collision: SetActorEnableCollision(false) + MOVE_Flying, MaxFlySpeed 1200, BrakingDecelerationFlying 4000 (the
+  game's is 0: you drifted on after letting go). The game's input only moves you level, so each frame the camera
+  pitch adds Velocity.Z = flat speed x tan(pitch). Off: collision on, MOVE_Falling, old values back. Kept by pawn
+  address (two Lua wrappers of one pawn are not ==, which cleared it the next frame in the first version).
+  Tested in game (Spaceport_01, real F9 clicks): sunk 3 m under the floor, fell to Z -1459, Unstuck -> "Back where
+  you stood, 18 m" onto the floor I'd walked on; no collision on, flew level ~12 m/s, climbed at pitch 25, stopped
+  within 0.2 m on letting go (braking set by bridge, same value), off -> fell and landed on a roof (walking).
+  Not tested: space interiors and stations (navmesh can be missing there; the spots still work), a real stuck spot in
+  level geometry, co-op (a joiner's body would need the host to move it), mantling (the issue's part 3, separate).
 
 ## Map variety (2026-11-07, later)
 - Offline matchmaking always got an empty configuration, so only Space_Solo_01/02. main.lua CFG.MAP_POOL now holds both solo and all four crew maps (Space_Alpha, Beta, Charlie, Delta); bridge/map_pin (a map name) forces one for tests. bridge/maps_test.sh loads each map in $MAPS and writes bridge/maps_test.txt.

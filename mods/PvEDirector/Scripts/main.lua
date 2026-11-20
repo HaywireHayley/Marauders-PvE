@@ -201,6 +201,7 @@ local Minimap = require("minimap")
 local Voice = require("voice")
 local Female = require("female")
 local Gunseat = require("gunseat")
+local Unstuck = require("unstuck") -- F9 unstuck and no collision (#198)
 -- main.lua's own parts, in modules: each takes main's helpers in init(ctx), and the per-raid table in setRaid (below)
 local PlayAreas = require("playareas") -- where bots may go on a station
 local Bots = require("bots") -- soldiers: spawning, awareness, patrols, noises, cover, aim, animation, garrisons
@@ -629,6 +630,8 @@ local function onTick(ctx)
         if not ok and not raid.torchFailed then raid.torchFailed = true log("blowtorch failed: " .. tostring(err)) end
         ok, err = ppcall("bulletholes", BulletHoles.frame, ticker)
         if not ok and not raid.holesFailed then raid.holesFailed = true log("bullet holes failed: " .. tostring(err)) end
+        ok, err = ppcall("unstuck", Unstuck.update, ticker)
+        if not ok and not raid.unstuckFailed then raid.unstuckFailed = true log("unstuck failed: " .. tostring(err)) end
         if pveBodies then pveBodies() end
         ok, err = ppcall("gatetext", RaidTime.frame)
         if not ok and not raid.gateTextFailed then raid.gateTextFailed = true log("space gate countdown failed: " .. tostring(err)) end
@@ -870,6 +873,7 @@ function resetRaid(worldKey)
     -- rebuilt them for the new raid, and IsValid on a freed object reads freed memory (the UE4SS access violations while
     -- a raid loaded: the crew's name-tag widget, the last raid's turrets).
     Gunseat.reset()
+    Unstuck.reset()
     ShipSpeed.reset()
     if Rivals then Rivals.reset() end
     if Crew then Crew.reset() end
@@ -961,6 +965,7 @@ Interiors.init({ log = log, valid = valid })
 LevelProps.init({ log = log, valid = valid, lib = lib })
 RaidTime.init({ log = log, valid = valid })
 ShipSpeed.init({ log = log, valid = valid })
+Unstuck.init({ log = log, valid = valid, navLib = navLib, navMesh = navMesh, queryFilter = queryFilter })
 Blowtorch.init({ log = log, valid = valid })
 BulletHoles.init({ log = log, valid = valid })
 Crew.init({ rivals = Rivals, hire = Hire, AI = AI, lib = lib, voice = Voice, log = log, valid = valid, dist = dist,
