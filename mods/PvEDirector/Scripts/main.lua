@@ -1461,6 +1461,8 @@ RegisterKeyBind(Key.J, function() table.insert(pending, function() if InvQol the
 -- F by an armed station mine with a ToolKit: the defusal board (defuse.lua, #197). The game's own F (use) carries on;
 -- a mine isn't usable, so next to one it does nothing of its own.
 RegisterKeyBind(Key.F, function() table.insert(pending, Defuse.key) end)
+-- R at the helm by a space mine (the ship's salvage key; it only opens the board while that prompt is up).
+RegisterKeyBind(Key.R, function() table.insert(pending, function() Defuse.key("R") end) end)
 
 -- The debug menu's buttons (debugactions.lua).
 DebugActions.init({ log = log, valid = valid, lib = lib, CFG = CFG, RAID_OPTS = RAID_OPTS, aux = Aux, rivals = Rivals,

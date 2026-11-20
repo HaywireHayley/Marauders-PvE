@@ -4482,3 +4482,36 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   don't move items (SetCursorPos or absolute mouse_event, even with virtual-desktop coordinates), so a real drag couldn't
   be tried. Server_SwapItem(GUIDFrom, GUIDTo, MovetypeTo, MovetypeFrom, RequiresMove) and Client_SwapItem(..., MovedToSlot)
   read from the UFunctions' property chains.
+
+## Space mines defused from the helm (#197 part 2, 2026-11-20; defuse.lua)
+- Small_NodeMine_C is a SubNodeActorMine_C (RaidSubNodeActor): `Active?` (the name has the question mark), a trigger
+  `Box` (extent 79 cm: a ship has to touch it), `DelayBeforeExplodes` 1 s, Base Damage 500, Damage Radius_Inner 400,
+  Damage Radius_Maximum 1500 (nuclear: 1000 / 1000 / 2500, box 79 x 79 x 100). Space_Alpha had 14 small, 18 nuclear.
+- Its event graph (kdis on ExecuteUbergraph_SubNodeActorMine): **entry 15 is the explosion**: ApplyRadialDamageWithFalloff
+  from its place, the client-only blast/sound (skipped offline, spacefx.lua makes them), StaticMesh hidden,
+  K2_DestroyActor. The Box overlap with a RaidSpaceship/RaidFrigate plays Sound_Triggered, TriggeredEffects and a Delay
+  that re-enters at 15. `TriggeredEffects()` alone only sets Active? false and plays the warning; ApplyDamage and
+  ApplyRadialDamage on the mine do nothing.
+- A ship's hull is `MainHullHealth` (575 on the starter frigate); its `Health` stays 575 whatever happens. Plain
+  ApplyDamage on the ship doesn't touch the hull; the mine's radial damage does.
+- At the helm the controller's pawn is the ship (Ship_StarterFrigate01_Pawn_C) with `MyShipInside` set. For tests,
+  `pc:Possess(home.SpaceshipToPairTo)` puts you at the helm (F by teleport didn't take, nor ServerInteractComp on
+  FrigateHelm), and `pc:Possess(foot)` back.
+- Fix/feature: at the helm within SPACE_REACH (30 m) of an armed small mine, the prompt "R   Defuse the mine" (R is the
+  ship's salvage key; it only opens the board while the prompt is up). The same Minesweeper board. Win: Active? false,
+  lights off, the mine destroyed with its mesh shown (so spacefx makes no blast); Fuse, Gunpowder x3, Chemicals into
+  your pockets. Lose: Damage Radius_Maximum stretched to your ship + 5 m and entry 15 (blast, sound, the hull damage).
+  Leaving the helm (or falling) with the board open now closes it and gives input back (it used to just forget it).
+- **Two bugs in the build 10 station version, fixed here:** (1) the ToolKit check compared `ItemData:ToString()` with
+  "ToolKit", but an FName keeps the case it was first made with in the session: in one session the row read "Toolkit"
+  and the prompt said you needed a ToolKit you had. Now compared without case; itemdata.lua `get` falls back to a
+  lowercase index for the same reason. (2) loot went into "free" pocket cells found from each item's top-left cell
+  only, all as 1 x 1: the 2-cell AP_Mine could land on another item (stacked items break the inventory, #239). Now
+  every item's real footprint (items.json size, rotation) is mapped and loot only goes where it fits.
+- `bRotated` reads as a number (0) from Lua, and 0 is true to Lua: test it with `== true or == 1`.
+- Verified in game (real R, F and clicks; Space_Alpha, at the helm by Possess): prompt with and without a ToolKit; a won
+  board (loot Fuse at PocketLeft 0,0, Gunpowder 0,1, Chemicals 1,1 beside a ToolKit in PocketRight; no blast); a lost
+  board (blast and sound, hull 575 -> 75); leaving the helm with the board open (board gone, cursor off). Spaceport_01
+  station mine again after the changes: won, AP_Mine into PocketLeft's free bottom row, Gunpowder into PocketRight 1,0.
+- Not verified: taking the helm by a real F (tests used Possess); a ship bigger than the starter; nuclear mines (not
+  done: towing to the hold is still open in #197); co-op.
