@@ -208,14 +208,20 @@ end
 local function giveAmmo(gun, rounds)
     local row = AMMO_ROWS[gun.BulletType]
     if not row then return log("no ammo row for bullet type " .. tostring(gun.BulletType)) end
-    local slot = 0
-    while rounds > 0 and slot < 4 do
+    -- Only into free pocket cells (pockets.lua): this used to fill the left pocket's four cells whatever was in them,
+    -- and items stacked on one cell break the inventory (#239).
+    local Pockets = require("pockets")
+    local inv = inventory()
+    local cells, stacks = Pockets.cells(inv), 0
+    while rounds > 0 do
+        local pocket, col, line = Pockets.find(cells, row)
+        if not pocket then break end
+        Pockets.claim(cells, pocket, row, col, line, false)
         local n = math.min(rounds, require("itemdata").capStack(row, AMMO_STACK)) -- (12 gauge stacks at 20, #102)
-        inventory():Server_AddItem(FName(row), n, 100, "PocketLeft", { Column = slot % 2, Row = slot // 2 }, false,
-            newId("ammo"), 0, "", 100)
-        rounds, slot = rounds - n, slot + 1
+        inv:Server_AddItem(FName(row), n, 100, pocket, { Column = col, Row = line }, false, newId("ammo"), 0, "", 100)
+        rounds, stacks = rounds - n, stacks + 1
     end
-    log(("put %d stacks of %s in the left pocket"):format(slot, row))
+    log(("put %d stacks of %s in free pocket cells%s"):format(stacks, row, rounds > 0 and " (no room for the rest)" or ""))
 end
 
 -- If the gun's item ever disappears the gun is dead weight; put it back with the rounds it last had.

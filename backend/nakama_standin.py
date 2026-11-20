@@ -483,6 +483,7 @@ STASH_COLS, STASH_ROWS_DEFAULT, STASH_ROWS_MAX = 10, 15, 25
 # Equipment slots that hold one item (pockets and the stash are grids; a number is a bag, rig or box item's own grid).
 ONE_ITEM_SLOTS = {"Head", "Chest", "Legs", "Rig", "Bag", "Prim", "Sec", "Pistol", "Melee", "KeyCard", "Ship",
                   "GuildBadge"}
+POCKETS, POCKET_SIDE = ("PocketLeft", "PocketRight"), 2
 
 
 def repair_inventory():
@@ -529,6 +530,16 @@ def repair_inventory():
             misplaced.append(it)
         else:
             taken.update((c, it[0]) for c in cells)
+    # The pockets (2 x 2 each): the mod's ammo for a soldier's gun used to lay four 2-cell stacks (7.62, .30-06, 5.56,
+    # 7.62x54R) across the left pocket's four cells, on top of each other.
+    for pocket in POCKETS:
+        held = {}
+        for it in sorted((it for it in items if it[1][7] == pocket), key=lambda it: it[2]):
+            cells = footprint(it[1])
+            if any(c in held for c in cells) or any(x >= POCKET_SIDE or y >= POCKET_SIDE for x, y in cells):
+                misplaced.append(it)
+            else:
+                held.update((c, it[0]) for c in cells)
     moved = []
     for key, f, _ in misplaced:
         f = list(f)
