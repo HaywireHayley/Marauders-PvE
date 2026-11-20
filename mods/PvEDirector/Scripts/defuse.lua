@@ -30,7 +30,9 @@ local CFG = {
         nuclear = { size = 8, mines = 12, time = 120 },
     },
     REACH = 170,                     -- cm from your feet to a mine you can work on (its trigger sphere is 30 cm)
-    SCAN_EVERY = 20,                 -- s between looks for mines on foot (a FindAllOf)
+    SCAN_EVERY = 20,                 -- s between the first looks for mines (a FindAllOf, ~70 ms: a visible hitch)...
+    SCAN_LATER = 90,                 -- ...and between later ones (mines are placed at map start; this only drops gone ones)
+    SCAN_GIVE_UP = 3,                -- no mines after this many looks: none on this map, stop looking (per kind)
     TOOL = "ToolKit",                -- the item row you need on you
     LOOT = { { "AP_Mine", 1 }, { "Gunpowder", 2 } }, -- what a defused mine leaves (row, stack)
     SPACE_CLASS = "Small_NodeMine_C",
@@ -52,6 +54,7 @@ local FLAGGED = { R = 0.75, G = 0.45, B = 0.1, A = 1 }
 local BOOM = { R = 0.8, G = 0.1, B = 0.05, A = 1 }
 
 local mines, scanAt, near, nearKind, scanKind = {}, 0, nil, nil, nil
+local scans = {} -- per kind ("station", "space"): { list, at, looks } for this world
 local hint   -- { host, text, shown } the prompt line
 local board  -- the open board, see open()
 
@@ -387,16 +390,23 @@ function M.update(pc)
     local kind, pawn = context(pc)
     if not kind then near, nearKind = nil, nil return say(pc, nil) end
     local now = os.clock()
-    if kind ~= scanKind or now >= scanAt then
-        scanKind = kind
-        scanAt = now + (kind == "space" and CFG.SPACE_SCAN_EVERY or CFG.SCAN_EVERY)
-        mines = {}
+    -- Each kind keeps its own list, so walking to the helm and back doesn't scan again; a map with none of a kind stops
+    -- being scanned for it after SCAN_GIVE_UP looks (every one was a ~70 ms hitch, every 20 s, for everyone: #254).
+    local sc = scans[kind]
+    if not sc then sc = { list = {}, at = 0, looks = 0 } scans[kind] = sc end
+    if now >= sc.at and not (sc.looks >= CFG.SCAN_GIVE_UP and #sc.list == 0) then
+        sc.looks = sc.looks + 1
+        local first = kind == "space" and CFG.SPACE_SCAN_EVERY or CFG.SCAN_EVERY
+        sc.at = now + (sc.looks < CFG.SCAN_GIVE_UP and first or math.max(first, CFG.SCAN_LATER))
+        sc.list = {}
         for _, cls in ipairs(kind == "space" and { CFG.SPACE_CLASS, CFG.NUCLEAR_CLASS } or { "MineStaticActor_C" }) do
             for _, m in ipairs(FindAllOf(cls) or {}) do
-                if X.valid(m) then mines[#mines + 1] = m end
+                if X.valid(m) then sc.list[#sc.list + 1] = m end
             end
         end
+        if sc.looks == CFG.SCAN_GIVE_UP and #sc.list == 0 then X.log("defuse: no " .. kind .. " mines on this map") end
     end
+    scanKind, mines = kind, sc.list
     near, nearKind = nil, nil
     if #mines == 0 then return say(pc, nil) end
     local at = pawn:K2_GetActorLocation()
@@ -437,7 +447,7 @@ function M.peek() return board, near end
 
 -- A new world: its mines and widgets are gone.
 function M.reset()
-    mines, scanAt, near, nearKind, scanKind, hint, board = {}, 0, nil, nil, nil, nil, nil
+    mines, scanAt, near, nearKind, scanKind, hint, board, scans = {}, 0, nil, nil, nil, nil, nil, {}
 end
 
 return M

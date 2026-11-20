@@ -4643,3 +4643,13 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   one window had no frame over 33 ms (worst 26), the next one 141 ms gap from the level-prop and mine scans everyone has.
 - Still there for everyone, smaller: defuse.lua's station-mine scan (FindAllOf MineStaticActor_C, ~70 ms every 20 s on
   foot), level props' FindAllOf passes.
+
+## Mine scans backed off (2026-11-20, #254 follow-up; defuse.lua)
+- defuse.lua scanned every object for station mines (FindAllOf MineStaticActor_C, 45-77 ms) every 20 s on foot, and for
+  space mines every 60 s at the helm, on every map: a small hitch everyone had (seen in the #254 profiles).
+- Now each kind keeps its own list (walking to the helm and back doesn't rescan): 3 looks SCAN_EVERY apart, then every
+  SCAN_LATER (90 s) to drop gone ones; a kind found nowhere after 3 looks isn't looked for again on that map ("defuse: no
+  station mines on this map").
+- Found on the way: Space_Alpha's station interiors have 10 station mines (MineStaticActor_C), and the on-foot prompt
+  works there ("A mine. You need a ToolKit to defuse it", 2026-11-20): station mines on space maps, listed as not
+  verified in the #197 part 1 section, are verified for the prompt.
