@@ -4627,3 +4627,19 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   off.
 - Verified in game (Space_Alpha, real R and clicks, ToolKit in a bag): nuclear board 8x8 "Cleared 0 of 52", won (loot
   and gift as above), lost (hull 0). Not done yet for #197: towing a nuclear mine home to the hold.
+
+## Co-op joiner stuttered every 1-2 s (#254, 2026-11-20; raidtime.lua, main.lua pgos overlay)
+- Report: since the 19 Nov builds, a co-op joiner's game stutters every 1-2 s; the host and solo play are smooth.
+- Measured with the profiler on a host + joiner on this PC (both instances write the shared bridge/profile.txt; the
+  joiner's blocks are the ones whose "you:" line reads "-, nearest station nil"): FindFirstOf RaidGameState x18-20 per
+  10 s (~60 ms each) and frame gaps of 110-170 ms about once a second. RaidTime.update (#159, the launcher's raid length
+  and space gate) looked the game state up on every update until it could set both, and that needs
+  gs.AuthorityGameMode, which only the host has: on a joiner it never finished.
+- Fix: the game state is cached in the raid table (found once), and with no game mode for 20 updates (~10 s) the module
+  stops: "raid length and space gate: the host's (no game mode here: joined a co-op raid)". Also the PGOS overlay search
+  (FindFirstOf PgosOverlay_BP_C, every 10 s while not found) stops in a raid map after its first minute: a joiner never
+  has the overlay. (In a map's first 30 s it runs every second, by design; don't read that as the bug.)
+- Verified (host + joiner, Space_Alpha): after the fix the joiner's 10 s windows had no RaidGameState or overlay scans;
+  one window had no frame over 33 ms (worst 26), the next one 141 ms gap from the level-prop and mine scans everyone has.
+- Still there for everyone, smaller: defuse.lua's station-mine scan (FindAllOf MineStaticActor_C, ~70 ms every 20 s on
+  foot), level props' FindAllOf passes.

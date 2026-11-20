@@ -1066,7 +1066,10 @@ update = function(pc)
     local now = os.clock()
     -- A new world: the overlay found in the last one went with it (valid() on it would read freed memory).
     if pgosOverlay.world ~= raid.world then pgosOverlay.w, pgosOverlay.world = nil, raid.world end
-    if not valid(pgosOverlay.w) and now >= pgosOverlay.findAt and not (space and raid.revealed) then
+    -- (in a raid map, not past its first minute: a co-op joiner never has it, and kept scanning every 10 s, #254)
+    local inRaidMap = not worldName:find("/Maps/MainMenu", 1, true)
+    if not valid(pgosOverlay.w) and now >= pgosOverlay.findAt and not (space and raid.revealed)
+        and not (inRaidMap and age > 60) then
         pgosOverlay.findAt = now + (age < 30 and 1 or 10)
         pgosOverlay.w = FindFirstOf("PgosOverlay_BP_C")
         if valid(pgosOverlay.w) then log(("social overlay found %.1fs into the map: kept collapsed"):format(age)) end
