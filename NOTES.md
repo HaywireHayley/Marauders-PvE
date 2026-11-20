@@ -4153,6 +4153,20 @@ hash), and the host's stand-in logged no request from the joiner. `tools/test_st
 Not tested: the joiner extracting or dying (whether loot and losses land in its own save the way they do for the
 host), a joiner on another PC (the scripts assume both copies on one machine), N > 2.
 
+## Crew all wore the Baron Cap (#195, 2026-11-19; gear.lua helmetFor, hire.lua)
+- Report (Discord): recruits like "Rosco, Lv 3, Trench Shotgun / Baron Cap / Medic Bag", over and over; boss gear on
+  recruits with starter guns.
+- Cause: `Gear.helmetFor` swapped a helmet that didn't fit the recruit's face for **the single fitting helmet nearest
+  in price**. BaronCap (3250) is mid-priced and fits every face in headfit.lua, so for bulky faces (UA masks, Hunter,
+  Steel Worker) it was the answer to almost every mid-grade helmet. Simulation (lupa, every mid-band helmet 1500-4500 x
+  every face): BaronCap was 14.5 % of crew helmets, 19.5 % of the swaps.
+- Fix: helmetFor picks at random among the 4 fitting helmets nearest in price and never offers `G.SIGNATURE` pieces
+  (BaronCap, WardenRiotHelmet); with `plain` (hire.lua) a rolled boss piece is swapped too. hire.lua's load swaps a boss
+  cap already on a recruit or hired crewmate. Same simulation after: BaronCap 0 %, every result fits the face.
+- Rivals don't use helmetFor (rivalbodies.lua picks a face to fit the helmet), so a rival can still wear one (1 of 31).
+- Verified in game: a BaronCap planted on a pool recruit (Rosco, Hunter_Head_Artic) came back as BAHeavyHelmet in
+  crew.lua after the mod loaded. Not looked at by eye in the lobby or in a raid.
+
 ## Space gate time (2026-11-18; raidtime.lua, docs/internals/SPACE_GATE.md)
 - Request (Discord, ChurchOfHusk_Enjoyer): choose when the space gate arrives (instant, 5, 10, 15 minutes), because the custom
   raid length also moved the gate's countdown. Launcher: "Space gate" slider under "Raid length" (default, instant, 5, 10, 15),

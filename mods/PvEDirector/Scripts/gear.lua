@@ -318,19 +318,27 @@ function G.headFor(helmet)
     return ok[math.random(#ok)]
 end
 
--- The helmet row nearest in price to `helmet` that fits over this head (keeps a person's face, swaps the helmet).
-function G.helmetFor(helmet, head)
-    if not helmet or G.fits(helmet, head) then return helmet end
+-- Bosses' own pieces: never handed out as a stand-in for a helmet that didn't fit (a roll can still give one).
+G.SIGNATURE = { BaronCap = true, WardenRiotHelmet = true }
+local NEAREST = 4 -- the stand-in is one of this many fitting helmets nearest in price
+
+-- A helmet row near `helmet`'s price that fits over this head (keeps a person's face, swaps the helmet). Picked at random
+-- from the NEAREST fitting rows, boss pieces left out: always taking the single nearest made the Baron Cap (mid-priced,
+-- fits every face) the helmet of every recruit with a bulky face (#195). Nil when nothing fits: no helmet.
+-- `plain`: a boss piece is swapped too, even when it fits (your crew aren't the Baron).
+function G.helmetFor(helmet, head, plain)
+    if not helmet or (G.fits(helmet, head) and not (plain and G.SIGNATURE[helmet])) then return helmet end
     local price
     for _, r in ipairs(G.helmets) do if r[1] == helmet then price = r[2] end end
-    local best, gap
+    local near = {}
     for _, r in ipairs(G.helmets) do
-        if G.fits(r[1], head) then
-            local d = math.abs(r[2] - (price or r[2]))
-            if not gap or d < gap then best, gap = r[1], d end
+        if not G.SIGNATURE[r[1]] and G.fits(r[1], head) then
+            near[#near + 1] = { row = r[1], gap = math.abs(r[2] - (price or r[2])) }
         end
     end
-    return best
+    if #near == 0 then return nil end
+    table.sort(near, function(a, b) return a.gap < b.gap end)
+    return near[math.random(math.min(NEAREST, #near))].row
 end
 
 return G
