@@ -27,7 +27,7 @@ saves.RAID_COPY = os.path.join(TMP, "state.before-last-raid.json")
 saves.ACTIVE = os.path.join(TMP, "active_save.txt")
 saves.STASH_ROWS = os.path.join(TMP, "stash_rows.txt")
 for name in ("FEMALE_SETTING", "FEMALE_SHARE", "WINDOW_SETTING", "SKIP_INTRO_SETTING", "UNLOCK_LOOKS_SETTING",
-             "MINIMIZE_SETTING", "UPDATE_CHECK_SETTING", "RAID_CONDITION"):
+             "MINIMIZE_SETTING", "UPDATE_CHECK_SETTING", "RAID_CONDITION", "COOP_HOST", "COOP_JOIN", "COOP_LAST"):
     setattr(L, name, os.path.join(TMP, name.lower() + ".txt"))
 with open(L.UPDATE_CHECK_SETTING, "w") as f:
     f.write("off\n")  # no network in tests
@@ -155,7 +155,7 @@ class Window(unittest.TestCase):
         opens = {
             "new_save": self.app.new_save, "controls": self.app.show_controls, "rename": self.app.rename,
             "give_items": self.app.give_items, "import": self.app.import_saves, "report": self.app.report_problem,
-            "delete": self.app.delete,
+            "delete": self.app.delete, "coop": self.app.show_coop,
         }
         for name, open_it in opens.items():
             with self.subTest(dialog=name):
@@ -174,6 +174,39 @@ class Window(unittest.TestCase):
                 d.event_generate("<Escape>")
                 settle(self.app)
                 self.assertEqual(dialogs(self.app), [])
+
+    def test_coop_host_box_and_join(self):
+        """CO-OP (#201): the Host box writes coop_host.txt; JOIN writes the one-shot coop_join.txt and starts the selected
+        save with the address; a plain PLAY afterwards removes a join left over from a start that never happened."""
+        self.app.show_coop()
+        settle(self.app)
+        d = dialogs(self.app)[0]
+        box = [w for w in d.body.winfo_children() if isinstance(w, L.tk.Checkbutton)][0]
+        box.invoke()
+        with open(L.COOP_HOST) as f:
+            self.assertEqual(f.read().strip(), "on")
+        started = []
+        real = self.app.launch
+        self.app.launch = lambda join=None: started.append(join)
+        try:
+            field = [w for w in d.body.winfo_children() if isinstance(w, L.tk.Entry)][0]
+            field.delete(0, "end")
+            field.insert(0, "10.147.17.5")
+            field.event_generate("<Return>")
+            settle(self.app)
+        finally:
+            self.app.launch = real
+        self.assertEqual(started, ["10.147.17.5"])
+        with open(L.COOP_JOIN) as f:
+            self.assertEqual(f.read().strip(), "10.147.17.5")
+        self.assertEqual(dialogs(self.app), [])
+        self.app.running = True  # PLAY that won't start a game: the leftover join still goes
+        try:
+            self.app.launch()
+        finally:
+            self.app.running = False
+        self.assertFalse(os.path.exists(L.COOP_JOIN))
+        os.remove(L.COOP_HOST)
 
     def test_layout_fits(self):
         self.app.update_idletasks()

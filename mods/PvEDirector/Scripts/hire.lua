@@ -97,7 +97,7 @@ end
 local function giveKit(r)
     local tier = H.tier(r.level, r.kitG)
     r.kit = X.rollKit(tier, math.random() < tier.helmet, math.random() < tier.chest, math.random() < tier.backpack)
-    r.kit.helmet = Gear.helmetFor(r.kit.helmet, r.head) -- one that fits over their face (gear.lua fits)
+    r.kit.helmet = Gear.helmetFor(r.kit.helmet, r.head, true) -- fits over their face, and no boss cap (#195)
     r.kitTier = tier.name
     r.kitG = tier.g
 end
@@ -140,9 +140,10 @@ local function load()
     for _, list in ipairs({ D.pool, D.crew }) do
         for _, r in ipairs(list) do
             if not r.kit then giveKit(r) kitted = true
-            elseif not Gear.fits(r.kit.helmet, r.head) then
-                -- hired before helmets were matched to faces: the same grade of helmet, one that fits
-                r.kit.helmet = Gear.helmetFor(r.kit.helmet, r.head)
+            elseif not Gear.fits(r.kit.helmet, r.head) or Gear.SIGNATURE[r.kit.helmet] then
+                -- hired before helmets were matched to faces, or wearing a boss's cap (#195): the same grade of
+                -- helmet, one that fits
+                r.kit.helmet = Gear.helmetFor(r.kit.helmet, r.head, true)
                 kitted = true
             end
         end

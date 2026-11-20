@@ -3,6 +3,7 @@ the orange (255,138,36), the title art on the raid backdrop, thin rules and lowe
 import ctypes
 import os
 import queue
+import socket
 import shutil
 import subprocess
 import sys
@@ -49,6 +50,9 @@ SKIP_INTRO_SETTING = os.path.join(ROOT, "config", "skip_intro.txt")  # read by s
 UNLOCK_LOOKS_SETTING = os.path.join(ROOT, "config", "unlock_all_looks.txt")  # read by the Nakama stand-in at login
 MINIMIZE_SETTING = os.path.join(ROOT, "config", "minimize_while_playing.txt")  # "off": stay on screen while playing
 UPDATE_CHECK_SETTING = os.path.join(ROOT, "config", "update_check.txt")  # "off" stops the check for a newer build
+COOP_HOST = os.path.join(ROOT, "config", "coop_host.txt")  # "on": your raids are listen servers (launch.lua, #201)
+COOP_JOIN = os.path.join(ROOT, "config", "coop_join.txt")  # host[:port] to join once at the menu; the mod deletes it
+COOP_LAST = os.path.join(ROOT, "config", "coop_last.txt")  # the last address joined, to fill the box next time
 GAME_PATH = os.path.join(ROOT, "config", "game_path.txt")  # written by the installer; scripts/mode.ps1 has the same default
 
 
@@ -252,8 +256,8 @@ CONTROLS = [
     ("N", "Minimap on or off", "Raids"),
     ("M", "Minimap full overview, and back", "Raids"),
     ("B", "Minimap: follow the next task", "Raids"),
-    ("K", "Move the item under the mouse between stash and pockets or bags", "LOADOUT, TRADE"),
-    ("J", "Discard the item under the mouse (press twice)", "LOADOUT, TRADE"),
+    ("K", "Move the item under the mouse between stash and pockets or bags; in a raid, between you and what you loot", "LOADOUT, TRADE, raid"),
+    ("J", "Discard the item under the mouse (press twice); in a raid, drop it", "LOADOUT, TRADE, raid"),
     ("Left click", "With a crew gunner aboard: send them after what you aim at", "Flying your ship"),
     ("Space", "Boost: full speed for 4 s, then 12 s to recharge", "Flying your ship"),
 ]
@@ -499,6 +503,7 @@ class App(tk.Tk):
         Button(head, "CONTROLS", self.show_controls, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
         Button(head, "REPORT", self.report_problem, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
         Button(head, "IMPORT", self.import_saves, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
+        Button(head, "CO-OP", self.show_coop, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
         tk.Frame(left, bg=ORANGE, height=2).pack(fill="x", pady=(7, 8))
         self.list_box = tk.Frame(left, bg=INK)
         self.list_box.pack(fill="both", expand=True)
@@ -770,6 +775,70 @@ class App(tk.Tk):
         r = d.row()
         Button(r, "Close", d.destroy, "main", 11, (14, 6)).pack(side="left")
         d.show()
+
+    @staticmethod
+    def local_addresses():
+        """This PC's IPv4 addresses a friend could join on: the LAN and any virtual LAN (ZeroTier, Hamachi, Tailscale)."""
+        found = []
+        try:
+            for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+                ip = info[4][0]
+                if not ip.startswith("127.") and not ip.startswith("169.254.") and ip not in found:
+                    found.append(ip)
+        except OSError:
+            pass
+        return found
+
+    def read_coop_host(self):
+        try:
+            with open(COOP_HOST, encoding="utf-8") as f:
+                return f.read().strip() == "on"
+        except OSError:
+            return False
+
+    def show_coop(self):
+        """Co-op, direct (#201): host your raids for friends, or join a friend's raid by address. Each player plays from
+        their own save; nothing of the stash is shared. Network setup: docs/COOP.md (#202)."""
+        d = Dialog(self, "Co-op")
+        host_var = tk.BooleanVar(value=self.read_coop_host())
+
+        def toggle_host():
+            self.write_setting(COOP_HOST, "on\n" if host_var.get() else "off\n")
+
+        check(d.body, "Host: friends can join my raids", host_var, command=toggle_host, anchor="w").pack(fill="x")
+        addrs = self.local_addresses()
+        tk.Label(d.body, text=("Your addresses: " + ", ".join(addrs)) if addrs else "No network address found.",
+                 bg=PANEL, fg=MUTED, font=font(11), anchor="w", justify="left", wraplength=wrap(400)).pack(fill="x", pady=(4, 0))
+        tk.Label(d.body, text="Friends join on UDP port 7777. Start a raid as usual; they can join once you're in it.",
+                 bg=PANEL, fg=MUTED, font=font(11), anchor="w", justify="left", wraplength=wrap(400)).pack(fill="x")
+        tk.Frame(d.body, bg=LINE, height=1).pack(fill="x", pady=(14, 10))
+        tk.Label(d.body, text="Join a friend's raid (their address, from their CO-OP box)", bg=PANEL, fg=TEXT,
+                 font=font(12), anchor="w").pack(fill="x")
+        box = entry(d.body, 13, 28)
+        box.pack(fill="x", pady=(6, 0))
+        try:
+            with open(COOP_LAST, encoding="utf-8") as f:
+                box.insert(0, f.read().strip())
+        except OSError:
+            pass
+        tk.Label(d.body, text="Plays the selected save. The game starts and connects from its menu.", bg=PANEL, fg=MUTED,
+                 font=font(11), anchor="w", justify="left", wraplength=wrap(400)).pack(fill="x", pady=(4, 0))
+
+        def join():
+            addr = box.get().strip()
+            if not addr or any(c.isspace() or c in "?/\\" for c in addr):
+                self.say("Type your friend's address, like 192.168.1.20 or 10.147.17.5:7777.")
+                return
+            if self.write_setting(COOP_LAST, addr) and self.write_setting(COOP_JOIN, addr + "\n"):
+                d.destroy()
+                self.launch(join=addr)
+
+        r = d.row()
+        Button(r, "Close", d.destroy, size=11, pad=(14, 6)).pack(side="left", padx=(0, 8))
+        Button(r, "JOIN", join, "main", 11, (14, 6)).pack(side="left")
+        box.bind("<Return>", lambda e: join())
+        d.show()
+        box.focus_set()
 
     def backup(self):
         s = self.current()
@@ -1264,7 +1333,12 @@ class App(tk.Tk):
         self.write_setting(WINDOW_SETTING, "borderless\n" if self.borderless_var.get() else "windowed\n")
 
     # Playing --------------------------------------------------------------------------------------------------------
-    def launch(self):
+    def launch(self, join=None):
+        if not join:  # PLAY: no join left over from a JOIN whose game never started (the mod deletes it when it joins)
+            try:
+                os.remove(COOP_JOIN)
+            except OSError:
+                pass
         if self.running or self.updating or self.tidying or not self.current() or self.current().get("damaged"):
             return
         if game_running():
@@ -1287,7 +1361,7 @@ class App(tk.Tk):
         self.started = time.time()
         s = self.current()
         self.show_selected()
-        self.say(f"Starting {s['name']}...")
+        self.say(f"Starting {s['name']} to join {join}..." if join else f"Starting {s['name']}...")
         threading.Thread(target=self.start_game if IS_WIN else self.start_game_linux, args=(s["id"],), daemon=True).start()
 
     def start_game_linux(self, sid):
