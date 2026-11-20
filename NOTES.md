@@ -4534,3 +4534,25 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
 - Still not found for #239: how the Head slot (#240's three helmets) and the stash cells got doubled. Picking up a
   dropped helmet while wearing one was the lead, but neither a synthetic F (prompt "F Light Stahlhelm" up) nor
   `pawn:ServerInteract(pickup)` picked anything up from the bridge, so it couldn't be tried.
+
+## Rebel Base's terrain and stray pieces floating in space (#9, 2026-11-20; interiors.lua collect)
+- Seen on Space_Alpha: thin lit girders hanging in space, and from Rebel Base's east side a big flat slab of beige
+  ground in the sky (the #9 screenshot of 16 Nov looks like the girders).
+- Found with a probe that casts a ray through a screen pixel (DeprojectScreenPositionToWorld; out-params need
+  pre-filled tables) and lists every recently rendered mesh whose bounds it crosses:
+  - the girders: SM_RebelBase_Map_Ceiling_01, SM_Penal_Bridge_01, SM_RebelBase_Supports_01/02, RebelBase_Launch_Pipe
+    of level Rebel_Base_01, never culled (CachedMaxDrawDistance 0), 1.1-1.5 km off. 202 of Rebel_Base_01's 25878 meshes
+    lie outside its LevelStreamingVolume box + MARGIN: ceilings 44-60 m above it, bridges out to 220 m past its sides,
+    a few shack walls ~1 km away. interiors.lua matched far-drawn meshes to a volume by the 3D box only, so these were
+    never hidden.
+  - the slab: Rebel Base's Landscape (Landscape_Main, Landscape2: 128 LandscapeComponents), which interiors.lua never
+    collected (StaticMeshComponents only).
+- Fix: in collect, each foreign level's in-box meshes vote for their volume; a far-drawn mesh of that level outside
+  every box, and every LandscapeComponent of that level, joins the winning volume's parts (hidden from outside, shown
+  when the camera is in, like the rest). Log: "... hidden from space (201 of them outside their volume, 128 terrain
+  pieces) ...". Verified on Space_Alpha: all 202 outside meshes hidden; from 300 m east of the old slab spot, empty
+  sky; with the camera inside Rebel Base's volume the 128 terrain pieces are visible again, outside hidden.
+- Probe hazard (again): `owner:GetLevel()` inside a pcall on a component whose owner was null crashed the game
+  (PCallStackHash 99326A2899B85B5ACD9EAF8A543913AFA3D2CCC2, AV reading 0x18, all UE4SS frames: the generic "method
+  on a null wrapper" crash, same hash as #191). Read the level from GetFullName instead.
+- Not checked: other maps' interiors with terrain (the code is generic), walking into Rebel Base through an airlock.

@@ -42,6 +42,10 @@ local function collect(world)
         end
     end
     local shells, far = 0, 0
+    -- An interior's meshes outside its volume (Rebel Base's ceilings and bridges reach 60 m above it and 220 m past its
+    -- sides, a few of its walls sit a kilometre off): each level's meshes vote for the volume most of them are in, and
+    -- its far-drawn meshes outside every volume go with that one (issue #9: they hung in open space as slabs).
+    local votes, strays = {}, {}
     for _, c in ipairs(FindAllOf("StaticMeshComponent") or {}) do
         local mesh = valid(c) and c.StaticMesh
         if mesh and valid(mesh) then
@@ -50,8 +54,16 @@ local function collect(world)
             for _, s in ipairs(locs) do
                 if inBox(at, s, MARGIN) then loc = s break end
             end
+            local full = c:GetFullName()
+            local level = not full:find(own .. ":", 1, true) and full:match("(/Game/[^ :]+):") or nil
             -- a mesh of some other level here: this location's interior is on the map this run
-            if loc and not c:GetFullName():find(own .. ":", 1, true) then loc.foreign = (loc.foreign or 0) + 1 end
+            if loc and level then
+                loc.foreign = (loc.foreign or 0) + 1
+                votes[level] = votes[level] or {}
+                votes[level][loc] = (votes[level][loc] or 0) + 1
+            elseif level and mesh:GetFName():ToString() ~= "Cube" then
+                strays[#strays + 1] = { c = c, level = level }
+            end
             if mesh:GetFName():ToString() == "Cube" then
                 local scale = c:K2_GetComponentScale()
                 if math.max(math.abs(scale.X), math.abs(scale.Y), math.abs(scale.Z)) >= SHELL_MIN_SCALE then
@@ -78,6 +90,25 @@ local function collect(world)
             end
         end
     end
+    -- An interior's terrain: Rebel Base sits on a Landscape (Landscape_Main, Landscape2), seen from space as a flat slab of
+    -- ground in the sky (issue #9). Its components go with the volume its level voted for.
+    for _, c in ipairs(FindAllOf("LandscapeComponent") or {}) do
+        if valid(c) then
+            local level = c:GetFullName():match("(/Game/[^ :]+):")
+            if level and level ~= own then strays[#strays + 1] = { c = c, level = level, ground = true } end
+        end
+    end
+    local outside, ground = 0, 0
+    for _, st in ipairs(strays) do
+        local best, n = nil, 0
+        for s, k in pairs(votes[st.level] or {}) do if k > n then best, n = s, k end end
+        local md = best and (st.ground and 0 or st.c.CachedMaxDrawDistance or 0)
+        if best and (md == 0 or md > FAR_DRAW) and st.c:IsVisible() then
+            best.parts[#best.parts + 1] = st.c
+            far = far + 1
+            if st.ground then ground = ground + 1 else outside = outside + 1 end
+        end
+    end
     -- A station that isn't on this run's map (Space_Solo_02 picks its stations per run) still has its airlock chambers
     -- at its spot: StationAirlockDockingAreaAbility_* (RaidFrigateStationDock) belong to the space map's own level, so
     -- they hung in empty space as dark boxes and slabs (issue #9). Hidden for the raid, collision off.
@@ -100,8 +131,9 @@ local function collect(world)
     for _, s in ipairs(locs) do
         names[#names + 1] = ("%s %d%s"):format(s.name, #s.parts, s.orphans and (", not here: " .. s.orphans .. " airlocks hidden") or "")
     end
-    X.log(("interiors: %d shell pieces and %d far-drawn interior meshes hidden from space, %d airlocks of absent stations (%s)")
-        :format(shells, far, orphans, table.concat(names, ", ")))
+    X.log(("interiors: %d shell pieces and %d far-drawn interior meshes hidden from space (%d of them outside their volume,"
+        .. " %d terrain pieces), %d airlocks of absent stations (%s)"):format(shells, far, outside, ground, orphans,
+        table.concat(names, ", ")))
     return locs
 end
 
