@@ -4378,3 +4378,10 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
     arrives in 3:50" counting down);
   - 10 minutes: the minimap read 8:43 when the HUD read 08:44.
 - Not verified: the piloting text toward the gate with a custom time, a joiner's minimap.
+## Crew update failed on a hurt crewmate (#224, 2026-11-20; crew.lua, rivals.lua)
+- #42's log: `[crew] update failed: crew.lua:208: bad argument #5 to 'format' (number has no integer representation)`.
+  The "is with you" line formatted m.hp with %d, and m.hp is copied from the bot's live Health (a float), so a hurt
+  crewmate following you into a new place threw there and cut that crew update short. Rivals' "is in" line had the same
+  %d hp. Both are %.0f now. Lua's %d refuses any float with a fraction: keep it for counts, never for game floats.
+- Verified with lupa: the old format string with 212.4 throws that exact error; the new one prints "212 hp". Not run in
+  game (the test save has no crew).
