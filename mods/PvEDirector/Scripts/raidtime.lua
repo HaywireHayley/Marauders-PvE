@@ -54,8 +54,23 @@ end
 -- pause, which would otherwise hold the warmup and the raid would never start) only once the round is running.
 function M.update()
     if not raid or (raid.lengthSet and raid.gateSet) then return end
-    local gs = FindFirstOf("RaidGameState")
-    if not X.valid(gs) then return end
+    -- Found once per raid, not every update: a co-op joiner never gets past the AuthorityGameMode check below (the game
+    -- mode is the host's), and this FindFirstOf (~60 ms) twice a second was its stutter every 1-2 s (#254).
+    local gs = raid.timeState
+    if not X.valid(gs) then
+        gs = FindFirstOf("RaidGameState")
+        raid.timeState = gs
+        if not X.valid(gs) then return end
+    end
+    if not X.valid(gs.AuthorityGameMode) then
+        -- No game mode here for ~10 s: a co-op joiner, whose raid length and gate are the host's to set.
+        raid.timeWaits = (raid.timeWaits or 0) + 1
+        if raid.timeWaits >= 20 then
+            raid.gateSet, raid.lengthSet = true, true
+            X.log("raid length and space gate: the host's (no game mode here: joined a co-op raid)")
+        end
+        return
+    end
     if not raid.gateSet then
         local ok, err = pcall(function()
             local gm = gs.AuthorityGameMode
