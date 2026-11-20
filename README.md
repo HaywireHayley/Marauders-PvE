@@ -13,6 +13,48 @@ of Marauders on Steam.
 > efficient or make complete sense. That's where your contributions come in: see [CONTRIBUTING.md](CONTRIBUTING.md), or
 > come and talk about it on the Discord.
 
+## What's new compared to the original game
+
+Most of the work so far has gone into getting the original game working offline: its servers, raids, stations,
+salvage and docking. Along the way the mod has also added things the live game never had:
+
+**Raids built for PvE**
+- **Rival crews run by AI** instead of other players: they fly their own ships, dock at stations, fight each other in
+  ship battles, attack your ship, board it, and extract when the raid runs out.
+- **Your own hired crew** (F6): hire and dismiss crewmates who come on raids with you, fight alongside you, and man a
+  turret as your gunner. Left click while flying picks the gunner's target.
+- **Civilians:** unarmed miners, prisoners and port workers at the mines, the Penal Colony and the ports.
+- **Defuse mines** with a ToolKit: station mines on foot, and small and nuclear space mines from the helm, in a
+  Minesweeper-style minigame. Win and you keep the parts.
+- **Smarter soldiers:** they reload, take cover, take head, body and leg damage, and their helmets and vests protect
+  them by how good they are. A shotgun volley knocks them back.
+
+**Make the raid you want**
+- **F3 AI tuning:** every enemy, rival and crew setting as a slider: how many crews, guards and ship battles, how hard
+  they fight, and difficulty presets.
+- **Raid conditions:** one-raid set-ups such as Baron hunt, Hunted, Busy sky, Capital ships and Minefield. Make your own
+  and share them.
+- **Pick your map** in the lobby's REGION box, and the **raid length** in the launcher (15 minutes to no limit).
+
+**Getting around**
+- **A minimap** (N, M, B) with floor plans of the stations, your tasks, and a route to where you're going.
+- **A faster Rustbucket** and a **boost** (Space) at the helm of any ship.
+- **Play as a woman or a man** (F2): women's versions of every outfit, for you and for the soldiers, with voices.
+
+**Inventory and lobby**
+- **Stash tools:** SORT, a search box, and SELL SHOWN at a trader.
+- **K and J hotkeys** move or discard the item under the mouse, in the lobby and while looting in a raid.
+- **Your gear comes back** if a raid ends without an extraction or death (a crash, Alt+F4, quitting).
+- **An offline guild** with its own guild shop, and a launcher option to **unlock every look and voice**.
+
+**Launcher and tools**
+- Several saves, **back up and import**, and give items or credits to a save.
+- **REPORT** bundles your logs and crash report into one zip for a bug report, with your names and IDs taken out.
+- The launcher **updates itself** when a new build is out.
+- **Co-op (early):** host a raid and let a friend join it, aboard your ship.
+- **F9 debug menu:** god mode, unstuck, no collision, extract now, and spawn any gun, ammo or soldier.
+- **Linux and Steam Deck** support (experimental).
+
 ## Quick start
 
 1. **[Download the latest release](https://github.com/HaywireHayley/Marauders-PvE/releases/latest)**: open the page
