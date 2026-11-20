@@ -83,8 +83,8 @@ own controller support if it works for you) and add:
 | **L5** (back grip, lower left) | N | Minimap on or off |
 | **R5** (back grip, lower right) | M | Minimap overview |
 | **D-pad down** | B | Minimap: follow the next task |
-| **View (⧉) + D-pad left** (or a radial menu) | K | Move item between stash and bags |
-| **View (⧉) + D-pad right** (or a radial menu) | J | Discard item (press twice) |
+| **View (⧉) + D-pad left** (or a radial menu) | K | Move item between stash and bags (in a raid: between you and what you loot) |
+| **View (⧉) + D-pad right** (or a radial menu) | J | Discard item (press twice; in a raid: drop it) |
 | **Right trackpad** | mouse, click = left click | The F3 / F6 menus and the stash are mouse-driven |
 
 F9 (debug) and F2 fit on a radial menu on the left trackpad if you want them. Not tried on a Deck yet: if you set it
@@ -129,8 +129,8 @@ The game's own controls are unchanged. The mod adds (the launcher's CONTROLS but
 | **N** | Minimap on or off | Raids |
 | **M** | Minimap full overview, and back | Raids |
 | **B** | Minimap: follow the next task | Raids |
-| **K** | Move the item under the mouse between your stash and your pockets or bags | Lobby (LOADOUT, TRADE) |
-| **J** | Discard the item under the mouse (press twice) | Lobby (LOADOUT, TRADE) |
+| **K** | Move the item under the mouse between your stash and your pockets or bags; in a raid, between your gear and the crate or body you're looting | Lobby (LOADOUT, TRADE), raid |
+| **J** | Discard the item under the mouse (press twice); in a raid, drop it on the floor | Lobby (LOADOUT, TRADE), raid |
 | **F2** | Play as a woman or a man (also a launcher setting) | Anywhere |
 | **Left click** | While flying with a crew gunner aboard: send them after the ship or space turret nearest the middle of your view. Click empty space to send them back to whoever is attacking you | Flying your ship |
 | **F** on a turret seat | Man the turret yourself: left click fires, F stands you up | Ships |

@@ -256,8 +256,8 @@ CONTROLS = [
     ("N", "Minimap on or off", "Raids"),
     ("M", "Minimap full overview, and back", "Raids"),
     ("B", "Minimap: follow the next task", "Raids"),
-    ("K", "Move the item under the mouse between stash and pockets or bags", "LOADOUT, TRADE"),
-    ("J", "Discard the item under the mouse (press twice)", "LOADOUT, TRADE"),
+    ("K", "Move the item under the mouse between stash and pockets or bags; in a raid, between you and what you loot", "LOADOUT, TRADE, raid"),
+    ("J", "Discard the item under the mouse (press twice); in a raid, drop it", "LOADOUT, TRADE, raid"),
     ("Left click", "With a crew gunner aboard: send them after what you aim at", "Flying your ship"),
 ]
 
