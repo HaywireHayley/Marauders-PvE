@@ -473,6 +473,94 @@ def settle_ship(o):
     return {**o, "value": re.sub(r"-[A-Za-z_]+_Ship-", f"-{out['row']}-", o["value"])}
 
 
+# Saves with items on top of each other (#239, #240): three helmets in the Head slot, a drum mag and a rifle lying on a
+# SMG in the stash. The game shows one item per slot or cell and the rest are invisible, but still there: a helmet you
+# discard comes back as the next one in the slot, and items dropped onto hidden ones freeze or vanish, every launch.
+# How the saves got that way isn't known yet (not reproduced). At startup the extras are moved to free stash space.
+ITEM_SIZES = os.path.join(HERE, "..", "assets", "saves", "items.json")  # row -> w, h (tools/offline-audit/itemsizes.py)
+STASH_ROWS = os.path.join(HERE, "..", "config", "stash_rows.txt")  # the save's stash rows (launcher/saves.py)
+STASH_COLS, STASH_ROWS_DEFAULT, STASH_ROWS_MAX = 10, 15, 25
+# Equipment slots that hold one item (pockets and the stash are grids; a number is a bag, rig or box item's own grid).
+ONE_ITEM_SLOTS = {"Head", "Chest", "Legs", "Rig", "Bag", "Prim", "Sec", "Pistol", "Melee", "KeyCard", "Ship",
+                  "GuildBadge"}
+
+
+def repair_inventory():
+    """Moves items that share an equipment slot, or overlap in the stash, to free stash space (the newest one keeps
+    the slot). Returns what it moved. Call with the lock held, or before the server starts."""
+    inv = state["storage"].get("inventory", {})
+    try:
+        with open(ITEM_SIZES, encoding="utf-8") as f:
+            sizes = json.load(f)
+    except (OSError, ValueError):
+        sizes = {}
+    try:
+        with open(STASH_ROWS, encoding="utf-8") as f:
+            rows = min(STASH_ROWS_MAX, int(f.read().strip()))
+    except (OSError, ValueError):
+        rows = STASH_ROWS_DEFAULT
+    items = []  # [key, fields, update_time]
+    for key, o in inv.items():
+        try:
+            f = json.loads(o["value"])["value"].split("-")
+            int(f[4]), int(f[5])
+        except (ValueError, KeyError, IndexError, TypeError):
+            continue
+        if len(f) >= 8:
+            items.append([key, f, o.get("update_time", "")])
+
+    def footprint(f):
+        sz = sizes.get(f[1]) or {"w": 1, "h": 1}
+        w, h = (sz["w"], sz["h"]) if f[6] == "0" else (sz["h"], sz["w"])
+        return [(x, y) for x in range(int(f[4]), int(f[4]) + w) for y in range(int(f[5]), int(f[5]) + h)]
+
+    misplaced = []
+    by_slot = {}
+    for it in items:
+        if it[1][7] in ONE_ITEM_SLOTS:
+            by_slot.setdefault(it[1][7], []).append(it)
+    for slot, held in by_slot.items():
+        held.sort(key=lambda it: it[2])
+        misplaced += held[:-1]  # the newest one stays (the one the game shows)
+    taken = {}
+    for it in sorted((it for it in items if it[1][7] == "Stash"), key=lambda it: it[2]):  # older items keep their place
+        cells = footprint(it[1])
+        if any(c in taken for c in cells) or any(x >= STASH_COLS for x, _ in cells):
+            misplaced.append(it)
+        else:
+            taken.update((c, it[0]) for c in cells)
+    moved = []
+    for key, f, _ in misplaced:
+        f = list(f)
+        f[6] = "0"
+        for rot in ("0", "1"):
+            f[6] = rot
+            spot = next(((x, y) for y in range(rows) for x in range(STASH_COLS)
+                         if all(c not in taken and c[0] < STASH_COLS and c[1] < rows
+                                for c in footprint(f[:4] + [str(x), str(y)] + f[6:]))), None)
+            if spot:
+                break
+        if not spot:
+            log(f"inventory repair: no room in the stash for {f[1]} ({key}), left where it is")
+            continue
+        was = f"{f[7]} {f[4]},{f[5]}"
+        f[4], f[5], f[7] = str(spot[0]), str(spot[1]), "Stash"
+        taken.update((c, key) for c in footprint(f))
+        o = inv[key]
+        v = json.loads(o["value"])
+        v["value"] = "-".join(f)
+        v["equip"] = False
+        o["value"] = json.dumps(v, indent="\t")
+        o["update_time"] = stamp()
+        o["version"] = uuid.uuid4().hex
+        moved.append(f"{f[1]} ({key}) {was} -> stash {spot[0]},{spot[1]}")
+    if moved:
+        shutil.copyfile(STATE, STATE.replace("state.json", "state.before-repair.json"))
+        save_state(state)
+        log(f"inventory repair: {len(moved)} item(s) were on top of others: " + "; ".join(moved))
+    return moved
+
+
 def return_unfinished_raid(why):
     """Gear you brought into a raid that ended neither by extraction nor by death (QUIT GAME, Alt+F4, a crash, leaving
     through the menu) goes back to the stash (issue #49: offline there's no one to exploit this against, and it keeps
@@ -577,6 +665,7 @@ def main():
         use_dir(os.path.abspath(args.dir), args.name)
     state = load_state()
     return_unfinished_raid("the stand-in started")
+    repair_inventory()
     log(f"listening on 127.0.0.1:{port} as {state['user']['display_name']} "
         f"({len(state['storage'].get('inventory', {}))} stash items)")
     threading.Thread(target=watch_checkout, daemon=True).start()
