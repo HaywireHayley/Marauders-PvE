@@ -2,6 +2,19 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 20 Nov 2026, build 17 (`public-test-20261120.17`)
+
+The co-op joiner gets a working minimap, and fewer small hitches for everyone. On build 1 of 17 Nov or later, the
+launcher's orange **!** installs this one for you, keeping your saves.
+
+### Fixes
+
+- **Co-op joiner's minimap (#214, PR #261):** a player who joined a co-op raid saw the minimap as an empty dark box. It
+  now shows their tasks, the stations, and the way to the helm of the ship they're aboard. (No flying route to far
+  stations for a joiner: the host's game doesn't send those to the joiner's.)
+- **Fewer hitches (PR #260):** looking for mines to defuse scanned every object in the game every 20 seconds, on every map
+  (a small stutter). Now it looks a few times at the start, then rarely, and not at all on maps without mines.
+
 ## Public test, 20 Nov 2026, build 16 (`public-test-20261120.16`)
 
 Nuclear mines can be defused, co-op joiners stop stuttering, and the Capital Ship gets its guards. On build 1 of 17 Nov
