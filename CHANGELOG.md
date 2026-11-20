@@ -2,6 +2,35 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 19 Nov 2026, build 7 (`public-test-20261118.7`)
+
+Co-op on one ship, an unstuck button, civilians in their own clothes, and a crash fix. On build 1 of 17 Nov or later,
+the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Changes
+
+- **Co-op: one ship (#214):** a friend who joins your raid now comes aboard your ship, as one of your crew, instead
+  of flying a ship of their own 330 m away. Their loading screen also clears as soon as they're in (it used to sit for
+  up to 90 s). Flying, turrets, boarding and extracting together are still untested: tell us how it goes.
+- **Unstuck (#198):** stuck in a wall or fell under the map? **F9 > Unstuck** puts you back where you last stood on
+  solid ground, or on the nearest floor. Once every 30 seconds.
+- **No collision (#198):** **F9 > No collision** walks through walls and flies (look up or down to climb or sink). A
+  cheat like god mode, for getting out of trouble or exploring; it switches off at every map change.
+- **Civilians dressed by trade (#196):** miners, prisoners and port workers no longer all wear the same green outfit:
+  miners in mining gear, prisoners in prison suits, workers in colonist and work clothes, mixed within each group.
+- **New save: gear and money apart (#204):** NEW SAVE has two boxes, "Start with lots of gear" and "Infinite money".
+  Gear alone starts you with the usual 65,000 credits; infinite money alone starts you with the new-player kit.
+- **Crash fix (#192):** boarding an Assault Scout (or another scout or dreadnought) could close the game with "Could
+  not find SuperStruct". The ship's interior now loads its parent first.
+- **The download comes in pieces (#213):** each file is under 9 MB. Updating through the launcher only needs the main
+  zip; a new install extracts all of them into one folder.
+
+### Missed in earlier notes
+
+- **Launcher (build 6, #193):** "Raid conditions" no longer pushes the right-hand panel out of the window (#188).
+- **Co-op joining (build 6, #194):** the fix that made joining work at all (#26).
+- Release notes are now checked against every merged PR, so contributors' work gets its line and its thanks (#199).
+
 ## Public test, 19 Nov 2026, build 6 (`public-test-20261118.6`)
 
 Co-op (early), a faster Rustbucket with a boost, and J and K in raids. On build 1 of 17 Nov or later, the launcher's
