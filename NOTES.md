@@ -1440,6 +1440,17 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
 - Waist: width 0.885 at z108, 0.905 at z120, depth 0.86/0.9. Not looked at in game.
 
 - Arms (2026-11-07): ANSUR II medians (ergoassessment.cam ANSUR II explorer), taken at equal height: biceps/forearm 0.92, wrist 0.95, neck 0.90, calf 1.03. make_female slims each arm around its bind-pose centreline (ARM_Z/ARM_Y), 0.88 at the shoulder to 0.97 at the hand; neck 0.9-0.96; calf 1.03. Checked on the lit lobby character, male vs female.
+- Hands (2026-11-20, #35): the women's fingers were mangled. Two causes, both in make_female.female(). (1) The arm
+  branch only took z > 100, but the hands hang across it (bind pose: hand mesh at |x| 52-69, z 93-112), so the top of a
+  hand got the arm shift (+2.2 across) and the bottom the waist/hip WIDTH (-1.4 .. +2.0): fingers torn up to 3.6 apart.
+  (2) Any move of a hand vertex at all: the skeleton is the man's, so moved skin sits off its finger bones (fingers looked
+  longer and missed the weapon grips in first person). Now WRIST fades the whole reshape out from |x| 36 to 52, and the
+  hands are the man's vertices exactly (checked on Bandit: every hand vertex unmoved). Wrist width is now male; the
+  forearm takes back the arm's 2.2 shift over 16 units. Scanned every listed mesh: below z 100 nothing but the hands
+  reaches past |x| 30. Verified by the user in first person (fingers on the rifle match the man's). Not looked at: the
+  lobby stands (#151 may be a different cause), bots up close.
+- Not changed: `math.copysign(TORSO * (shoulder - 1), x)` drops the sign, so the arms move OUT 2.2 where the comment
+  says in. The shoulders were tuned by eye with it in place; fixing it moves the arms in ~4.4.
 - Bust 8.3, waist width 0.91/0.925, depth 0.885/0.915 (user, 2026-11-07).
 - PLAY preflight (2026-11-15): launch-offline.ps1's output used to be thrown away, so a wrong config/game_path.txt, a
   missing tools/ue4ss or Steam not running all showed as "The game didn't start" after START_TIMEOUT (90 s). launcher.pyw
