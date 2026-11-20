@@ -545,7 +545,8 @@ function C.frame()
     if clicked() then orderTarget(m, now) end
     if S.order and not X.rivals.shipInPlay(S.order, CFG.ORDER_RANGE) then
         X.log("[crew] gunner's ordered target out of play: " .. tostring(S.order.name))
-        S.order, S.nextLook = nil, 0
+        -- drop the aim on it too: a destroyed turret is freed soon after (#191)
+        S.order, S.nextLook, S.gunTarget = nil, 0, nil
     end
     if S.order then
         if not valid(S.gunTarget) or S.gunTarget:GetAddress() ~= S.order.ship:GetAddress() then

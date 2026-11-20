@@ -1602,16 +1602,25 @@ local function nodeTurrets(refresh)
             if valid(t) then S.nodeTurrets[#S.nodeTurrets + 1] = t end
         end
         X.log(("[rivals] %d stationary turret(s) on this map"):format(#S.nodeTurrets))
+    else
+        -- a destroyed turret leaves the list at once: a moving flak turret is freed soon after it dies, and the list
+        -- is otherwise only refreshed on a click (#191)
+        for i = #S.nodeTurrets, 1, -1 do
+            if not valid(S.nodeTurrets[i]) then table.remove(S.nodeTurrets, i) end
+        end
     end
     return S.nodeTurrets
 end
 
 local function nodeTurretAlive(t)
+    -- valid() before any property: reading bIsDying on a freed turret faults natively, and pcall can't catch that
+    -- (#191: the crash 1 s after a moving flak turret died, on the gunner's next look over the turret list).
     -- (bIsDying reads as a Lua boolean: comparing it with 0 was always false, so every turret counted as dead and your
     -- gunner never shot one, picked or ordered)
+    if not valid(t) then return false end
     local ok, alive = pcall(function()
         local dying = t.bIsDying
-        return valid(t) and (t.Health or 0) > 0 and not (dying == true or (type(dying) == "number" and dying ~= 0))
+        return (t.Health or 0) > 0 and not (dying == true or (type(dying) == "number" and dying ~= 0))
     end)
     return ok and alive
 end

@@ -4342,3 +4342,21 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
 - Not verified: the copies seen, triggered or exploding in play. Another tool was driving the same game install during
   the test (opening Spaceport_01 on every bridge load and restarting the game), so whether the game stays up with 400
   extra mines is unknown. Test this first: a raid with Minefield picked, fly around a field for a few minutes.
+
+## Crash after a turret dies in space (#191, 2026-11-20; rivals.lua nodeTurrets / nodeTurretAlive)
+- Report: Space_Charlie, AV reading 0xffffffffffffffff, PCallStackHash 99326A2899B85B5ACD9EAF8A543913AFA3D2CCC2, 1 s
+  after a moving flak turret died with "[crew] gunner's ordered target out of play: turret" just before. Same UE4SS
+  frames as the dead-bot crash (+0x4bddae <- +0x380bb0 <- +0x37f6fe <- +0x87b9d0: Lua reading a property of a FREED
+  UObject, from onTick).
+- Cause: the gunner's list of stationary turrets (S.nodeTurrets) is built once and refreshed only on a click after
+  60 s, so destroyed turrets stayed in it. nodeTurretAlive read `t.bIsDying` before `valid(t)`. A destroyed turret is
+  harmless to read until the next GC frees it; then hostileShips (the gunner's look round, run at once after an order
+  goes out of play) read freed memory. The first moving flak that died earlier in that raid was the one read.
+- Note: right after K2_DestroyActor, pve_alive already says 0 while IsValid still says true; a CollectGarbage straight
+  away doesn't free it (FindAllOf still lists it); a second GC a few seconds later does.
+- Fix: valid(t) before any property in nodeTurretAlive; nodeTurrets drops invalid entries on every call; crew.lua
+  clears S.gunTarget with the order when the ordered target goes out of play.
+- Verified on Space_Beta from bridge/dir_eval.lua: cache the list (pickShip), K2_DestroyActor a Flak_NodeTurret_C, GC,
+  wait, GC again (the flak count drops: freed), then R.hostileShips(). Old code: crashed with the reported hash
+  99326A2899B85B5ACD9EAF8A543913AFA3D2CCC2. New code: 3 rounds of hostileShips + pickShip, no crash.
+- Not verified: the reported path itself (a crew gunner ordered onto a moving flak turret on Space_Charlie).
