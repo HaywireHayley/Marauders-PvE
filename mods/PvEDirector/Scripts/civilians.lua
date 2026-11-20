@@ -5,9 +5,9 @@
 -- purpose (CFG.COUNT per matching station, F3 "How many": 0 turns them off).
 --
 -- They're kept out of raid.bots, so no soldier, rival or crewmate ever targets or protects them, and the per-bot
--- fighting code never touches them. Their body is a raider body with an empty kit (rivalbodies.lua R.civilianBody),
--- woken like a soldier (Bots.arm) and then left without a behaviour tree: everything they do is a MoveToLocation from
--- here, every update.
+-- fighting code never touches them. Their body is a raider body with an empty kit (rivalbodies.lua R.civilianBody) in
+-- clothes of their trade (LOOKS), woken like a soldier (Bots.arm) and then left without a behaviour tree: everything
+-- they do is a MoveToLocation from here, every update.
 local M = {}
 local X -- log, valid, lib, dist, navLib, navMesh, queryFilter, offLimits, arm, voice, female, rivals, bots
 local raid
@@ -41,6 +41,26 @@ local POCKETS = {
     prisoner = { "TobaccoPouch", "BottleCaps", "Lockpick", "PanzerChoc", "PenalToken", "JunkScrap", "Fabric" },
     worker = { "Cable", "Wrench", "BankNotes", "CopperCoin", "WorkApron", "PortToken", "PortableRadio", "IndustrialPaper" },
 }
+
+-- What they wear (#196; they all wore the raider's green before): a head and an outfit of their trade, picked apart
+-- so a group doesn't look cloned. The game's own meshes (gear.lua heads / bodies); meshes only, so no armour.
+local LOOKS = {
+    miner = {
+        heads = { "Miner_Head_Skel_01", "Steel_Worker_Head_Skel_01", "Colonist_Head_Skel_01", "Nomad_Head_Yellow_Skel_01" },
+        bodies = { "Miner_Body_Skel_01", "Steel_Worker_Body_Skel_01", "Nomad_Body_Yellow_Skel_01" },
+    },
+    prisoner = {
+        heads = { "Prisoner_Head_Skel_01", "Outlaw_Head_Skel_01", "Outlaw_Head_Skel_02", "Outlaw_Head_Skel_03", "Bandit_Head_Skel_01" },
+        bodies = { "Prisoner_Body_Skel_01" },
+    },
+    worker = {
+        heads = { "Colonist_Head_Skel_01", "Steel_Worker_Head_Skel_01", "Nomad_Head_Skel_01", "Nomad_Head_Green_Skel_01",
+                  "Nomad_Head_Crimson_Skel_01" },
+        bodies = { "Colonist_Body_Skel_01", "Steel_Worker_Body_Skel_01", "Nomad_Body_Skel_01", "Nomad_Body_Green_Skel_01",
+                   "Nomad_Body_Crimson_Skel_01" },
+    },
+}
+M.LOOKS = LOOKS
 
 function M.init(ctx) X = ctx end
 function M.setRaid(r) raid = r end
@@ -84,11 +104,11 @@ function M.station(pc, st)
         if at then
             local pockets = {}
             for _ = 1, math.random(1, 3) do pockets[#pockets + 1] = pick(POCKETS[trade]) end
-            local body = X.rivals.civilianBody(pc, at, pockets)
+            local body, worn = X.rivals.civilianBody(pc, at, pockets, LOOKS[trade])
             if body then
                 local female = trade ~= "prisoner" and math.random() < X.rivals.CFG.FEMALE
                 table.insert(raid.civilians, { bot = body, trade = trade, home = at, state = "new", station = st.name,
-                    female = female, voice = X.voice.pick(female), nextMove = 0, hp = nil })
+                    female = female, voice = X.voice.pick(female), nextMove = 0, hp = nil, worn = worn })
                 made = made + 1
             else
                 why.body = (why.body or 0) + 1
@@ -175,6 +195,7 @@ function M.update(pc)
                 c.ctrl = X.arm(c.bot)
                 if c.ctrl then
                     pcall(function() c.ctrl.BrainComponent:StopLogic("civilian") end)
+                    if X.rivals.dressCivilian then pcall(X.rivals.dressCivilian, c.bot, c.worn) end
                     if c.female then pcall(X.female.dress, c.bot, true) end
                     setState(c, "work", now)
                 end
