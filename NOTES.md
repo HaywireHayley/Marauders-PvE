@@ -4675,3 +4675,24 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
 - Found on the way: Space_Alpha's station interiors have 10 station mines (MineStaticActor_C), and the on-foot prompt
   works there ("A mine. You need a ToolKit to defuse it", 2026-11-20): station mines on space maps, listed as not
   verified in the #197 part 1 section, are verified for the prompt.
+
+## A co-op joiner's minimap was an empty box (#214, 2026-11-20; main.lua space branch, minimap.lua known/homeInside)
+- Three causes, found with probes that run on the joiner only (both copies read bridge/dir_eval.lua: a probe that lands
+  on the host writes itself back for the joiner and returns):
+  1. The joiner's loading veil gave up on streaming (`revealed` true, `readyAt` nil), and everything in the space branch
+     waits for readyAt: Missions.update never ran, so the minimap's survey (which starts from the contract actors) found
+     no places. The joiner has all 57 contract actors, tagged.
+  2. The joiner has no Node_* station actors at all (0; RaidDockingComponent 0), while its airlocks (18), contract actors
+     and the AI ship interior are there: far stations' exteriors aren't sent to the client. A place counted only with a
+     docking node or an AI frigate hull.
+  3. "Your ship" comes from raid.home, which space.lua (host only) sets: the joiner was told to get back to its ship
+     while aboard it.
+- Fix: a joiner (no AuthorityGameMode) runs Missions.update once revealed, and nothing else from that block (floor loot,
+  mines, civilians, rivals are the host's); the minimap counts interior-only places for a joiner (known(p): floor plans
+  and tasks, no flying route) and takes the nearest player ship interior as its ship (homeInside, looked up once).
+- Verified (host + joiner on this PC, joiner with the host's crew, CPT=0): "[missions] 57 contract actors", "minimap: 3
+  places here: Rebel Base, Fortress, Spaceport", panel showing "Weapons Intel 0/30 / Go to the helm and press F to fly,
+  8 m to go" with the helm marked.
+- Not verified: a joiner's floor plans (they're scanned once raid.navReady, which a joiner doesn't set either), its
+  route inside a station, flying routes (no nodes: by design none).
+- Test tooling note: config/minimap.txt (N's on/off) is shared by both copies; bridge/minimap_cmd too.

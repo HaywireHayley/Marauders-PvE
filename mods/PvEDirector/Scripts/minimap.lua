@@ -167,6 +167,14 @@ local function surveyShip(home)
         rect = { x0 = a.X - r, x1 = a.X + r, y0 = a.Y - r, y1 = a.Y + r, z0 = a.Z - 1500, z1 = a.Z + 2500 } }
 end
 
+-- A place on the map: a station seen from space (its docking node), an AI frigate (its hull), or, for a co-op joiner,
+-- any interior with spots: the host's game doesn't send a joiner the far stations' Node_* actors (0 of them, measured,
+-- while its airlocks and contract actors are all there), so a joiner gets floor plans and tasks but no flying route
+-- (#214: its minimap was an empty box).
+local function known(p)
+    return p.node or p.hull or (S.joiner and p.spots and #p.spots > 0)
+end
+
 local function survey()
     local list = X.missions.actors()
     if #list == 0 then return false end
@@ -241,7 +249,7 @@ local function survey()
     end
     local n, names = 0, {}
     for _, p in pairs(S.places) do
-        if p.node or p.hull then n = n + 1 names[n] = p.name end
+        if known(p) then n = n + 1 names[n] = p.name end
     end
     X.log(("minimap: %d places here: %s"):format(n, table.concat(names, ", ")))
     return n > 0
@@ -299,7 +307,7 @@ local function placeByTag(tag)
     local k = key5(tag)
     k = TAG_KEYS[k] or k
     for _, p in pairs(S.places) do
-        if p.tag == k and (p.node or p.hull) then return p end
+        if p.tag == k and known(p) then return p end
     end
 end
 
@@ -377,10 +385,29 @@ end
 -- Where you are --------------------------------------------------------------------------------------------------
 local function inRect(r, l) return l.X >= r.x0 and l.X <= r.x1 and l.Y >= r.y0 and l.Y <= r.y1 end
 
+-- Your ship's interior: the director's (space.lua), or for a co-op joiner, whose director never finds one (that's the
+-- host's job), the nearest player ship interior to you, looked up once (it's the ship you came aboard).
+local function homeInside(pawn)
+    local home = X.raid().home
+    if valid(home) or not S.joiner then return home end
+    if valid(S.joinHome) then return S.joinHome end
+    if S.joinHomeTried then return nil end
+    S.joinHomeTried = true
+    local at, best, bd = pawn:K2_GetActorLocation(), nil, nil
+    for _, ins in ipairs(FindAllOf("RaidSpaceshipInside") or {}) do
+        if valid(ins) and not ins.IsAnAIShip then
+            local d = dist(at, ins:K2_GetActorLocation())
+            if not bd or d < bd then best, bd = ins, d end
+        end
+    end
+    S.joinHome = best
+    return best
+end
+
 local function locate(pc)
     local pawn = pc.Pawn
     if not valid(pawn) then return nil end
-    local home = X.raid().home
+    local home = homeInside(pawn)
     local me = { at = copy(pawn:K2_GetActorLocation()) }
     me.piloting = pawn:GetClass():GetFName():ToString():find("^Ship_") ~= nil
     me.yaw = me.piloting and pawn:K2_GetActorRotation().Yaw or pc:GetControlRotation().Yaw
@@ -406,6 +433,7 @@ end
 -- Which station your ship is docked at, if any: the docking volume it's holding.
 local function dockedAt()
     local home = X.raid().home
+    if not valid(home) and S.joiner then home = S.joinHome end
     if not valid(home) then return nil end
     local vol = home.CurrentDockingVolume
     if not valid(vol) then return nil end
@@ -647,7 +675,7 @@ local function nextScan()
     local all = {}
     if S.ship then all[1] = S.ship end
     for _, p in pairs(S.places or {}) do
-        if (p.node or p.hull) and p.rect then all[#all + 1] = p end
+        if known(p) and p.rect then all[#all + 1] = p end
     end
     local waiting = false
     for _, p in ipairs(all) do
@@ -1272,7 +1300,9 @@ function M.tick(pc)
     if not raid.space then return end
     if not raid.revealed then return end
     local now = os.clock()
-    if not S or S.key ~= raid.world then S = { key = raid.world, thinkAt = 0, drawAt = 0 } end
+    if not S or S.key ~= raid.world then
+        S = { key = raid.world, thinkAt = 0, drawAt = 0, joiner = not valid(pc:GetWorld().AuthorityGameMode) }
+    end
     if S.scan then stepScan(pc) end
     if now - (S.cmdAt or 0) >= 0.25 then
         S.cmdAt = now

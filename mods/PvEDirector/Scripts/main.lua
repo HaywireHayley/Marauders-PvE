@@ -1296,6 +1296,12 @@ update = function(pc)
             local okc, errc = pcall(Civilians.update, pc) -- (#81)
             if not okc then log("civilians: " .. tostring(errc)) end
             Space.update(pc, worldName)
+        elseif raid.revealed and valid(raid.target) and not valid(world.AuthorityGameMode) then
+            -- A co-op joiner: its veil can lift without readyAt (it gave up on streaming), and everything above is the
+            -- host's to do (floor loot, mines, civilians, rivals). Only the contract actors are its own business: its
+            -- tasks and its minimap's places come from them (the minimap was an empty box, #214).
+            local ok, err = pcall(Missions.update, pc, raid.world, raid.target)
+            if not ok then log("missions: " .. tostring(err)) end
         end
         return
     end
