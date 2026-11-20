@@ -318,6 +318,20 @@ local function targetFor(t, me)
     return p and { place = p, wide = true } or nil
 end
 
+-- Seconds until the space gate comes. The game spawns it TimeTillEvacSpawn into the raid, which the launcher's "Space gate"
+-- setting changes (raidtime.lua); RemainingTime - 1200 (the stock HUD's rule) only holds in a 25 minute raid with the
+-- stock gate: with the gate on "instant" the minimap counted down 4 minutes to a gate that was already there.
+-- A joiner has no game mode: it keeps the stock rule.
+local function gateIn(gs)
+    if not valid(gs) then return 0 end
+    if gs.EvacSpawned then return 0 end
+    local gm = gs.AuthorityGameMode
+    local left = gs.RemainingTime
+    if valid(gm) and left <= (gm.WarmupTime or 15) + 1 then return math.max(0, gm.TimeTillEvacSpawn) end -- warmup
+    if valid(gm) then return math.max(0, gm.TimeTillEvacSpawn - (gm.RoundTime - left)) end
+    return math.max(0, left - 1200)
+end
+
 -- Gates appear when the timer runs out, so the scan only runs then, and rarely: every think it was a hitch a second.
 local function gates()
     local now = os.clock()
@@ -465,7 +479,8 @@ local function stage(t, me)
     end
     if me.place and me.place.isShip then
         local ship = me.place
-        if docked == place then
+        -- (a target with no place, out in space: nil == nil here read place.name, 488 errors in one raid, #42's log)
+        if place and docked == place then
             return { text = "Go through the airlock into " .. place.name, at = ship.lock, walk = true }
         end
         local helm = nearest(ship.helms, me.at)
@@ -1182,7 +1197,7 @@ local function think(pc, me)
     if not (S.places and S.contracts) then return false end
     refreshProgress(pc)
     local gs = pc:GetWorld().GameState
-    S.gateIn = valid(gs) and math.max(0, gs.RemainingTime - 1200) or 0
+    S.gateIn = math.ceil(gateIn(gs)) -- whole seconds: the countdown text formats it with %d
     S.gates = gates()
     S.tasks = activeTasks(me)
     -- Keep following a task while it's open; else the first one that can be followed.
