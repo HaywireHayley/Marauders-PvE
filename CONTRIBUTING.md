@@ -19,7 +19,8 @@ Thanks for helping! This guide assumes you've never used Git before.
 5. **Commit:** GitHub Desktop lists every file you changed. Check that the list only contains what you meant to
    change, write a short summary ("Crew medics heal downed players") and click **Commit**.
 6. **Push and open a pull request:** click **Publish branch**, then **Create Pull Request**. In the description say
-   what you changed, why, and how you tested it.
+   what you changed, why, and how you tested it. Add a line saying what players will notice: the release notes are
+   written from it, and you're credited by name.
 7. If changes are requested, just make them on the same branch, commit and push again: the pull request updates itself.
 
 Small pull requests (one fix or feature each) get reviewed much faster than big ones.
@@ -57,4 +58,6 @@ that write logs.
 Player zips are built by the maintainer with `python tools/release/build_release.py`. It needs a private capture of a
 real account, which isn't shared, so contributors don't build releases. It writes the release in pieces under 9 MB
 (the main zip the launcher's updater takes, plus `-deps-` zips for UE4SS and the female models) and one `-full` zip;
-its docstring says what to upload.
+its docstring says what to upload. Before writing the notes, `python scripts/changelog_prs.py` lists every PR merged since
+the last release and marks the ones CHANGELOG.md doesn't mention yet; every one gets a line, and contributors are
+thanked by name.

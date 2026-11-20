@@ -18,6 +18,9 @@ issue number, what was verified and what wasn't).
 - One branch and one PR per issue (`fix/<issue>-<slug>`, `feat/<issue>-<slug>`), opened against upstream `master`
   with `Fixes #N`. The PR body says what was wrong, what changed, and how it was tested, including what was **not**
   tested in game.
+- Release notes (CHANGELOG.md) come from `python scripts/changelog_prs.py`, not from memory: it lists every PR merged
+  since the last release and flags the ones the changelog doesn't mention yet (by PR or issue number). Each bullet
+  names its PR or issue, and work by anyone but the maintainers says "thanks <user>" (#199).
 - CI (`.github/workflows/check.yml`) runs `scripts/luacheck.py` on every Lua file and compiles every Python file.
 
 ## Checks before a PR
