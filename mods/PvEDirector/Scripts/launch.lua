@@ -78,6 +78,71 @@ local function hookCaptainButton()
     if ok then captainHooked = fn:GetAddress() else log("couldn't hook the captain's launch button") end
 end
 
+-- Co-op, direct host and join (#201) ---------------------------------------------------------------------------------
+-- The launcher's CO-OP box writes these. coop_host.txt "on": your raids open as a listen server (?listen), so friends
+-- can join on UDP 7777. coop_join.txt "<host[:port]>": once, at the main menu, connect to that host's raid; the file
+-- is deleted as it's read, so a failed join (or coming home from the raid) doesn't try again.
+local COOP_HOST = PROJECT .. "config/coop_host.txt"
+local COOP_JOIN = PROJECT .. "config/coop_join.txt"
+local JOIN_AFTER = 4 -- seconds at the menu first: the stand-in login and the menu's own setup
+local joinSeenAt -- os.clock() the menu was first seen with a join pending
+
+local function firstLine(path)
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local line = f:read("l")
+    f:close()
+    return line and line:match("^%s*(.-)%s*$") or nil
+end
+
+local function hosting() return firstLine(COOP_HOST) == "on" end
+
+-- The host's GameMode reads PNAME through FBase64::Decode and refuses a join whose PNAME doesn't decode ("PlayerNick
+-- is null", NOTES.md "Co-op join works", #26).
+local function base64(s)
+    local abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+    local out = {}
+    for i = 1, #s, 3 do
+        local a, b, c = s:byte(i, i + 2)
+        local n = (a << 16) | ((b or 0) << 8) | (c or 0)
+        for k = 0, 3 do
+            local v = (n >> (18 - 6 * k)) & 63
+            out[#out + 1] = (k <= 1 or (k == 2 and b) or (k == 3 and c)) and abc:sub(v + 1, v + 1) or "="
+        end
+    end
+    return table.concat(out)
+end
+
+-- Your name as your stand-in knows it (guild.lua reads it the same way).
+local function myName()
+    local f = io.open(require("pvebackend") .. "state.json", "r")
+    if not f then return nil end
+    local text = f:read("a")
+    f:close()
+    return text:match('"display_name"%s*:%s*"([^"\\]*)"')
+end
+
+-- From M.update at the main menu: the pending join, once it's due.
+local function joinPending(pc)
+    local w = pc:GetWorld()
+    if not (valid(w) and w:GetFullName():find("/Maps/MainMenu", 1, true)) then joinSeenAt = nil return end
+    local addr = firstLine(COOP_JOIN)
+    if not addr or addr == "" then joinSeenAt = nil return end
+    joinSeenAt = joinSeenAt or os.clock()
+    if os.clock() - joinSeenAt < JOIN_AFTER then return end
+    joinSeenAt = nil
+    os.remove(COOP_JOIN)
+    if not addr:find(":", 1, true) then addr = addr .. ":7777" end
+    local nick = myName() or "Marauder"
+    -- PID and the other ids: anything but the host's own (offline1); a fresh one per join. CREW as the bridge's tested
+    -- join (its own crew); whether co-op players should share the host's crew is open (#200).
+    local id = ("%08x"):format(math.random(0, 0x7fffffff))
+    local cmd = "open " .. addr .. "?PID=offline-" .. id .. "?PNAME=" .. base64(nick) .. "?CREW=coop-" .. id
+        .. "?CPT=1?NUM=1?EOS=offline-" .. id .. "?UPN=offline-" .. id
+    log(("co-op: joining %s as %s"):format(addr, nick))
+    StaticFindObject("/Script/Engine.Default__KismetSystemLibrary"):ExecuteConsoleCommand(pc, cmd, pc)
+end
+
 local function launchMatch(pc)
     local m = mm
     mm = nil
@@ -100,7 +165,10 @@ local function launchMatch(pc)
     -- your crew's wages for this raid (hire.lua): who isn't paid stays home
     local okw, errw = pcall(Hire.payWages, pc)
     if not okw then log("crew wages: " .. tostring(errw)) end
-    launching = { pc = pc, at = os.clock() + 0.3, cmd = "open /Game/Maps/" .. m.map .. RAID_OPTS .. Rivals.shipOption(launchShip) }
+    local listen = hosting() and "?listen" or "" -- co-op host (#201): friends can join this raid
+    if listen ~= "" then log("co-op: hosting this raid (listen server, UDP 7777)") end
+    launching = { pc = pc, at = os.clock() + 0.3,
+        cmd = "open /Game/Maps/" .. m.map .. listen .. RAID_OPTS .. Rivals.shipOption(launchShip) }
 end
 
 -- Space start: black screen until aboard (see CFG.REVEAL_DELAY).
@@ -195,6 +263,10 @@ end
 -- From main.lua's update: the offline search is over.
 function M.update(pc)
     if mm and os.clock() >= mm.at then launchMatch(pc) end
+    if not mm and not launching then
+        local ok, err = pcall(joinPending, pc)
+        if not ok then log("co-op join: " .. tostring(err)) end
+    end
 end
 
 M.offlineBackend, M.hookCaptainButton, M.veilUntilAboard = offlineBackend, hookCaptainButton, veilUntilAboard

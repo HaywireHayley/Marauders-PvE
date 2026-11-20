@@ -4153,6 +4153,32 @@ hash), and the host's stand-in logged no request from the joiner. `tools/test_st
 Not tested: the joiner extracting or dying (whether loot and losses land in its own save the way they do for the
 host), a joiner on another PC (the scripts assume both copies on one machine), N > 2.
 
+### Direct host and join from the launcher (2026-11-19, evening; launch.lua, launcher CO-OP, #201)
+
+Decision (#201): direct host/join first; the game's own lobby and party flow later, if ever.
+
+- Launcher: **CO-OP** button in the saves header (the settings column is full at 150 %, #147) opens a dialog: "Host:
+  friends can join my raids" writes `config/coop_host.txt` (on/off); it lists this PC's IPv4 addresses
+  (`socket.getaddrinfo(gethostname())`, LAN and virtual adapters); "Join a friend's raid" + JOIN writes the one-shot
+  `config/coop_join.txt` (and `coop_last.txt` to refill the box) and starts the selected save like PLAY. A plain PLAY
+  deletes a leftover join file.
+- Director, launch.lua: `launchMatch` adds `?listen` to the raid URL when hosting (log "co-op: hosting this raid").
+  `M.update` at the main menu: with `coop_join.txt` present for 4 s, deletes it and runs `open <addr>[:7777]?PID=
+  offline-<random>?PNAME=<base64 of the stand-in's display_name>?CREW=coop-<random>...` (log "co-op: joining").
+  Deleted before connecting, so a failed join or the return from the raid doesn't loop.
+- Tested in game (one PC, two copies, host on a throwaway save): host clicked PLAY on the splash, closed the Guide,
+  START RAID -> "co-op: hosting this raid", Space_Alpha, UDP 0.0.0.0:7777 owned by the game. Joiner started with
+  `coop_join.txt` = `127.0.0.1`: "co-op: joining 127.0.0.1:7777 as Marauder2" on its splash screen, file gone, the host
+  sees a remote controller at once; the joiner's pawn came ~50 s later, **aboard its own ship** about 330 m from the
+  host's, veil "YOU'RE ABOARD", ping 14 ms, gate countdown on its HUD. Launcher: `test_ui.py` covers the dialog (opens
+  centred with the grab), the Host box, JOIN writing the file and starting with the address, PLAY clearing a leftover.
+- Not tested: the launcher's JOIN button with a real game start (the file it writes was used by hand), a second PC or
+  a virtual LAN, the Windows firewall prompt on the host, a join while the host is still in its lobby (it should fail
+  back to the joiner's menu), whether the two players should share one crew (each gets its own: CREW=coop-<random>),
+  playing the space raid together.
+- Both copies of the game on one PC read the same `config/`: start the host's raid before writing a join file, or the
+  host joins itself from its menu.
+
 ## Space gate time (2026-11-18; raidtime.lua, docs/internals/SPACE_GATE.md)
 - Request (Discord, ChurchOfHusk_Enjoyer): choose when the space gate arrives (instant, 5, 10, 15 minutes), because the custom
   raid length also moved the gate's countdown. Launcher: "Space gate" slider under "Raid length" (default, instant, 5, 10, 15),
