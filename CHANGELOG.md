@@ -4,7 +4,8 @@ Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Mar
 
 ## Public test, 20 Nov 2026, build 17 (`public-test-20261120.17`)
 
-The co-op joiner gets a working minimap, and fewer small hitches for everyone. On build 1 of 17 Nov or later, the
+The co-op joiner gets a working minimap, women's outfits stop stretching to the floor, and fewer small hitches for
+everyone. On build 1 of 17 Nov or later, the
 launcher's orange **!** installs this one for you, keeping your saves.
 
 ### Fixes
@@ -16,6 +17,10 @@ launcher's orange **!** installs this one for you, keeping your saves.
   (a small stutter). Now it looks a few times at the start, then rarely, and not at all on maps without mines.
 - **Women's hands (#35, PR #255):** the women's fingers were mangled whatever the outfit. The body reshape now fades out
   along the forearm, so the hands are exactly the men's and sit right on their finger bones (and on weapon grips).
+- **Women's outfits stretching to the floor (#10, PR #263):** some women's bodies (Commando, Outlaw, Security, Space
+  Pirate and the soldiers' one-piece outfits) pulled a strip of cloth down to the feet while moving, and dead boarders'
+  legs fanned out into spikes. Making the women's meshes damaged part of their skin weights, tying those vertices to the
+  root bone at the feet. The meshes are made again without that.
 - **Updates bring the big files too (PR #257):** since build 15 the UE4SS library and the women's outfit meshes ship as
   separate dependency zips, and the launcher's update only took the main one. It now downloads the dependency parts that
   changed (checked against their checksums) and installs everything together, with a rollback if anything is missing.
