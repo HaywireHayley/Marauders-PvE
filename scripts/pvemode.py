@@ -4,7 +4,8 @@
     python3 scripts/pvemode.py install                          find the game, write config/game_path.txt, print setup
     python3 scripts/pvemode.py saves                            list saves (* = the one PLAY uses)
     python3 scripts/pvemode.py use <save id>                    pick the save the next game uses
-    python3 scripts/pvemode.py new <name> [--cheat] [--rows N]  make a save
+    python3 scripts/pvemode.py new <name> [options]             make a save: --gear (packed stash), --money
+                                                                (infinite), --cheat (both), --rows N
     python3 scripts/pvemode.py steam on | off                   whether the Steam launch option starts the mod
     python3 scripts/pvemode.py steam-run -- <Steam's %command%> what linux/marauders-offline.sh runs
 
@@ -502,11 +503,12 @@ def main(args):
         return say(f"The next game plays '{rest[0]}'.")
     if cmd == "new":
         if not rest:
-            sys.exit("new <name> [--cheat] [--rows N]")
+            sys.exit("new <name> [--gear] [--money] [--cheat] [--rows N]")
         rows = saves.STASH_H
         if "--rows" in rest:
             rows = int(rest[rest.index("--rows") + 1])
-        sid = saves.create(rest[0], "--cheat" in rest, rows)
+        cheat = "--cheat" in rest  # both: a packed stash and infinite money
+        sid = saves.create(rest[0], cheat or "--gear" in rest, cheat or "--money" in rest, rows)
         with open(SAVE_SETTING, "w", encoding="utf-8") as f:
             f.write(sid + "\n")
         return say(f"Made '{sid}'; the next game plays it.")

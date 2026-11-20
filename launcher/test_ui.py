@@ -33,7 +33,7 @@ with open(L.UPDATE_CHECK_SETTING, "w") as f:
     f.write("off\n")  # no network in tests
 os.makedirs(saves.SAVES)
 FIRST = saves.create("Alpha", False)
-SECOND = saves.create("Bravo", True)
+SECOND = saves.create("Bravo", True, True)
 
 
 def grab(window, name):
@@ -174,6 +174,44 @@ class Window(unittest.TestCase):
                 d.event_generate("<Escape>")
                 settle(self.app)
                 self.assertEqual(dialogs(self.app), [])
+
+    def test_new_save_gear_and_money_are_separate(self):
+        """NEW SAVE (#204): one box for a packed stash, one for infinite money, in any combination."""
+        made = []
+        for gear in (False, True):
+            for money in (False, True):
+                self.app.new_save()
+                settle(self.app)
+                d = dialogs(self.app)[0]
+                boxes = [w for w in d.body.winfo_children() if isinstance(w, L.tk.Checkbutton)]
+                self.assertEqual([b.cget("text") for b in boxes], ["Start with lots of gear (a packed stash)", "Infinite money"])
+                for box, on in zip(boxes, (gear, money)):
+                    if on:
+                        box.invoke()
+                name = [w for w in d.body.winfo_children() if isinstance(w, L.tk.Entry)][0]
+                name.delete(0, "end")
+                name.insert(0, f"Combo {gear} {money}")
+                name.event_generate("<Return>")
+                settle(self.app)
+                self.assertEqual(dialogs(self.app), [])
+                sid = self.app.selected
+                made.append(sid)
+                state = saves._read(os.path.join(saves.SAVES, sid, "state.json"))
+                meta = saves._meta(sid)
+                stash = len(state["storage"]["inventory"])
+                with self.subTest(gear=gear, money=money):
+                    self.assertEqual(bool(state.get("cheat")), money)
+                    self.assertEqual(meta["cheat"], money)
+                    self.assertEqual(meta["gear"], gear)
+                    self.assertEqual(stash > 20, gear, f"{stash} items in the stash")
+                    self.assertEqual("social" in state["storage"], gear, "a packed stash skips the new-player kit")
+                    listed = [s for s in saves.listing() if s["id"] == sid][0]
+                    self.assertEqual(listed["cash"], saves.CHEAT_CASH if money else saves.NEW_PLAYER_CASH if gear else 0)
+                    self.assertEqual(bool(listed.get("cheat")), money, "the CHEAT tag means infinite money only")
+        for sid in made:
+            saves.delete(sid)
+        self.app.selected = FIRST
+        self.app.refresh()
 
     def test_coop_host_box_and_join(self):
         """CO-OP (#201): the Host box writes coop_host.txt; JOIN writes the one-shot coop_join.txt and starts the selected

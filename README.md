@@ -102,8 +102,8 @@ python3 scripts/pvemode.py saves
 python3 scripts/pvemode.py new "Test save" --cheat
 ```
 
-`saves` lists them (`*` marks the one PLAY uses), `use <id>` picks one, `new <name>` makes one (`--cheat` for a full
-stash and infinite money).
+`saves` lists them (`*` marks the one PLAY uses), `use <id>` picks one, `new <name>` makes one (`--gear` for a full
+stash, `--money` for infinite money, `--cheat` for both).
 
 **Back to the online game:** clear the launch option, or switch the mod off and keep the launch option for later:
 

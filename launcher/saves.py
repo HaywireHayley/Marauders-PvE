@@ -26,6 +26,7 @@ ITEMS = os.path.join(ROOT, "assets", "saves", "items.json")
 # that when the account has no social/created yet, which a fresh save never has (the seed carries none). The launcher
 # used to add its own 10,000 and a P08 kit on top, so the bank showed 10,000 and then jumped to 75,000 (issue #56).
 START_CASH = 0
+NEW_PLAYER_CASH = 65000       # what the game's new-player setup gives (a gear save skips that setup)
 CHEAT_CASH = 999999999       # the stand-in also puts it back after every purchase (cheat saves)
 STASH_W, STASH_H = 10, 15
 # Rows a new save may ask for (the width is the game's own 10). The game indexes stash cells with a byte, so past
@@ -282,24 +283,28 @@ def listing():
     return sorted(out, key=lambda s: -s.get("played", 0))
 
 
-def create(name, cheat, rows=STASH_H):
-    """A new save. Its stash height is fixed from here on: changing it under items the game has placed is asking for trouble."""
+def create(name, gear=False, money=False, rows=STASH_H):
+    """A new save. gear: start from a packed stash instead of the new-player pistol. money: infinite money (meta's
+    "cheat", which the panel toggle can switch later; the starting gear can't be changed later). Its stash height is
+    fixed from here on: changing it under items the game has placed is asking for trouble."""
     rows = int(rows)
     if not STASH_MIN <= rows <= STASH_MAX:
         raise ValueError(f"stash rows must be {STASH_MIN}-{STASH_MAX}")
     items = _read(ITEMS)
     state = _fresh(name)
-    if cheat:
+    if gear:
+        _stacked(state, items, rows)
+        _set_up_already(state)  # no new-player kit landing on top of the packed stash...
+        _stat(state, "cash", NEW_PLAYER_CASH)  # ...but its money, so a gear-only save still has normal cash
+    if money:
         state["cheat"] = True
         _stat(state, "cash", CHEAT_CASH)
-        _stacked(state, items, rows)
-        _set_up_already(state)
     sid = _slug(name)
     folder = os.path.join(SAVES, sid)
     os.makedirs(folder)
     _write(os.path.join(folder, "state.json"), state)
-    _write(os.path.join(folder, "meta.json"), {"name": name, "cheat": cheat, "stash_rows": rows, "created": time.time(),
-                                               "played": time.time()})
+    _write(os.path.join(folder, "meta.json"), {"name": name, "cheat": bool(money), "gear": bool(gear), "stash_rows": rows,
+                                               "created": time.time(), "played": time.time()})
     return sid
 
 
