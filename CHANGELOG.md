@@ -2,6 +2,21 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 20 Nov 2026, build 15 (`public-test-20261120.15`)
+
+Inventory cells that stayed "occupied" after you moved an item are freed again. On build 1 of 17 Nov or later, the
+launcher's orange **!** installs this one for you, keeping your saves.
+
+### Fixes
+
+- **Inventory desync (#249, PR #250):** moving items could leave the cells they came from "occupied", so nothing fit
+  there, and moving more could stack, duplicate or lose items. Each cell of the inventory grid points at the item
+  covering it, and the game sometimes leaves a cell pointing at an item that has moved away or is gone. While your
+  inventory or stash is open, those cells are now cleared about once a second. Thanks to H1tSc4n for the report.
+- **Items lost in the hidden right pocket (#249, PR #250):** the game has a second pocket it never shows. The mod put
+  ammo and mine-defusing loot there in some cases since build 10, where it was invisible and stuck. It no longer does,
+  and anything already there is moved to your stash at launch.
+
 ## Public test, 20 Nov 2026, build 14 (`public-test-20261120.14`)
 
 No more slabs of ground and girders floating in space by Rebel Base. On build 1 of 17 Nov or later, the launcher's
