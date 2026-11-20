@@ -483,7 +483,10 @@ STASH_COLS, STASH_ROWS_DEFAULT, STASH_ROWS_MAX = 10, 15, 25
 # Equipment slots that hold one item (pockets and the stash are grids; a number is a bag, rig or box item's own grid).
 ONE_ITEM_SLOTS = {"Head", "Chest", "Legs", "Rig", "Bag", "Prim", "Sec", "Pistol", "Melee", "KeyCard", "Ship",
                   "GuildBadge"}
-POCKETS, POCKET_SIDE = ("PocketLeft", "PocketRight"), 2
+POCKETS, POCKET_SIDE = ("PocketLeft",), 2
+# PocketRight is in the inventory, but the game never shows its grid: anything there is invisible and stuck (the mod
+# put loot and ammo there in builds 10-14). It all goes to the stash.
+HIDDEN_CONTAINERS = ("PocketRight",)
 
 
 def repair_inventory():
@@ -540,6 +543,7 @@ def repair_inventory():
                 misplaced.append(it)
             else:
                 held.update((c, it[0]) for c in cells)
+    misplaced += [it for it in items if it[1][7] in HIDDEN_CONTAINERS]
     moved = []
     for key, f, _ in misplaced:
         f = list(f)
@@ -568,7 +572,7 @@ def repair_inventory():
     if moved:
         shutil.copyfile(STATE, STATE.replace("state.json", "state.before-repair.json"))
         save_state(state)
-        log(f"inventory repair: {len(moved)} item(s) were on top of others: " + "; ".join(moved))
+        log(f"inventory repair: {len(moved)} item(s) on top of others or out of sight moved: " + "; ".join(moved))
     return moved
 
 
