@@ -14,17 +14,29 @@
 -- salvage key) opens the same board. Clear it and the mine goes quiet (Active? false, lights off) and comes apart: its
 -- fuse and powder go into your pockets. Lose and it goes off through its own explosion (ExecuteUbergraph entry 15:
 -- radial damage, mesh hidden, destroyed; spacefx.lua adds the blast and sound), its reach stretched to your ship.
+-- Nuclear mines (#197, the third part): Nuclear_NodeMine_C, the same SubNodeActorMine_C with Base Damage 1000 within
+-- 10 m, falling off to 25 m. Defused in place from the helm like a small one (towing one home to the hold is still to
+-- come), on a bigger board with more charges and more time. Win: a fuse and high-grade powder into your pocket, and the
+-- nuclear material (3 x 3, too big for a pocket) sent to your gift box through the stand-in (gifts_in.txt), to claim in
+-- the lobby. Lose: its blast, stretched to your ship like a small one's: 1000 hull damage, more than a starter frigate has.
 local M = {}
 local X -- log, valid, lib, menuClosed
 local Pockets = require("pockets")
 
 local CFG = {
-    SIZE = 6, MINES = 6, TIME = 75,  -- the board and its timer (s)
+    BOARDS = {                       -- board side, hidden charges, seconds, per kind of mine
+        station = { size = 6, mines = 6, time = 75 },
+        small = { size = 6, mines = 6, time = 75 },
+        nuclear = { size = 8, mines = 12, time = 120 },
+    },
     REACH = 170,                     -- cm from your feet to a mine you can work on (its trigger sphere is 30 cm)
     SCAN_EVERY = 20,                 -- s between looks for mines on foot (a FindAllOf)
     TOOL = "ToolKit",                -- the item row you need on you
     LOOT = { { "AP_Mine", 1 }, { "Gunpowder", 2 } }, -- what a defused mine leaves (row, stack)
     SPACE_CLASS = "Small_NodeMine_C",
+    NUCLEAR_CLASS = "Nuclear_NodeMine_C",
+    NUCLEAR_LOOT = { { "Fuse", 1 }, { "HiGunpowder", 3 } },
+    NUCLEAR_GIFT = "NuclearMaterial", -- into the gift box (3 x 3: no pocket holds it)
     SPACE_REACH = 3000,              -- cm from your ship to a space mine you can work on from the helm
     SPACE_SCAN_EVERY = 60,           -- s between looks for space mines while you fly (they don't move)
     SPACE_LOOT = { { "Fuse", 1 }, { "Gunpowder", 3 }, { "Chemicals", 1 } },
@@ -161,7 +173,7 @@ end
 
 -- The board ---------------------------------------------------------------------------------------------------------
 local function neighbours(i, f)
-    local n = CFG.SIZE
+    local n = board.n
     local r, c = (i - 1) // n, (i - 1) % n
     for dr = -1, 1 do
         for dc = -1, 1 do
@@ -173,10 +185,10 @@ end
 
 -- Charges are laid on the first reveal, never under it or next to it (so the first click always opens an area).
 local function lay(first)
-    local n, safe, pool = CFG.SIZE * CFG.SIZE, { [first] = true }, {}
+    local n, safe, pool = board.n * board.n, { [first] = true }, {}
     neighbours(first, function(j) safe[j] = true end)
     for i = 1, n do if not safe[i] then pool[#pool + 1] = i end end
-    for _ = 1, CFG.MINES do
+    for _ = 1, board.mines do
         local k = math.random(#pool)
         board.charge[pool[k]] = true
         table.remove(pool, k)
@@ -217,6 +229,16 @@ local function close(pc)
     if X.valid(pc) then pcall(X.menuClosed, pc) end
 end
 
+-- A row into the gift box (claimed in the lobby's GIFTS): the stand-in picks gifts_in.txt up within a second.
+local function sendGift(row)
+    local ok = pcall(function()
+        local f = assert(io.open(require("pvebackend") .. "gifts_in.txt", "a"))
+        f:write(row, "\n")
+        f:close()
+    end)
+    return ok
+end
+
 -- A space mine goes off on its own: radial damage from its place, reaching your ship, then its mesh hides and it's
 -- destroyed (spacefx.lua makes the blast and sound for a hidden mine).
 local function spaceBlast(mine, ship)
@@ -224,23 +246,26 @@ local function spaceBlast(mine, ship)
         local a, b = mine:K2_GetActorLocation(), ship:K2_GetActorLocation()
         local d = math.sqrt((a.X - b.X) ^ 2 + (a.Y - b.Y) ^ 2 + (a.Z - b.Z) ^ 2)
         mine["Damage Radius_Maximum"] = math.max(mine["Damage Radius_Maximum"] or 0, d + CFG.SPACE_BLAST_REACH)
+        -- full damage at your ship: with only the outer radius stretched, a nuclear mine 20 m off did nothing (its
+        -- falloff past the 10 m inner radius came out at 0), while a small one did its full 500
+        mine["Damage Radius_Inner"] = math.max(mine["Damage Radius_Inner"] or 0, d + CFG.SPACE_BLAST_REACH)
     end
     mine:ExecuteUbergraph_SubNodeActorMine(15)
 end
 
 local function finish(pc, won, why)
-    local mine, kind = board.mine, board.kind
-    close(pc)
-    if not X.valid(mine) then return end
+    local mine, kind, nuclear = board.mine, board.kind, board.nuclear
+    if not X.valid(mine) then return close(pc) end
     if won then
-        local given
+        local given, gift
         if kind == "space" then
             mine["Active?"] = false
             pcall(function() mine.PulsingLight:Stop() end)
             pcall(function() mine.MineRotation:Stop() end)
             pcall(function() mine.PL_Top:SetIntensity(0) end)
             pcall(function() mine.PL_Bot:SetIntensity(0) end)
-            given = giveLoot(pc, CFG.SPACE_LOOT)
+            given = giveLoot(pc, board.nuclear and CFG.NUCLEAR_LOOT or CFG.SPACE_LOOT)
+            if board.nuclear then gift = sendGift(CFG.NUCLEAR_GIFT) end
         else
             mine.Active = false
             pcall(function() mine:Stop_LightEffect() end)
@@ -248,12 +273,15 @@ local function finish(pc, won, why)
             pcall(function() mine.ParticleSystem:Deactivate() end)
             given = giveLoot(pc, CFG.LOOT)
         end
+        close(pc)
         pcall(function() mine:K2_DestroyActor() end) -- (its mesh is still shown, so spacefx makes no blast)
-        X.log(("defuse: %s mine defused, loot %s"):format(kind,
-            #given > 0 and table.concat(given, ", ") or "none (pockets full)"))
-        say(pc, #given > 0 and "Defused. The parts are in your pockets" or "Defused. No room in your pockets for the parts")
+        X.log(("defuse: %s%s mine defused, loot %s%s"):format(nuclear and "nuclear " or "", kind,
+            #given > 0 and table.concat(given, ", ") or "none (pockets full)", gift and (", " .. CFG.NUCLEAR_GIFT .. " to the gift box") or ""))
+        say(pc, (#given > 0 and "Defused. The parts are in your pockets" or "Defused. No room in your pockets for the parts")
+            .. (gift and ". The nuclear material is in your gift box" or ""))
     else
-        X.log(("defuse: %s mine, failed (%s), it goes off"):format(kind, why))
+        close(pc)
+        X.log(("defuse: %s%s mine, failed (%s), it goes off"):format(nuclear and "nuclear " or "", kind, why))
         if kind == "space" then
             pcall(spaceBlast, mine, pc.Pawn)
         else
@@ -262,11 +290,18 @@ local function finish(pc, won, why)
     end
 end
 
+local function isNuclear(m)
+    local ok, n = pcall(function() return m:GetClass():GetFName():ToString() end)
+    return ok and n == CFG.NUCLEAR_CLASS
+end
+
 local function open(pc, mine, kind)
     local h = host(pc)
     if not h then return X.log("defuse: no host widget") end
     local tree, root = h.WidgetTree, h.WidgetTree.RootWidget
-    local n = CFG.SIZE
+    local nuclear = kind == "space" and isNuclear(mine)
+    local spec = CFG.BOARDS[kind == "station" and "station" or nuclear and "nuclear" or "small"]
+    local n = spec.size
     local side = n * CELL + (n - 1) * GAP
     local W, H = side + 40, side + 170
     local sw, sh, scale = screen(pc)
@@ -274,10 +309,10 @@ local function open(pc, mine, kind)
     local bg = make(tree, "Border")
     bg:SetBrushColor({ R = 0.03, G = 0.03, B = 0.04, A = 0.94 })
     place(root, bg, x0, y0, W, H)
-    place(root, text(tree, "Defuse the mine", 18), x0 + 20, y0 + 10, W - 40, 28)
+    place(root, text(tree, nuclear and "Defuse the nuclear mine" or "Defuse the mine", 18), x0 + 20, y0 + 10, W - 40, 28)
     local status = text(tree, "", 13)
     place(root, status, x0 + 20, y0 + 40, W - 40, 22)
-    board = { host = h, mine = mine, kind = kind, cells = {}, open = {}, flag = {}, charge = {}, count = {}, opened = 0,
+    board = { host = h, mine = mine, kind = kind, nuclear = nuclear, n = n, mines = spec.mines, time = spec.time, cells = {}, open = {}, flag = {}, charge = {}, count = {}, opened = 0,
               laid = false, flagMode = false, started = os.clock(), status = status }
     for i = 1, n * n do
         local r, c = (i - 1) // n, (i - 1) % n
@@ -296,7 +331,7 @@ local function open(pc, mine, kind)
     local back = make(tree, "Button")
     back:AddChild(text(tree, "Back away", 13))
     place(root, back, x0 + 20 + (side + 10) / 2, by, (side - 10) / 2, 32)
-    local help = text(tree, ("%d charges. Clear every safe cell; a number counts the charges around it."):format(CFG.MINES), 11)
+    local help = text(tree, ("%d charges. Clear every safe cell; a number counts the charges around it."):format(spec.mines), 11)
     pcall(function() help:SetAutoWrapText(true) end)
     place(root, help, x0 + 20, by + 40, W - 40, 40)
     board.flag_b, board.flagText, board.back = { b = flag }, flagText, { b = back }
@@ -319,10 +354,10 @@ local function tick(pc)
     if not X.valid(board.host) then board = nil return end
     if context(pc) ~= board.kind then return close(pc) end -- (you left the helm, or fell: the board goes, input comes back)
     if not armed(board.kind, board.mine) then return close(pc) end
-    local left = CFG.TIME - (os.clock() - board.started)
+    local left = board.time - (os.clock() - board.started)
     if left <= 0 then return finish(pc, false, "out of time") end
     board.status:SetText(FText(("Time %d s   Cleared %d of %d"):format(math.ceil(left), board.opened,
-        CFG.SIZE * CFG.SIZE - CFG.MINES)))
+        board.n * board.n - board.mines)))
     if pressed(board.back) then
         X.log("defuse: backed away")
         return close(pc)
@@ -340,7 +375,7 @@ local function tick(pc)
                 if not board.laid then lay(i) board.laid = true end
                 reveal(i)
                 if board.charge[i] then return finish(pc, false, "hit a charge") end
-                if board.opened >= CFG.SIZE * CFG.SIZE - CFG.MINES then return finish(pc, true) end
+                if board.opened >= board.n * board.n - board.mines then return finish(pc, true) end
             end
         end
     end
@@ -356,8 +391,10 @@ function M.update(pc)
         scanKind = kind
         scanAt = now + (kind == "space" and CFG.SPACE_SCAN_EVERY or CFG.SCAN_EVERY)
         mines = {}
-        for _, m in ipairs(FindAllOf(kind == "space" and CFG.SPACE_CLASS or "MineStaticActor_C") or {}) do
-            if X.valid(m) then mines[#mines + 1] = m end
+        for _, cls in ipairs(kind == "space" and { CFG.SPACE_CLASS, CFG.NUCLEAR_CLASS } or { "MineStaticActor_C" }) do
+            for _, m in ipairs(FindAllOf(cls) or {}) do
+                if X.valid(m) then mines[#mines + 1] = m end
+            end
         end
     end
     near, nearKind = nil, nil
@@ -379,7 +416,8 @@ function M.update(pc)
     if not near then return say(pc, nil) end
     nearKind = kind
     local key = kind == "space" and "R" or "F"
-    say(pc, carried().tool and (key .. "   Defuse the mine") or "A mine. You need a ToolKit to defuse it")
+    local what = kind == "space" and isNuclear(near) and "nuclear mine" or "mine"
+    say(pc, carried().tool and (key .. "   Defuse the " .. what) or ("A " .. what .. ". You need a ToolKit to defuse it"))
 end
 
 -- F on foot, R at the helm (main.lua's key binds, on the game thread): opens the board by an armed mine.

@@ -4610,3 +4610,20 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
 - Not verified: them fighting you there (no fight came in a minute; the bridge's LineOfSightTo read false at every spot
   tried, so the test was inconclusive; and god mode sets bCanBeDamaged false, which they may ignore), and the game's own
   Capital crew being adopted (it didn't spawn on these runs: "0 placed NPC(s) to adopt").
+
+## Nuclear mines defused in place (#197 part 3, 2026-11-20; defuse.lua)
+- Nuclear_NodeMine_C is the same SubNodeActorMine_C as the small one (Base Damage 1000, Damage Radius_Inner 1000,
+  Maximum 2500; Space_Alpha has 18). Same prompt and key (R at the helm, within 30 m; "R   Defuse the nuclear mine"),
+  a bigger board: CFG.BOARDS = station 6x6/6/75 s, small 6x6/6/75 s, nuclear 8x8/12/120 s.
+- Win: a Fuse (2x1) and 3 HiGunpowder (1x2, rotated into the free row) into the pocket; NuclearMaterial (3x3, too big for
+  any pocket) appended to the stand-in's gifts_in.txt (require("pvebackend") .. "gifts_in.txt"); the stand-in puts it
+  in the gift box within a second ("gifts: ['NuclearMaterial'] in the gift box").
+- Lose: the mine's own explosion (ExecuteUbergraph entry 15) with Damage Radius_Maximum AND Damage Radius_Inner
+  stretched to your ship + 5 m. With only the outer radius stretched, a nuclear mine 20 m off did 0 hull damage (its
+  falloff past the 10 m inner radius); with both, hull 575 -> 0, LifeSupportDestroyed, the ship disabled and burning
+  (the issue's "ship death").
+- **Test hazard: god mode (bridge/god.txt) sets bCanBeDamaged false on whatever you control, which at the helm is your
+  ship:** with it on, no mine blast hurt the hull (that's why a later small-mine test read 0). Test ship damage with it
+  off.
+- Verified in game (Space_Alpha, real R and clicks, ToolKit in a bag): nuclear board 8x8 "Cleared 0 of 52", won (loot
+  and gift as above), lost (hull 0). Not done yet for #197: towing a nuclear mine home to the hold.
