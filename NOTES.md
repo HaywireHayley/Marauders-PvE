@@ -4153,6 +4153,26 @@ hash), and the host's stand-in logged no request from the joiner. `tools/test_st
 Not tested: the joiner extracting or dying (whether loot and losses land in its own save the way they do for the
 host), a joiner on another PC (the scripts assume both copies on one machine), N > 2.
 
+## Ship speed: a faster Rustbucket and a boost at the helm (#207, 2026-11-19; shipspeed.lua)
+- Measured (Space_Alpha, `pc:Possess(Ship_StarterFrigate01_Pawn_C)` from Lua, W held through keybd_event): the top
+  speed is `CharacterMovement.MaxFlySpeed` exactly (1000 cm/s, reached in ~4 s). Class defaults (GetCDO): Rustbucket,
+  Scout, Frigate 1000 / MaxAcceleration 256; Fast and VIP 1100 / 512; Red Baron strike frigate 1200 / 512; Capital
+  1000 / 512; drop pod 800 / 1024. Rival Rustbuckets are Scout pawns, so `Ship_StarterFrigate01_Pawn_C` is only ever
+  the player's ship.
+- The pod's boost is native on ARaidSpaceship (`ServerBoost`, BoostLength 4, CooldownBoostLength 12, IsBoosting);
+  frigates are ARaidFrigate and have none.
+- Base: the Rustbucket gets MaxFlySpeed x1.25 and MaxAcceleration x1.5 while you fly it (shipspeed.lua, every director
+  update). Measured after: top speed 1250, MaxAcceleration 384.
+- Boost: Space at the helm of any frigate (this UE4SS has no Shift key in `Key`, only `ModifierKey.SHIFT`; Space and X
+  did nothing at the helm, checked). 4 s at MaxFlySpeed x1.8, then a 12 s cooldown. Raising MaxFlySpeed alone was
+  nearly useless (1250 -> 1440 cm/s over 4 s: the speed builds slowly, not by MaxAcceleration), so the boost also sets
+  `CharacterMovement.Velocity` to the new top speed along the direction of travel. Measured: 1250 -> 2204 at once,
+  ~2000 at the end of the 4 s, back to 1250 within ~4 s after. A second press during the cooldown does nothing (a
+  "recharging" message).
+- Testing pitfall: the director's own 0.5 s update puts the speeds back, so hand-written values in a probe are undone.
+- Not checked: how it feels with a real pilot (by eye, turning at 2200), docking or breaching right after a boost, the
+  `ClientMessage` notices, co-op (a joiner's boost would be undone by the host's movement), crew AI flying.
+
 ## Space gate time (2026-11-18; raidtime.lua, docs/internals/SPACE_GATE.md)
 - Request (Discord, ChurchOfHusk_Enjoyer): choose when the space gate arrives (instant, 5, 10, 15 minutes), because the custom
   raid length also moved the gate's countdown. Launcher: "Space gate" slider under "Raid length" (default, instant, 5, 10, 15),

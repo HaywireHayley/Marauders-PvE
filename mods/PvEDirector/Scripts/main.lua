@@ -209,6 +209,7 @@ local Launch = require("launch") -- offline matchmaking, the map travel, the loa
 local Space = require("space") -- space maps: pod guns, docking, level effects, key card, sun, your ship's navmesh
 local DebugActions = require("debugactions") -- the debug menu's buttons (F9) and god mode
 local RaidTime = require("raidtime") -- the launcher's raid length (#159)
+local ShipSpeed = require("shipspeed") -- a faster Rustbucket and a boost at the helm (#207)
 local Blowtorch = require("blowtorch") -- the blowtorch burns a vault door's three locks offline
 local BulletHoles = require("bulletholes") -- bullet holes in walls and floors, which the offline game never makes
 AI.init({ log = log, valid = valid, dist = dist })
@@ -869,6 +870,7 @@ function resetRaid(worldKey)
     -- rebuilt them for the new raid, and IsValid on a freed object reads freed memory (the UE4SS access violations while
     -- a raid loaded: the crew's name-tag widget, the last raid's turrets).
     Gunseat.reset()
+    ShipSpeed.reset()
     if Rivals then Rivals.reset() end
     if Crew then Crew.reset() end
     if Missions then Missions.reset() end
@@ -958,6 +960,7 @@ Crew = require("crew")
 Interiors.init({ log = log, valid = valid })
 LevelProps.init({ log = log, valid = valid, lib = lib })
 RaidTime.init({ log = log, valid = valid })
+ShipSpeed.init({ log = log, valid = valid })
 Blowtorch.init({ log = log, valid = valid })
 BulletHoles.init({ log = log, valid = valid })
 Crew.init({ rivals = Rivals, hire = Hire, AI = AI, lib = lib, voice = Voice, log = log, valid = valid, dist = dist,
@@ -1168,6 +1171,7 @@ update = function(pc)
     if not (space or worldName:find("/Maps/Raids/", 1, true)) then return end
     raid.space = space
     RaidTime.update() -- the launcher's raid length, once per raid (raidtime.lua, #159)
+    if space then ShipSpeed.update(pc) end -- the Rustbucket's speed and the helm boost (shipspeed.lua, #207)
     if space and not raid.revealed then Launch.veilUntilAboard(pc, world) end
     -- Arriving, the mouse didn't turn the camera until you'd opened and closed the inventory (Tab): the lobby's
     -- mouse-screen input (cursor, game and UI) carried into the raid, and the loading screen sat over the viewport while
@@ -1440,6 +1444,9 @@ RegisterKeyBind(Key.N, function() table.insert(pending, Aux.unlessTyping(Minimap
 RegisterKeyBind(Key.M, function() table.insert(pending, Aux.unlessTyping(Minimap.expand)) end)
 RegisterKeyBind(Key.B, function() table.insert(pending, Aux.unlessTyping(Minimap.next)) end)
 -- Stash hotkeys (invqol.lua): K quick move, J discard (twice) for the item under the mouse. Neither key is bound by the game.
+-- Space at the helm: a boost, like the drop pod's (shipspeed.lua, #207). On foot Space stays the game's jump. (This
+-- UE4SS has no Shift key, only Shift as a modifier; Space does nothing at a frigate's helm, checked.)
+RegisterKeyBind(Key.SPACE, function() table.insert(pending, ShipSpeed.boost) end)
 RegisterKeyBind(Key.K, function() table.insert(pending, function() if InvQol then InvQol.hotkey("move") end end) end)
 RegisterKeyBind(Key.J, function() table.insert(pending, function() if InvQol then InvQol.hotkey("discard") end end) end)
 

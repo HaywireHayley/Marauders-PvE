@@ -255,6 +255,7 @@ CONTROLS = [
     ("K", "Move the item under the mouse between stash and pockets or bags", "LOADOUT, TRADE"),
     ("J", "Discard the item under the mouse (press twice)", "LOADOUT, TRADE"),
     ("Left click", "With a crew gunner aboard: send them after what you aim at", "Flying your ship"),
+    ("Space", "Boost: full speed for 4 s, then 12 s to recharge", "Flying your ship"),
 ]
 
 
