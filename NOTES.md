@@ -4454,3 +4454,31 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
 - Not verified: the damage on a loss without god mode (it's the mine's own, unchanged); a full pocket set; mines in
   station interiors on space maps (the same actor; the scan runs there too); a joiner (co-op).
 - Still to do for #197: space mines (Small_NodeMine_C in place, Nuclear_NodeMine_C towed to the hold), from the ship.
+
+## Items stacked on top of each other in saves (#239, #240, 2026-11-20; nakama_standin.py repair_inventory)
+- Reports (build 10): items moved into gear or the stash vanish or freeze and can't be moved, even after a relaunch
+  (#239); in a raid, discarding a helmet dropped it but it stayed equipped, and each discard dropped another (#240).
+- Both reporters' saves had items on top of each other. #240: three helmets with MotherItemGUID "Head" (a BAHelmet and
+  two RedStahlhelms); the game shows one per slot (`SIGIS_DefaultEquipmentSlotWidget_C` Head had 4 canvas children:
+  three item widgets stacked), so discard dropped the top one and the next showed in its place. #239: a KlobbDrumMag at
+  the same cell as an M45CarlSMG and a FAL over the M45's lower half (footprints from assets/saves/items.json; the
+  game had let new items land on the M45's cells, as if it wasn't there). Every other save here: no overlaps.
+- Item string fields: guid-Row-stack-durability-**column-row**-rotated-mother[-attachments]; column 0-9 in the stash,
+  rotated swaps items.json's w and h. The item object's position is `ItemInSlot` (Column, Row), and `bRotated`.
+- Fix: the stand-in repairs a save at startup. A one-item equipment slot holding more than one keeps the newest
+  (update_time; the one the game showed) and moves the rest to free stash space; stash items whose footprint overlaps
+  an older one's move too (rotated if that's what fits; rows from config/stash_rows.txt, else 15). The save is copied to
+  state.before-repair.json first and the moves are logged ("inventory repair: ..."). Item too big for any free spot:
+  left where it is, logged.
+- Verified in game with a copy of the #240 save (20 stash rows): before, Head showed one Stahlhelm with two hidden
+  helmets under it; after the repair, Head held one, the BAHelmet and the other Stahlhelm lay in the stash, the stash
+  grid's slot widgets matched every stash item's ItemInSlot, and in a raid the game's own Discard emptied Head with one
+  pickup on the floor. The #239 save (25 rows) offline: the drum mag and the FAL moved, a second pass finds nothing.
+- **Not found: how the items got on top of each other.** Ruled out on a clean save: the game's Discard on an equipped
+  vest and Server_DropInHud on an equipped helmet (both leave the slot), Server_SwapItem stash helmet <-> equipped
+  helmet, Server_MoveItem into an equipment slot, and the #29/#233 LOADOUT press (it doesn't rebuild the item widgets:
+  same 53 widget objects before and after). The #240 save's second Stahlhelm came back from a raid already in Head
+  next to the BAHelmet, so it may start in a raid (dropping a picked-up helmet on a filled slot?). Synthetic drags still
+  don't move items (SetCursorPos or absolute mouse_event, even with virtual-desktop coordinates), so a real drag couldn't
+  be tried. Server_SwapItem(GUIDFrom, GUIDTo, MovetypeTo, MovetypeFrom, RequiresMove) and Client_SwapItem(..., MovedToSlot)
+  read from the UFunctions' property chains.
