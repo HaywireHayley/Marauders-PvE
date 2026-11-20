@@ -4,6 +4,7 @@ local Debug = require("debugmenu")
 local Holes = require("bulletholes").CFG -- the bullet holes switch (bulletholes.lua, also F3 Effects)
 local Give = require("debuggive") -- the gun and ammo picker and bottomless mags
 local Unstuck = require("unstuck") -- unstuck and no collision (#198; main.lua runs its update)
+local Outfits = require("outfits") -- the two outfits the Appearance pages never list (#229)
 local M = {}
 
 local log, valid, Aux -- from main.lua (M.init)
@@ -61,7 +62,7 @@ function M.init(ctx)
           help = "You can't be hurt. Stays on until you turn it off",
           run = function() toggleGodMode() return "God mode " .. (godMode() and "on" or "off") end },
         { id = "bulletholes", label = function() return "Bullet holes: " .. (Holes.BULLET_HOLES ~= 0 and "ON" or "off") end,
-          help = "Holes in walls and floors where shots land. Holes already there stay until they fade",
+          help = "Holes where shots land. Old ones stay until they fade",
           run = function()
               Holes.BULLET_HOLES = Holes.BULLET_HOLES ~= 0 and 0 or 1
               log("bullet holes " .. (Holes.BULLET_HOLES ~= 0 and "ON" or "OFF") .. " (debug menu)")
@@ -104,6 +105,8 @@ function M.init(ctx)
     } })
     Debug.addActions(Unstuck.actions(function() return onFootIn("any") and (raid.navReady or raid.space) end))
     Debug.addActions(Give.actions()) -- pick a gun or ammo type and get it, bottomless mags (F9)
+    Outfits.init({ log = log, valid = valid })
+    Debug.addActions(Outfits.actions())
 end
 
 M.godMode = godMode

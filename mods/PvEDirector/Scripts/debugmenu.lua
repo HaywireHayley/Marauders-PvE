@@ -8,6 +8,9 @@ local HOST = "/SIGISPlugin/Widgets/DebugInfo_Widget.DebugInfo_Widget_C"
 local X0, Y0, W = 40, 40, 460
 local TEXT, SMALL = 15, 12
 local ROW = 58
+-- More buttons than this and they go in two columns: one column of 17 ran ~1100 px tall, past the bottom of a 900 or
+-- 1080 px window, and the last buttons (the ammo picker, the lobby's outfit button) couldn't be reached.
+local ONE_COLUMN_MAX = 10
 
 local ui -- { host, tree, root, buttons, status }
 
@@ -52,24 +55,27 @@ local function build(pc)
     ui = { host = host, tree = host.WidgetTree, root = host.WidgetTree.RootWidget, buttons = {} }
     ui.root:ClearChildren()
     local actions = X.actions
-    local H = 60 + #actions * ROW + 56
+    local cols = #actions > ONE_COLUMN_MAX and 2 or 1
+    local rows = math.ceil(#actions / cols)
+    local H = 60 + rows * ROW + 56
     local bg = make("Border")
     bg:SetBrushColor({ R = 0.03, G = 0.03, B = 0.04, A = 0.93 })
-    place(bg, X0, Y0, W, H)
+    place(bg, X0, Y0, W * cols, H)
     place(text("Debug   (F9 closes)", TEXT), X0 + 16, Y0 + 10, W - 32, 26)
-    local y = Y0 + 46
-    for _, a in ipairs(actions) do
+    for i, a in ipairs(actions) do
+        local col, row = (i - 1) // rows, (i - 1) % rows -- down the first column, then the second
+        local x, y = X0 + col * W, Y0 + 46 + row * ROW
         local b = make("Button")
         local t = text(label(a), SMALL)
         b:AddChild(t)
-        place(b, X0 + 16, y, W - 32, 30)
+        place(b, x + 16, y, W - 32, 30)
         local help = text(a.help or "", SMALL, 0.65)
-        place(help, X0 + 20, y + 32, W - 40, 20)
+        place(help, x + 20, y + 32, W - 40, 20)
         ui.buttons[#ui.buttons + 1] = { b = b, text = t, help = help, a = a }
-        y = y + ROW
     end
+    local y = Y0 + 46 + rows * ROW
     ui.status = text(" ", SMALL, 0.85)
-    place(ui.status, X0 + 16, y + 2, W - 32, 20)
+    place(ui.status, X0 + 16, y + 2, W * cols - 32, 20)
     local close = make("Button")
     close:AddChild(text("Close", SMALL))
     place(close, X0 + 16, y + 22, W - 32, 30)
