@@ -1468,6 +1468,17 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
   hold (saves, logs, loadout) aren't touched. Every replaced file is backed up first and restored if a write fails
   (tested with a read-only UE4SS.dll). Files removed from a later release stay behind (harmless so far). Builds 1-3
   have no update.py, so those players update by hand once.
+  - Dependencies (2026-11-20, after #35): since build 20261119 UE4SS.dll and the female meshes are only in the
+    `-deps-*.zip` assets, so an update never brought a remade mesh (the #35 hand fix would have reached nobody who
+    updates). The release zip now holds `deps.json` (part name -> {file: sha256}, written by build_release.py
+    package()). The updater reads it from the downloaded zip, hashes the files here and downloads only the parts that
+    differ (each checked against its GitHub digest), then installs them all as one (shared backup and rollback). The
+    launcher's startup check also repairs: if the installed deps.json doesn't match the files (a build-15-or-older
+    launcher installed the main zip only, or files went missing) it fetches those parts from the installed build's own
+    release (`releases/tags/<tag>`), with PLAY off meanwhile. So the first release with deps.json reaches players in
+    two steps: the old launcher installs the main zip, the restarted new one fetches the parts. Tested with fake
+    releases (file:// URLs: changed part only, unchanged build = main zip only, repair, damaged and missing part) and
+    the real 20261120.15 release's asset list; not yet against a real published release or in the launcher window.
 - Launcher audit fixes (2026-11-16):
   - One launcher at a time: a named mutex (Local\MaraudersOfflineLauncher, single_instance() in launcher.pyw). Before,
     a second launcher opened between PLAY and the game appearing ran settle(): it filed state.json away before the
