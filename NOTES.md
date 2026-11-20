@@ -4589,3 +4589,24 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   "... on top of others or out of sight moved: ...").
 - Not reproduced: the real drag that leaves a stale cell (synthetic drags don't move items). Not verified: invsync on a
   stale cell the game made by itself in a raid (only the lobby's, and hand-made ones).
+
+## Places you board with a pod had no guards handling (#187, #42; 2026-11-20; rivals.lua pointsOfInterest)
+- A station (S.stations) needs a named interior AND docking nodes under its name, or an AI frigate. The Capital Ship on
+  Space_Beta (Capital_Ai_Interior_2, boarded with a pod) has neither, so standing in it R.where() was nil: no garrison,
+  no adoption of the NPCs the level spawns there (their GOAP brains don't run offline: idle, or stuck where they spawned),
+  no stray sweep, no guard roaming. #187's report had "four Capital Ship defenders" spawned by the game there, then
+  stuck moves; #42 is idle AI aboard a POI.
+- Also measured: the Capital Ship has navmesh (floors at Z -740..460, its box centre at Z 1140), but
+  K2_GetRandomReachablePointInRadius from the box centre finds nothing (0/6, every other interior 6/6): the centre is off
+  the navmesh. K2_GetRandomPointInNavigableRadius from points spread over the box's height finds floor points (6/6).
+- Fix: after the survey, named interiors that aren't stations, AI frigates or your own ship become S.pois, with entries
+  (their own, RaidAINodeStart inside, else navigable points from K2_GetRandomPointInNavigableRadius) and no berths.
+  playerPlace checks them after stations, so garrisonStation / sweepStrays / roamGuards run there; crews never dock at
+  them (they aren't in S.stations). Log: "[rivals] boardable places without a dock: Scout Frigate (4k m2, 7 entries),
+  Capital Ship (10k m2, 8 entries), Moon Base (107k m2, 8 entries)".
+- Verified (Space_Beta, teleported into the Capital Ship): "you: in Capital Ship"; "Capital Ship: none of its own
+  defenders, 3 soldiers", "garrison: 3 soldiers coming (2 at AI nodes)", spread pool seeded with 13 points; the three
+  (2 BotPawn_C, 1 BotPawnGuard_C) visible, on the navmesh, controlled and patrolling.
+- Not verified: them fighting you there (no fight came in a minute; the bridge's LineOfSightTo read false at every spot
+  tried, so the test was inconclusive; and god mode sets bCanBeDamaged false, which they may ignore), and the game's own
+  Capital crew being adopted (it didn't spawn on these runs: "0 placed NPC(s) to adopt").

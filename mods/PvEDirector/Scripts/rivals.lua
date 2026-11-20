@@ -630,6 +630,10 @@ local function playerPlace()
     for _, st in ipairs(S.stations) do
         if inBox(st.box, l, CFG.MATERIALIZE_MARGIN) then return st, l end
     end
+    -- A place you board with a pod (the Capital Ship): like a station for its guards, never a place crews dock at.
+    for _, st in ipairs(S.pois or {}) do
+        if inBox(st.box, l, CFG.MATERIALIZE_MARGIN) then return st, l end
+    end
     -- A station's airlock chamber can sit outside its navmesh volume: standing in it you're at that station all the
     -- same (you used to be "nowhere" for a moment, and your crew's bodies were taken away mid-transfer).
     local k = R.inAirlock(l, 100)
@@ -639,6 +643,45 @@ local function playerPlace()
         end
     end
     return nil, l
+end
+
+-- Points of interest (#187, #42): named interiors with a navmesh but no dock and no AI frigate (the Capital Ship on
+-- Space_Beta, boarded with a pod) were no station, so standing in one you were "nowhere": no garrison, and the soldiers
+-- the level spawns there were never adopted (their GOAP brains don't run offline, so they stood idle or stuck). They
+-- get the stations' guard handling (garrisonStation, sweepStrays, roamGuards) through playerPlace, and are kept out of
+-- S.stations, which crews dock at. Entries are walkable points: their box centre is often empty space, off the
+-- navmesh (the Capital Ship's floors are 7-20 m below it), and every spawn search starts from an entry.
+local function pointsOfInterest(pc, interiors, homeInside)
+    local home = valid(homeInside) and homeInside:K2_GetActorLocation() or nil
+    local isStation = {}
+    for _, st in ipairs(S.stations) do isStation[st] = true end
+    local names = {}
+    for _, it in ipairs(interiors) do
+        if it.name and not it.frigate and not isStation[it]
+            and not (home and inBox(it.box, home, 0)) then -- (not your own ship's interior)
+            local kept = {}
+            for _, p in ipairs(it.entries or {}) do if not X.offLimits(p) then kept[#kept + 1] = p end end
+            for _, a in ipairs(FindAllOf("RaidAINodeStart") or {}) do
+                if #kept < 8 and valid(a) and inBox(it.box, a:K2_GetActorLocation()) then kept[#kept + 1] = a:K2_GetActorLocation() end
+            end
+            for _, dz in ipairs({ -0.6, -0.3, 0, 0.3, 0.6 }) do
+                if #kept >= 4 then break end
+                local o = {}
+                local at = { X = it.box.c.X, Y = it.box.c.Y, Z = it.box.c.Z + dz * it.box.e.Z }
+                if Out.call(X.navLib(), "K2_GetRandomPointInNavigableRadius", pc, at, o, math.max(it.box.e.X, it.box.e.Y),
+                    X.navMesh(), X.queryFilter()) and o.X and inBox(it.box, o) then
+                    kept[#kept + 1] = { X = o.X, Y = o.Y, Z = o.Z }
+                end
+            end
+            if #kept > 0 then
+                it.entries, it.berths, it.poi = kept, {}, true
+                it.area = 4 * it.box.e.X * it.box.e.Y / 1e4
+                table.insert(S.pois, it)
+                names[#names + 1] = ("%s (%.0fk m2, %d entries)"):format(it.name, it.area / 1000, #kept)
+            end
+        end
+    end
+    if #names > 0 then X.log("[rivals] boardable places without a dock: " .. table.concat(names, ", ")) end
 end
 
 -- Crew brain -----------------------------------------------------------------------------------------------------
@@ -1321,9 +1364,12 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
         Nav.reset()
         S.pc = pc
         pcall(Bodies.gearCatalog) -- every look loaded now, under the loading veil
-        local ok, st = pcall(survey, pc, valid(homeInside) and homeInside.SpaceshipToPairTo or nil)
+        local ok, st, interiors = pcall(survey, pc, valid(homeInside) and homeInside.SpaceshipToPairTo or nil)
         if not ok then X.log("[rivals] station survey failed: " .. tostring(st)) end
         S.stations = ok and st or {}
+        S.pois = {}
+        local okP, errP = pcall(pointsOfInterest, pc, ok and interiors or {}, homeInside)
+        if not okP then X.log("[rivals] points of interest failed: " .. tostring(errP)) end
         -- Crews arrive at and leave by these; some sit on a station's roof.
         for _, station in ipairs(S.stations) do
             local kept = {}
