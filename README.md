@@ -133,6 +133,7 @@ The game's own controls are unchanged. The mod adds (the launcher's CONTROLS but
 | **J** | Discard the item under the mouse (press twice); in a raid, drop it on the floor | Lobby (LOADOUT, TRADE), raid |
 | **F2** | Play as a woman or a man (also a launcher setting) | Anywhere |
 | **Left click** | While flying with a crew gunner aboard: send them after the ship or space turret nearest the middle of your view. Click empty space to send them back to whoever is attacking you | Flying your ship |
+| **Space** | Boost: your ship jumps to nearly twice its top speed for 4 seconds, then needs 12 seconds to recharge (like the drop pod's). The Rustbucket is also a quarter faster than it was | Flying your ship |
 | **F** on a turret seat | Man the turret yourself: left click fires, F stands you up | Ships |
 
 ### TOO DIFFICULT? Too busy or too quiet?
