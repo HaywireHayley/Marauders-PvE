@@ -202,6 +202,7 @@ local Voice = require("voice")
 local Female = require("female")
 local Gunseat = require("gunseat")
 local Unstuck = require("unstuck") -- F9 unstuck and no collision (#198)
+local Defuse = require("defuse") -- station mines: F and a Minesweeper board (#197)
 -- main.lua's own parts, in modules: each takes main's helpers in init(ctx), and the per-raid table in setRaid (below)
 local PlayAreas = require("playareas") -- where bots may go on a station
 local Bots = require("bots") -- soldiers: spawning, awareness, patrols, noises, cover, aim, animation, garrisons
@@ -632,6 +633,8 @@ local function onTick(ctx)
         if not ok and not raid.holesFailed then raid.holesFailed = true log("bullet holes failed: " .. tostring(err)) end
         ok, err = ppcall("unstuck", Unstuck.update, ticker)
         if not ok and not raid.unstuckFailed then raid.unstuckFailed = true log("unstuck failed: " .. tostring(err)) end
+        ok, err = ppcall("defuse", Defuse.update, ticker)
+        if not ok and not raid.defuseFailed then raid.defuseFailed = true log("defuse failed: " .. tostring(err)) end
         if pveBodies then pveBodies() end
         ok, err = ppcall("gatetext", RaidTime.frame)
         if not ok and not raid.gateTextFailed then raid.gateTextFailed = true log("space gate countdown failed: " .. tostring(err)) end
@@ -874,6 +877,7 @@ function resetRaid(worldKey)
     -- a raid loaded: the crew's name-tag widget, the last raid's turrets).
     Gunseat.reset()
     Unstuck.reset()
+    Defuse.reset()
     ShipSpeed.reset()
     if Rivals then Rivals.reset() end
     if Crew then Crew.reset() end
@@ -1454,10 +1458,14 @@ RegisterKeyBind(Key.B, function() table.insert(pending, Aux.unlessTyping(Minimap
 RegisterKeyBind(Key.SPACE, function() table.insert(pending, ShipSpeed.boost) end)
 RegisterKeyBind(Key.K, function() table.insert(pending, function() if InvQol then InvQol.hotkey("move") end end) end)
 RegisterKeyBind(Key.J, function() table.insert(pending, function() if InvQol then InvQol.hotkey("discard") end end) end)
+-- F by an armed station mine with a ToolKit: the defusal board (defuse.lua, #197). The game's own F (use) carries on;
+-- a mine isn't usable, so next to one it does nothing of its own.
+RegisterKeyBind(Key.F, function() table.insert(pending, Defuse.key) end)
 
 -- The debug menu's buttons (debugactions.lua).
 DebugActions.init({ log = log, valid = valid, lib = lib, CFG = CFG, RAID_OPTS = RAID_OPTS, aux = Aux, rivals = Rivals,
     bots = Bots, loadout = Loadout, menuClosed = menuClosed })
+Defuse.init({ log = log, valid = valid, lib = lib, menuClosed = menuClosed })
 
 math.randomseed(os.time())
 log("loaded")
