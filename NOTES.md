@@ -1311,6 +1311,16 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
 - Verified with full runs: Heavy Raider -> Capital interior, Strike Frigate -> Strike interior: breach, 3 armed bodies, helm, stolen. Scout family spawned and floor checked, not boarded. Fast_Frigate_01_Ai_Interior is a real level
   that only the map's own AI ship uses; it could serve Interceptors better if a way to stream it for a second ship turns up.
 - Pods vanish on impact: 3 hits in the last session with riders aboard after, no crash. Not watched on screen.
+- Parent first (2026-11-19, #192): a player crash was the fatal `Could not find SuperStruct FrigateInside_DefaultScout_C
+  to create FrigateInside_AssaultScout_C` (hash 5EB5779D...). Probed with GetSuperStruct: every Scout_Insides/* interior
+  is a child of FrigateInside_DefaultScout_C, every Capital/* one of FrigateInside_Capital_C; DefaultScout, Starter,
+  Capital and Strike derive from native RaidSpaceshipInside, and every hull pawn from Base_Frigate_Ship_C (your own
+  ship's, always loaded). A plain LoadAsset of AssaultScout with DefaultScout not loaded worked (the engine loaded the
+  parent), so the crash needs the parent part-way through the game's async loader at that moment; then a sync load of
+  the child doesn't flush it but a sync load of the parent package does. makeInterior now loads CFG.INSIDE_PARENTS'
+  entry first (and falls back to your interior class if the parent won't load). Tested: fresh game, Space_Alpha,
+  bridge/rivals_prep -> "interior for the Rusty Mule (Assault Scout) loading" and "ready", no crash. The race itself
+  was not reproduced, so this is the fix by reasoning, not a before/after.
 
 ## Keeping a stolen ship (2026-11-06)
 - Works, by the game's own path: extracting at the gate while piloting a stolen hull goes through Client_GetOutWithLootAndShip, and the lobby (after the return to the menu) PUTs an inventory item:

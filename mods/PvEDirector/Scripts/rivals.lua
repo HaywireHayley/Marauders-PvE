@@ -234,6 +234,12 @@ local CFG = {
     -- Each design's interior is its row in the game's FrigData table, except where that row's level is the grey, roofless
     -- ShipBlockOut placeholder (every Interceptor, every Heavy, the Vulture): those get the closest real interior.
     INSIDES = "/Game/Blueprints/Prefabs/ShipInsides/",
+    -- Interiors that are children of another interior Blueprint (probed in game 2026-11-19, GetSuperStruct): the parent
+    -- is loaded first. Loading the child alone while the game's background loader is part-way through the parent is a
+    -- fatal "Could not find SuperStruct FrigateInside_DefaultScout_C to create FrigateInside_AssaultScout_C" (#192); a
+    -- sync load of the parent itself makes the engine finish it first. Hull pawns all derive from Base_Frigate_Ship,
+    -- which your own ship has always loaded.
+    INSIDE_PARENTS = { ["Scout_Insides/"] = "FrigateInside_DefaultScout", ["Capital/"] = "FrigateInside_Capital" },
     SHIP_STOLEN_FILE = require("pvebackend") .. "ship_stolen.txt",
     -- Only the ship your pod is flying AT gets an interior (every ship within reach used to: three interiors for one
     -- flight, and after PLAYER_BOARD_MAX of them no ship could be boarded for the rest of the raid).
