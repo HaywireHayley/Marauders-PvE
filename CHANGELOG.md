@@ -2,6 +2,27 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 20 Nov 2026, build 16 (`public-test-20261120.16`)
+
+Nuclear mines can be defused, co-op joiners stop stuttering, and the Capital Ship gets its guards. On build 1 of 17 Nov
+or later, the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Changes
+
+- **Defuse nuclear mines (#197, PR #256):** at the helm, within 30 m of a nuclear mine, with a **ToolKit**, press **R**:
+  a bigger Minesweeper round (8x8, 12 charges, 120 s). Clear it and a fuse and high-grade powder go into your pocket, and
+  the **nuclear material** goes to your gift box (claim it in the lobby). Fail and its blast reaches your ship at full
+  strength: enough to disable a starter frigate. Towing one home to your hold comes later.
+
+### Fixes
+
+- **Co-op joiner stutter (#254, PR #258):** a player who joined a co-op raid had a hitch every second or two: a search
+  for the raid's game state that only the host can finish ran twice a second for the whole raid. Now it stops. Thanks
+  roomtempsalami for the report.
+- **Guards on the Capital Ship (#187, #42, PR #253):** places you board with a pod and that have no dock (the Capital
+  Ship on Space_Beta) weren't treated as stations, so they got no guards and the soldiers the game puts there were left
+  idle or stuck. They now get the stations' guards, patrols and handling.
+
 ## Public test, 20 Nov 2026, build 15 (`public-test-20261120.15`)
 
 Inventory cells that stayed "occupied" after you moved an item are freed again. On build 1 of 17 Nov or later, the
