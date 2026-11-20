@@ -2,6 +2,20 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 20 Nov 2026, build 11 (`public-test-20261120.11`)
+
+Saves with items stuck on top of each other are repaired. On build 1 of 17 Nov or later, the launcher's orange **!**
+installs this one for you, keeping your saves.
+
+### Fixes
+
+- **Items stacked on top of each other (#240, #239, PR #241):** some saves held two or more items in the same place:
+  several helmets in the Head slot, or stash items lying on another item. The game shows only one, so the others were
+  invisible: a discarded helmet came back as the next one, and moved items froze or vanished, even after a relaunch.
+  At every launch the backend now keeps one item per gear slot (the one you saw) and moves the rest, and any
+  overlapping stash items, to free stash space. A backup of the save is kept first. What stacks them in the first place
+  is still being looked for (#239). Thanks no-portobello and roomtempsalami for the reports and saves.
+
 ## Public test, 20 Nov 2026, build 10 (`public-test-20261120.10`)
 
 Defuse the mines inside stations. On build 1 of 17 Nov or later, the launcher's orange **!** installs this one for
