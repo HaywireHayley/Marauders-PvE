@@ -728,10 +728,12 @@ class App(tk.Tk):
         rows.pack(anchor="w", ipady=5, pady=(2, 2))
         rows.insert(0, str(saves.STASH_H))
         tk.Label(d.body, text="This can't be changed later.", bg=PANEL, fg=MUTED, font=font(10)).pack(anchor="w", pady=(0, 10))
-        cheat = tk.BooleanVar()
-        check(d.body, "Start with lots of gear and infinite money (for testing)", cheat).pack(anchor="w")
-        tk.Label(d.body, text="A new save starts from scratch: level 1, nothing unlocked,\nand just a pistol in your stash.", bg=PANEL,
-                 fg=MUTED, font=font(10), justify="left").pack(anchor="w", pady=(8, 0))
+        gear, money = tk.BooleanVar(), tk.BooleanVar()
+        check(d.body, "Start with lots of gear (a packed stash)", gear).pack(anchor="w")
+        check(d.body, "Infinite money", money).pack(anchor="w")
+        tk.Label(d.body, text="A new save starts from scratch: level 1, nothing unlocked,\nand just a pistol in your stash.\n"
+                 "Infinite money can be switched later from the panel;\nthe starting gear can't (Give items can add more).",
+                 bg=PANEL, fg=MUTED, font=font(10), justify="left").pack(anchor="w", pady=(8, 0))
         problem = tk.Label(d.body, text="", bg=PANEL, fg=ORANGE, font=font(11), justify="left")
         problem.pack(anchor="w", pady=(6, 0))
 
@@ -748,7 +750,7 @@ class App(tk.Tk):
                 rows.focus_set()
                 return
             try:
-                sid = saves.create(text, cheat.get(), n)
+                sid = saves.create(text, gear.get(), money.get(), n)
             except (OSError, ValueError) as e:
                 problem.config(text=f"Couldn't make the save: {e}")
                 return

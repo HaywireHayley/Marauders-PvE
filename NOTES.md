@@ -1490,6 +1490,13 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
   normal save gets exactly the game's start; cheat saves are marked as set up (_set_up_already) so the kit doesn't land
   on their packed stash. Tested: fresh normal save 0 / 3 items -> after login 65,000 / 37 items, lobby shows 65,000
   straight away; fresh cheat save 999,999,999 / 32 items -> unchanged, no setup writes in server.log.
+  Gear and money apart (2026-11-19, #204): NEW SAVE has two boxes, "Start with lots of gear" and "Infinite money".
+  saves.create(name, gear, money, rows): gear = packed stash + _set_up_already, and since that also skips the
+  setup's 65,000 credits, saves.NEW_PLAYER_CASH is written instead; money = state["cheat"] + CHEAT_CASH (the stand-in
+  forces cash on every write, so the setup's own cash write on a money-only save's first login is overwritten too).
+  meta "cheat" still means infinite money (CHEAT tag, panel toggle); meta "gear" is a record only. pvemode.py new
+  takes --gear / --money (--cheat = both). Tested: launcher/test_ui.py makes all four combinations through the dialog
+  and checks stash, cash, setup marker, meta and the list tag. Not run in game (the stand-in path is unchanged).
   The new-player Guide (Guide_Widget_C:FreshAccount_RunGuide; a popup on the game instance, not the lobby's embedded
   Guide_Widget) is closed by lobbylabel.lua with ForceCloseTheGuideWidget if it shows within 60 s of the session's
   first lobby (it opened ~15 s in). Tested on a fresh save: "lobby: closed the new-player guide", clean lobby.
