@@ -1,6 +1,7 @@
 -- Stash quality of life (lobby): SORT (merges stacks, then packs by kind), a search box that dims what doesn't match,
 -- and SELL SHOWN (at a trader: sells the stash items the search shows, after a confirm press). Hotkeys: K moves the
--- item under the mouse between stash and gear, J discards it (pressed twice).
+-- item under the mouse between stash and gear, J discards it (pressed twice). In a raid K moves between your gear and
+-- what you're looting, J drops (#209).
 -- A bar of plain widgets sits on top of the SECURE STORAGE panel while it's shown (LOADOUT and TRADE), polled like the
 -- debug menu's buttons (UMG delegates can't be bound from Lua).
 --
@@ -423,9 +424,95 @@ function Q.typing()
     return typing
 end
 
+-- In a raid (#209): no stash, so K moves the item under the mouse between your gear and the container you're looting
+-- (crate, locker, body), and J drops it on the floor (it can be picked up again: one press). The game's own calls, found
+-- by probing a looted bag (2026-11-19): your item to the container is the drag's Server_MoveItem with the container's
+-- ID and slot type (Loot 3, a body's pockets LootEquipment 4); the container's item to you is Server_CtrlClickItem
+-- (guid, "", its slot type), where the game picks the spot; a drop is Server_DropInHud(guid).
+-- Every container widget exists twice in a raid (the HUD overlay's copy is hidden by a parent), so only one whose
+-- whole parent chain is visible counts.
+local LOOT = { [3] = true, [4] = true }
+
+local function shown(w)
+    local p, depth = w, 0
+    while p and X.valid(p) and depth < 40 do
+        if not p:IsVisible() then return false end
+        p = p:GetParent()
+        depth = depth + 1
+    end
+    return true
+end
+
+local function raidInventory()
+    for _, pc in ipairs(FindAllOf("MainPlayerController_C") or {}) do
+        if X.valid(pc) and pc:IsLocalController() then
+            local comps = pc:K2_GetComponentsByClass(X.lib("/Script/SIGISPlugin.SIGISInventoryComponent"))
+            for i = 1, #comps do
+                local c = comps[i]:get()
+                if X.valid(c) then return c, pc end
+            end
+        end
+    end
+end
+
+local function raidHovered()
+    for _, w in ipairs(FindAllOf("InventoryContainerWidget") or {}) do
+        local t = w.SlotMasterType
+        if w:GetFullName():find("Transient", 1, true) and (t == 0 or LOOT[t]) and w:IsVisible() and shown(w) then
+            local canvas = w.DraggableItemsCanvas
+            for k = 0, (X.valid(canvas) and canvas:GetChildrenCount() or 0) - 1 do
+                local iw = canvas:GetChildAt(k)
+                if X.valid(iw) and X.valid(iw.Item) and iw:IsHovered() then return iw, w end
+            end
+        end
+    end
+end
+
+local function raidHotkey(what)
+    local inv, pc = raidInventory()
+    if not inv then return end
+    local function tell(text) pcall(function() pc:ClientMessage(text, FName("Event"), 3.0) end) end
+    local iw, from = raidHovered()
+    if not iw then return end
+    local guid = iw.Item.UniqueItemGUID:ToString()
+    local name = iw.Item.ItemData:ToString()
+    pcall(function() name = iw.ItemName:GetText():ToString() end)
+    local fromType = from.SlotMasterType
+    if what == "discard" then
+        if LOOT[fromType] then return tell("Take it first (K), then J drops it") end
+        inv:Server_DropInHud(guid)
+        X.log("raid: dropped " .. iw.Item.ItemData:ToString())
+        return tell("Dropped " .. name)
+    end
+    if LOOT[fromType] then
+        inv:Server_CtrlClickItem(guid, "", fromType)
+        return tell("Took " .. name)
+    end
+    local f = scan(from)[guid]
+    if not f then return end
+    local open = false
+    for _, want in ipairs({ 3, 4 }) do
+        for _, w in ipairs(FindAllOf("InventoryContainerWidget") or {}) do
+            if w.SlotMasterType == want and w:GetFullName():find("Transient", 1, true) and w:IsVisible() and shown(w) then
+                open = true
+                local c, r, rot = freeSpot(w, f)
+                if c then
+                    inv:Server_MoveItem(guid, w.ContainerID:ToString(), { Column = c, Row = r }, want, fromType, rot)
+                    return tell(("Put %s in the container"):format(name))
+                end
+            end
+        end
+    end
+    tell(open and ("No room for " .. name) or "Nothing open to put it in")
+end
+
 function Q.hotkey(what)
-    if not (ui and ui.search) then return end
     if Q.typing() then return end
+    if not (ui and ui.search) then
+        local w = FindFirstOf("MainPlayerController_C")
+        if X.valid(w) then raidHotkey(what) end -- in a raid (#209)
+        return
+    end
     local inv = inventory()
     local stash = stashCon()
     if not (inv and stash and stash:IsVisible()) then return end

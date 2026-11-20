@@ -4153,6 +4153,25 @@ hash), and the host's stand-in logged no request from the joiner. `tools/test_st
 Not tested: the joiner extracting or dying (whether loot and losses land in its own save the way they do for the
 host), a joiner on another PC (the scripts assume both copies on one machine), N > 2.
 
+## J and K in a raid (#209, 2026-11-19; invqol.lua raidHotkey)
+- The stash hotkeys returned at once outside the lobby (no stash bar, no stash panel), so in a raid they did nothing.
+- Found by probing a looted bag (Spaceport_01, `inv:Server_StartLooting(LootableCon_BagPlastic01_C)` opens the real
+  loot screen): the looted container is an `InventoryContainerWidget` with ContainerID `LootCon`, SlotMasterType 3
+  (Loot; a body's pockets are 4, LootEquipment); your pockets are type 0. **Every container widget exists twice** in a
+  raid: the `SIGIS_HUDOverlay_C` copy has a hidden parent, the "In Game Overlay Match" copy is the one on screen; only
+  a widget whose whole GetParent chain is visible counts.
+- Calls (CXXHeaderDump SIGISPlugin.hpp, the `sdk` bridge verb writes it to the game's Win64/CXXHeaderDump):
+  your item to the container: `Server_MoveItem(guid, "LootCon", {Column, Row}, 3, 0, rot)` (worked);
+  `Server_CtrlClickItem(guid, "LootCon"|"", 0)` from your side does nothing; the container's item to you:
+  `Server_CtrlClickItem(guid, "", 3)` (the game picks the spot; the item gets a new guid); drop:
+  `Server_DropInHud(guid)` (a SIGIS_ExamplePickUP_C appears ~1 m away).
+- Tested in game with the real mouse hover and key presses: K on a pocket item put it in the bag, K on the bag's item
+  took it, J on a pocket item dropped it (pickup 100 cm away, log "raid: dropped Fabric"), J on the bag's item left it.
+  A synthetic cursor jump can leave the game's hover on the previous item for a moment (one K moved the wrong item that
+  way); a real mouse doesn't jump. The `ClientMessage` notices don't show over the inventory screen.
+- Not tested: a body's pockets (type 4), a full container ("No room"), K with nothing being looted, bags and rig.
+- Side find: Spaceport_01 has 33 `UA_Mine_Spawner_C` (station mines; #197).
+
 ## Space gate time (2026-11-18; raidtime.lua, docs/internals/SPACE_GATE.md)
 - Request (Discord, ChurchOfHusk_Enjoyer): choose when the space gate arrives (instant, 5, 10, 15 minutes), because the custom
   raid length also moved the gate's countdown. Launcher: "Space gate" slider under "Raid length" (default, instant, 5, 10, 15),
