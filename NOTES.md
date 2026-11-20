@@ -1441,7 +1441,7 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
   every real buffer still found; rebuilt Outlaw_Body_Skel_01 differs from the original only inside its two position
   buffers. Checked in the lobby at LOD1 (SetForcedLOD(2)), old and new Outlaw_Body_Skel_01 side by side on two stands:
   the old one hangs a flap from the crotch to the floor, the new one doesn't. Not checked: a character moving in a
-  raid. Issue #10 (boarders' legs into spikes) may be the same thing on those bodies. The release builder remakes the
+  raid. Issue #10 (boarders' legs into spikes) is this bug (the user confirmed it). The release builder remakes the
   meshes and the updater fetches the changed female deps zip (#257), so the next build carries it.
 - Clipping through vests and plates (2026-11-20): a lobby screenshot showed the chest coming through a plate in two
   ovals. That stand had a woman's body under a man's plate (my test swapped only the body). Measured over every body
@@ -2495,11 +2495,11 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
   debug.upvaluejoin every non-function upvalue to the old module's cell (S, X, Nav, CFG...), add new CFG keys to the
   old table (the tuning menu keeps a reference to it), and copy the new functions into the module table.
 
-## TODO: boarder corpse legs explode into spikes (seen 2026-11-14, not investigated)
+## Boarder corpse legs explode into spikes (seen 2026-11-14, fixed 2026-11-20, #10)
 A Rusty Mule boarder killed on your ship (Space_Alpha, MG42) lay with its legs/feet stretched into a fan of black spikes
 (skinned mesh blowing up on the ragdoll). Torso, pack and helmet fine. Probably a rival kit's lower-body part on a body
 it doesn't fit, or the ragdoll of a pod-spawned body; check rollKit leg pieces vs the female/male body. Bad for footage.
-Possibly the female skin weight damage found 2026-11-20 ("Vertex explosions on women's outfits").
+The female skin weight damage found 2026-11-20 ("Vertex explosions on women's outfits"); the user confirmed it is this.
 
 ## Pod breach input lock (2026-11-14, fix untested)
 - After a pod breach into the Rusty Mule you could pitch and shoot but not turn or walk. ResetIgnoreInputFlags,
