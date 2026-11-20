@@ -231,17 +231,39 @@ local function spawnBody(pc, at)
 end
 
 -- A civilian (issue #81, civilians.lua): a raider body dressed with an empty kit (no gun, no armour, no bag), with a
--- few things in its pockets. Returns the body (asleep: X.arm wakes it) or nil.
-function R.civilianBody(pc, at, pockets)
+-- few things in its pockets. look (#196): { heads = {mesh names}, bodies = {mesh names} } of its trade, one of each
+-- picked from the catalog (meshes only: no helmet or chest row, so no armour). Returns the body (asleep: X.arm wakes
+-- it) or nil, and the look it got ({ head, suit }, for R.dressCivilian once the kit has landed).
+local function pickNamed(meshes, names)
+    local want, fit = {}, {}
+    for _, n in ipairs(names or {}) do want[n] = true end
+    for _, m in ipairs(meshes) do if want[m:GetFName():ToString()] then fit[#fit + 1] = m end end
+    return #fit > 0 and pick(fit) or nil
+end
+function R.civilianBody(pc, at, pockets, look)
     local body = spawnBody(pc, at)
     if not body then return nil end
     equipKit(body, { stacks = 0, meds = 0 })
+    local worn
+    if look then
+        local cat = gearCatalog()
+        worn = { head = pickNamed(cat.heads, look.heads), suit = pickNamed(cat.bodies, look.bodies) }
+        R.dressCivilian(body, worn)
+    end
     -- Not a defender: the garrison's adoption (placed NPCs, stray sweep) must leave it alone, or it's armed and enlisted.
     R.civilianAt = R.civilianAt or {}
     R.civilianAt[body:GetAddress()] = true
     local bodyAt = math.tointeger(body:GetAddress())
     for _, name in ipairs(pockets or {}) do X.addItem(bodyAt, FName(name):GetComparisonIndex(), 1) end
-    return body
+    return body, worn
+end
+
+-- Puts a civilian's look on (again: the empty kit lands after the spawn, and a gear change puts the game's meshes back).
+function R.dressCivilian(body, worn)
+    if not (worn and valid(body)) then return end
+    local outfit = comps(body).CharacterBody0
+    if worn.head and valid(worn.head) then pcall(function() body.Mesh:SetSkeletalMesh(worn.head, false) end) end
+    if outfit and worn.suit and valid(worn.suit) then pcall(function() outfit:SetSkeletalMesh(worn.suit, false) end) end
 end
 
 local function startBody(pc, m, at)

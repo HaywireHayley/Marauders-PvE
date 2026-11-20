@@ -3616,6 +3616,19 @@ reference with flowcharts: [docs/internals/SALVAGE_CHAIN.md](docs/internals/SALV
   "you killed a prisoner ...: 1 guard(s) come for you" and that guard "knows where the player is".
 - Not verified: by eye (animations, crouch, voice), looting a civilian's body, mines and ports (only Penal Colony
   tested), fleeing from real gunfire.
+- Dressed by trade (2026-11-19, #196; Discord: they all wore the raider's green). civilians.lua LOOKS: per trade a
+  list of head and body mesh names (gear.lua heads/bodies), one of each picked apart, from the rival look catalog
+  (rivalbodies gearCatalog: loaded, rooted, female versions made). Miners: Miner, Steel Worker, Colonist, Nomad Yellow
+  heads; Miner, Steel Worker, Nomad Yellow bodies. Prisoners: Prisoner, Outlaw 1-3, Bandit heads; Prisoner body only.
+  Workers: Colonist, Steel Worker, Nomad (plain, Green, Crimson). Meshes only, no helmet or chest row: no armour.
+  R.civilianBody puts the look on at spawn and returns it; civilians.lua puts it on again when it wakes them (the
+  empty kit lands after the spawn), before the female dress.
+  Tested (Space_Alpha, Civilians.station called through bridge/dir_eval.lua with three AI-node clusters named
+  Spaceport, Mini Mine, Penal Colony): 9 spawned, all awake ("work"), all 200 hp; worn meshes read back after waking:
+  workers Steel Worker/Steel Worker, Steel Worker/Nomad, Nomad Crimson/Colonist; miners Miner/Miner, Steel
+  Worker/Nomad Yellow, Steel Worker/Miner; prisoners Prisoner, Bandit, Outlaw 2 heads in the prison suit. Seen on
+  screen: two workers side by side in a tan suit and a red quilted one. Not checked: the female versions by eye,
+  whether a later gear change puts the raider body back (nothing changes their gear), the helmets/caps idea.
 
 ## Bullet holes (2026-11-18; bulletholes.lua, docs/internals/BULLET_IMPACTS.md)
 - Symptom: shots at walls and floors gave particles and sound but no bullet hole (a few marks on metal and blood on a bot
