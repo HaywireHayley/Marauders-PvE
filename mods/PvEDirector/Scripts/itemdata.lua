@@ -6,10 +6,10 @@
 --   Items.get("Mat49Rifle")    --> { type = 0, stackable = 0, max = 36, dur = ..., w = 4, h = 2, price = ... }
 local PROJECT = require("pveproject")
 local I = {}
-local rows
+local rows, lower
 
 local function load()
-    rows = {}
+    rows, lower = {}, {}
     local f = io.open(PROJECT .. "assets/saves/items.json", "r")
     if not f then return end
     local text = f:read("a")
@@ -18,12 +18,14 @@ local function load()
         local r = {}
         for k, v in body:gmatch('"(%w+)"%s*:%s*(%-?%d+)') do r[k] = tonumber(v) end
         rows[name] = r
+        lower[name:lower()] = r
     end
 end
 
+-- (An FName keeps the case it was first made with in the session, so a row can read "Toolkit" for "ToolKit".)
 function I.get(row)
     if not rows then load() end
-    return rows[row]
+    return rows[row] or (row and lower[row:lower()])
 end
 
 function I.max(row)
