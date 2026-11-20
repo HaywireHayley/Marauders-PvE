@@ -22,7 +22,11 @@ local guideUntil, nextGuide = nil, 0
 local LOADOUT_STATE = 1                       -- MM_CoreMM_TabBtns_Loadout.Which_CoreMenuState
 local NOT_EQUIPPED = { Stash = true, Lobby = true, Gift = true, scrap = true, Shop = true, LootCon = true,
     LootPocketLeft = true, PocketLeft = true, PocketRight = true, KeyCard = true }
-local gear = {}                               -- overlay, tab, inv: paths; seen: the last equipped set
+local gear = {}                               -- overlay, tab, inv, invWidget: paths; seen: the last equipped set
+-- The press also starts the inventory page's own open animations, which hide its panels and fade them back in, and
+-- the menu camera's switch, which fades the lobby backdrop from dark: the screen flashed on every gear change (#233).
+-- The animations are run to their end and the camera fade is stopped in the same frame, so nothing is drawn faded.
+local SKIP_ANIMS = { "Anim_SwitchGearAppear", "Anim_RefreshOpenState" }
 -- The Guide's video topics (GuideItemInfo.IsAVideo) show a YouTube embed, which can't load offline: an empty box. After
 -- the guide shows a topic (Guide_Widget_C:PressedARow, which runs SetSelectedLook and FillInGuideInfo), a video topic
 -- gets this text instead, keyed by its title; the video box is collapsed and its browser pointed at about:blank so it
@@ -65,6 +69,10 @@ local function findGear()
         if name:find("Transient", 1, true) then gear.overlay = name end
     end
     if gear.overlay then gear.tab = gear.overlay .. ".WidgetTree.MM_CoreMM_TabBtns_Loadout" end
+    for _, w in ipairs(FindAllOf("SIGIS_InventoryWidget_C") or {}) do
+        local name = w:GetFullName():gsub("^%S+ ", "")
+        if name:find("Transient", 1, true) then gear.invWidget = name end
+    end
     local inv = FindFirstOf("SIGISInventoryComponent")
     if inv and inv:IsValid() then gear.inv = (inv:GetFullName():gsub("^%S+ ", "")) end
 end
@@ -115,7 +123,19 @@ local function gearTick()
     local now = equipped(inv)
     if gear.seen and now ~= gear.seen then
         overlay:CoreMM_Tab_Pressed(LOADOUT_STATE)
-        X.log("lobby: gear changed, character redressed")
+        local page, skipped = live(gear.invWidget), 0
+        for _, name in ipairs(SKIP_ANIMS) do
+            pcall(function()
+                local a = page[name]
+                if a and a:IsValid() and page:IsAnimationPlaying(a) then
+                    page:SetAnimationCurrentTime(a, a:GetEndTime())
+                    skipped = skipped + 1
+                end
+            end)
+        end
+        local faded = pcall(function() overlay:GetOwningPlayer().PlayerCameraManager:StopCameraFade() end)
+        X.log(("lobby: gear changed, character redressed (%d page animation(s) skipped, camera fade %s)")
+            :format(skipped, faded and "stopped" or "not stopped"))
     end
     gear.seen = now
 end

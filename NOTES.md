@@ -4387,3 +4387,24 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   %d hp. Both are %.0f now. Lua's %d refuses any float with a fraction: keep it for counts, never for game floats.
 - Verified with lupa: the old format string with 212.4 throws that exact error; the new one prints "212 hp". Not run in
   game (the test save has no crew).
+
+## The lobby flashed on every gear change (#233, 2026-11-20; lobbylabel.lua gearTick)
+- Report (The Wang, Discord, with a clip): on LOADOUT the menu's panels blinked out and faded back in, sometimes, while
+  moving items; after equipping something bought, not on the trader drag. Cause: the mod's own #29 fix. While LOADOUT
+  is selected, a change in the equipped set "presses" LOADOUT again (SIGIS_MainOverlay_C:CoreMM_Tab_Pressed(1)) to
+  redress the lobby character, and that press starts SIGIS_InventoryWidget_C's Anim_SwitchGearAppear (0.5 s) and
+  Anim_RefreshOpenState (0.35 s), which hide the page's panels and fade them in, and the menu camera's switch, which
+  fades the 3D backdrop up from dark. Pocket moves and moves into stash boxes don't change the equipped set (pockets are
+  excluded, box contents have a GUID container), so it looked intermittent.
+- Fix: right after the press, both animations get SetAnimationCurrentTime(anim, GetEndTime()) and the controller's
+  PlayerCameraManager:StopCameraFade(), in the same frame. The press (the redress) itself is unchanged.
+- Measured with bursts of window captures (PrintWindow ~ every 60 ms) and pixel sums over the panels and the backdrop:
+  the press alone took the panels from ~1240 to 171 for 2-3 frames and the backdrop from its 504-1149 range (moving
+  smoke) to 178-249; with the fix, a real gear change (Server_MoveItem into and out of "Sec") logged "2 page
+  animation(s) skipped, camera fade stopped", panels min 1222, backdrop min 513.
+- Learned on the way: UE4SS hooks on SIGIS_MasterMenu_C's Blueprint functions (SwitchToWidget, SwitchToInventory) never
+  fire for Blueprint-to-Blueprint calls; IsAnimationPlaying from a tick hook didn't catch these animations either, but
+  reading it straight after the press does. Synthetic drags (SetCursorPos + mouse_event) don't move items in the menu;
+  Server_MoveItem from bridge/dir_eval.lua does, like a drag.
+- Not verified: a visibly changing item (helmet, vest) redressing the character with the fix (the test moved a stock
+  in and out of the secondary slot: it doesn't show on the character); the reporter's exact case.
