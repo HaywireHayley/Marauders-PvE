@@ -2,6 +2,19 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 20 Nov 2026, build 10 (`public-test-20261120.10`)
+
+Defuse the mines inside stations. On build 1 of 17 Nov or later, the launcher's orange **!** installs this one for
+you, keeping your saves.
+
+### Changes
+
+- **Defuse station mines (#197, PR #237):** the anti-personnel mines the stations place can now be defused. Stand next
+  to one with a **ToolKit** and press **F**: a Minesweeper round (6x6, 6 charges, 75 seconds; the first click is always
+  safe, and a Flag mode button marks charges). Clear it and the mine comes apart: an AP mine and gunpowder go into your
+  pockets. Hit a charge or run out of time and it goes off. The ToolKit is kept either way; "Back away" leaves the mine
+  armed. Mines out in space come later.
+
 ## Public test, 20 Nov 2026, build 9 (`public-test-20261120.9`)
 
 The lobby stops flashing when you change gear, and two hidden outfits. On build 1 of 17 Nov or later, the launcher's
