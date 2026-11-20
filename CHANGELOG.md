@@ -2,6 +2,21 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 20 Nov 2026, build 8 (`public-test-20261120.8`)
+
+A crash fix and two minimap and crew fixes. On build 1 of 17 Nov or later, the launcher's orange **!** installs this
+one for you, keeping your saves.
+
+### Changes
+
+- **Crash fix (#191, PR #222):** the game could close a moment after a turret in space was destroyed (seen after a
+  moving flak turret died on Space_Charlie). Your gunner kept destroyed turrets on its list and read them after the
+  game had freed them.
+- **Minimap and the space gate (#223, PR #225):** with "Leave through a space gate" followed, the minimap stopped
+  working once you left the helm. Its gate countdown also ignored the launcher's "Space gate" setting: on "instant" it
+  counted down 4 minutes to a gate that was already there. It now follows the same time as the HUD.
+- **Hired crew (#224, PR #226):** a hurt crewmate following you into a new place no longer cuts the crew's update short.
+
 ## Public test, 19 Nov 2026, build 7 (`public-test-20261118.7`)
 
 Co-op on one ship, an unstuck button, civilians in their own clothes, and a crash fix. On build 1 of 17 Nov or later,
