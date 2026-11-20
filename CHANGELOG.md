@@ -2,6 +2,17 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 20 Nov 2026, build 14 (`public-test-20261120.14`)
+
+No more slabs of ground and girders floating in space by Rebel Base. On build 1 of 17 Nov or later, the launcher's
+orange **!** installs this one for you, keeping your saves.
+
+### Fixes
+
+- **Floating slabs and girders (#9, PR #247):** Rebel Base's terrain (a big flat slab of ground) and some of its
+  ceilings, bridges and walls that stick out past the station were drawn in open space from far away. They're now
+  hidden from space like the rest of its interior, and show again when you're inside.
+
 ## Public test, 20 Nov 2026, build 13 (`public-test-20261120.13`)
 
 One cause of stuck, stacked items found and fixed. On build 1 of 17 Nov or later, the launcher's orange **!** installs
