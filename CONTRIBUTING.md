@@ -55,4 +55,6 @@ that write logs.
 ## Releases
 
 Player zips are built by the maintainer with `python tools/release/build_release.py`. It needs a private capture of a
-real account, which isn't shared, so contributors don't build releases.
+real account, which isn't shared, so contributors don't build releases. It writes the release in pieces under 9 MB
+(the main zip the launcher's updater takes, plus `-deps-` zips for UE4SS and the female models) and one `-full` zip;
+its docstring says what to upload.

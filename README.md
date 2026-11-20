@@ -26,7 +26,8 @@ file is put back to stock when the game closes.
 ### Windows 10 / 11
 
 1. **Unzip** the folder somewhere permanent with a plain path, such as `C:\Games\MaraudersOffline`. Not Program Files,
-   and no non-English letters in the path. Your saves live inside this folder, so don't delete it.
+   and no non-English letters in the path. Your saves live inside this folder, so don't delete it. A release in
+   pieces (a main zip plus `-deps-` zips) is one folder split up: extract every zip into the same place.
 2. **Double-click `Install.bat`.** It finds Python (or offers to install it), finds the game, and adds a
    **Marauders Offline** shortcut to your desktop and Start menu. It doesn't touch the game folder.
 3. **Start Steam**, then open **Marauders Offline** from the shortcut.
