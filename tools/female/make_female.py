@@ -40,6 +40,10 @@ ARM_SLIM = [(25, 1.0), (31, 0.88), (42, 0.89), (52, 0.91), (58, 0.94), (64, 0.97
 LEG_X = 10.5
 TORSO = 27.0        # half width of the body: past this, above the hips, it's an arm
 ARM_FROM, ARM_TO = 21.0, 33.0
+# Hands keep the man's shape exactly: the skeleton isn't changed, so any move of a hand vertex puts it off its finger bones
+# (fingers look longer and miss the weapon grips). The reshape fades out along the forearm and is gone at the wrist: the
+# hand mesh starts at |x| 52 in the bind pose (every body). They hang down to z 93; nothing else reaches past |x| 30 there.
+WRIST = [(36.0, 1.0), (52.0, 0.0)]  # long enough that the arm's 2.2 sideways shift doesn't pinch the forearm
 BUST_Z, BUST_X, BUST_Y = 133.0, 10.5, 7.5  # height, distance from centre, how far it comes forward
 BUST_SX, BUST_SZ = 10.0, 10.0
 SEAT_Z, SEAT_Y = 84.0, 4.5
@@ -54,6 +58,13 @@ def smooth_line(points, t):
 
 
 def female(x, y, z):
+    k = smooth(WRIST, abs(x))
+    if k <= 0: return x, y, z
+    nx, ny, nz = body(x, y, z)
+    return x + (nx - x) * k, y + (ny - y) * k, z + (nz - z) * k
+
+
+def body(x, y, z):
     wide, deep = smooth(WIDTH, z), smooth(DEPTH, z)
     ax = abs(x)
     if z < 60:
