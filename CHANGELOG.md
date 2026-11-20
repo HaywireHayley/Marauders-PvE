@@ -2,6 +2,20 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 20 Nov 2026, build 13 (`public-test-20261120.13`)
+
+One cause of stuck, stacked items found and fixed. On build 1 of 17 Nov or later, the launcher's orange **!** installs
+this one for you, keeping your saves.
+
+### Fixes
+
+- **Ammo stacked on itself in your pocket (#239, PR #245):** going into a raid without a gun, you get a soldier's gun
+  and its ammo in your left pocket. That ammo was laid into the pocket's four cells without checking what was there, but
+  7.62, .30-06, 5.56 and 7.62x54R stacks are two cells wide: they landed on top of each other (and on anything else in
+  that pocket), and extracting saved it that way. Ammo, the F9 ammo button and mine-defusing loot now only go where they
+  fit, and the save repair at launch now sorts out pockets too. Stacked helmets and stash items (#239) are still being
+  looked into.
+
 ## Public test, 20 Nov 2026, build 12 (`public-test-20261120.12`)
 
 Defuse the small mines out in space, from your ship. On build 1 of 17 Nov or later, the launcher's orange **!**
