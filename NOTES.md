@@ -4166,6 +4166,57 @@ host), a joiner on another PC (the scripts assume both copies on one machine), N
 - Rivals don't use helmetFor (rivalbodies.lua picks a face to fit the helmet), so a rival can still wear one (1 of 31).
 - Verified in game: a BaronCap planted on a pool recruit (Rosco, Hunter_Head_Artic) came back as BAHeavyHelmet in
   crew.lua after the mod loaded. Not looked at by eye in the lobby or in a raid.
+### Direct host and join from the launcher (2026-11-19, evening; launch.lua, launcher CO-OP, #201)
+
+Decision (#201): direct host/join first; the game's own lobby and party flow later, if ever.
+
+- Launcher: **CO-OP** button in the saves header (the settings column is full at 150 %, #147) opens a dialog: "Host:
+  friends can join my raids" writes `config/coop_host.txt` (on/off); it lists this PC's IPv4 addresses
+  (`socket.getaddrinfo(gethostname())`, LAN and virtual adapters); "Join a friend's raid" + JOIN writes the one-shot
+  `config/coop_join.txt` (and `coop_last.txt` to refill the box) and starts the selected save like PLAY. A plain PLAY
+  deletes a leftover join file.
+- Director, launch.lua: `launchMatch` adds `?listen` to the raid URL when hosting (log "co-op: hosting this raid").
+  `M.update` at the main menu: with `coop_join.txt` present for 4 s, deletes it and runs `open <addr>[:7777]?PID=
+  offline-<random>?PNAME=<base64 of the stand-in's display_name>?CREW=coop-<random>...` (log "co-op: joining").
+  Deleted before connecting, so a failed join or the return from the raid doesn't loop.
+- Tested in game (one PC, two copies, host on a throwaway save): host clicked PLAY on the splash, closed the Guide,
+  START RAID -> "co-op: hosting this raid", Space_Alpha, UDP 0.0.0.0:7777 owned by the game. Joiner started with
+  `coop_join.txt` = `127.0.0.1`: "co-op: joining 127.0.0.1:7777 as Marauder2" on its splash screen, file gone, the host
+  sees a remote controller at once; the joiner's pawn came ~50 s later, **aboard its own ship** about 330 m from the
+  host's, veil "YOU'RE ABOARD", ping 14 ms, gate countdown on its HUD. Launcher: `test_ui.py` covers the dialog (opens
+  centred with the grab), the Host box, JOIN writing the file and starting with the address, PLAY clearing a leftover.
+- Not tested: the launcher's JOIN button with a real game start (the file it writes was used by hand), a second PC or
+  a virtual LAN, the Windows firewall prompt on the host, a join while the host is still in its lobby (it should fail
+  back to the joiner's menu), whether the two players should share one crew (each gets its own: CREW=coop-<random>),
+  playing the space raid together.
+- Both copies of the game on one PC read the same `config/`: start the host's raid before writing a join file, or the
+  host joins itself from its menu.
+### A joiner's raid ends in its own save; the gate hooks were the host's (2026-11-19, evening; loadout.lua, #200)
+
+Setup: host on a throwaway save (stand-in started first with `--dir backend\joiners\1 --name HostTest`, env
+`PVE_BACKEND` pointing there, then `launch-offline.ps1`; `Start-Standin` sees the port taken and leaves it), raid
+`Spaceport_01?listen`; joiner `launch-joiner.ps1 -N 2`, `bsend.sh bridge2 join`. Every mod on in both.
+
+- **Extraction, joiner (works):** the host called the joiner's `SIGISInventoryComponent:Client_GetOutWithLoot()` (the
+  server-to-client RPC the game sends when a player gets out). The joiner's director logged "extracted with 4 item(s)",
+  went to its menu, and its own stand-in wrote the 4 kit items back plus XP. The host stayed in its raid; its backend
+  got no request. A client RPC called on the host for a remote controller does **not** run the host's Lua hook.
+- **Death, joiner (works):** `GameplayStatics:ApplyDamage(joinerPawn, 5000)` on the host: the game's own death flow
+  sent the joiner to its menu, its stand-in logged "ship lost", the kit stayed out of its stash (lost). Host unaffected.
+- **Bug, fixed:** `Server_EnterEvacRaidVolume` is a server RPC, so a joiner entering a space gate runs it **on the
+  host**, and the host's hook wrote `ship_gate.txt` = 1 into the **host's** backend: the host's `raid_out.ended` became
+  true (state.json rewritten one second after the joiner's call). A host who then quit or crashed lost their kit
+  instead of getting it back (#49); seen happen to the test host after a restart ("raid start: took []").
+  Fix: the gate hooks (`Server_EnterEvacRaidVolume`, `LeaveEvacRaidVolume`) act only when `ctx:get():IsLocalController()`
+  isn't false. A joiner's client never executes the server RPC, so `EnterEvacRaidVolume` (which clients run, and the
+  host runs too thanks to pvepatch "Space gate extraction") is hooked as well, same filter.
+- Verified after the fix (relaunch of both): joiner's `Server_EnterEvacRaidVolume` -> host state.json untouched,
+  `ended` stays false; the host's own `Server_EnterEvacRaidVolume` -> host `ended` true as before.
+- Lua-initiated calls of a native UFunction did not visibly fire its native hook in one test (the host calling
+  `LeaveEvacRaidVolume` on the joiner's controller left no trace); the RPC that arrived over the network did.
+- **Not verified:** the joiner flying or walking into a real gate (so the `EnterEvacRaidVolume` hook on the joiner is
+  unexercised), a joiner's own ship (one ship, two players is undefined), the host's bots fighting the joiner, the
+  joiner looting, two PCs.
 
 ## Space gate time (2026-11-18; raidtime.lua, docs/internals/SPACE_GATE.md)
 - Request (Discord, ChurchOfHusk_Enjoyer): choose when the space gate arrives (instant, 5, 10, 15 minutes), because the custom

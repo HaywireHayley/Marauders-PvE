@@ -145,6 +145,12 @@ Mines, prisons and ports have a few miners, prisoners or workers going about the
 run from you, cower and plead when cornered, and carry things of their trade. Kill one where the guards can see and
 they come for you. F3 > How many sets how many (0 turns them off).
 
+### Co-op (early)
+
+Play a raid with a friend: one of you hosts, the other joins from the launcher's **CO-OP** box. Across the internet
+you need a shared network, and [docs/COOP.md](docs/COOP.md) walks through it (ZeroTier, with a setup script for Windows
+and Linux). Early and lightly tested: tell us how it goes.
+
 ### Raid conditions (events)
 
 Want a different raid for one run, or a community event? Pick **Raid conditions** in the launcher (click to cycle), or

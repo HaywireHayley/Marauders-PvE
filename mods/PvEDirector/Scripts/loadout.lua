@@ -278,11 +278,21 @@ function M.init(ctx)
 
     -- In a space gate: only then does the next ship item the game saves count as the ship coming home (settle_ship). The
     -- extraction call itself passes item structs, which can't safely be hooked from Lua.
-    RegisterHook("/Script/RaidGame.RaidPlayerController:Server_EnterEvacRaidVolume", function()
-        tellBackend(CFG.SHIP_GATE_FILE, "1")
-    end)
-    RegisterHook("/Script/RaidGame.RaidPlayerController:LeaveEvacRaidVolume", function()
-        tellBackend(CFG.SHIP_GATE_FILE, "0")
+    -- Co-op (#200): Server_EnterEvacRaidVolume is a server RPC, so on a host it also runs for a joiner's controller,
+    -- and wrote the joiner's gate into the host's save (raid_out ended: a host who then quit lost their kit, #49).
+    -- Only this machine's controller counts. A joiner's own client never runs the server RPC; it runs
+    -- EnterEvacRaidVolume, which a host runs too (pvepatch "Space gate extraction"), so both are hooked.
+    local function mine(ctx)
+        local ok, isLocal = pcall(function() return ctx:get():IsLocalController() end)
+        return not ok or isLocal ~= false -- unknown: keep the old behaviour
+    end
+    for _, fn in ipairs({ "Server_EnterEvacRaidVolume", "EnterEvacRaidVolume" }) do
+        RegisterHook("/Script/RaidGame.RaidPlayerController:" .. fn, function(ctx)
+            if mine(ctx) then tellBackend(CFG.SHIP_GATE_FILE, "1") end
+        end)
+    end
+    RegisterHook("/Script/RaidGame.RaidPlayerController:LeaveEvacRaidVolume", function(ctx)
+        if mine(ctx) then tellBackend(CFG.SHIP_GATE_FILE, "0") end
     end)
 end
 
