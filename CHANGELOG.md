@@ -14,6 +14,11 @@ launcher's orange **!** installs this one for you, keeping your saves.
   stations for a joiner: the host's game doesn't send those to the joiner's.)
 - **Fewer hitches (PR #260):** looking for mines to defuse scanned every object in the game every 20 seconds, on every map
   (a small stutter). Now it looks a few times at the start, then rarely, and not at all on maps without mines.
+- **Women's hands (#35, PR #255):** the women's fingers were mangled whatever the outfit. The body reshape now fades out
+  along the forearm, so the hands are exactly the men's and sit right on their finger bones (and on weapon grips).
+- **Updates bring the big files too (PR #257):** since build 15 the UE4SS library and the women's outfit meshes ship as
+  separate dependency zips, and the launcher's update only took the main one. It now downloads the dependency parts that
+  changed (checked against their checksums) and installs everything together, with a rollback if anything is missing.
 
 ## Public test, 20 Nov 2026, build 16 (`public-test-20261120.16`)
 
