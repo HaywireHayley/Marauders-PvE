@@ -4556,3 +4556,36 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   (PCallStackHash 99326A2899B85B5ACD9EAF8A543913AFA3D2CCC2, AV reading 0x18, all UE4SS frames: the generic "method
   on a null wrapper" crash, same hash as #191). Read the level from GetFullName instead.
 - Not checked: other maps' interiors with terrain (the code is generic), walking into Rebel Base through an airlock.
+
+## Inventory grids keep stale cells (#249, 2026-11-20; invsync.lua, pockets.lua, stand-in repair)
+- Report (Discord, build .12, report zip): moving items sometimes leaves their old cells "occupied"; moving more can
+  duplicate or lose items. The raid (Space_Alpha, Rebel Base) ended by Quit Game; the save was clean (no overlaps, the
+  #241 repair had nothing to do); the mod's own inventory actions don't appear in that raid's log.
+- How a grid works: an InventoryContainerWidget's InventorySlots are InventoryGridSlotWidgets (SIGIS_DefaultSlotWidget_C)
+  with `Item` (the item covering the cell), `WasRotatedOnPlace`, SetItem/GetItem. A cell whose Item points at an item
+  that isn't in that container any more, or at a freed one, counts as taken.
+- Measured: the drag's call, Server_MoveItem(guid, toCon, {Column,Row}, 0, from, rot), pocket -> bag and loot box (from
+  Loot 3) -> bag both left the grids right (a cross-container move makes a new item object under the same guid). But the
+  game does leave stale cells: 7 stash cells pointing at freed items in a freshly loaded lobby (every real stash item
+  still fully covered: 51 items, 143 cells, matching items.json sizes), and at raid start the pocket grid still pointing
+  at the last loadout's items. Server_ValidateEquippedInventory (no params; the server sends the list back through
+  Client_ValidateEquippedInventory(ItemsToAdd)) left a stale cell stale. Client_ValidateInvCon(ToCon, ItemsToAdd) and
+  Client_ValidateStashInventory(ItemsToAdd) exist too (params read from the UFunctions' property chains).
+- Fix: invsync.lua, once a second, for each shown (whole parent chain visible) grid of your own containers (pockets,
+  Stash, and any grid whose ContainerID is an item id in your inventory: bags, rigs, boxes; loot/shop/gift are left
+  alone), clears cells whose Item is freed or whose MotherItemGUID isn't this container. Cells are never filled in.
+  Widget and inventory paths are found once per world (FindAllOf) and resolved with StaticFindObject after that.
+  **An empty cell reads as a wrapper around a null pointer, which Lua counts as true:** check GetAddress() ~= 0 (the
+  first version "cleared" every empty cell every second).
+- Rig grids: each rig sub-grid's ContainerID is the rig's item id, the same as its items' MotherItemGUID (their columns
+  encode the sub-slot: 0/10/20), so the container check works for them as is.
+- Verified in game: lobby and 15 s of raid with the inventory open, no clears; an item moved into a bag with its two
+  old pocket cells pointed back at it: "inventory: 2 stale cell(s) in PocketLeft cleared (they still pointed at
+  762Ammo)" within a second, grids matching the inventory after.
+- PocketRight: InventoryGridSize 1 x 2 but its grid is never built (0 slots in every copy) and the game shows only the
+  left pocket: anything there is invisible and stuck. No player save had anything there; the mod's pockets.lua (and the
+  F9 ammo button, defuse loot, soldier's-gun ammo) used it as overflow in builds 10-14, and the test save had a 32Ammo
+  in it. pockets.lua now uses PocketLeft only; the stand-in repair moves anything in PocketRight to the stash (log
+  "... on top of others or out of sight moved: ...").
+- Not reproduced: the real drag that leaves a stale cell (synthetic drags don't move items). Not verified: invsync on a
+  stale cell the game made by itself in a raid (only the lobby's, and hand-made ones).

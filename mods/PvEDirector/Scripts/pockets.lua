@@ -1,4 +1,6 @@
--- Free space in your pockets (PocketLeft and PocketRight, 2 x 2 cells each), from every carried item's real footprint.
+-- Free space in your pocket (PocketLeft, 2 x 2 cells), from every carried item's real footprint. PocketRight exists
+-- in the inventory (1 x 2) but the game never builds its grid or shows it: anything put there is invisible and can't
+-- be moved (2026-11-20), so nothing goes there.
 -- Anything the mod puts into your pockets (defuse.lua's loot, the F9 ammo button, loadout.lua's ammo with a soldier's
 -- gun) goes through here, so nothing lands on top of another item: items stacked on one cell break the inventory (the
 -- top one hides the rest, moves freeze, discards come back; #239, #240).
@@ -11,7 +13,7 @@
 local Items = require("itemdata")
 local P = {}
 
-P.POCKETS = { "PocketLeft", "PocketRight" }
+P.POCKETS = { "PocketLeft" }
 local SIDE = 2
 
 local function key(con, col, row) return ("%s %d %d"):format(con, col, row) end
