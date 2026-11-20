@@ -1,6 +1,7 @@
 """Builds the public release: release/MaraudersOffline/ and release/MaraudersOffline-<build>.zip.
 
     python tools/release/build_release.py [build]
+    python tools/release/build_release.py --repackage <build>   (zips the release/MaraudersOffline/ already built)
 
 <build> defaults to today's date (20261116); give a later same-day build its own, like 20261116.2. Each build is
 its own GitHub release (tag public-test-<build>): never replace a published zip.
@@ -9,6 +10,13 @@ Only what a player's game needs goes in (an allow-list, so new dev files stay ou
 stand-in backend with an anonymous starting account, the two mods, the two native DLLs, UE4SS, the art, the switch
 scripts, and the installer, README and default settings from this folder. No notes, probes, tests, captures, dumps,
 backups, saves or logs. Rebuild native/pvenet.dll and native/pvepatch.dll first if their sources changed.
+
+What to upload (uploads over ~10 MB failed from the maintainer's connection, 2026-11-19, so every file is kept under
+PART_MAX): MaraudersOffline-<build>.zip, the build without its two big dependencies (the one the launcher's updater
+takes: an install that updates already has them, unchanged since 17 Nov build 1), and the dependencies as
+MaraudersOffline-<build>-deps-*.zip (UE4SS.dll; the female meshes in parts). Every zip has the same top folder, so a
+new player extracts them all into one place. The names with "-deps-" and "-full" never match the updater's asset
+pattern. MaraudersOffline-<build>-full.zip is everything in one zip, for when a big upload works.
 """
 import json
 import os
@@ -17,6 +25,7 @@ import shutil
 import sys
 import uuid
 import zipfile
+import zlib
 from datetime import date
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -182,7 +191,71 @@ def ensure_female():
     print(f"  {n} files")
 
 
+PART_MAX = 9_000_000  # bytes of compressed data per zip (uploads over ~10 MB were cut off, 2026-11-19)
+# The dependencies: big, and the same in every release since 17 Nov build 1 (checked byte for byte, 2026-11-19).
+DEPS = (("ue4ss", lambda rel: rel == "tools/ue4ss/UE4SS.dll"),
+        ("female", lambda rel: rel.startswith("assets/female/")))
+
+
+def write_zip(path, rels):
+    """A zip of these files from DEST, under NAME/ (.sh files executable when unzipped on Linux)."""
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
+        for rel in rels:
+            src = os.path.join(DEST, rel)
+            arc = NAME + "/" + rel
+            if rel.endswith(".sh"):  # a Windows build has no mode bits
+                info = zipfile.ZipInfo.from_file(src, arc)
+                info.external_attr = (0o100755 << 16)
+                info.compress_type = zipfile.ZIP_DEFLATED
+                with open(src, "rb") as f:
+                    z.writestr(info, f.read())
+            else:
+                z.write(src, arc)
+
+
+def package(build):
+    """The zips to upload, from DEST (see the docstring). Returns their paths."""
+    rels = sorted(os.path.relpath(os.path.join(d, n), DEST).replace(os.sep, "/")
+                  for d, _, names in os.walk(DEST) for n in names)
+    full = os.path.join(OUT_DIR, f"{NAME}-{build}-full.zip")
+    write_zip(full, rels)
+    groups = {key: [r for r in rels if test(r)] for key, test in DEPS}
+    main_rels = [r for r in rels if not any(test(r) for _, test in DEPS)]
+    out = [os.path.join(OUT_DIR, f"{NAME}-{build}.zip")]
+    write_zip(out[0], main_rels)
+    for key, members in groups.items():
+        parts, part, size = [], [], 0
+        for rel in members:  # filled in path order by compressed size
+            with open(os.path.join(DEST, rel), "rb") as f:
+                n = len(zlib.compress(f.read(), 6))
+            if part and size + n > PART_MAX:
+                parts.append(part)
+                part, size = [], 0
+            part.append(rel)
+            size += n
+        if part:
+            parts.append(part)
+        for i, part in enumerate(parts, 1):
+            tag = key if len(parts) == 1 else f"{key}-{i}of{len(parts)}"
+            path = os.path.join(OUT_DIR, f"{NAME}-{build}-deps-{tag}.zip")
+            write_zip(path, part)
+            out.append(path)
+    for path in out:
+        if os.path.getsize(path) > PART_MAX + 500_000:
+            sys.exit(f"{path} is {os.path.getsize(path) / 1e6:.1f} MB: over PART_MAX")
+    print(f"{full}: {os.path.getsize(full) / 1e6:.0f} MB (everything; not for upload over a bad connection)")
+    print("Upload these:")
+    for path in out:
+        print(f"  {os.path.basename(path)}  {os.path.getsize(path) / 1e6:.1f} MB")
+    return out
+
+
 def main():
+    if len(sys.argv) == 3 and sys.argv[1] == "--repackage":
+        if not os.path.exists(os.path.join(DEST, "version.txt")):
+            sys.exit(f"nothing built in {DEST}")
+        package(sys.argv[2])
+        return
     # A second build on the same day gets its own name (e.g. 20261116.2), so a published zip is never replaced.
     build = sys.argv[1] if len(sys.argv) > 1 else f"{date.today():%Y%m%d}"
     zip_path = os.path.join(OUT_DIR, f"{NAME}-{build}.zip")
@@ -210,21 +283,9 @@ def main():
     if found:
         sys.exit("dev paths or personal data in: " + ", ".join(found))
 
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
-        for dirpath, _, files in os.walk(DEST):
-            for name in files:
-                path = os.path.join(dirpath, name)
-                arc = os.path.join(NAME, os.path.relpath(path, DEST)).replace("\\", "/")
-                if name.endswith(".sh"):  # executable when unzipped on Linux (a Windows build has no mode bits)
-                    info = zipfile.ZipInfo.from_file(path, arc)
-                    info.external_attr = (0o100755 << 16)
-                    info.compress_type = zipfile.ZIP_DEFLATED
-                    with open(path, "rb") as f:
-                        z.writestr(info, f.read())
-                else:
-                    z.write(path, arc)
     count = sum(len(f) for _, _, f in os.walk(DEST))
-    print(f"{DEST}: {count} files\n{zip_path}: {os.path.getsize(zip_path) / 1e6:.0f} MB")
+    print(f"{DEST}: {count} files")
+    package(build)
 
 
 if __name__ == "__main__":
