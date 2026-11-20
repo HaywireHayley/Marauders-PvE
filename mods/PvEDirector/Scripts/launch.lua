@@ -134,11 +134,13 @@ local function joinPending(pc)
     os.remove(COOP_JOIN)
     if not addr:find(":", 1, true) then addr = addr .. ":7777" end
     local nick = myName() or "Marauder"
-    -- PID and the other ids: anything but the host's own (offline1); a fresh one per join. CREW as the bridge's tested
-    -- join (its own crew); whether co-op players should share the host's crew is open (#200).
+    -- PID and the other ids: anything but the host's own (offline1); a fresh one per join. CREW is the host's crew
+    -- (every install's RAID_OPTS has the same one) and CPT=0, not its captain: the host's game then puts the joiner
+    -- aboard the host's ship, not in a ship of their own (#214; tested: spawned 8 m from the host, one interior).
     local id = ("%08x"):format(math.random(0, 0x7fffffff))
-    local cmd = "open " .. addr .. "?PID=offline-" .. id .. "?PNAME=" .. base64(nick) .. "?CREW=coop-" .. id
-        .. "?CPT=1?NUM=1?EOS=offline-" .. id .. "?UPN=offline-" .. id
+    local crew = RAID_OPTS:match("CREW=([^?]+)") or "solo1"
+    local cmd = "open " .. addr .. "?PID=offline-" .. id .. "?PNAME=" .. base64(nick) .. "?CREW=" .. crew
+        .. "?CPT=0?NUM=1?EOS=offline-" .. id .. "?UPN=offline-" .. id
     log(("co-op: joining %s as %s"):format(addr, nick))
     StaticFindObject("/Script/Engine.Default__KismetSystemLibrary"):ExecuteConsoleCommand(pc, cmd, pc)
 end
@@ -210,18 +212,22 @@ end
 
 local function veilUntilAboard(pc, world)
     local now, cam = os.clock(), pc.PlayerCameraManager
+    -- A co-op joiner (#214) has no game mode (only the host's game does): the host's clock runs the match, so the
+    -- load isn't sped up here, and it's ready as soon as its pawn is in and the level has streamed. Waiting for a game
+    -- mode left a joiner under the loading screen for the whole VEIL_MAX.
+    local gm = world.AuthorityGameMode
+    local joiner = not valid(gm)
     if not raid.veiledAt then
         raid.veiledAt = now
-        setLoadSpeed(pc, CFG.LOAD_TIME_DILATION)
+        if not joiner then setLoadSpeed(pc, CFG.LOAD_TIME_DILATION) end
         local ok, err = pcall(Loading.show, pc)
         if not ok then log("loading screen failed: " .. tostring(err)) end
     end
-    local gm = world.AuthorityGameMode
     local ok, stage, frac = pcall(loadProgress, pc, world, gm)
     if ok then pcall(Loading.stage, stage, frac) end
-    if not raid.readyAt and valid(pc.Pawn) and valid(gm) and #gm.ShipsInMap > 0 and streamingDone(world) then
+    if not raid.readyAt and valid(pc.Pawn) and (joiner or #gm.ShipsInMap > 0) and streamingDone(world) then
         raid.readyAt = now
-        setLoadSpeed(pc, 1)
+        if not joiner then setLoadSpeed(pc, 1) end
         if launchShip then -- still under the loading screen: see Rivals.ownHull
             for _, i in ipairs(FindAllOf("RaidSpaceshipInside") or {}) do
                 if valid(i) and not i.IsAnAIShip then
@@ -235,7 +241,7 @@ local function veilUntilAboard(pc, world)
     end
     if (raid.readyAt and now - raid.readyAt >= CFG.REVEAL_DELAY) or now - raid.veiledAt >= CFG.VEIL_MAX then
         raid.revealed = true
-        setLoadSpeed(pc, 1)
+        if not joiner then setLoadSpeed(pc, 1) end
         pcall(Loading.finish)
         if valid(cam) then cam:StartCameraFade(1, 0, 1.0, BLACK, false, false) end
         log(("aboard after %.0fs%s"):format(now - raid.veiledAt, raid.readyAt and "" or " (gave up waiting)"))

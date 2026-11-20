@@ -4255,6 +4255,21 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   unexercised), a joiner's own ship (one ship, two players is undefined), the host's bots fighting the joiner, the
   joiner looting, two PCs.
 
+### A joiner aboard the host's ship (#214, 2026-11-19; launch.lua joinPending, veilUntilAboard)
+- The host's ship interior (`RaidSpaceshipInside`, FrigateInside_Starter_C) carries `ShipCrew` = the host's `CREW`
+  option (`solo1`); `RaidPlayerController.Crew` is empty offline. Joining with `CREW=solo1?CPT=0` (the host's crew, not
+  its captain) puts the joiner **aboard the host's ship**: spawned 8-9 m from the host, one player interior, one
+  Rustbucket. With its own crew id (the #201 join) the host's game made the joiner a ship of its own 330 m away.
+- launch.lua's join now sends the crew from RAID_OPTS (the same in every install) and CPT=0.
+- The joiner's loading veil waited for `world.AuthorityGameMode`, which only the host has, so it timed out ("aboard
+  after 90s (gave up waiting)") and ran the client at 20x time dilation meanwhile. Now a joiner (no game mode) is ready
+  once its pawn exists and the level has streamed, and never touches time dilation. Tested: "aboard after 13s"; the
+  joiner's screen shows the ship interior and the gate countdown.
+- Seen, not looked into: the joiner's minimap panel draws as an empty dark box.
+- Not tested: both players flying / manning turrets, docking and breaching together, extracting through the gate
+  together (which save gets the ship), the host's hired crew with a second player aboard, rivals treating the joiner as
+  the ship's crew.
+
 ## Space gate time (2026-11-18; raidtime.lua, docs/internals/SPACE_GATE.md)
 - Request (Discord, ChurchOfHusk_Enjoyer): choose when the space gate arrives (instant, 5, 10, 15 minutes), because the custom
   raid length also moved the gate's countdown. Launcher: "Space gate" slider under "Raid length" (default, instant, 5, 10, 15),
