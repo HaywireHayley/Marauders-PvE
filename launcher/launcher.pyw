@@ -1252,6 +1252,14 @@ class App(tk.Tk):
         def work():
             rel = update.newer(update.latest(), current)
             self.ui(lambda: self.show_update(rel))
+            if rel:
+                return  # updating fetches the changed dependencies anyway
+            # Dependencies that don't match this build's deps.json (an update by a launcher from before deps.json, or
+            # files gone missing): put back from this build's own release.
+            parts = update.stale_deps(update.installed_deps())
+            own = parts and update.release(current)
+            if own:
+                self.ui(lambda: self.start_repair(own, parts))
         threading.Thread(target=work, daemon=True).start()
 
     def show_update(self, release):
@@ -1270,7 +1278,7 @@ class App(tk.Tk):
             self.say("Close the game before updating.")
             return
         d = Dialog(self, "New build")
-        size = f" ({rel['size'] / 1e6:.0f} MB)" if rel.get("size") else ""
+        size = f" ({rel['size'] / 1e6:.0f} MB, more if UE4SS or the outfit meshes changed)" if rel.get("size") else ""
         tk.Label(d.body, text=f"{rel['tag']} is out; you have {update.installed()}.\n\nUPDATE downloads it{size}, checks it, and "
                               "installs it over this folder. Your saves and launcher settings are kept. The launcher restarts "
                               "when it's done.", bg=PANEL, fg=TEXT, font=font(12), justify="left", wraplength=wrap(400)).pack(anchor="w")
@@ -1295,16 +1303,14 @@ class App(tk.Tk):
         self.play.enable(False)
         self.update_button.enable(False)
 
-        def progress(done, total):
-            text = f"Downloading {rel['tag']}... {done * 100 // total}%" if total else f"Downloading {rel['tag']}..."
-            self.ui(lambda: self.say(text))
+        progress = self.download_progress(f"Downloading {rel['tag']}")
 
         def work():
             tmp = tempfile.mkdtemp(prefix="pve-update-")
             try:
-                path = update.download(rel, tmp, progress)
+                paths = update.download_update(rel, tmp, progress)
                 self.ui(lambda: self.say("Installing..."))
-                version = update.install(path)
+                version = update.install(paths)
             except Exception as e:
                 err = str(e) or type(e).__name__
                 self.ui(lambda: self.update_failed(rel, err))
@@ -1312,6 +1318,41 @@ class App(tk.Tk):
             finally:
                 shutil.rmtree(tmp, ignore_errors=True)
             self.ui(lambda: self.update_done(version))
+        threading.Thread(target=work, daemon=True).start()
+
+    def download_progress(self, what):
+        """progress(done, total) for update.py: a status line in MB, from any thread."""
+        def progress(done, total):
+            text = f"{what}... {done / 1e6:.1f} of {total / 1e6:.1f} MB" if total else f"{what}..."
+            self.ui(lambda: self.say(text))
+        return progress
+
+    def start_repair(self, rel, parts):
+        """Downloads the dependency parts (UE4SS, outfit meshes) this build needs and doesn't have, from its release.
+        PLAY waits for it."""
+        if self.updating or self.running or game_running():
+            return
+        self.updating = True
+        self.play.enable(False)
+        self.update_button.enable(False)
+        progress = self.download_progress(f"Fetching files {rel['tag']} changed")
+
+        def work():
+            tmp = tempfile.mkdtemp(prefix="pve-update-")
+            try:
+                update.install(update.download_repair(rel, parts, tmp, progress), release_zip=False)
+                text = "Fetched the files this build changed."
+            except Exception as e:
+                text = f"Couldn't fetch the files this build changed ({str(e) or type(e).__name__}): the release page has them."
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+
+            def done():
+                self.updating = False
+                self.update_button.enable(True)
+                self.show_selected()
+                self.say(text)
+            self.ui(done)
         threading.Thread(target=work, daemon=True).start()
 
     def update_failed(self, rel, err):

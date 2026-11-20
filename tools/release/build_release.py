@@ -13,11 +13,13 @@ backups, saves or logs. Rebuild native/pvenet.dll and native/pvepatch.dll first 
 
 What to upload (uploads over ~10 MB failed from the maintainer's connection, 2026-11-19, so every file is kept under
 PART_MAX): MaraudersOffline-<build>.zip, the build without its two big dependencies (the one the launcher's updater
-takes: an install that updates already has them, unchanged since 17 Nov build 1), and the dependencies as
-MaraudersOffline-<build>-deps-*.zip (UE4SS.dll; the female meshes in parts). Every zip has the same top folder, so a
-new player extracts them all into one place. The names with "-deps-" and "-full" never match the updater's asset
-pattern. MaraudersOffline-<build>-full.zip is everything in one zip, for when a big upload works.
+takes), and the dependencies as MaraudersOffline-<build>-deps-*.zip (UE4SS.dll; the female meshes in parts). Every zip
+has the same top folder, so a new player extracts them all into one place. The names with "-deps-" and "-full" never
+match the updater's main-zip pattern. The main zip holds deps.json (each part's files and their SHA-256): the updater
+compares it with the files a player has and downloads only the parts that changed (a remade mesh, a new UE4SS).
+MaraudersOffline-<build>-full.zip is everything in one zip, for when a big upload works.
 """
+import hashlib
 import json
 import os
 import re
@@ -174,25 +176,29 @@ def ensure_female():
     api = "https://api.github.com/repos/HaywireHayley/Marauders-PvE/releases/latest"
     with urllib.request.urlopen(urllib.request.Request(api, headers={"User-Agent": "marauders-release-build"})) as r:
         rel = json.load(r)
-    asset = next(a for a in rel["assets"] if a["name"].endswith(".zip"))
-    print(f"assets/female/pak missing: taking it from {rel['tag_name']} ({asset['name']})")
-    with urllib.request.urlopen(asset["browser_download_url"]) as r:
-        z = zipfile.ZipFile(io.BytesIO(r.read()))
+    # The meshes are in the -deps-female zips since build 20261119 (in the main zip before that).
+    assets = [a for a in rel["assets"] if "-deps-female" in a["name"]]
+    assets = assets or [a for a in rel["assets"] if re.fullmatch(rf"{NAME}-[\w.]+\.zip", a["name"])]
     prefix, n = f"{NAME}/assets/female/pak/", 0
-    for info in z.infolist():
-        if info.filename.startswith(prefix) and not info.is_dir():
-            out = os.path.join(FEMALE, info.filename[len(prefix):])
-            os.makedirs(os.path.dirname(out), exist_ok=True)
-            with open(out, "wb") as f:
-                f.write(z.read(info))
-            n += 1
+    for asset in assets:
+        print(f"assets/female/pak missing: taking it from {rel['tag_name']} ({asset['name']})")
+        with urllib.request.urlopen(asset["browser_download_url"]) as r:
+            z = zipfile.ZipFile(io.BytesIO(r.read()))
+        for info in z.infolist():
+            if info.filename.startswith(prefix) and not info.is_dir():
+                out = os.path.join(FEMALE, info.filename[len(prefix):])
+                os.makedirs(os.path.dirname(out), exist_ok=True)
+                with open(out, "wb") as f:
+                    f.write(z.read(info))
+                n += 1
     if not n:
         sys.exit("assets/female/pak missing here and not in the latest release: run tools/female/make_female.py")
     print(f"  {n} files")
 
 
 PART_MAX = 9_000_000  # bytes of compressed data per zip (uploads over ~10 MB were cut off, 2026-11-19)
-# The dependencies: big, and the same in every release since 17 Nov build 1 (checked byte for byte, 2026-11-19).
+# The dependencies: big and seldom changed, so the updater downloads them only when deps.json says they did.
+DEPS_FILE = "deps.json"
 DEPS = (("ue4ss", lambda rel: rel == "tools/ue4ss/UE4SS.dll"),
         ("female", lambda rel: rel.startswith("assets/female/")))
 
@@ -217,12 +223,10 @@ def package(build):
     """The zips to upload, from DEST (see the docstring). Returns their paths."""
     rels = sorted(os.path.relpath(os.path.join(d, n), DEST).replace(os.sep, "/")
                   for d, _, names in os.walk(DEST) for n in names)
-    full = os.path.join(OUT_DIR, f"{NAME}-{build}-full.zip")
-    write_zip(full, rels)
+    rels = [r for r in rels if r != DEPS_FILE]  # remade below (--repackage finds the last one)
     groups = {key: [r for r in rels if test(r)] for key, test in DEPS}
     main_rels = [r for r in rels if not any(test(r) for _, test in DEPS)]
-    out = [os.path.join(OUT_DIR, f"{NAME}-{build}.zip")]
-    write_zip(out[0], main_rels)
+    manifest = {}  # part name ("female-2of6") -> {file: sha256}
     for key, members in groups.items():
         parts, part, size = [], [], 0
         for rel in members:  # filled in path order by compressed size
@@ -237,9 +241,20 @@ def package(build):
             parts.append(part)
         for i, part in enumerate(parts, 1):
             tag = key if len(parts) == 1 else f"{key}-{i}of{len(parts)}"
-            path = os.path.join(OUT_DIR, f"{NAME}-{build}-deps-{tag}.zip")
-            write_zip(path, part)
-            out.append(path)
+            manifest[tag] = {}
+            for rel in part:
+                with open(os.path.join(DEST, rel), "rb") as f:
+                    manifest[tag][rel] = hashlib.sha256(f.read()).hexdigest()
+    put(DEPS_FILE, json.dumps({"parts": manifest}, indent=1, sort_keys=True) + "\n")
+    rels, main_rels = sorted(rels + [DEPS_FILE]), main_rels + [DEPS_FILE]
+    full = os.path.join(OUT_DIR, f"{NAME}-{build}-full.zip")
+    write_zip(full, rels)
+    out = [os.path.join(OUT_DIR, f"{NAME}-{build}.zip")]
+    write_zip(out[0], main_rels)
+    for tag, files in manifest.items():
+        path = os.path.join(OUT_DIR, f"{NAME}-{build}-deps-{tag}.zip")
+        write_zip(path, sorted(files))
+        out.append(path)
     for path in out:
         if os.path.getsize(path) > PART_MAX + 500_000:
             sys.exit(f"{path} is {os.path.getsize(path) / 1e6:.1f} MB: over PART_MAX")
