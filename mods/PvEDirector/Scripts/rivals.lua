@@ -993,7 +993,7 @@ local function finishBuilding(now)
                     entry.home = entry.bot:K2_GetActorLocation()
                     entry.patrolRadius = CFG.PATROL_RADIUS
                 end
-                X.log(("[rivals] %s (%s kit, %s, %d hp, %s) is in %s"):format(entry.rival.name, entry.rival.tier.name,
+                X.log(("[rivals] %s (%s kit, %s, %.0f hp, %s) is in %s"):format(entry.rival.name, entry.rival.tier.name,
                     entry.rival.gunName or "no gun", entry.rival.hp, entry.rival.personality,
                     job.mode == "boarding" and (c.inside and "their ship" or "your ship") or c.station.name))
             else

@@ -205,7 +205,7 @@ local function finishBuilding()
                 pcall(passThrough, e)
                 m.entry = e
                 table.insert(X.raid().bots, e)
-                X.log(("[crew] %s (level %d, %s kit, %s, %d hp, %s) is with you"):format(m.name, m.level, m.tier.name,
+                X.log(("[crew] %s (level %d, %s kit, %s, %.0f hp, %s) is with you"):format(m.name, m.level, m.tier.name,
                     m.gunName or "no gun", m.hp, m.personality or "?"))
                 if not S.greeted then S.greeted = true pcall(X.voice.say, e, "HoldPosition") end
             else
