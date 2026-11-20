@@ -4429,3 +4429,28 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   it at once; a Spaceport_01 raid after that wore 59/60 (cosmetics.json -> applyLoadout).
 - Not verified: the brown coat in a raid (only the black one was loaded), a woman's body with these rows, the crew
   stands in the lobby wearing them (they're dressed from a donor).
+
+## Defusing station mines (#197 part 1, 2026-11-20; defuse.lua)
+- The Raid maps' UA_Mine_Spawner_C (00_UA_ObjectSpawner_Base: ItemToSpawn MineStaticActor_C, 0to1_ChanceForBlockerToSpawn
+  0.15; Spaceport_01 has 33, so 3-5 mines a raid) place MineStaticActor_C: mesh Wpn_APmine_Pickup, a 30 cm Sphere
+  trigger. Bytecode (kdis, ExecuteUbergraph_MineStaticActor): on overlap, with authority and Active, Active = false, the
+  APmine_Triggered_Cue, lights off, 0.25 s, then the Explosion particles, APmine_explosion_large_07 and
+  ApplyRadialDamageWithFalloff(60, 30, r 200-500), mesh hidden, collision off. MultiExpo() runs the same path. Both
+  trigger paths check Active first: Active = false disarms it. They go off offline as they did live (we're the authority).
+- defuse.lua: on foot within REACH (170 cm) of an armed mine, a prompt (bottom middle); with a ToolKit carried (row
+  ToolKit in any container but Stash/Lobby/Shop/LootCon...), F opens a Minesweeper board (6 x 6, 6 charges, 75 s; the
+  charges are laid on the first reveal, never under it or next to it). Win: Active false, lights off, the actor
+  destroyed, AP_Mine x1 and Gunpowder x2 into free pocket cells (Server_AwsN_EquippedItemsReturned, like the F9 ammo
+  button). Lose (a charge, or time): the board closes and mine:MultiExpo() sets it off. The ToolKit is kept either way.
+  "Back away" closes the board, the mine stays armed. Built and polled like the F9 menu; flags through a Flag mode
+  button. F is bound with RegisterKeyBind and only acts while the prompt is up (the game's own F carries on).
+- Mines are found by FindAllOf every SCAN_EVERY (20 s) while on foot in a raid.
+- UMG from Lua: CanvasPanelSlot:SetAnchors with a table didn't take (the prompt sat in the top-left corner); positions
+  are worked out from WidgetLayoutLibrary GetViewportSize / GetViewportScale instead.
+- Verified on Spaceport_01 (god mode on, real key presses and clicks, the layout read through Defuse.peek from
+  bridge/dir_eval.lua to click every safe cell): the prompt without and with a ToolKit; F without one does nothing; a
+  cleared board defused the mine (3 -> 2 mines, AP_Mine and Gunpowder x2 in the right pocket, ToolKit kept); hitting
+  a charge set the mine off (blast, shrapnel, mine hidden and inactive); Back away left it armed; flag mode flags.
+- Not verified: the damage on a loss without god mode (it's the mine's own, unchanged); a full pocket set; mines in
+  station interiors on space maps (the same actor; the scan runs there too); a joiner (co-op).
+- Still to do for #197: space mines (Small_NodeMine_C in place, Nuclear_NodeMine_C towed to the hold), from the ship.
