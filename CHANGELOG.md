@@ -2,6 +2,32 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 19 Nov 2026, build 6 (`public-test-20261118.6`)
+
+Co-op (early), a faster Rustbucket with a boost, and J and K in raids. On build 1 of 17 Nov or later, the launcher's
+orange **!** installs this one for you, keeping your saves.
+
+### Changes
+
+- **Co-op, early (#201, #200):** play a raid with a friend. In the launcher, **CO-OP**: the host ticks "Host: friends
+  can join my raids" and starts a raid as usual; the friend types the host's address and presses **JOIN**. Each of you
+  plays from your own save and flies your own ship. Across the internet you need a shared network:
+  [docs/COOP.md](docs/COOP.md) walks through it with ZeroTier and has a setup script for Windows and Linux (#202). Only
+  tested with two copies on one PC so far: tell us how it goes.
+- **Rustbucket (#207):** a quarter faster, and quicker to get up to speed. **Space** at the helm of any ship boosts it
+  to nearly twice its top speed for 4 seconds, then needs 12 seconds to recharge, like the drop pod.
+- **J and K in a raid (#209):** with a crate or body open, **K** moves the item under the mouse between your gear and
+  the container, and **J** drops your item on the floor.
+- **Crew helmets (#195):** recruits no longer keep turning up in the Red Baron's cap (Rosco and his whole bloodline).
+  Recruits and crew already wearing one get a fitting helmet of the same grade.
+
+### Missed in earlier notes
+
+- **Shotgun throw** (build 1 of 18 Nov, #154, thanks sp0rrk): a shotgun volley throws the bots it hits, harder the more
+  pellets land and the closer you are; the sawed-off and the Terminator throw furthest.
+- Thanks to sp0rrk for the space gate timer, bullet holes, space explosions, the blowtorch, unlimited stamina in god mode
+  and the salvage purge fix in build 4 (#170, #173, #176, #179, #181, #182).
+
 ## Public test, 19 Nov 2026, build 5 (`public-test-20261118.5`)
 
 A minefield. On build 1 of 17 Nov or later, the launcher's orange **!** installs this one for you, keeping your saves.
