@@ -4360,3 +4360,21 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   wait, GC again (the flak count drops: freed), then R.hostileShips(). Old code: crashed with the reported hash
   99326A2899B85B5ACD9EAF8A543913AFA3D2CCC2. New code: 3 rounds of hostileShips + pickShip, no crash.
 - Not verified: the reported path itself (a crew gunner ordered onto a moving flak turret on Space_Charlie).
+
+## Minimap: the space gate task (#223, 2026-11-20; minimap.lua stage, gateIn)
+- Found in #42's log (Space_Delta, 19 Nov): `minimap.lua:469: attempt to index a nil value (local 'place')`, 488 times.
+  Following "Leave through a space gate" once a gate exists, on foot in your ship and not docked: the gate target has no
+  place, so `docked == place` was nil == nil and the line read place.name. Now `place and docked == place`; on foot it
+  says "Go to the helm and press F to fly".
+- The minimap's gate countdown was `RemainingTime - 1200` (the stock HUD's rule), which only holds in a 25 minute raid
+  with the stock gate; it also doesn't look for gates until that reaches 0. With config/gate_time.txt "instant" the gate
+  was there 1 s in (EvacSpawned true, TimeTillEvacSpawn 1.0, 2 EscapeZoneSpaceGate_C) while the minimap counted down
+  4 minutes and pointed nowhere. Now gateIn() uses the game mode as raidtime.lua does (EvacSpawned -> 0, warmup ->
+  TimeTillEvacSpawn, else TimeTillEvacSpawn - (RoundTime - RemainingTime)), rounded up to whole seconds (the text
+  formats it with %d); a joiner (no AuthorityGameMode) keeps the stock rule.
+- Verified on Space_Beta, gate and task picked through config/gate_time.txt and bridge/minimap_cmd "next":
+  - on foot in your ship with the gate there: "Go to the helm and press F to fly", 0 errors;
+  - "instant": the minimap followed the gate about a minute in, with the HUD on "SPACE GATE HAS ARRIVED" (before: "Gate
+    arrives in 3:50" counting down);
+  - 10 minutes: the minimap read 8:43 when the HUD read 08:44.
+- Not verified: the piloting text toward the gate with a custom time, a joiner's minimap.
