@@ -148,6 +148,11 @@ def seed():
     return text
 
 
+# The maintainer's public handle may contain a private name: the repository's URLs (the updater needs them) and the guild
+# officer named after it in guild.lua ship on purpose. Only these exact forms are let through.
+PUBLIC = re.compile(r"HaywireHayley|Haywire Hayley")
+
+
 def check():
     """No dev paths or personal names in anything shipped as text."""
     bad = re.compile("|".join(re.escape(s) for s in PRIVATE + ["Documents/MaraudersPvE"]), re.I)
@@ -157,7 +162,7 @@ def check():
             if name.endswith((".lua", ".py", ".pyw", ".ps1", ".sh", ".txt", ".ini", ".json", ".bat", ".md")):
                 path = os.path.join(dirpath, name)
                 with open(path, encoding="utf-8", errors="ignore") as f:
-                    if bad.search(f.read()):
+                    if bad.search(PUBLIC.sub("", f.read())):
                         found.append(os.path.relpath(path, DEST))
     return found
 
