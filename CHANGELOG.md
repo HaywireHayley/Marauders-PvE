@@ -2,6 +2,22 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 20 Nov 2026, build 9 (`public-test-20261120.9`)
+
+The lobby stops flashing when you change gear, and two hidden outfits. On build 1 of 17 Nov or later, the launcher's
+orange **!** installs this one for you, keeping your saves.
+
+### Changes
+
+- **No more flashing on LOADOUT (#233, PR #234):** putting gear on or taking it off made the menu's panels blink out
+  and fade back in, and the hangar behind them dim. It came from the mod's own redress of your lobby character; that
+  now happens without the fade. Thanks The Wang for the report and clip.
+- **Two hidden outfits (#229, PR #235):** the game has two long-coat outfits (brown with a brass mask, black with a
+  goggled mask) that its Appearance pages never list. **F9 > Hidden outfit** in the lobby puts one on; pick any look in
+  Appearance to change back.
+- **F9 menu fits the screen (PR #235):** with all its buttons it ran off the bottom of a 900 or 1080 px window. It now
+  uses two columns.
+
 ## Public test, 20 Nov 2026, build 8 (`public-test-20261120.8`)
 
 A crash fix and two minimap and crew fixes. On build 1 of 17 Nov or later, the launcher's orange **!** installs this
