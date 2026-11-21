@@ -4773,3 +4773,22 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   breach, a body lying on the floor with its gear (7 and 2 loot items on the pawns before the swap). No Lua errors.
 - Not verified: looting those corpses by hand, a second visit, a wreck from a real fight (the test zeroed the hull),
   the 50 % roll in normal play.
+
+## Nuclear mines towed to the hold (#197, the last part; 2026-11-20; defuse.lua tow, holdBlast)
+- At the helm by a nuclear mine the prompt is now "R   Take the nuclear mine aboard" (no ToolKit needed to tow). R: the
+  mine's Active? goes false, MineRotation stops (its light keeps pulsing), collision off, scale CFG.HOLD_SCALE (0.35: it
+  fits the starter's hold), set down 60 cm above the interior's `SalvageSpawn` component (looked up by name among the
+  interior's SceneComponents; the interior's middle if it's missing). One at a time ("Your hold already has a nuclear
+  mine in it"). Small mines are still defused in place from the helm. The in-place nuclear board (#256) is gone.
+- On foot within CFG.HOLD_REACH (3.5 m, 3D) of it: "F   Defuse the nuclear mine", the 8x8 nuclear board (kind "hold";
+  `where(kind)` maps hold and station to on foot, space to the helm). Win: Fuse + HiGunpowder into the pocket,
+  NuclearMaterial to the gift box, the mine destroyed. Lose: its own explosion with both radii set to CFG.HOLD_BLAST (30 m:
+  everyone in the hold), plus ApplyDamage 100000 on your body and on your ship (inside.SpaceshipToPairTo).
+- Verified (Space_Alpha, at the helm by Possess, real R and F presses, ToolKit given by a probe): prompt shown; tow logged
+  "set down in the hold at -110620,-247526,3194"; the mine stood in the hold at 0.35 scale (screenshot); F opened the
+  board; a won board (finish(true) through a probe) gave a Fuse and the gift ("gifts: ['NuclearMaterial']"); a second mine
+  run out of time: "failed (out of time), it goes off", YOU DIED straight away.
+- Not verified: the hull after the hold blast (the raid ended on the death), clicking a board to a win by hand, a ship
+  other than the starter, extracting with a live mine aboard (it's left behind with the map), crew in the hold.
+- Test note: an R tapped right after taking the helm can arrive before the prompt's update has picked the mine; hold it
+  0.3-0.4 s.
