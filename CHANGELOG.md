@@ -10,6 +10,12 @@ keeping your saves.
 
 ### Changes
 
+- **One small download to install (PR #287):** new players on Windows download just
+  `MaraudersOffline-20261120.18-installer.zip` (a few KB): its `Install.bat` downloads this build and every part it
+  needs from GitHub, checks each file, and installs them, then sets up as usual. The other zips are still there for
+  Linux and for installing by hand.
+- **README (PR #288):** how to install and update now, this week's features, the controls for mines and repairs (also in
+  the launcher's CONTROLS), and the issues still open.
 - **Blood Raider outfit (#228, #230, PR #271):** the game files hold one outfit that no menu lists, a bloodied Raider
   suit that goes with the free Nomad Blood Head. **F9 in the lobby > Hidden outfit** now cycles the brown coat, the black
   coat and the Blood Raider; it shows in raids too, and picking any look in Appearance takes it off. The same search
