@@ -3012,6 +3012,39 @@ leaves the raid. Its REPORT BUG button is collapsed and opens a web page.
   hovered by Slate).
 - The lobby has no Esc menu: MenuPlayerController's InGameMenu action opens nothing. SIGIS_MainOverlay_C has an
   MM_SecondaryOptionsBtn_Exit, but it is inside Border_BottomBar_Old, which is collapsed. That's a possible follow-up.
+## Settings on the title screen and in the lobby (2026-11-21, issue #293; mods/PvEDirector/Scripts/gamesettings.lua)
+Players could reach the game's Settings only from the pause menu in a raid.
+- The Settings widget already exists outside a raid: SIGIS_MainOverlay_C ("In Game Overlay Menu", on the game instance,
+  so it lasts the session) holds SIGIS_Options (collapsed) with tabs MM_GenericTabBtn_Video/Audio/Gameplay/Social/
+  Controls/MISC and pages WB_Options_Video/Audio/Gameplay/Social/Controls/Misc. Its lobby button,
+  MM_SecondaryOptionsBtns_Settings (Which_SecondaryOptions = 1), is in the collapsed Border_BottomBar_Old.
+- Called from Lua (bridge), none of these opened it: overlay SwitchToOptions (Lua error, a UE4SS error object),
+  OptionsPressed (ran, nothing shown), SIGIS_MasterMenu_C:SwitchToOptions (error), the hidden button's
+  BndEvt__Btn_Main_..._OnButtonClickedEvent (ran, nothing), Switch_Options_State with 0 or 1 args (error). UFunction
+  ForEachProperty also failed on these functions, so their parameters weren't read.
+- What works: SIGIS_Options:SetVisibility(0), the Video page SetVisibility(4) and
+  WB_Options_Video:InitializeVideoSettings() (until then Resolution, Window Mode and UI Scale are empty dropdowns).
+  Then real clicks on its tabs switch pages, and its X (BndEvt__BACKBTN_...) collapses it. A change made there
+  (Motion Blur) was written to SaveGames/VideoSettings.sav when it closed.
+- gamesettings.lua: a SETTINGS button on the title screen (SIGIS_LoginWidget_C, a copy of MM_GenericSmallBtn01_Exit
+  plus a Spacer, after PLAY), and a SETTINGS tab after SOCIAL in the lobby's top bar (as quit.lua's QUIT,
+  Which_CoreMenuState 99). Clicks are polled (Btn_Main:IsPressed, a release after a press).
+- UPanelWidget InsertChildAt / ShiftChild aren't Blueprint functions, so UE4SS can't call them. Putting a widget
+  mid-row means taking the later children out and adding them back. Done to the title row, PLAY then no longer
+  started the game; so the title button goes at the end, and the lobby tab only moves our own QUIT tab (state 99).
+- A synthetic click needs the cursor already over the button (a first click right after moving there did nothing)
+  and a press held long enough for a poll to see it (250 ms worked, 80 ms was missed). The helper process must be
+  DPI-aware (SetProcessDPIAware) or its cursor coordinates are scaled; Slate also wants real mouse-move events
+  (mouse_event MOVE), SetCursorPos alone isn't seen.
+- The lobby top bar (HorizontalBox_Core_MM_Tabs) is centred, and the money readout starts right where its five 180-wide
+  tabs end: QUIT alone already ran into the "$", and with SETTINGS too, QUIT went under the money. All tabs in the bar
+  are now 130 wide (WidthToUse + PreConstruct(false)). PreConstruct and a take-out-and-add-back both clear our tabs'
+  labels (the designer text is empty), so labels are read first and set again.
+- Tested in game, 2026-11-21, on a throwaway save (stutter-test-295): title row EXIT · PLAY · SETTINGS and PLAY
+  starts the lobby; lobby bar LOADOUT TRADE PLAY CONTRACTS SOCIAL SETTINGS QUIT, all labelled, clear of the money;
+  SETTINGS opens Settings over the blurred lobby, X closes it, TRADE works after; QUIT's first click still arms it
+  (SURE?). Not tested: Settings in the lobby after a raid, gamepad.
+
 ## Offline guild: guild page and guild shop (2026-11-16, tested; mods/PvEDirector/Scripts/guild.lua, issue #68)
 Guilds live on PGOS (membership, members, chat, hideouts) and Nakama (guild XP). Offline, PGOS never answers, so
 SOCIAL > GUILD stayed an empty hall and the TRADE page's GUILD shopkeeper (First Mate Calico) stayed locked.
