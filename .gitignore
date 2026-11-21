@@ -36,6 +36,7 @@ config/female_player.txt
 config/female_share.txt
 config/raid_map.txt
 config/unlock_all_looks.txt
+config/outfit_body.txt
 config/guild.txt
 config/window_mode.txt
 config/player_level.txt

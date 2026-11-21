@@ -28,6 +28,7 @@ flowchart LR
 | `gates.py`, `calls.py`, `scan.py`, `impl.py`, `names.py`, `objs.py`, `dis.py` | Native code: net-mode and Role compares in the exe, callers of an address, naming native functions |
 | `fnames.py`, `strs.py` | Search the name pool / UTF-16 strings for text |
 | `itemrows.py`, `itemsizes.py`, `gearrows.txt`, `voicerows.py`, `frigdata.py`, `hangar.py` | Data tables: items (writes `assets/saves/items.json`), gear, voice sets, ships |
+| `approws.py`, `paknames.py` | Appearance rows with their meshes; every packed file's path from the decrypted pak index in memory (no pak key needed) |
 
 Memory offsets (the name pool, `gbase`) are for the current game build; after a game update they need finding again.
 Read-only does not mean safe to run blind: these read memory the game is using, so expect a wrong address to give

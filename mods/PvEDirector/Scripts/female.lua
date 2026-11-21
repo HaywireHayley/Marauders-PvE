@@ -48,18 +48,39 @@ function M.version(mesh, on)
     return out or mesh
 end
 
+-- Meshes your own character wears in place of others (outfits.lua's Blood Raider: a body with no appearance row of its
+-- own, worn over the plain Raider body). Mesh name -> { path of the mesh to wear instead, when() }: the swap holds
+-- only while when() is true. The women's version of the result follows as usual.
+local playerSwaps = {}
+
+function M.setPlayerSwap(name, path, when)
+    playerSwaps[name] = path and { path = path, when = when } or nil
+end
+
+local function swapped(mesh)
+    local name = mesh:GetFName():ToString() -- (the women's copies keep the same name)
+    local s = playerSwaps[name]
+    if not s or (s.when and not s.when()) then return mesh end
+    local out = load(s.path)
+    return out or mesh
+end
+
 local CLASS = "/Script/Engine.SkeletalMeshComponent"
 -- What the game remembers a character wearing: its corpse is dressed from these.
 local WORN = { CharacterBody0 = "R_BodyMesh", CharacterMesh0 = "R_FaceMesh", ChestSlot = "R_ChestSlot", Backpc = "R_BackPack" }
 
 -- Puts a character in the women's (on) or men's versions of everything it's wearing.
 function M.dress(actor, on)
+    -- your own character also gets its swaps (the Blood Raider): in a raid the game puts the body on natively, which
+    -- the SetSkeletalMesh hook never sees, so main.lua's per-update pass is what dresses it there
+    local cls = actor:GetClass():GetFName():ToString()
+    local mine = next(playerSwaps) ~= nil and (cls == "PlayerPawn_C" or (cls == "MM_PlayerChar_C" and actor.isPlayer))
     local parts = actor:K2_GetComponentsByClass(X.lib(CLASS))
     for i = 1, #parts do
         local part = parts[i]:get()
         local mesh = X.valid(part) and part.SkeletalMesh
         if mesh and X.valid(mesh) then
-            local want = M.version(mesh, on)
+            local want = M.version(mine and swapped(mesh) or mesh, on)
             if want:GetAddress() ~= mesh:GetAddress() then
                 part:SetSkeletalMesh(want, false)
                 local field = WORN[part:GetFName():ToString()]
@@ -88,7 +109,7 @@ end
 
 -- Nothing to do for anyone who's never used it: a male body only needs dressing back for a while after switching off.
 function M.playerDue()
-    return M.playerOn() or os.clock() < (offUntil or 0)
+    return M.playerOn() or os.clock() < (offUntil or 0) or next(playerSwaps) ~= nil
 end
 
 function M.togglePlayer()
@@ -107,7 +128,6 @@ end
 -- anything is drawn. The 3 s lobby pass and the per-update raid check in main.lua stay as a fallback.
 local PLAYER_CLASSES = { MM_PlayerChar_C = true, PlayerPawn_C = true }
 local busy
-
 M.hookCalls = 0 -- read by main.lua's profiler
 
 -- A raider bot makes a dynamic material from its starting head when it spawns, and that material stays on the part when
@@ -149,7 +169,7 @@ local function afterSetMesh(ctx)
     if cls == "MM_PlayerChar_C" and not owner.isPlayer then return end
     local mesh = part.SkeletalMesh
     if not (mesh and X.valid(mesh)) then return end
-    local want = M.version(mesh, M.playerOn())
+    local want = M.version(swapped(mesh), M.playerOn())
     if want:GetAddress() == mesh:GetAddress() then return end
     busy = true
     pcall(function()
