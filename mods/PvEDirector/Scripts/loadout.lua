@@ -277,6 +277,39 @@ function M.init(ctx)
         tellBackend(CFG.SHIP_LOST_FILE, "") -- out on foot or by pod: a ship leaves through Client_GetOutWithLootAndShip
     end)
 
+    -- "NOT ENOUGH SPACE" (#307, #308): log what the inventory held when the game refused, at most every 3 s. Reports
+    -- from co-op hosts (a listen server, not standalone) say pickups fail with room to spare and slots stay "full".
+    local lastNoSpace = -10
+    RegisterHook("/Script/SIGISPlugin.SIGISInventoryComponent:Client_NoSpaceInInventory", function(ctx)
+        if os.clock() - lastNoSpace < 3 then return end
+        lastNoSpace = os.clock()
+        local ok, err = pcall(function()
+            local inv = ctx:get()
+            if not valid(inv) then return end
+            local ksl = lib("/Script/Engine.Default__KismetSystemLibrary")
+            local per, guids, dups, n = {}, {}, 0, 0
+            inv.StashedItems:ForEach(function(_, e)
+                local it = e:get()
+                if valid(it) then
+                    n = n + 1
+                    local con, id = it.MotherItemGUID:ToString(), it.UniqueItemGUID:ToString()
+                    if guids[id] then dups = dups + 1 end
+                    guids[id] = true
+                    per[con] = (per[con] or 0) + 1
+                end
+            end)
+            local parts = {}
+            for con, c in pairs(per) do parts[#parts + 1] = con .. " " .. c end
+            table.sort(parts)
+            local loot = 0
+            pcall(function() loot = #inv.LootsItems end)
+            log(("not enough space: standalone %s, server %s; %d items (%d duplicate GUIDs), %d loot copies; %s")
+                :format(tostring(ksl:IsStandalone(inv)), tostring(ksl:IsServer(inv)), n, dups, loot,
+                table.concat(parts, ", ")))
+        end)
+        if not ok then log("not enough space: " .. tostring(err)) end
+    end)
+
     -- You died: the backend forgets the ship you took in.
     RegisterHook("/Script/SIGISPlugin.SIGISInventoryComponent:Client_DiedCloseInv", function()
         tellBackend(CFG.SHIP_LOST_FILE, "")
