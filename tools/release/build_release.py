@@ -191,6 +191,79 @@ def make_female():
     print(f"  {len(made)} meshes")
 
 
+# What makes the female meshes: if none of these changed since a release, that release's meshes are what
+# make_female.py would make now.
+FEMALE_RECIPE = ("tools/female", "assets/female/list.txt")
+
+
+def female_from_release():
+    """Without the pak key or repak (no make_female.py here), the female meshes of the latest release, when nothing
+    that makes them (FEMALE_RECIPE) changed since its tag: its -deps-female-* zips, each checked against GitHub's SHA-256,
+    every file then checked against that release's own deps.json, put into assets/female/. Stops the build otherwise."""
+    sys.path.insert(0, os.path.join(SRC, "launcher"))
+    import tempfile
+    import update  # launcher/update.py: the launcher's checked downloads
+    rel = update.latest(timeout=20)
+    if not rel:
+        sys.exit("female meshes: no pak key here, and GitHub's latest release couldn't be read to take them from")
+    tag = rel["tag"]
+    if subprocess.run(["git", "rev-parse", "--verify", "-q", tag], cwd=SRC, capture_output=True).returncode:
+        subprocess.run(["git", "fetch", "-q", "upstream", "--tags"], cwd=SRC, capture_output=True)
+    diff = subprocess.run(["git", "diff", "--quiet", tag, "HEAD", "--", *FEMALE_RECIPE], cwd=SRC, capture_output=True)
+    if diff.returncode != 0:
+        sys.exit(f"female meshes: no pak key here, and {' or '.join(FEMALE_RECIPE)} changed since {tag} (or its tag "
+                 "isn't fetched): its meshes would be the old shape. Build where make_female.py can run.")
+    parts = sorted(p for p in (rel.get("deps") or {}) if p.startswith("female"))
+    if not parts:
+        sys.exit(f"female meshes: {tag} has no -deps-female- zips to take them from")
+    print(f"Female meshes: no pak key here; taking them from {tag} (unchanged since: {', '.join(FEMALE_RECIPE)})...")
+    tmp = tempfile.mkdtemp(prefix="pve-female-")
+    try:
+        main_zip = update.fetch(rel["zip_url"], rel.get("sha256"), tmp)
+        want = {}
+        for part, files in (update.zip_deps(main_zip).get("parts") or {}).items():
+            if part.startswith("female"):
+                want.update(files)
+        if not want:
+            sys.exit(f"female meshes: {tag}'s deps.json lists no female files")
+        got = {}
+        for part in parts:
+            path = update.fetch(rel["deps"][part]["url"], rel["deps"][part]["sha256"], tmp)
+            with zipfile.ZipFile(path) as z:
+                for n in z.namelist():
+                    if n.endswith("/"):
+                        continue
+                    r = n[len(NAME) + 1:] if n.startswith(NAME + "/") else None
+                    if not r or not r.startswith("assets/female/") or ".." in r.split("/"):
+                        sys.exit(f"female meshes: unexpected file {n} in {os.path.basename(path)}")
+                    got[r] = z.read(n)
+        if set(got) != set(want):
+            sys.exit(f"female meshes: {tag}'s zips hold {len(got)} files, its deps.json lists {len(want)}")
+        for r, data in got.items():
+            if hashlib.sha256(data).hexdigest() != want[r]:
+                sys.exit(f"female meshes: {r} doesn't match {tag}'s deps.json")
+        pak = os.path.join(SRC, "assets", "female", "pak")
+        if os.path.isdir(pak):
+            shutil.rmtree(pak)  # nothing left over from another recipe
+        for r, data in got.items():
+            dst = os.path.join(SRC, *r.split("/"))
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            with open(dst, "wb") as f:
+                f.write(data)
+        print(f"Female meshes: {len(got)} files from {tag}, every one matching its deps.json")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def female_meshes():
+    """make_female.py where it can run (the pak key and repak are here), else the latest release's (female_from_release)."""
+    if os.path.exists(os.path.join(SRC, "backup", "keys", "pak.key")) and os.path.exists(
+            os.path.join(SRC, "tools", "repak", "repak.exe")):
+        make_female()
+    else:
+        female_from_release()
+
+
 PART_MAX = 9_000_000  # bytes of compressed data per zip (uploads over ~10 MB were cut off, 2026-11-19)
 # The dependencies: big and seldom changed, so the updater downloads them only when deps.json says they did.
 DEPS_FILE = "deps.json"
@@ -291,7 +364,7 @@ def main():
     if os.path.exists(DEST):
         shutil.rmtree(DEST)
     os.makedirs(DEST)
-    make_female()
+    female_meshes()
     for src, dst in FILES:
         target = os.path.join(DEST, dst)
         os.makedirs(os.path.dirname(target), exist_ok=True)
