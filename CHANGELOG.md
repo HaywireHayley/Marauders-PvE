@@ -16,6 +16,8 @@ Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Mar
   needed). On foot in the hold, **F** with a ToolKit opens the nuclear board: win for its parts and the nuclear material
   (gift box); lose and it goes off in the hold, killing you and wrecking your ship. Small mines are still defused in
   place from the helm.
+- **Your gunner on a ship you took (#70, PR #279):** after you took a rival's ship, your crew gunner found no turrets
+  on it ("mans 0 turrets"). They now man its turrets.
 - **Co-op joiner's minimap shows the map (#214, PR #269):** after build 17's fix the joiner had tasks and directions but
   no floor plan. The plans that ship with the mod (your ship, the stations) now load for a joiner too.
 
@@ -26,6 +28,7 @@ Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Mar
   for the proposal on showing more of Marauders' lore in game. Feedback welcome in #272.
 - **Tools:** `tools/offline-audit/paknames.py` lists every packed file's path from the running game's memory, no pak key
   needed, and `approws.py` lists the appearance rows with their meshes (PR #271).
+- **NOTES:** host and joiner extracting through the space gate together, tested (#214, PR #278).
 - **NOTES:** through UE4SS, a game function's text return value is junk (`GetPlayerName()`, even `Concat_StrStr`). The
   "garbled co-op names" of #200 were that, not the game (PRs #268, #270).
 
