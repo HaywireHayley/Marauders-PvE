@@ -4810,3 +4810,27 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
 - Test recipe (director probes): `R.prepBoard("Interceptor")` gives the nearest such flying crew an interior; to force a
   design, destroy a crew's ship and set `c.hullRow = design.row, c.state = "waiting", c.launchAt = 0` (spawnShip reads
   hullRow); board with rivalcombat's `breachInto(c, true)` (an upvalue of Combat.playerBoarding).
+
+## Ship repairs with the blowtorch (#70, 2026-11-20; blowtorch.lua repair, rivalcombat.lua pairInterior)
+- The game's repair tool is the Blowtorch (the Wrench is scrap). Like the vault locks, its repair is native
+  (RaidWeapon_Tool) and never reaches the ship offline: 8 s of real torch fire on a broken life-support pipe left it at 0.
+  FrigateInside_Starter_C.SetupTheRepairParts is an empty stub in this build.
+- What the interior listens to: OnLifeSupportDestroyed(JustFixed) and ShipHullHealthChangeEvent(OldAmount, NewAmount)
+  (the latter sets ShipCurrentHealth and drives the lights and damage effects; decompiled with kdis.py, ubergraph 16596).
+- Fix, blowtorch.lua: while the torch fires (BurstCounter > 0), the part of your ship nearest your aim line within 3 m
+  and 80 cm of it (its RaidUseableFrigatePartComponents: the life-support pipe, the helm gun; and the
+  ShipEngineRepairInteractArea) is mended: a broken part first (4 s to full; the pipe then clears LifeSupportDestroyed on
+  interior and hull and calls OnLifeSupportDestroyed(true)), then the hull rises 25 a second to Curr Max Health, each step
+  told through ShipHullHealthChangeEvent. "Your ship" is rivals.lua's playerShip (your own or one you took) or raid.home.
+  Logs "your ship's life support is mended", "hull is patched, it can fly again", "hull is back to full". The torch's
+  own charge drains while firing, so repairs aren't free.
+- A wreck whose interior is made after its hull hit 0 now has its pipe broken at pairing (rivalcombat.lua pairInterior),
+  so taking it means repairing it.
+- Verified (Space_Alpha, real torch fire with the mouse, on foot by the pipe, god mode on):
+  - Own ship: ApplyDamage 700 -> hull 0, pipe 0; torch: pipe 1 in about 4 s, LifeSupportDestroyed false, hull 0 -> 361 in
+    ~22 s (ShipCurrentHealth followed), the engine room's fire glow gone. At the helm, W for 4 s: 21 m. Wrecked again:
+    1 m (a hull-0 ship doesn't fly).
+  - A rival shot to 0 before its interior existed (the Widowmaker): interior made -> pipe 0, LifeSupportDestroyed true;
+    boarded, taken ("you took the Widowmaker"), W: 3 m; torch -> mended, hull 345; W: 38 m.
+- Not handled: the rival wreck's hull fire effects (rivals.lua hull fx) stay on after it's repaired; repairing the engine
+  or turret flags (only life support and hull were seen broken); a hull mended by someone other than you.

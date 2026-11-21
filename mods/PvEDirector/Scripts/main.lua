@@ -974,7 +974,7 @@ LevelProps.init({ log = log, valid = valid, lib = lib })
 RaidTime.init({ log = log, valid = valid })
 ShipSpeed.init({ log = log, valid = valid })
 Unstuck.init({ log = log, valid = valid, navLib = navLib, navMesh = navMesh, queryFilter = queryFilter })
-Blowtorch.init({ log = log, valid = valid })
+Blowtorch.init({ log = log, valid = valid, lib = lib })
 BulletHoles.init({ log = log, valid = valid })
 Crew.init({ rivals = Rivals, hire = Hire, AI = AI, lib = lib, voice = Voice, log = log, valid = valid, dist = dist,
     gunseat = Gunseat,
