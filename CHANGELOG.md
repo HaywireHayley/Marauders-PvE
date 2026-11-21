@@ -2,6 +2,25 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 21 Nov 2026, build 19 (`public-test-20261121.19`)
+
+Fullscreen that stays fullscreen, and the game's Settings on the title screen and in the lobby. On build 1 of 17 Nov
+or later, the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Fixes
+
+- **Window mode sticks (#292, PR #294):** loading into a raid put the game back into a small window, and fullscreen
+  picked in Settings reverted. The launcher used to force the window with `-windowed`, which the game re-applies on
+  every map load. It now sets the window in the game's own video settings instead, once (on the first launch after a
+  change of the launcher's "Borderless fullscreen" box). After that, whatever you pick in the game's Settings
+  (Fullscreen, Borderless, Windowed, resolution) stays, across raids and launches. The "Borderless fullscreen" box now
+  works too: the game used to overwrite it from its own settings.
+- **Settings outside a raid (#293, PR #296):** the game's Settings (video, audio, gameplay, controls) could only be
+  opened from the Esc menu in a raid. There's now a **SETTINGS** button on the title screen (after EXIT and PLAY) and a
+  **SETTINGS** tab in the lobby's top bar (before QUIT). The lobby tabs are a little narrower so all seven fit.
+- **A log error at lobby start (#297, PR #298):** the mod asked a lobby widget whether it was the local player, which
+  only a player controller can answer. Nothing broke, but it logged a native error each session.
+
 ## Public test, 20 Nov 2026, build 18 (`public-test-20261120.18`)
 
 Repair your ship with the blowtorch, take nuclear mines home to the hold, find survivors (and loot) in wrecked ships,
