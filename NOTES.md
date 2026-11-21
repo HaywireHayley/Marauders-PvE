@@ -3015,7 +3015,17 @@ Players could reach the game's Settings only from the pause menu in a raid.
   mid-row means taking the later children out and adding them back. Done to the title row, PLAY then no longer
   started the game; so the title button goes at the end, and the lobby tab only moves our own QUIT tab (state 99).
 - A synthetic click needs the cursor already over the button (a first click right after moving there did nothing)
-  and a press held long enough for a poll to see it (250 ms worked, 80 ms was missed).
+  and a press held long enough for a poll to see it (250 ms worked, 80 ms was missed). The helper process must be
+  DPI-aware (SetProcessDPIAware) or its cursor coordinates are scaled; Slate also wants real mouse-move events
+  (mouse_event MOVE), SetCursorPos alone isn't seen.
+- The lobby top bar (HorizontalBox_Core_MM_Tabs) is centred, and the money readout starts right where its five 180-wide
+  tabs end: QUIT alone already ran into the "$", and with SETTINGS too, QUIT went under the money. All tabs in the bar
+  are now 130 wide (WidthToUse + PreConstruct(false)). PreConstruct and a take-out-and-add-back both clear our tabs'
+  labels (the designer text is empty), so labels are read first and set again.
+- Tested in game, 2026-11-21, on a throwaway save (stutter-test-295): title row EXIT · PLAY · SETTINGS and PLAY
+  starts the lobby; lobby bar LOADOUT TRADE PLAY CONTRACTS SOCIAL SETTINGS QUIT, all labelled, clear of the money;
+  SETTINGS opens Settings over the blurred lobby, X closes it, TRADE works after; QUIT's first click still arms it
+  (SURE?). Not tested: Settings in the lobby after a raid, gamepad.
 
 ## Offline guild: guild page and guild shop (2026-11-16, tested; mods/PvEDirector/Scripts/guild.lua, issue #68)
 Guilds live on PGOS (membership, members, chat, hideouts) and Nakama (guild XP). Offline, PGOS never answers, so

@@ -19,6 +19,10 @@ local PAGES = { "WB_Options_Video", "WB_Options_Audio", "WB_Options_Gameplay", "
 local COPY = { "WidthOverride", "HeightOverride", "b_TexOnlyVersion", "Material_ShapesFillLayer",
     "ShapeLayerOpacity_Unhovered", "ShapeLayerOpacity_Hovered", "Sound_OnClick", "Sound_OnHover" }
 local VISIBLE, COLLAPSED, SELF_HIT_TEST_INVISIBLE = 0, 1, 4
+local OURS = 99   -- Which_CoreMenuState of the tabs we add (QUIT, SETTINGS): none of the lobby's pages
+-- The top bar is centred, and the money readout sits right after its five 180-wide tabs: a sixth (QUIT) already ran
+-- into the money, a seventh went under it. Seven at 130 fit before it at 16:9.
+local TAB_W = 130
 
 local overlayPath
 local title = {} -- btnPath, loginPath, down
@@ -150,16 +154,30 @@ local function buildTab(pc)
     local btn = StaticFindObject("/Script/UMG.Default__WidgetBlueprintLibrary"):Create(pc, social:GetClass(), pc)
     if not X.valid(btn) then return end
     pcall(function() btn.WidthToUse, btn.HeightToUse = social.WidthToUse, social.HeightToUse end)
-    pcall(function() btn.Which_CoreMenuState = 99 end) -- none of the lobby's pages: the bar never selects it
+    pcall(function() btn.Which_CoreMenuState = OURS end) -- none of the lobby's pages: the bar never selects it
     pcall(function() btn:PreConstruct(false) end)
-    -- Right after SOCIAL when all that follows is our own tabs (state 99: QUIT), else at the end.
-    local at, ours = bar:GetChildIndex(social) + 1, true
-    for i = at, bar:GetChildrenCount() - 1 do
+    -- Right after SOCIAL when all that follows is our own tabs (QUIT), else at the end. A tab taken out and added back
+    -- gets its designer text again (none), so our tabs' labels are kept and set again afterwards.
+    local at, ours, labels = bar:GetChildIndex(social) + 1, true, {}
+    for i = 0, bar:GetChildrenCount() - 1 do
         local c = bar:GetChildAt(i)
         local ok, state = pcall(function() return c.Which_CoreMenuState end)
-        if not (ok and state == 99) then ours = false break end
+        if ok and state == OURS then
+            pcall(function() labels[pathOf(c)] = c.Txt_Main:GetText():ToString() end)
+        elseif i >= at then
+            ours = false
+        end
     end
     local slot = ours and insertAt(bar, at, btn) or bar:AddChildToHorizontalBox(btn)
+    for i = 0, bar:GetChildrenCount() - 1 do
+        local c = bar:GetChildAt(i)
+        pcall(function()
+            c.WidthToUse = TAB_W
+            c:PreConstruct(false) -- (applies the width; on our tabs it also clears the label)
+        end)
+        local label = labels[pathOf(c)]
+        if label then setLabel(c, label) end
+    end
     local from = social.Slot
     if X.valid(slot) and X.valid(from) then
         pcall(function()
