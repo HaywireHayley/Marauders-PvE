@@ -547,7 +547,7 @@ local function onTick(ctx)
             if not okc then log("raid conditions: " .. tostring(errc)) end
         end
         tick.menuSince = os.clock()
-        tick.remote = {}
+        tick.remote, tick.isPc = {}, {}
     end
     -- Co-op host: a joiner's MainPlayerController ticks here too. update() keys the raid on the controller's address,
     -- so every switch between the two restarted the raid (a second batch of soldiers and floor loot, the stash checked
@@ -556,7 +556,16 @@ local function onTick(ctx)
     local me = ctx:get()
     local meAddr = me:GetAddress()
     if tick.remote and tick.remote[meAddr] then return end
-    local okLocal, isLocal = pcall(function() return me:IsLocalController() end)
+    -- Only a controller can be a joiner's: the lobby widget ticker (MM_CoreMissions_C) has no IsLocalController, and
+    -- UE4SS hands back a null object for it, whose call errors natively even inside pcall (#297). Asked once per object.
+    tick.isPc = tick.isPc or {}
+    local isPc = tick.isPc[meAddr]
+    if isPc == nil then
+        isPc = me:GetClass():GetFName():ToString():find("PlayerController", 1, true) ~= nil
+        tick.isPc[meAddr] = isPc
+    end
+    local okLocal, isLocal = false, nil
+    if isPc then okLocal, isLocal = pcall(function() return me:IsLocalController() end) end
     if okLocal and isLocal == false then
         tick.remote = tick.remote or {}
         tick.remote[meAddr] = true
