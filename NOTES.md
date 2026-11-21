@@ -4264,6 +4264,14 @@ earlier freeze came from diagnostic hook scripts, not the director. The client g
 the top of `onTick`, a controller whose `IsLocalController()` is false is skipped (remembered per address, cleared per
 world). Tested: host 6 bots before the join, 6 after, one `co-op: ignoring a joining player's controller` line, no
 second spawn or floor-loot line, joiner has its pawn.
+- 2026-11-21 (#297): `onTick` also ticks on the lobby widget `MM_CoreMissions_C:ReceiveTick`, and the check asked it
+  `IsLocalController()` too. A widget has no such function: UE4SS hands back a null object, and calling it logs
+  "Tried calling a member function but the UObject instance is nullptr / in method 'IsLocalController'" natively,
+  pcall or not (seen once per session at lobby start in a build 18 player report). Now only objects whose class name
+  holds "PlayerController" are asked (class looked up once per address, cleared per world with `tick.remote`).
+  Tested: title screen, lobby (PLAY pressed from the bridge) and a Spaceport_01 raid, 0 of those errors in UE4SS.log,
+  no "co-op: ignoring" line, the director ran (soldier status lines). The widget call failing was confirmed from the
+  bridge (pcall false). Not tested: a co-op host with a joiner after this change.
 
 Telling the two instances apart in the log: both append to the same `UE4SS.log`. Raid lines carry the world address
 (`navmesh generation started for World ...@<world>/<pc>`); match it against `FindFirstOf("MainPlayerController_C")
