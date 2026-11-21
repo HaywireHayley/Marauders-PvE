@@ -58,7 +58,9 @@ salvage and docking. Along the way the mod has also added things the live game n
 ## Quick start
 
 1. **[Download the latest release](https://github.com/HaywireHayley/Marauders-PvE/releases/latest)**: open the page
-   and download `MaraudersOffline-<date>.zip` under **Assets**. The release notes list what's new and the known issues.
+   and, under **Assets**, download **`MaraudersOffline-<build>-installer.zip`** (a few KB) on Windows: its installer
+   fetches everything else for you. On Linux, or to install by hand, download every other zip instead. The release
+   notes list what's new and the known issues.
 2. Follow the steps for your system below. Both need **your own copy of Marauders installed through Steam**, and
    **Python 3.9 or newer** (Windows: the installer can get it for you; SteamOS already has it).
 
@@ -68,9 +70,10 @@ file is put back to stock when the game closes.
 ### Windows 10 / 11
 
 1. **Unzip** the folder somewhere permanent with a plain path, such as `C:\Games\MaraudersOffline`. Not Program Files,
-   and no non-English letters in the path. Your saves live inside this folder, so don't delete it. A release in
-   pieces (a main zip plus `-deps-` zips) is one folder split up: extract every zip into the same place.
-2. **Double-click `Install.bat`.** It finds Python (or offers to install it), finds the game, and adds a
+   and no non-English letters in the path. Your saves live inside this folder, so don't delete it. (By hand instead of
+   the installer zip: the main zip plus the `-deps-` zips are one folder split up, so extract them all into one place.)
+2. **Double-click `Install.bat`.** From the installer zip it first downloads the latest build from GitHub (about
+   60 MB, every file checked). Then it finds Python (or offers to install it), finds the game, and adds a
    **Marauders Offline** shortcut to your desktop and Start menu. It doesn't touch the game folder.
 3. **Start Steam**, then open **Marauders Offline** from the shortcut.
 4. In the launcher, click **NEW SAVE**, give it a name, and click **CREATE**. (Tick "lots of gear and infinite money"
