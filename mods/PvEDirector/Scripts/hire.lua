@@ -1,6 +1,6 @@
 -- Hiring your crew: a pool of recruits, each a set person (name, look, voice, personality) with a level of ability, whom you
 -- hire with your in-game cash. Hired crewmates come on raids for a wage, paid at launch, and get promoted for the raids
--- they survive; one who dies in a raid is gone for good. Crew and pool are saved in SAVE_FILE, so they last between
+-- they survive; one who dies in a raid, or whom you dismiss, is gone for good. Crew and pool are saved in SAVE_FILE, so they last between
 -- sessions. The crew is optional: hire nobody, or switch "Crew comes on raids" off, and you raid alone.
 --
 -- F6 opens the menu (built and polled like the debug menu: plain widgets in a DebugInfo_Widget). Hiring, dismissing and
@@ -259,11 +259,10 @@ local function dismiss(key)
     if not r then return "No such crewmate" end
     table.remove(D.crew, i)
     if r.gunner and D.crew[1] then D.crew[1].gunner = true end
-    r.gunner, r.bring = nil, nil
-    table.insert(D.pool, 1, r) -- back looking for work (hireable again, at their fee)
-    while #D.pool > CFG.POOL do table.remove(D.pool) end
+    -- Gone for good, like a crewmate who dies (#303). They used to go back to the top of the pool, and the pool was cut
+    -- back from the bottom: the recruit who'd just appeared (the one you were making room for) was the one pushed out.
     save()
-    return r.name .. " left the crew"
+    return r.name .. " left the crew for good"
 end
 
 local function bring(key)

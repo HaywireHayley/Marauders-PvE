@@ -4939,3 +4939,15 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   there. Check GetForegroundWindow before sending input (scratchpad safeclick.ps1 pattern), or drive the board from a
   probe: swap a cell's button for one that reads as just released and call tick.
 - Not verified: a win clicked by hand on the new board, a station mine (on foot) and the hold board with the new look.
+
+## Dismissed crew leave for good (#303, 2026-11-21; hire.lua dismiss)
+- Report (Discord, acidbase): hire a placeholder, the recruit you want appears, dismiss someone to make room, and the
+  one you wanted vanishes. Cause: hire() appends a new recruit at the END of the 8-slot pool; dismiss() put the
+  crewmate back at the FRONT and cut the pool back from the end, so the newest recruit was the one dropped.
+- Fix: a dismissed crewmate is gone for good, like one who dies (the reporter's choice; DISMISS already asks "SURE?").
+  The pool is untouched. Message "X left the crew for good".
+- Verified (lobby, throwaway save, crew file backed up and restored): recruit 1 (Rosco) moved into the crew with
+  hire()'s bookkeeping from a probe (a fresh recruit, Uri, appended at the bottom), then `dismiss Rosco` through
+  bridge/crew_cmd: "Rosco left the crew for good", the pool still 8 with Uri last, Rosco gone from crew.lua.
+- Seen on the way, not chased: the crew_cmd `hire` test command read the cash as 0 (pc:GetCash() on the controller it's
+  given) while the lobby showed 122,086, so hiring through it refused; a real click on HIRE wasn't tried.
