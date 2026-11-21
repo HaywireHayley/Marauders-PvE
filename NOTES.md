@@ -4754,3 +4754,22 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
 - Probe pitfalls hit: calling GetFName on an empty SkeletalMesh of a lobby stand crashed the game (check
   GetAddress() ~= 0 first); a bridge `raid` with no god mode ends in death after ~2 minutes in Spaceport (guards), which
   looks like the raid "bouncing" to the lobby.
+
+## Wrecks hold their dead, and sometimes survivors (#251, 2026-11-20; rivals.lua updateWreck, rivalbodies.lua materialize)
+- Before: a rival ship shot to 0 hull marked every member dead and the wreck stayed empty when boarded. Hayley on #251:
+  downed ships should have dead bodies, plus maybe 1 or 2 survivors, not always.
+- Now, when a flying crew's ship goes down: with chance `CFG.WRECK_SURVIVORS.chance` (0.5), 1 to `most` (2) of its living
+  members survive, at 25-60 % of their health; the rest are marked `sankWith`. Log: "went down with their ship (alive
+  in the wreck: ...)".
+- Boarding the wreck (place "rival", S.aboard == c) runs `updateWreck`: the first time, `materialize(c, spots,
+  "boarding", nil, true)` builds the survivors and the `sankWith` dead; finishBuilding kills each dead one as soon as
+  it's armed (GameplayStatics ApplyDamage 100000, no instigator, so no kill credit or mission count). The game then
+  swaps the pawn for its lootable SIGIS_ExampleDeathActor_C (pvepatch pve_bodies), so the pawn itself reads 0,0,0
+  afterwards: look for the death actors, not the pawns. Leaving puts the survivors back into the simulation after
+  DEMATERIALIZE_AFTER; later visits bring only the living back (`c.wreckDressed`).
+- Verified (Space_Alpha, survivors forced to chance 1 through a director probe, the Rusty Mule given an interior and its
+  hull set to 0, boarded with rivalcombat's breachInto): "alive in the wreck: Tinker, Mercer", "aboard the wreck of the
+  Rusty Mule: 2 dead, 2 alive", Tinker 55 hp and Mercer 29 hp up and hunting; two death actors 4 and 8 m from the
+  breach, a body lying on the floor with its gear (7 and 2 loot items on the pawns before the swap). No Lua errors.
+- Not verified: looting those corpses by hand, a second visit, a wreck from a real fight (the test zeroed the hull),
+  the 50 % roll in normal play.
