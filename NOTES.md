@@ -2976,6 +2976,17 @@ Issue #27. You can play as a woman from the first launch, but the cheapest femal
   at login, never to the save. Tested: on -> UnlockedCustomisations 93, Appearance > Voice all unlocked; off ->
   1 (frF01) and the save's cosmeticsunlocked still "". With everything unlocked nothing can be bought, so the game
   never writes the full list back into the save.
+## A taken ship's key card (2026-11-21, #311; NOT tested in game)
+Reported: a player took a rival capital ship, left through a station airlock and couldn't get back in; no crew member or
+captain carried a card. Nothing in the mod ever made cards for rival ships (bodies get loot through `X.addItem`, which
+takes no Attachments, so a card can't go on the captain's body that way).
+- Fix: `rivalcombat.lua checkStolen` (the moment the game hands you the rival's hull) calls `space.lua cardForShip`. It
+  removes the KEYCARD in your KeyCard slot (`Server_RemoveItem`), adds one for the taken ship with
+  `Server_AddItem(KEYCARD, 1, 100, "KeyCard", ..., att)` where att = `<your name>!<ship name>!<interior KeyCardUUID>!<hull row>`,
+  and sets `raid.card` to it so guardKeyCard guards the new card, not the old one.
+- Not verified: that the station airlock accepts a card made this way for a rival interior (the UUID is read from
+  `c.inside.KeyCardUUID`), and that removing the old card mid-raid has no side effects.
+
 ## No captain's key card at raid start (2026-11-16, tested; main.lua guardKeyCard)
 Issue #33. Reproduced on Space_Beta with the test save's empty loadout: the player's inventory had no items and no
 KEYCARD 35 s after boarding, and guardKeyCard logged nothing, because it only puts back a card it has seen.

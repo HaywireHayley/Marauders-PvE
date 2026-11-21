@@ -1008,6 +1008,9 @@ local function checkStolen()
                 f:write(c.design and c.design.row or "")
                 f:close()
             end
+            -- its key card, or a station airlock shuts you out once you step off (#311)
+            local carded, err = pcall(require("space").cardForShip, c.inside, c.shipName, c.design and c.design.row)
+            if not carded then X.log("key card for the taken ship: " .. tostring(err)) end
             S.playerShip, S.homeInside, S.playerShipMaxHull = c.ship, c.inside, c.maxHull
             S.home = { box = c.insideBox }
             -- Its turrets are the mod's (fitTurrets: the hull's own were destroyed), kept on the crew, not in the hull's

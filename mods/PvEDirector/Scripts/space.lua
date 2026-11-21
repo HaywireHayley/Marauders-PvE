@@ -174,6 +174,36 @@ local function guardKeyCard(pc)
     log("key card: it was gone from your inventory; put it back")
 end
 
+-- A ship you took from a rival crew (rivalcombat checkStolen, #311): nobody on board carries its card, and without one
+-- a station airlock won't let you back in once you've stepped out. Your old card (for the ship you left) is taken out
+-- of the KeyCard slot and this ship's goes in, made the way the game makes yours (same Attachments form, the interior's
+-- KeyCardUUID), and guardKeyCard guards it from then on.
+local function cardForShip(inside, shipName, row)
+    if not valid(inside) then return log("key card: the taken ship has no interior") end
+    if not (raid.cardInv and valid(raid.cardInv)) then raid.cardInv = playerInventory() end
+    local inv = raid.cardInv
+    if not inv then return log("key card: no inventory for the taken ship's card") end
+    local uuid = inside.KeyCardUUID
+    local captain = "Captain"
+    pcall(function()
+        local n = FindFirstOf("MainPlayerController_C").PlayerState.PlayerNamePrivate:ToString()
+        if n ~= "" then captain = n end
+    end)
+    local att = ("%s!%s!%s!%s"):format(captain, shipName or "Ship", tostring(uuid), row or "")
+    local old = {}
+    inv.StashedItems:ForEach(function(_, e)
+        local it = e:get()
+        if valid(it) and it.ItemData:ToString() == "KEYCARD" and it.MotherItemGUID:ToString() == "KeyCard" then
+            old[#old + 1] = it.UniqueItemGUID:ToString()
+        end
+    end)
+    for _, g in ipairs(old) do inv:Server_RemoveItem(g) end
+    local guid = ("pve-card-%d-%d"):format(os.time(), math.random(1000, 9999))
+    inv:Server_AddItem(FName("KEYCARD"), 1, 100, "KeyCard", { X = 0, Y = 0 }, false, guid, 0, att, 0)
+    raid.card, raid.cardNote = { guid = guid, att = att, cond = 100 }, nil
+    log(("key card: the taken ship's (%s), replacing %d old"):format(att:gsub("^[^!]*!", ""), #old))
+end
+
 -- The map's one sun (intensity 10, moving, shadows out to 650000 units) is meant for the hulls and stations seen from
 -- space. It has no way to stay out of the interiors: its shadow map spreads over the whole map, far too coarse for a
 -- wall to block it, so it lit rooms almost flat, and every station in the map went into that shadow map each frame.
@@ -417,6 +447,6 @@ function M.init(ctx)
 end
 
 M.hidePodGuns, M.updateLevelEffects, M.guardKeyCard, M.updateSun = hidePodGuns, updateLevelEffects, guardKeyCard, updateSun
-M.CARD, M.addInteriorNav, M.update = CARD, addInteriorNav, updateSpace
+M.CARD, M.addInteriorNav, M.update, M.cardForShip = CARD, addInteriorNav, updateSpace, cardForShip
 
 return M
