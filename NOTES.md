@@ -4725,3 +4725,32 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   route inside a station, flying routes (no nodes: by design none).
 - Test tooling note: config/minimap.txt (N's on/off) is shared by both copies; bridge/minimap_cmd too.
 - Floor plans for a joiner (20 Nov, later): the scan waited for raid.navReady, which only the host's director sets, so a joiner never even read the plans already on disk. Now a joiner (S.joiner) loads cached plans (assets/minimap/<key>.png, shipped for the stations and the Starter/Strike ships) and never scans (nextScan(true)): no navmesh is assumed on a client. Verified on Space_Alpha (host + joiner on this PC, CREW=solo1 CPT=0): the joiner's panel shows the Rustbucket's plan with the helm and its own arrow. Not verified: a station's plan on the joiner, and a place with no cached plan (it stays blank, as before).
+
+## The Blood Raider, and listing the pak without its key (#228, #230, #231; 2026-11-20; outfits.lua, female.lua)
+- **The pak's file list is in memory.** The game keeps its decrypted pak index loaded, so every packed path is plain
+  ASCII in its memory, relative to Content (`Characters/MainPlayer/Meshes/Bodies/...`; a `/Game/` prefix finds
+  nothing). `tools/offline-audit/paknames.py <pid> Characters/ out.txt` lists them: 4907 under Characters/, no pak key.
+  The asset registry route crashed the game (`AssetRegistryImpl:GetAssetsByPath` with a Lua out table: out TArray of
+  structs, same family as GetDataTableRowNames).
+- **DT_PlayerAppearance rows carry their mesh** (`Cosmetic`, ObjectProperty at +24). `tools/offline-audit/approws.py`
+  lists them. Every body and head mesh in the pak has a row (1-72, 84-95), except one:
+  `Bodies/Steam/Raider_Body_Blood_Skel_01`, a bloodied Raider suit in a "Steam" folder, which matches row 72 "Nomad Blood
+  Head" (cost 0, no unlock stat): a platform reward set, probably. No "Ranger", EA or pre-order meshes exist: the UA looks
+  in the game are UA Marine (64-67), UA Medic (70-71) and UA Commander (94-95). The hangar crewman is
+  Characters/Crewman (own skeleton, #227); traders Greybeard, Overlord, Rosie, Wolff, Pirate_Trader have their own too.
+- **Wearing it:** F9 in the lobby, "Hidden outfit" now cycles brown coat, black coat, Blood Raider. The Blood Raider is
+  rows 6 + 72 through the game's setters, and female.lua's `setPlayerSwap` puts the bloodied body over
+  Raider_Body_Skel_01 on your own character only (lobby stand with isPlayer, your PlayerPawn_C), the women's copy
+  (BodieF/Steam, already built) when F2 is on. In the lobby the SetSkeletalMesh hook does it; in a raid the game puts the
+  body on natively (the hook never fires), so `Female.dress` applies the swap too and `playerDue()` is true while a swap
+  is set: main.lua's per-update pass does it. Saved in `config/outfit_body.txt`. The swap holds while the controller's
+  `EquippedBody`/`EquippedHead` read 6/72; empty values (start-up, before the look loads) count as unchanged (a first try
+  switched itself off at start-up). The stand-in owns row 72 for everyone (FREE_COSMETICS).
+- Verified: lobby (F9 action run through a director probe), after a restart, and in a Spaceport raid: CharacterBody0 and
+  R_BodyMesh (what the corpse wears) both Raider_Body_Blood_Skel_01, head Nomad_Blood_Head. Switching (setters 6/1 and a
+  tab press) logged "the Blood Raider is off" and saved none.
+- Not verified: a real Appearance click (the setters were called from Lua), the women's version on screen, co-op (the
+  hook swaps any PlayerPawn_C wearing row 6 on the host, as female.lua already does for every player pawn).
+- Probe pitfalls hit: calling GetFName on an empty SkeletalMesh of a lobby stand crashed the game (check
+  GetAddress() ~= 0 first); a bridge `raid` with no god mode ends in death after ~2 minutes in Spaceport (guards), which
+  looks like the raid "bouncing" to the lobby.
