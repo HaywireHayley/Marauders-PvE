@@ -10,6 +10,12 @@ Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Mar
   suit that goes with the free Nomad Blood Head. **F9 in the lobby > Hidden outfit** now cycles the brown coat, the black
   coat and the Blood Raider; it shows in raids too, and picking any look in Appearance takes it off. The same search
   found no Ranger, Early Access or pre-order skins in the game files (#231).
+- **Wrecks aren't empty any more (#251, PR #275):** a rival ship shot down now holds the crew who went down with it, as
+  corpses you can loot, and half the time one or two of them survived, hurt, and fight you when you board.
+- **Nuclear mines go in the hold (#197, PR #276):** at the helm by a nuclear mine, **R** takes it aboard (no ToolKit
+  needed). On foot in the hold, **F** with a ToolKit opens the nuclear board: win for its parts and the nuclear material
+  (gift box); lose and it goes off in the hold, killing you and wrecking your ship. Small mines are still defused in
+  place from the helm.
 - **Co-op joiner's minimap shows the map (#214, PR #269):** after build 17's fix the joiner had tasks and directions but
   no floor plan. The plans that ship with the mod (your ship, the stations) now load for a joiner too.
 
