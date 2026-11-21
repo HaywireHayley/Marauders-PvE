@@ -19,6 +19,11 @@
 -- come), on a bigger board with more charges and more time. Win: a fuse and high-grade powder into your pocket, and the
 -- nuclear material (3 x 3, too big for a pocket) sent to your gift box through the stand-in (gifts_in.txt), to claim in
 -- the lobby. Lose: its blast, stretched to your ship like a small one's: 1000 hull damage, more than a starter frigate has.
+-- Nuclear mines in the hold (#197, the last part, as the issue first described it): at the helm, R by a nuclear mine
+-- takes it aboard instead (no ToolKit needed to tow it): it goes quiet (Active? false, its light still pulsing), shrunk
+-- to fit, and is set down at your hold's salvage spot. On foot beside it, F with a ToolKit opens the nuclear board.
+-- Win: the loot above. Lose: it goes off in the hold, the blast reaching everyone aboard, and your ship is wrecked:
+-- "instant ship and marauder death". One at a time.
 local M = {}
 local X -- log, valid, lib, menuClosed
 local Pockets = require("pockets")
@@ -43,6 +48,9 @@ local CFG = {
     SPACE_SCAN_EVERY = 60,           -- s between looks for space mines while you fly (they don't move)
     SPACE_LOOT = { { "Fuse", 1 }, { "Gunpowder", 3 }, { "Chemicals", 1 } },
     SPACE_BLAST_REACH = 500,         -- cm past your ship that a space mine's blast reaches when defusing fails
+    HOLD_SCALE = 0.35,               -- a nuclear mine taken aboard is shrunk to this (it's ~4 m across out in space)
+    HOLD_REACH = 350,                -- cm from your feet to the mine in the hold you can work on
+    HOLD_BLAST = 3000,               -- cm its blast reaches inside your ship when defusing it fails
 }
 M.CFG = CFG
 local NOT_CARRIED = { Stash = true, Lobby = true, Shop = true, LootCon = true, Gift = true, scrap = true }
@@ -57,6 +65,10 @@ local mines, scanAt, near, nearKind, scanKind = {}, 0, nil, nil, nil
 local scans = {} -- per kind ("station", "space"): { list, at, looks } for this world
 local hint   -- { host, text, shown } the prompt line
 local board  -- the open board, see open()
+local held   -- { mine, inside }: the nuclear mine in your hold
+
+-- Where you have to be for a kind of mine: on foot ("station": station mines, and the one in your hold) or at the helm.
+local function where(kind) return kind == "space" and "space" or "station" end
 
 function M.init(ctx) X = ctx end
 
@@ -122,6 +134,7 @@ end
 
 local function armed(kind, m)
     if not X.valid(m) then return false end
+    if kind == "hold" then return held ~= nil and held.mine == m end
     if kind == "space" then return m["Active?"] == true end
     return m.Active == true
 end
@@ -256,12 +269,28 @@ local function spaceBlast(mine, ship)
     mine:ExecuteUbergraph_SubNodeActorMine(15)
 end
 
+-- The mine in your hold goes off: its own blast, reaching everyone aboard, and your ship wrecked with it.
+local function holdBlast(mine, pc, ship)
+    mine["Damage Radius_Maximum"] = CFG.HOLD_BLAST
+    mine["Damage Radius_Inner"] = CFG.HOLD_BLAST
+    mine:ExecuteUbergraph_SubNodeActorMine(15)
+    local gs = lib("/Script/Engine.Default__GameplayStatics")
+    local dt = lib("/Script/Engine.DamageType")
+    local foot = onFoot(pc)
+    if foot then pcall(function() gs:ApplyDamage(foot, 100000, nil, nil, dt) end) end
+    if X.valid(ship) then pcall(function() gs:ApplyDamage(ship, 100000, nil, nil, dt) end) end
+end
+
 local function finish(pc, won, why)
     local mine, kind, nuclear = board.mine, board.kind, board.nuclear
     if not X.valid(mine) then return close(pc) end
     if won then
         local given, gift
-        if kind == "space" then
+        if kind == "hold" then
+            held = nil
+            given = giveLoot(pc, CFG.NUCLEAR_LOOT)
+            gift = sendGift(CFG.NUCLEAR_GIFT)
+        elseif kind == "space" then
             mine["Active?"] = false
             pcall(function() mine.PulsingLight:Stop() end)
             pcall(function() mine.MineRotation:Stop() end)
@@ -285,7 +314,11 @@ local function finish(pc, won, why)
     else
         close(pc)
         X.log(("defuse: %s%s mine, failed (%s), it goes off"):format(nuclear and "nuclear " or "", kind, why))
-        if kind == "space" then
+        if kind == "hold" then
+            local ship = held and X.valid(held.inside) and held.inside.SpaceshipToPairTo or nil
+            held = nil
+            pcall(holdBlast, mine, pc, ship)
+        elseif kind == "space" then
             pcall(spaceBlast, mine, pc.Pawn)
         else
             pcall(function() mine:MultiExpo() end)
@@ -302,7 +335,7 @@ local function open(pc, mine, kind)
     local h = host(pc)
     if not h then return X.log("defuse: no host widget") end
     local tree, root = h.WidgetTree, h.WidgetTree.RootWidget
-    local nuclear = kind == "space" and isNuclear(mine)
+    local nuclear = (kind == "space" or kind == "hold") and isNuclear(mine)
     local spec = CFG.BOARDS[kind == "station" and "station" or nuclear and "nuclear" or "small"]
     local n = spec.size
     local side = n * CELL + (n - 1) * GAP
@@ -355,7 +388,7 @@ end
 
 local function tick(pc)
     if not X.valid(board.host) then board = nil return end
-    if context(pc) ~= board.kind then return close(pc) end -- (you left the helm, or fell: the board goes, input comes back)
+    if context(pc) ~= where(board.kind) then return close(pc) end -- (you left the helm, or fell: the board goes, input comes back)
     if not armed(board.kind, board.mine) then return close(pc) end
     local left = board.time - (os.clock() - board.started)
     if left <= 0 then return finish(pc, false, "out of time") end
@@ -384,11 +417,49 @@ local function tick(pc)
     end
 end
 
+-- The hold's salvage spot (where a wreck's salvage is set down), or the interior's middle.
+local function holdSpot(inside)
+    local at
+    pcall(function()
+        for _, c in ipairs(inside:K2_GetComponentsByClass(lib("/Script/Engine.SceneComponent")) or {}) do
+            local comp = c:get()
+            if X.valid(comp) and comp:GetFName():ToString() == "SalvageSpawn" then at = comp:K2_GetComponentLocation() end
+        end
+    end)
+    return at or inside:K2_GetActorLocation()
+end
+
+-- R at the helm by a nuclear mine: aboard it goes, quiet and shrunk, into the hold.
+local function tow(pc, ship, mine)
+    if held and X.valid(held.mine) then return say(pc, "Your hold already has a nuclear mine in it") end
+    local inside = ship.MyShipInside
+    local at = holdSpot(inside)
+    mine["Active?"] = false
+    pcall(function() mine.MineRotation:Stop() end)
+    pcall(function() mine:SetActorEnableCollision(false) end)
+    pcall(function() mine:SetActorScale3D({ X = CFG.HOLD_SCALE, Y = CFG.HOLD_SCALE, Z = CFG.HOLD_SCALE }) end)
+    mine:K2_SetActorLocation({ X = at.X, Y = at.Y, Z = at.Z + 60 }, false, {}, true)
+    held = { mine = mine, inside = inside }
+    near, nearKind = nil, nil
+    X.log(("defuse: nuclear mine taken aboard, set down in the hold at %.0f,%.0f,%.0f"):format(at.X, at.Y, at.Z))
+    say(pc, "The nuclear mine is in your hold. Defuse it there with a ToolKit")
+end
+
 -- Every frame in a raid (main.lua).
 function M.update(pc)
     if board then return tick(pc) end
     local kind, pawn = context(pc)
     if not kind then near, nearKind = nil, nil return say(pc, nil) end
+    -- on foot by the mine in your hold
+    if held and not X.valid(held.mine) then held = nil end
+    if held and kind == "station" then
+        local a, b = pawn:K2_GetActorLocation(), held.mine:K2_GetActorLocation()
+        if math.sqrt((a.X - b.X) ^ 2 + (a.Y - b.Y) ^ 2 + (a.Z - b.Z) ^ 2) < CFG.HOLD_REACH then
+            near, nearKind = held.mine, "hold"
+            return say(pc, carried().tool and "F   Defuse the nuclear mine"
+                or "A nuclear mine. You need a ToolKit to defuse it")
+        end
+    end
     local now = os.clock()
     -- Each kind keeps its own list, so walking to the helm and back doesn't scan again; a map with none of a kind stops
     -- being scanned for it after SCAN_GIVE_UP looks (every one was a ~70 ms hitch, every 20 s, for everyone: #254).
@@ -426,8 +497,8 @@ function M.update(pc)
     if not near then return say(pc, nil) end
     nearKind = kind
     local key = kind == "space" and "R" or "F"
-    local what = kind == "space" and isNuclear(near) and "nuclear mine" or "mine"
-    say(pc, carried().tool and (key .. "   Defuse the " .. what) or ("A " .. what .. ". You need a ToolKit to defuse it"))
+    if kind == "space" and isNuclear(near) then return say(pc, "R   Take the nuclear mine aboard") end
+    say(pc, carried().tool and (key .. "   Defuse the mine") or "A mine. You need a ToolKit to defuse it")
 end
 
 -- F on foot, R at the helm (main.lua's key binds, on the game thread): opens the board by an armed mine.
@@ -436,18 +507,19 @@ function M.key(letter)
     if board or not armed(nearKind, near) then return end
     if (nearKind == "space") ~= (letter == "R") then return end
     local pc = FindFirstOf("MainPlayerController_C")
-    if context(pc) ~= nearKind then return end
+    if context(pc) ~= where(nearKind) then return end
+    if nearKind == "space" and isNuclear(near) then return tow(pc, pc.Pawn, near) end
     if not carried().tool then return X.log("defuse: no ToolKit") end
     open(pc, near, nearKind)
 end
 
 function M.isOpen() return board ~= nil end
 -- Tests (bridge/dir_eval.lua): the open board (charges, counts, where it is), and the mine you're next to.
-function M.peek() return board, near end
+function M.peek() return board, near, held end
 
 -- A new world: its mines and widgets are gone.
 function M.reset()
-    mines, scanAt, near, nearKind, scanKind, hint, board, scans = {}, 0, nil, nil, nil, nil, nil, {}
+    mines, scanAt, near, nearKind, scanKind, hint, board, scans, held = {}, 0, nil, nil, nil, nil, nil, {}, nil
 end
 
 return M
