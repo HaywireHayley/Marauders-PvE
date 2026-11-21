@@ -2,6 +2,14 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Next build (not released yet)
+
+### Changes
+
+- **A kinder defuse board (#197, PR #301):** every board now opens with a cleared area to start from, so there's no
+  blind first click, and the first charge you set off is caught instead of ending it (the next one still blows). The
+  board has a new look too: a time bar that turns red, raised cells, and numbers on their classic colours.
+
 ## Public test, 21 Nov 2026, build 19 (`public-test-20261121.19`)
 
 Fullscreen that stays fullscreen, and the game's Settings on the title screen and in the lobby. On build 1 of 17 Nov
