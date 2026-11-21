@@ -6,6 +6,9 @@ Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Mar
 
 ### Changes
 
+- **Dismissed crew leave for good (#303, PR #304, thanks acidbase for the report):** dismissing a crewmate to make room
+  put them back at the top of the hire list and pushed out the newest recruit, usually the one you were making room
+  for. A dismissed crewmate is now gone for good, like one who dies, and the hire list stays as it was.
 - **A kinder defuse board (#197, PR #301):** every board now opens with a cleared area to start from, so there's no
   blind first click, and the first charge you set off is caught instead of ending it (the next one still blows). The
   board has a new look too: a time bar that turns red, raised cells, and numbers on their classic colours.
