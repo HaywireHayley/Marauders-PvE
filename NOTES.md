@@ -4191,9 +4191,13 @@ PvEDirector 0, then `bsend.sh bridge2 join`. Host and client had the same module
   client. Co-op with the director on both sides is the next thing to try.
 - Nothing played beyond spawning: no movement, combat, looting or extraction checked on the client, and no second
   PC. Both instances used the same stand-in account.
-- Every player's displayed name reads `伸Хɯ` on both ends (host and joiner alike). It does not come from PNAME (a
-  Base64 PNAME on the host changed nothing), so the name source is elsewhere; not chased. `RAID_OPTS` was left as is.
-  - (20 Nov, #200) Don't chase it with `ps:GetPlayerName()` from Lua: **UE4SS returns junk for every FString a UFunction returns** (`KismetStringLibrary:Concat_StrStr("ab","cd")` gave `���שּׂȐ`, `GetPlatformUserName()` and `GetPlayerName()` the same 2-3 CJK-looking characters, unchanged by setting PlayerNickName or UniqueUserName). Property reads are fine: offline the PlayerState has `PlayerNamePrivate` = `Marauder<n>`, `PlayerNickName`, `UniqueUserName`, `EOS_ID` empty. Solo, no TextBlock on screen shows garbled text (2779 checked); the co-op join that would show the other player's name fell back to the joiner's menu that run, so where `伸Хɯ` is drawn is still unknown. Next: a screenshot of it in co-op, then read that widget's Text property.
+- ~~Every player's displayed name reads `伸Хɯ`~~ **Not a bug (20 Nov, #200):** that name was never on screen. It came
+  from the probe itself, `PlayerState:GetPlayerName():ToString()` in Lua, and UE4SS returns junk for every FString a
+  UFunction returns (`KismetStringLibrary:Concat_StrStr("ab","cd")` gave junk too). Property reads are fine: offline
+  the PlayerState has `PlayerNamePrivate` = `Marauder<n>`; `PlayerNickName`, `UniqueUserName`, `EOS_ID` are empty.
+  Checked in co-op (host + joiner aboard one Rustbucket, Space_Alpha): no TextBlock on either screen holds garbled
+  text, and the game draws no name over the other player. Read text through properties (`TextBlock.Text`), never
+  through a function's FString return.
 - No launcher or in-game co-op UI: joining is the bridge `join` verb only.
 
 ### Co-op with PvEDirector on both sides (2026-11-19, later; main.lua onTick)
