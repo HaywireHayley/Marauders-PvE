@@ -260,6 +260,9 @@ CONTROLS = [
     ("J", "Discard the item under the mouse (press twice); in a raid, drop it", "LOADOUT, TRADE, raid"),
     ("Left click", "With a crew gunner aboard: send them after what you aim at", "Flying your ship"),
     ("Space", "Boost: full speed for 4 s, then 12 s to recharge", "Flying your ship"),
+    ("F + ToolKit", "By a mine: defuse a station mine, or the nuclear mine in your hold", "On foot"),
+    ("R", "By a space mine: defuse a small one (ToolKit), take a nuclear one aboard", "At the helm"),
+    ("Blowtorch", "Fire it at a ship part to repair your ship: parts first, then the hull", "Aboard your ship"),
 ]
 
 

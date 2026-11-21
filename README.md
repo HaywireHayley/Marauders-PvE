@@ -24,8 +24,13 @@ salvage and docking. Along the way the mod has also added things the live game n
 - **Your own hired crew** (F6): hire and dismiss crewmates who come on raids with you, fight alongside you, and man a
   turret as your gunner. Left click while flying picks the gunner's target.
 - **Civilians:** unarmed miners, prisoners and port workers at the mines, the Penal Colony and the ports.
-- **Defuse mines** with a ToolKit: station mines on foot, and small and nuclear space mines from the helm, in a
-  Minesweeper-style minigame. Win and you keep the parts.
+- **Defuse mines** with a ToolKit, in a Minesweeper-style minigame: station mines on foot, small space mines from the
+  helm, and **nuclear mines you tow home** and defuse in your hold (lose, and it takes the ship with it). Win and you
+  keep the parts.
+- **Board and take rival ships**, and **repair ships with the blowtorch**: a disabled ship (yours, or a wreck you took)
+  comes back to life part by part until it flies again.
+- **Wrecks tell a story:** a ship shot down holds the crew who went down with it, as lootable corpses, and sometimes a
+  survivor or two who fight on.
 - **Smarter soldiers:** they reload, take cover, take head, body and leg damage, and their helmets and vests protect
   them by how good they are. A shotgun volley knocks them back.
 
@@ -40,6 +45,7 @@ salvage and docking. Along the way the mod has also added things the live game n
 - **A minimap** (N, M, B) with floor plans of the stations, your tasks, and a route to where you're going.
 - **A faster Rustbucket** and a **boost** (Space) at the helm of any ship.
 - **Play as a woman or a man** (F2): women's versions of every outfit, for you and for the soldiers, with voices.
+- **Hidden outfits** the menus never listed (two long coats and a bloodied Blood Raider suit): F9 in the lobby.
 
 **Inventory and lobby**
 - **Stash tools:** SORT, a search box, and SELL SHOWN at a trader.
@@ -50,8 +56,10 @@ salvage and docking. Along the way the mod has also added things the live game n
 **Launcher and tools**
 - Several saves, **back up and import**, and give items or credits to a save.
 - **REPORT** bundles your logs and crash report into one zip for a bug report, with your names and IDs taken out.
-- The launcher **updates itself** when a new build is out.
-- **Co-op (early):** host a raid and let a friend join it, aboard your ship.
+- **One small download:** the installer zip fetches the rest, and the launcher **updates itself** when a new build is
+  out (only the parts that changed).
+- **Co-op (early):** host a raid and let a friend join it, aboard your ship: you fly and fight together and extract
+  through the gate together, each into your own save, and the friend gets the minimap too.
 - **F9 debug menu:** god mode, unstuck, no collision, extract now, and spawn any gun, ammo or soldier.
 - **Linux and Steam Deck** support (experimental).
 
@@ -82,6 +90,10 @@ file is put back to stock when the game closes.
    folder back when the game closes.
 6. In the game's lobby, gear up in LOADOUT, pick a map and press **START RAID**. Get out alive through an extraction to
    keep what you carry.
+
+**Updating:** when a new build is out, an orange **!** appears top right in the launcher. Click it and **UPDATE**: it
+downloads the new build (and only the big parts that changed), checks every file, installs it over the folder and
+restarts. Your saves and settings are kept. Switch it off with **Check for new builds**.
 
 **Back to the online game:** close the offline game, then launch Marauders from Steam as usual. If your PC crashed
 mid-game, open the launcher once and close it again (or run `Uninstall.bat`) first.
@@ -181,6 +193,9 @@ The game's own controls are unchanged. The mod adds (the launcher's CONTROLS but
 | **Left click** | While flying with a crew gunner aboard: send them after the ship or space turret nearest the middle of your view. Click empty space to send them back to whoever is attacking you | Flying your ship |
 | **Space** | Boost: your ship jumps to nearly twice its top speed for 4 seconds, then needs 12 seconds to recharge (like the drop pod's). The Rustbucket is also a quarter faster than it was | Flying your ship |
 | **F** on a turret seat | Man the turret yourself: left click fires, F stands you up | Ships |
+| **F** by a mine, with a **ToolKit** | Defuse a station mine, or the nuclear mine in your hold (a Minesweeper board) | On foot |
+| **R** by a space mine | Small mine (with a ToolKit): defuse it in place. Nuclear mine: take it aboard into your hold | At the helm |
+| **Blowtorch** (fire) at a ship part | Repair your ship: the life-support pipe in the engine room, the helm gun or the engine. Broken parts first, then the hull | Aboard your ship |
 
 ### TOO DIFFICULT? Too busy or too quiet?
 
@@ -219,11 +234,10 @@ launcher starts the game without going through Steam, so playing offline won't t
 
 ### Known issues
 
-- Rarely, dark flat slabs hang in space on the solo maps. ([#9](https://github.com/HaywireHayley/Marauders-PvE/issues/9))
-- Dead boarders' legs can stretch into odd poses. ([#10](https://github.com/HaywireHayley/Marauders-PvE/issues/10))
-- The status line can say "in space" while you're aboard another crew's ship. ([#11](https://github.com/HaywireHayley/Marauders-PvE/issues/11))
-- Space_Solo_02 now and then finds no stations, so that raid has no station tasks. ([#13](https://github.com/HaywireHayley/Marauders-PvE/issues/13))
-- Some explosion effects and sounds, and some extraction prompts, are missing offline. ([#15](https://github.com/HaywireHayley/Marauders-PvE/issues/15))
+- The airlock may not take you through after docking at Planet Killer (Space_Charlie). ([#32](https://github.com/HaywireHayley/Marauders-PvE/issues/32))
+- The map's own AI patrol ships can't be boarded yet (rival crews' ships can). ([#70](https://github.com/HaywireHayley/Marauders-PvE/issues/70))
+- Thin gaps of light can show through some walls and airlocks, mostly while the camera turns fast. ([#190](https://github.com/HaywireHayley/Marauders-PvE/issues/190))
+- Co-op is early: flying, turrets and boarding as the joiner are still lightly tested. ([#214](https://github.com/HaywireHayley/Marauders-PvE/issues/214))
 
 Soldiers on a station you haven't reached yet stay asleep until you get close. That's deliberate, to save performance.
 All open known issues: [known-issue label](https://github.com/HaywireHayley/Marauders-PvE/issues?q=is%3Aissue+is%3Aopen+label%3Aknown-issue).
