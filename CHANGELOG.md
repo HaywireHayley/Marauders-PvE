@@ -21,7 +21,7 @@ Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Mar
 - **Repair your ship with the blowtorch (#70, PR #282):** a ship shot to 0 hull is disabled (its life support broken)
   and used to stay that way offline. Fire the **Blowtorch** at a part of your ship (the life-support pipe in the engine
   room, the helm gun, the engine): broken parts come back first, then the hull rises until the ship can fly, up to full.
-  It uses the torch's charge. A rival wreck you board and take now needs the same repair before it flies.
+  It uses the torch's charge. A rival wreck you board and take now needs the same repair before it flies. Its smoke and fire go out as the hull comes back (PR #284).
 - **Co-op joiner's minimap shows the map (#214, PR #269):** after build 17's fix the joiner had tasks and directions but
   no floor plan. The plans that ship with the mod (your ship, the stations) now load for a joiner too.
 
