@@ -2,6 +2,27 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Next build (not released yet)
+
+### Changes
+
+- **Blood Raider outfit (#228, #230, PR #271):** the game files hold one outfit that no menu lists, a bloodied Raider
+  suit that goes with the free Nomad Blood Head. **F9 in the lobby > Hidden outfit** now cycles the brown coat, the black
+  coat and the Blood Raider; it shows in raids too, and picking any look in Appearance takes it off. The same search
+  found no Ranger, Early Access or pre-order skins in the game files (#231).
+- **Co-op joiner's minimap shows the map (#214, PR #269):** after build 17's fix the joiner had tasks and directions but
+  no floor plan. The plans that ship with the mod (your ship, the stations) now load for a joiner too.
+
+### For contributors
+
+- **README:** a "What's new compared to the original game" section (PR #267).
+- **Lore (#272, PR #273):** `docs/lore/` has a lore bible, 36 in-world fragments, loading lines and contract briefings,
+  for the proposal on showing more of Marauders' lore in game. Feedback welcome in #272.
+- **Tools:** `tools/offline-audit/paknames.py` lists every packed file's path from the running game's memory, no pak key
+  needed, and `approws.py` lists the appearance rows with their meshes (PR #271).
+- **NOTES:** through UE4SS, a game function's text return value is junk (`GetPlayerName()`, even `Concat_StrStr`). The
+  "garbled co-op names" of #200 were that, not the game (PRs #268, #270).
+
 ## Public test, 20 Nov 2026, build 17 (`public-test-20261120.17`)
 
 The co-op joiner gets a working minimap, women's outfits stop stretching to the floor, and fewer small hitches for
