@@ -18,6 +18,10 @@ Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Mar
   place from the helm.
 - **Your gunner on a ship you took (#70, PR #279):** after you took a rival's ship, your crew gunner found no turrets
   on it ("mans 0 turrets"). They now man its turrets.
+- **Repair your ship with the blowtorch (#70, PR #282):** a ship shot to 0 hull is disabled (its life support broken)
+  and used to stay that way offline. Fire the **Blowtorch** at a part of your ship (the life-support pipe in the engine
+  room, the helm gun, the engine): broken parts come back first, then the hull rises until the ship can fly, up to full.
+  It uses the torch's charge. A rival wreck you board and take now needs the same repair before it flies.
 - **Co-op joiner's minimap shows the map (#214, PR #269):** after build 17's fix the joiner had tasks and directions but
   no floor plan. The plans that ship with the mod (your ship, the stations) now load for a joiner too.
 
@@ -28,6 +32,7 @@ Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Mar
   for the proposal on showing more of Marauders' lore in game. Feedback welcome in #272.
 - **Tools:** `tools/offline-audit/paknames.py` lists every packed file's path from the running game's memory, no pak key
   needed, and `approws.py` lists the appearance rows with their meshes (PR #271).
+- **NOTES:** ship damage and repair, first look (#70, PR #281).
 - **NOTES:** host and joiner extracting through the space gate together, tested (#214, PR #278).
 - **NOTES:** through UE4SS, a game function's text return value is junk (`GetPlayerName()`, even `Concat_StrStr`). The
   "garbled co-op names" of #200 were that, not the game (PRs #268, #270).
