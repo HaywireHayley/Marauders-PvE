@@ -45,6 +45,8 @@ issue number, what was verified and what wasn't).
 - **A bad probe crashes the game.** Calling a method on a null or freed object wrapper faults natively inside UE4SS,
   and `pcall` can't catch it. Check `o ~= nil and o:IsValid()` before any method call, prefer plain property reads,
   and don't call `GetClass()` or `ForEachProperty` on function parameters.
+- **A UFunction's FString return value is junk through UE4SS** (`GetPlayerName()`, even `Concat_StrStr`): read the
+  property instead (`PlayerNamePrivate`, `TextBlock.Text`). It once passed for a "garbled names" bug (#200).
 - Logs after a session: `backend/last_game.log` (the mod), `backend/server.log` (the Nakama stand-in).
 
 ## Engine pitfalls that already cost crashes
