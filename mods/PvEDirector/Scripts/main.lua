@@ -314,7 +314,7 @@ local update, Rivals -- forward
 
 local raid -- forward: per-raid state (below)
 local resetRaid, patchFriendsRefresh -- forward (below; onTick calls them)
-local Quit, InvKeys, LobbyLabel, InvQol, InvSync -- forward: menu helpers onTick polls (required below)
+local Quit, GameSettings, InvKeys, LobbyLabel, InvQol, InvSync -- forward: menu helpers onTick polls (required below)
 -- onTick's own state: the world it last saw (whether it's the main menu, since when) and the lobby's friends stub retries
 local tick = {}
 
@@ -590,6 +590,7 @@ local function onTick(ctx)
     end
     pcall(Splash.gatePlay) -- PLAY hidden until the backend login is done (splash.lua)
     if Quit then pcall(Quit.tick) end -- Quit Game in the pause menu (quit.lua)
+    if GameSettings then pcall(GameSettings.tick) end -- SETTINGS on the title screen and in the lobby (gamesettings.lua)
     if InvKeys then pcall(InvKeys.tick) end -- Esc / lean with the inventory open (invkeys.lua)
     if InvSync then
         local oks, errs = pcall(InvSync.tick) -- stale cells in the inventory grids cleared (invsync.lua)
@@ -1004,6 +1005,8 @@ InvSync.init({ log = log, valid = valid })
 Quit = require("quit")
 Quit.init({ log = log, valid = valid, pc = function() return Hire.lastPc() end,
     inRaid = function() local pc = Hire.lastPc() return valid(pc) and pc:GetClass():GetFName():ToString() == "MainPlayerController_C" end })
+GameSettings = require("gamesettings") -- the game's Settings outside a raid (#293)
+GameSettings.init({ log = log, valid = valid, pc = function() return Hire.lastPc() end })
 -- Closing the F3/F9 menus: a raid goes back to game-only input; the lobby is a mouse screen, so it gets its UI back
 -- (as hire.lua does).
 local function menuClosed(pc)
