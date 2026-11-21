@@ -2161,6 +2161,24 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
 - Launcher "Borderless fullscreen" box -> config/window_mode.txt (borderless|windowed). launch-offline.ps1: borderless
   writes FullscreenMode=1 (+ desktop resolution from Win32_VideoController) into %LOCALAPPDATA%/RaidGame/Saved/Config/
   WindowsNoEditor/GameUserSettings.ini and drops -windowed/-ResX/-ResY; windowed keeps the old 1600x900 args.
+  Superseded 2026-11-20 (#292), see "Window mode lives in VideoSettings.sav" below.
+- Window mode lives in VideoSettings.sav (2026-11-20, issue #292; scripts/videosettings.py, launch-offline.ps1).
+  Players: loading into a raid put the game back into a small window, and fullscreen picked in the raid's Settings
+  reverted. Cause: the game keeps its own video settings in Saved/SaveGames/VideoSettings.sav (SG_VideoSettings_C:
+  ScreenResolution IntPoint, EWindowMode as a ByteProperty holding the enum's name, MotionBlur, FovModifier, UIScale,
+  VideoVersion) and applies them over GameUserSettings.ini at start-up (it rewrote the borderless box's ini values to
+  FullscreenMode=0 1920x1080 from the save, so that box likely never did much once a save existed). The only thing that
+  made the window windowed was -windowed -ResX -ResY, and UE4 re-applies command-line overrides whenever settings are
+  applied. Now launch-offline.ps1 passes no window switches; videosettings.py rewrites those two properties in the save
+  (exact round trip checked on a real save) and only when the launcher's choice ("<mode> <W>x<H>") differs from
+  config/window_applied.txt, so a choice made in the game's Settings afterwards stays. No save yet (first run): the
+  game's default, applied from the next launch. launch-joiner.ps1 (second instance on one PC) keeps the switches: both
+  instances share the one save.
+  Tested in game: launch -> UnrealWindow 1616x939 with a caption, GameUserSettings FullscreenMode 2 1600x900;
+  SetFullscreenMode(1) + ApplySettings(false) -> 1920x1080 popup, still so after `open /Game/Maps/MainMenu`.
+  Same steps with the old `-windowed -ResX=1600 -ResY=900`: the map load put it back to the 1616x939 captioned window
+  while GameUserSettings still said FullscreenMode 1 (the bug, reproduced).
+  Not tested: a real raid load, the game's own Settings menu by mouse, a fresh install with no save.
 - F9 gun and ammo picker (2026-11-16, debuggive.lua; Debug.addActions appends its rows): Gun: <name> (click = next),
   Previous gun, Give me the <gun>; Ammo: <name> (click = next), Give me <stack> <ammo>. In a raid, on foot. Rows,
   kinds (0 long gun, 1 pistol) and magazines / stacks are from assets/saves/items.json (12 of 45 magazines I had

@@ -49,6 +49,7 @@ FILES = [  # (from, to), relative to the dev tree and the release
     ("scripts/mode.ps1", "scripts/mode.ps1"),
     ("scripts/launch-offline.ps1", "scripts/launch-offline.ps1"),
     ("scripts/launch-helpers.ps1", "scripts/launch-helpers.ps1"),
+    ("scripts/videosettings.py", "scripts/videosettings.py"),
     ("native/pvenet.dll", "native/pvenet.dll"),
     ("native/pvepatch.dll", "native/pvepatch.dll"),
     ("config/UE4SS-settings.ini", "config/UE4SS-settings.ini"),

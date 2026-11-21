@@ -21,31 +21,29 @@ $Exe = Join-Path $Game 'RaidGame\Binaries\Win64\RaidGame-Win64-Shipping.exe'
 $WindowMode = 'windowed'
 $ModePath = Join-Path $Project 'config\window_mode.txt'
 if (Test-Path $ModePath) { $WindowMode = (Get-Content $ModePath -TotalCount 1).Trim().ToLower() }
+# The window is set in the game's own video save (SaveGames\VideoSettings.sav), which it applies at start-up over
+# GameUserSettings.ini. Never -windowed / -ResX / -ResY: the engine re-applies command-line overrides every time settings
+# are applied (map load, the Settings menu), so the window snapped back to the launch size whatever the player picked in
+# game (issue #292). The launcher's choice is written only when it changes (config\window_applied.txt), so a choice made
+# in the game's Settings afterwards stays.
+$sx, $sy = Get-ScreenSize
 if ($WindowMode -eq 'borderless') {
-    # Borderless is the game's own "windowed fullscreen" (FullscreenMode=1 in GameUserSettings.ini) at the desktop's
-    # resolution; there's no command-line switch for it, and -windowed / -ResX would override it.
-    $ResX, $ResY = Get-ScreenSize
+    $ResX, $ResY = $sx, $sy
     if (-not $ResX) { $ResX, $ResY = 1920, 1080 }
-    $IniDir = Join-Path $env:LOCALAPPDATA 'RaidGame\Saved\Config\WindowsNoEditor'
-    $Ini = Join-Path $IniDir 'GameUserSettings.ini'
-    $Section = '[/Script/Engine.GameUserSettings]'
-    $lines = [System.Collections.Generic.List[string]]::new()
-    if (Test-Path $Ini) { $lines.AddRange([string[]](Get-Content $Ini)) }
-    if (-not $lines.Contains($Section)) { $lines.Add($Section) }
-    $want = [ordered]@{ FullscreenMode = 1; LastConfirmedFullscreenMode = 1; PreferredFullscreenMode = 1
-        ResolutionSizeX = $ResX; ResolutionSizeY = $ResY; LastUserConfirmedResolutionSizeX = $ResX; LastUserConfirmedResolutionSizeY = $ResY }
-    foreach ($key in $want.Keys) {
-        $i = $lines.FindIndex([Predicate[string]] { param($l) $l -like "$key=*" })
-        if ($i -ge 0) { $lines[$i] = "$key=$($want[$key])" }
-        else { $lines.Insert($lines.IndexOf($Section) + 1, "$key=$($want[$key])") }
-    }
-    New-Item -ItemType Directory -Force $IniDir | Out-Null
-    Set-Content $Ini $lines -Encoding Ascii
-    $gameArgs = @('-nosplash') + $args
 } else {
-    $sx, $sy = Get-ScreenSize
+    $WindowMode = 'windowed'
     $ResX, $ResY = Get-WindowedSize $sx $sy
-    $gameArgs = @('-windowed', "-ResX=$ResX", "-ResY=$ResY", '-nosplash') + $args
 }
+$Want = "$WindowMode ${ResX}x$ResY"
+$AppliedPath = Join-Path $Project 'config\window_applied.txt'
+$Applied = if (Test-Path $AppliedPath) { (Get-Content $AppliedPath -TotalCount 1).Trim() } else { '' }
+if ($Applied -ne $Want) {
+    $Python = if ($env:PVE_PYTHON) { $env:PVE_PYTHON } else { 'python' }
+    try {
+        & $Python -I (Join-Path $PSScriptRoot 'videosettings.py') $WindowMode $ResX $ResY | Out-Host
+        if ($LASTEXITCODE -eq 0) { Set-Content $AppliedPath $Want -Encoding Ascii }
+    } catch { "Window: couldn't run $Python ($($_.Exception.Message)); the game's own setting this time" }
+} else { "Window: the game's own setting (launcher's $Want already applied)" }
+$gameArgs = @('-nosplash') + $args
 Start-Process $Exe -ArgumentList $gameArgs -WorkingDirectory (Split-Path $Exe)
 "Started: $($gameArgs -join ' ')"
