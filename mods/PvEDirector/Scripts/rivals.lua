@@ -289,6 +289,8 @@ local CFG = {
     HOLD_OFF = 3500,                -- the attacking ship holds this far off while its crew is aboard
     FLEE_HULL = { 0.1, 0.25 },      -- a crew's ship below this fraction of its hull runs and extracts (rolled per crew)
     ABOARD_WAIT = 240,              -- boarders give up waiting for you after this long and go back to their ship
+    WRECK_SURVIVORS = { chance = 0.5, most = 2, hp = { 0.25, 0.6 } }, -- a ship shot down keeps 1..most of its crew
+                                    -- alive this often, hurt (this share of their health); the rest lie dead aboard (#251)
     -- Bodies
     MATERIALIZE_MARGIN = 1500,      -- you count as in a station within this margin of its navmesh volume
     DEMATERIALIZE_AFTER = 20,       -- seconds outside a station before its rivals go back to being simulated
@@ -684,12 +686,41 @@ local function pointsOfInterest(pc, interiors, homeInside)
     if #names > 0 then X.log("[rivals] boardable places without a dock: " .. table.concat(names, ", ")) end
 end
 
+-- A wreck you're aboard: the ones who died with the ship lie where they fell, with their gear (built once, the first
+-- time you board), and any survivors are up and fighting. Away from it the survivors go back to being simulated, as
+-- boarders do; the corpses stay (dematerialize keeps the dead).
+local function updateWreck(c, now, place)
+    local here = place == "rival" and S.aboard == c
+    if here then
+        c.lastBoarded = now
+        if not c.bodies then
+            local spots = Bodies.breachSpots(c.inside)
+            if #spots > 0 then
+                Bodies.materialize(c, spots, "boarding", nil, not c.wreckDressed)
+                if not c.wreckDressed then
+                    local dead, alive = 0, 0
+                    for _, m in ipairs(c.members) do
+                        if m.alive then alive = alive + 1 elseif m.sankWith then dead = dead + 1 end
+                    end
+                    X.log(("[rivals] aboard the wreck of the %s: %d dead, %d alive"):format(c.shipName, dead, alive))
+                end
+                c.wreckDressed = true
+            end
+        end
+    end
+    if c.bodies then
+        Bodies.bodiesAlive(c)
+        if not here and now - (c.lastBoarded or 0) > CFG.DEMATERIALIZE_AFTER then Bodies.dematerialize(c) end
+    end
+end
+
 -- Crew brain -----------------------------------------------------------------------------------------------------
 local function updateCrew(c, now, place, playerLoc)
     if c.state == "gone" then return end
     -- (a derelict's or wreck's interior can still be loading: your pod asked for it on the way in)
     if c.inside and not c.insideBox and valid(c.inside) and Combat.hullThere(c) then Combat.pairInterior(c) end
-    if c.state == "derelict" or c.state == "wreck" then return end
+    if c.state == "wreck" then return updateWreck(c, now, place) end
+    if c.state == "derelict" then return end
     if c.bodies then Bodies.bodiesAlive(c) end
     if not Crews.crewAlive(c) then
         Bodies.dematerialize(c)
@@ -743,8 +774,21 @@ local function updateCrew(c, now, place, playerLoc)
 
     local flying = c.state == "travel" or c.state == "attack" or c.state == "leaving"
     if flying and not Ships.shipOk(c) then
-        X.log("[rivals] " .. Crews.crewLabel(c) .. " went down with their ship")
-        for _, m in ipairs(c.members) do m.alive = false end
+        -- Most go down with the ship; now and then one or two live through it, hurt, and are aboard the wreck when you
+        -- board it, among the dead (#251: wrecks were empty).
+        local alive = {}
+        for _, m in ipairs(c.members) do if m.alive then alive[#alive + 1] = m end end
+        local W, kept = CFG.WRECK_SURVIVORS, {}
+        if #alive > 0 and math.random() < W.chance then
+            for _ = 1, math.min(#alive, math.random(1, W.most)) do
+                local m = table.remove(alive, math.random(#alive))
+                m.hp = math.max(10, math.floor(m.hp * (W.hp[1] + math.random() * (W.hp[2] - W.hp[1]))))
+                kept[#kept + 1] = m.name
+            end
+        end
+        for _, m in ipairs(alive) do m.alive, m.sankWith = false, true end
+        X.log(("[rivals] %s went down with their ship%s"):format(Crews.crewLabel(c),
+            #kept > 0 and (" (alive in the wreck: " .. table.concat(kept, ", ") .. ")") or ""))
         c.state = valid(c.ship) and "wreck" or "gone"
         if c.state == "wreck" then pcall(Ships.stillTurrets, c) end
         return
@@ -1023,6 +1067,16 @@ local function finishBuilding(now)
             table.remove(S.building, i)
         elseif entry == false then
             table.remove(S.building, i)
+        elseif entry and job.corpse then
+            -- Went down with the ship (#251): killed where it stands, no attacker, so nobody's kill counts it. Kept in
+            -- the crew's bodies only (not the director's list), so it's left as a lootable corpse.
+            table.remove(S.building, i)
+            local c = job.crew
+            pcall(function()
+                StaticFindObject("/Script/Engine.Default__GameplayStatics"):ApplyDamage(entry.bot, 100000, nil, nil,
+                    StaticFindObject("/Script/Engine.DamageType"))
+            end)
+            if c.bodies then table.insert(c.bodies, entry) else R.destroy(entry.bot) end
         elseif entry then
             table.remove(S.building, i)
             local c = job.crew

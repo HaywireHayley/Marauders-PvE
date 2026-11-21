@@ -515,18 +515,21 @@ local function roamGuards(st, now)
 end
 
 -- Queue bodies for a crew's living members at the given spots (one spot per member, reused if fewer).
-local function materialize(c, spots, mode, members)
+-- corpses: those who went down with their ship (m.sankWith) are built too, and killed as soon as they're armed
+-- (rivals.lua finishBuilding): a wreck you board holds its dead, with their gear, as well as any survivors (#251).
+local function materialize(c, spots, mode, members, corpses)
     if c.bodies or #spots == 0 then return end
     c.bodies, c.mode = {}, mode
     local living = 0
     for _, m in ipairs(members or c.members) do
-        if m.alive and not (mode == "station" and m.boarding) then
+        local dead = corpses and not m.alive and m.sankWith
+        if dead or (m.alive and not (mode == "station" and m.boarding)) then
             living = living + 1
             -- spread out on floor joined to the spot (a plain offset could put them the far side of a wall)
             local at = spots[(living - 1) % #spots + 1]
             at = reachableNear(at, 150) or at
             local b = startBody(S.pc, m, at)
-            if b then table.insert(S.building, { crew = c, b = b, mode = mode }) end
+            if b then table.insert(S.building, { crew = c, b = b, mode = mode, corpse = dead }) end
         end
     end
 end
