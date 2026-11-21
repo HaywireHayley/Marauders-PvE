@@ -18,6 +18,9 @@ has the same top folder, so a new player extracts them all into one place. The n
 match the updater's main-zip pattern. The main zip holds deps.json (each part's files and their SHA-256): the updater
 compares it with the files a player has and downloads only the parts that changed (a remade mesh, a new UE4SS).
 MaraudersOffline-<build>-full.zip is everything in one zip, for when a big upload works.
+MaraudersOffline-<build>-installer.zip (a few KB: the installer, scripts/bootstrap.py and the launcher's update.py) is
+the one a new player needs: Install.bat downloads the latest build and its dependency parts from GitHub, checks and
+installs them, then sets up as usual. Upload it with the others; "-installer" never matches the updater's patterns.
 """
 import hashlib
 import json
@@ -53,6 +56,7 @@ FILES = [  # (from, to), relative to the dev tree and the release
     ("tools/ue4ss/dwmapi.dll", "tools/ue4ss/dwmapi.dll"),
     ("tools/ue4ss/UE4SS.dll", "tools/ue4ss/UE4SS.dll"),
     ("tools/release/install.ps1", "scripts/install.ps1"),
+    ("tools/release/bootstrap.py", "scripts/bootstrap.py"),  # the slim installer's download (installer zip)
     ("scripts/find-game.ps1", "scripts/find-game.ps1"),
     ("tools/release/uninstall.ps1", "scripts/uninstall.ps1"),
     ("tools/release/README.txt", "README.txt"),
@@ -210,6 +214,22 @@ def write_zip(path, rels):
                 z.write(src, arc)
 
 
+# The slim installer zip: just enough for Install.bat to fetch and install the latest build (bootstrap.py).
+INSTALLER = (("tools/release/install.ps1", "scripts/install.ps1"), ("scripts/find-game.ps1", "scripts/find-game.ps1"),
+             ("tools/release/bootstrap.py", "scripts/bootstrap.py"), ("launcher/update.py", "launcher/update.py"),
+             ("tools/release/README.txt", "README.txt"), ("CREDITS.md", "CREDITS.md"))
+
+
+def write_installer(build, out_dir=OUT_DIR):
+    """MaraudersOffline-<build>-installer.zip, from the dev tree (it needs no game files, so it can be made anywhere)."""
+    path = os.path.join(out_dir, f"{NAME}-{build}-installer.zip")
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
+        for src, dst in INSTALLER:
+            z.write(os.path.join(SRC, src), NAME + "/" + dst)
+        z.writestr(NAME + "/Install.bat", BATS["Install.bat"])
+    return path
+
+
 def package(build):
     """The zips to upload, from DEST (see the docstring). Returns their paths."""
     rels = sorted(os.path.relpath(os.path.join(d, n), DEST).replace(os.sep, "/")
@@ -246,6 +266,7 @@ def package(build):
         path = os.path.join(OUT_DIR, f"{NAME}-{build}-deps-{tag}.zip")
         write_zip(path, sorted(files))
         out.append(path)
+    out.insert(0, write_installer(build))
     for path in out:
         if os.path.getsize(path) > PART_MAX + 500_000:
             sys.exit(f"{path} is {os.path.getsize(path) / 1e6:.1f} MB: over PART_MAX")

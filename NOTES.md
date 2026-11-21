@@ -4835,3 +4835,23 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
 - The wreck's fire effects (20 Nov, later): rivals.lua hullDamageFx already lights one smoke/fire emitter per quarter of hull lost (all of them, plus the engine fire, at 0 or with life support broken) and puts them out as the hull rises. The fire seen on the repaired Widowmaker was its hull still low. The real gap: repair stopped at the interior's Curr Max Health, while the effects count against the hull's own full (S.playerShipMaxHull, the hull at launch). A taken Light Interceptor read interior 575, hull 700: the old cap would have left it short. Repair now goes to the larger of the two (R.playerShipMaxHull). Verified: the taken Rusty Mule (Light Interceptor) torched from 0: at 361/700 one emitter left and the engine fire out; at 700/700 fx level 0, every emitter inactive, a clean hull from the helm view. The first torch ran dry at 361 (250 charge): repairs cost charge.
 - Not handled (now): the rival wreck's hull fire effects are fine once full; repairing the engine
   or turret flags (only life support and hull were seen broken); a hull mended by someone other than you.
+
+## The slim installer zip (2026-11-20; tools/release/bootstrap.py, install.ps1, build_release.py write_installer)
+- Ask (user): a new player shouldn't have to download eight zips; a small launcher-only download with an install option
+  should fetch the rest from the latest release. Build 17's assets: the main zip 5 MB, seven -deps- zips 48 MB.
+- Already there before this: a folder with only the main zip has its deps.json, and the launcher's start-up check
+  (check_update -> stale_deps(installed_deps()) -> start_repair) downloads the missing dependency parts from that
+  build's own release. So only "start from nothing" was missing.
+- Now: MaraudersOffline-<build>-installer.zip (13 KB: Install.bat, scripts/install.ps1, find-game.ps1, bootstrap.py,
+  launcher/update.py, README.txt, CREDITS.md), written by build_release.py's write_installer from the dev tree (no game
+  files needed) and listed first among the uploads. install.ps1, once it has Python and the folder has no version.txt,
+  runs `python -I scripts/bootstrap.py`: update.latest() -> download_update (the main zip, then every part stale_deps
+  finds missing: all of them in an empty folder; each checked against GitHub's SHA-256) -> update.install (rollback on
+  failure) -> a final stale_deps check; then the usual Pillow, game path and shortcuts. "-installer" matches neither
+  update.ASSET nor DEP_ASSET (checked), so the updater never takes it for a build. bootstrap.py also ships in the full
+  build (scripts/bootstrap.py).
+- Verified: the installer zip built and extracted into an empty temp folder; bootstrap.py there downloaded build 17's 8
+  zips (61 MB), installed public-test-20261120.17 (version.txt, UE4SS.dll, assets/female/ in place) and found no stale
+  part. install.ps1 parses. Not tested: Install.bat end to end from the installer zip (it makes desktop and Start menu
+  shortcuts and asks questions: not run on this machine), Linux (install.sh doesn't bootstrap: Linux players still take
+  the zips by hand), a build published with the installer zip on it (needs the pak key to build).

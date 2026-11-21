@@ -52,6 +52,16 @@ $Pythonw = Join-Path (Split-Path $Python) 'pythonw.exe'
 if (-not (Test-Path $Pythonw)) { $Pythonw = $Python }
 Say "Python:  $Python"
 
+# 2b. The slim installer zip (MaraudersOffline-<build>-installer.zip) has no build in it yet: fetch the latest one and
+# its dependency parts from GitHub (scripts/bootstrap.py, the launcher's own checked download and install).
+if (-not (Test-Path (Join-Path $Root 'version.txt'))) {
+    $Boot = Join-Path $PSScriptRoot 'bootstrap.py'
+    if (-not (Test-Path $Boot)) { Fail "This folder has no Marauders Offline build in it. Download the release again." }
+    Say "`nDownloading the latest build from GitHub (about 55 MB)..." Yellow
+    & $Python -I $Boot
+    if ($LASTEXITCODE -ne 0) { Fail "The download didn't finish. Check your connection and run Install.bat again." }
+}
+
 # 3. Pillow, for the launcher's artwork.
 & $Python -c "import PIL" 2>$null
 if ($LASTEXITCODE -ne 0) {

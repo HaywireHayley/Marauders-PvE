@@ -23,7 +23,8 @@ INSTALL
 -------
   1. Unzip this folder somewhere permanent with a plain path, e.g.  C:\Games\MaraudersOffline
      (not Program Files, and no non-English letters in the path). Your saves live inside it.
-  2. Double-click Install.bat. It finds Python and the game, installs Pillow for the launcher, and puts a
+  2. Double-click Install.bat. From the small installer zip it first downloads the latest build from GitHub
+     (about 60 MB, every file checked). It finds Python and the game, installs Pillow for the launcher, and puts a
      "Marauders Offline" shortcut on your desktop and in the Start menu.
 
 Install.bat doesn't touch the game folder. That only happens while you play (see "Is my online game safe?").
