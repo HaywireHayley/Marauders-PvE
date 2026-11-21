@@ -4793,3 +4793,19 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   other than the starter, extracting with a live mine aboard (it's left behind with the map), crew in the hold.
 - Test note: an R tapped right after taking the helm can arrive before the prompt's update has picked the mine; hold it
   0.3-0.4 s.
+
+## A taken ship's turrets for your gunner; the interceptor walls (#70, 2026-11-20; rivalcombat.lua checkStolen, rivals.lua shipTurrets)
+- "Your gunner mans 0 turret(s)" after you take a rival's ship: R.shipTurrets reads the hull's SpawnedTurretArray, but a
+  rival hull's turrets are the mod's own (rivalships.lua fitTurrets destroys the hull's default turret and keeps the
+  design's in c.turrets). checkStolen now hands c.turrets to S.stolenTurrets { ship address, list } (and empties the
+  crew's list), and shipTurrets falls back to it for that hull. Verified (Space_Alpha, the Bad Penny, a Galaxy
+  Interceptor with 1 turret, breached and piloted by Possess): "you took the Bad Penny", shipTurrets -> 1 (0 before).
+  Not verified: a hired gunner actually firing them (no crew on the test save), a hull taken in a later raid (ownHull
+  spawns the design's pawn, whose own default turret is in SpawnedTurretArray, not the design's turrets).
+- Interceptor walls: a Light Interceptor (borrows FrigateInside_DefaultScout) breached by probe looked complete in four
+  directions, and its interior actor has the same 36 StaticMeshComponents / 26 hidden (interaction areas, collision,
+  pod hatch area) as a Raider Scout's and a Marauder Scout's. interiors.lua collects only levels present at raid start
+  (rival interiors spawn later into the persistent level), so it doesn't hide their pieces. Not reproduced.
+- Test recipe (director probes): `R.prepBoard("Interceptor")` gives the nearest such flying crew an interior; to force a
+  design, destroy a crew's ship and set `c.hullRow = design.row, c.state = "waiting", c.launchAt = 0` (spawnShip reads
+  hullRow); board with rivalcombat's `breachInto(c, true)` (an upvalue of Combat.playerBoarding).

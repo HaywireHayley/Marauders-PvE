@@ -1688,6 +1688,17 @@ function R.shipTurrets(ship, spreadScale)
             end
         end
     end)
+    -- a ship you took from a rival crew: its turrets were fitted by the mod (rivalcombat.lua checkStolen keeps them)
+    local st = S and S.stolenTurrets
+    if #out == 0 and st and st.ship == addr then
+        for _, e in ipairs(st.list) do
+            if valid(e.actor) then
+                table.insert(out, { actor = e.actor, socks = e.socks, si = 1, speed = e.speed, rate = e.rate,
+                    reload = e.reload, ammo = e.ammo, left = e.left, range = e.range,
+                    spread = e.spread * (spreadScale or 1), next = 0 })
+            end
+        end
+    end
     return out
 end
 
