@@ -17,6 +17,15 @@ probe the same system again.
 | [SPACE_GATE.md](internals/SPACE_GATE.md) | When the space gate arrives, why the on screen countdown disagreed with it, the launcher's Space gate setting, and the test record. |
 | [BULLET_IMPACTS.md](internals/BULLET_IMPACTS.md) | How a shot becomes an impact effect: the pool of impact actors, why no bullet holes appeared offline, how the mod stamps them, surfaces, settings, cost. |
 
+## lore/
+
+[lore/README.md](lore/README.md): the setting for anyone writing in-world text (notes, loading-screen lines, radio,
+trader patter, contract briefings). It keeps what the game says, what fans have guessed and what this project adds
+apart. `fragments/` holds short in-world documents, plus `loading_lines.md` and `contracts.md`. None of it is in the game
+yet: how to show it is the lore proposal issue.
+
+## Older references
+
 Two older references still sit at the top of the repo, written by the maintainers: [OFFLINE_AUDIT.md](../OFFLINE_AUDIT.md)
 (code that never runs offline) and [AI_DESIGN.md](../AI_DESIGN.md). They can move into `internals/` when the maintainers
 want that.
