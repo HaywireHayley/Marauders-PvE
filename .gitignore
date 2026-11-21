@@ -39,6 +39,7 @@ config/unlock_all_looks.txt
 config/outfit_body.txt
 config/guild.txt
 config/window_mode.txt
+config/window_applied.txt
 config/player_level.txt
 config/skip_intro.txt
 config/update_check.txt
