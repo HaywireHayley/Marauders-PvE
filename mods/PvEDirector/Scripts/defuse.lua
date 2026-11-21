@@ -51,15 +51,27 @@ local CFG = {
     HOLD_SCALE = 0.35,               -- a nuclear mine taken aboard is shrunk to this (it's ~4 m across out in space)
     HOLD_REACH = 350,                -- cm from your feet to the mine in the hold you can work on
     HOLD_BLAST = 3000,               -- cm its blast reaches inside your ship when defusing it fails
+    SPARES = 1,                      -- charges you can hit and still pull the fuse in time; the next one sets it off
 }
 M.CFG = CFG
 local NOT_CARRIED = { Stash = true, Lobby = true, Shop = true, LootCon = true, Gift = true, scrap = true }
 local CELL, GAP = 46, 4
 local HOST = "/SIGISPlugin/Widgets/DebugInfo_Widget.DebugInfo_Widget_C"
-local HIDDEN = { R = 0.32, G = 0.33, B = 0.35, A = 1 }
-local OPEN = { R = 0.08, G = 0.09, B = 0.1, A = 1 }
-local FLAGGED = { R = 0.75, G = 0.45, B = 0.1, A = 1 }
-local BOOM = { R = 0.8, G = 0.1, B = 0.05, A = 1 }
+-- The look: the launcher's ink and orange, raised steel cells, cleared cells sunk dark, classic number colours.
+local INK = { R = 0.02, G = 0.022, B = 0.028, A = 0.96 }
+local ACCENT = { R = 0.95, G = 0.5, B = 0.12, A = 1 }
+local HIDDEN = { R = 0.42, G = 0.45, B = 0.48, A = 1 }
+local OPEN = { R = 0.05, G = 0.055, B = 0.065, A = 1 }
+local FLAGGED = { R = 0.95, G = 0.5, B = 0.12, A = 1 }
+local BOOM = { R = 0.85, G = 0.12, B = 0.06, A = 1 }
+local DEFUSED = { R = 0.35, G = 0.08, B = 0.06, A = 1 } -- a charge you hit and caught (a spare)
+local TEXT_LIGHT = { R = 0.92, G = 0.92, B = 0.9, A = 1 }
+local TEXT_MUTED = { R = 0.6, G = 0.62, B = 0.65, A = 1 }
+local NUMBER = {
+    { R = 0.4, G = 0.68, B = 1, A = 1 }, { R = 0.45, G = 0.85, B = 0.4, A = 1 }, { R = 1, G = 0.42, B = 0.36, A = 1 },
+    { R = 0.78, G = 0.55, B = 1, A = 1 }, { R = 1, G = 0.68, B = 0.22, A = 1 }, { R = 0.3, G = 0.88, B = 0.88, A = 1 },
+    { R = 0.95, G = 0.95, B = 0.95, A = 1 }, { R = 0.7, G = 0.7, B = 0.7, A = 1 },
+}
 
 local mines, scanAt, near, nearKind, scanKind = {}, 0, nil, nil, nil
 local scans = {} -- per kind ("station", "space"): { list, at, looks } for this world
@@ -92,10 +104,24 @@ local function place(root, w, x, y, wd, ht)
     return s
 end
 
-local function text(tree, s, size)
+-- A text block's colour, written into its property: only before the board is added to the screen (the widget reads it
+-- when it's built). SetColorAndOpacity can't be used from here: UE4SS passes the FSlateColor table as all zeros, which
+-- made the text transparent (2026-11-21). So colours that change later (numbers, flags, the clock) go on the cells'
+-- backgrounds and the time bar instead.
+local function tint(t, col)
+    pcall(function()
+        local c = t.ColorAndOpacity
+        c.SpecifiedColor.R, c.SpecifiedColor.G, c.SpecifiedColor.B, c.SpecifiedColor.A = col.R, col.G, col.B, col.A
+        c.ColorUseRule = 0
+    end)
+end
+
+local function text(tree, s, size, col, centre)
     local t = make(tree, "TextBlock")
     t.Font.Size = size or 14
     t:SetText(FText(s))
+    tint(t, col or TEXT_LIGHT)
+    if centre then pcall(function() t:SetJustification(1) end) end
     return t
 end
 
@@ -216,12 +242,21 @@ local function lay(first)
     end
 end
 
+-- A cleared cell with a number takes that number's classic colour, dimmed, behind a white digit.
+local function shade(c, k)
+    return { R = OPEN.R + (c.R - OPEN.R) * k, G = OPEN.G + (c.G - OPEN.G) * k, B = OPEN.B + (c.B - OPEN.B) * k, A = 1 }
+end
+
 local function paint(i)
     local cell = board.cells[i]
     local label, col = "", HIDDEN
     if board.open[i] then
-        col = board.charge[i] and BOOM or OPEN
-        label = board.charge[i] and "X" or (board.count[i] > 0 and tostring(board.count[i]) or "")
+        if board.charge[i] then
+            col, label = board.caught and board.caught[i] and DEFUSED or BOOM, "*"
+        else
+            local n = board.count[i]
+            col, label = n > 0 and shade(NUMBER[n] or TEXT_LIGHT, 0.45) or OPEN, n > 0 and tostring(n) or ""
+        end
     elseif board.flag[i] then
         col, label = FLAGGED, "!"
     end
@@ -339,37 +374,60 @@ local function open(pc, mine, kind)
     local spec = CFG.BOARDS[kind == "station" and "station" or nuclear and "nuclear" or "small"]
     local n = spec.size
     local side = n * CELL + (n - 1) * GAP
-    local W, H = side + 40, side + 170
+    local W, H = side + 48, side + 214
     local sw, sh, scale = screen(pc)
     local x0, y0 = math.max(20, (sw - W) / 2), math.max(20, (sh - H) / 2)
+    local gx = x0 + 24
     local bg = make(tree, "Border")
-    bg:SetBrushColor({ R = 0.03, G = 0.03, B = 0.04, A = 0.94 })
+    bg:SetBrushColor(INK)
     place(root, bg, x0, y0, W, H)
-    place(root, text(tree, nuclear and "Defuse the nuclear mine" or "Defuse the mine", 18), x0 + 20, y0 + 10, W - 40, 28)
-    local status = text(tree, "", 13)
-    place(root, status, x0 + 20, y0 + 40, W - 40, 22)
+    local bar = make(tree, "Border") -- the orange strip along the top, as on the launcher's panels
+    bar:SetBrushColor(ACCENT)
+    place(root, bar, x0, y0, W, 4)
+    place(root, text(tree, nuclear and "DEFUSE THE NUCLEAR MINE" or "DEFUSE THE MINE", 18, ACCENT), gx, y0 + 16, side, 28)
+    local sub = text(tree, "", 11, TEXT_MUTED)
+    place(root, sub, gx, y0 + 46, side, 18)
+    local clock = text(tree, "", 13)
+    place(root, clock, gx, y0 + 70, side / 2, 20)
+    local status = text(tree, "", 13, TEXT_LIGHT)
+    pcall(function() status:SetJustification(2) end)
+    place(root, status, gx + side / 2, y0 + 70, side / 2, 20)
+    local fuse = make(tree, "ProgressBar")
+    pcall(function() fuse:SetPercent(1) end)
+    pcall(function() fuse:SetFillColorAndOpacity(ACCENT) end)
+    place(root, fuse, gx, y0 + 94, side, 8)
+    local top = y0 + 114
     board = { host = h, mine = mine, kind = kind, nuclear = nuclear, n = n, mines = spec.mines, time = spec.time, cells = {}, open = {}, flag = {}, charge = {}, count = {}, opened = 0,
-              laid = false, flagMode = false, started = os.clock(), status = status }
+              laid = false, flagMode = false, started = os.clock(), status = status, clock = clock, fuse = fuse,
+              spares = CFG.SPARES, caught = {}, sub = sub }
     for i = 1, n * n do
         local r, c = (i - 1) // n, (i - 1) % n
         local b = make(tree, "Button")
-        local t = text(tree, "", 16)
+        local t = text(tree, "", 18, TEXT_LIGHT, true)
         b:AddChild(t)
-        place(root, b, x0 + 20 + c * (CELL + GAP), y0 + 70 + r * (CELL + GAP), CELL, CELL)
+        place(root, b, gx + c * (CELL + GAP), top + r * (CELL + GAP), CELL, CELL)
         board.cells[i] = { b = b, text = t }
         paint(i)
     end
-    local by = y0 + 70 + side + 14
+    -- The first cell is opened for you, somewhere off the edge, with nothing next to it: it clears an area to start from
+    -- (lay keeps the first cell and its neighbours free), so no game starts on a blind guess.
+    local first = (n >= 4) and (math.random(1, n - 2) * n + math.random(1, n - 2) + 1) or math.random(n * n)
+    lay(first)
+    board.laid = true
+    reveal(first)
+    local by = top + side + 16
     local flag = make(tree, "Button")
-    local flagText = text(tree, "Flag mode: off", 13)
+    local flagText = text(tree, "FLAG MODE: OFF", 13, TEXT_LIGHT, true)
     flag:AddChild(flagText)
-    place(root, flag, x0 + 20, by, (side - 10) / 2, 32)
+    pcall(function() flag:SetBackgroundColor(HIDDEN) end)
+    place(root, flag, gx, by, (side - 10) / 2, 34)
     local back = make(tree, "Button")
-    back:AddChild(text(tree, "Back away", 13))
-    place(root, back, x0 + 20 + (side + 10) / 2, by, (side - 10) / 2, 32)
-    local help = text(tree, ("%d charges. Clear every safe cell; a number counts the charges around it."):format(spec.mines), 11)
+    back:AddChild(text(tree, "BACK AWAY", 13, TEXT_LIGHT, true))
+    pcall(function() back:SetBackgroundColor(HIDDEN) end)
+    place(root, back, gx + (side + 10) / 2, by, (side - 10) / 2, 34)
+    local help = text(tree, "A number counts the charges touching it. Flag mode marks a cell you think holds one.", 11, TEXT_MUTED)
     pcall(function() help:SetAutoWrapText(true) end)
-    place(root, help, x0 + 20, by + 40, W - 40, 40)
+    place(root, help, gx, by + 44, side, 36)
     board.flag_b, board.flagText, board.back = { b = flag }, flagText, { b = back }
     h:AddToViewport(5020)
     pc.bShowMouseCursor = true
@@ -392,15 +450,25 @@ local function tick(pc)
     if not armed(board.kind, board.mine) then return close(pc) end
     local left = board.time - (os.clock() - board.started)
     if left <= 0 then return finish(pc, false, "out of time") end
-    board.status:SetText(FText(("Time %d s   Cleared %d of %d"):format(math.ceil(left), board.opened,
-        board.n * board.n - board.mines)))
+    local share = left / board.time
+    board.clock:SetText(FText(("TIME  %d s"):format(math.ceil(left))))
+    pcall(function() board.fuse:SetPercent(share) end)
+    if share < 0.25 and not board.late then
+        board.late = true
+        pcall(function() board.fuse:SetFillColorAndOpacity(BOOM) end)
+    end
+    board.status:SetText(FText(("CLEARED  %d / %d"):format(board.opened, board.n * board.n - board.mines)))
+    -- (the line under the title: the charges, and whether a slip is still covered)
+    board.sub:SetText(FText(("%d charges hidden.   %s"):format(board.mines, board.spares > 0
+        and ("Spare: %d (one slip is caught)"):format(board.spares) or "No spare left: the next one blows")))
     if pressed(board.back) then
         X.log("defuse: backed away")
         return close(pc)
     end
     if pressed(board.flag_b) then
         board.flagMode = not board.flagMode
-        board.flagText:SetText(FText("Flag mode: " .. (board.flagMode and "ON" or "off")))
+        board.flagText:SetText(FText("FLAG MODE: " .. (board.flagMode and "ON" or "OFF")))
+        pcall(function() board.flag_b.b:SetBackgroundColor(board.flagMode and FLAGGED or HIDDEN) end)
     end
     for i, cell in ipairs(board.cells) do
         if pressed(cell) and not board.open[i] then
@@ -410,7 +478,14 @@ local function tick(pc)
             elseif not board.flag[i] then
                 if not board.laid then lay(i) board.laid = true end
                 reveal(i)
-                if board.charge[i] then return finish(pc, false, "hit a charge") end
+                if board.charge[i] then
+                    if board.spares <= 0 then return finish(pc, false, "hit a charge") end
+                    -- caught in time: it stays shown as a dead charge, and the board goes on
+                    board.spares = board.spares - 1
+                    board.caught[i] = true
+                    paint(i)
+                    X.log(("defuse: a charge set off and caught (%d spare(s) left)"):format(board.spares))
+                end
                 if board.opened >= board.n * board.n - board.mines then return finish(pc, true) end
             end
         end

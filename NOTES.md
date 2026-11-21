@@ -4914,3 +4914,28 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   part. install.ps1 parses. Not tested: Install.bat end to end from the installer zip (it makes desktop and Start menu
   shortcuts and asks questions: not run on this machine), Linux (install.sh doesn't bootstrap: Linux players still take
   the zips by hand), a build published with the installer zip on it (needs the pak key to build).
+
+## The defuse board: a safe start, one spare, a new look (#197, 2026-11-21; defuse.lua open, paint, tint, tick)
+- Ask (user): too many deaths, and it looked ugly. A safe starting position, and a better look.
+- Safe start: open() picks a cell off the edge, lays the charges around it (lay already keeps the first cell and its
+  neighbours free) and reveals it before the board shows, so every board starts with a cleared area (9-12 cells on 6x6,
+  30 of 52 on the 8x8 nuclear board in the tests). No more blind first click.
+- One spare (CFG.SPARES = 1): the first charge you set off is caught (logged "a charge set off and caught"), shown as a
+  dark red "*", and the line under the title says "No spare left: the next one blows". The next charge sets the mine
+  off as before. Dense boards (12 in 64) can force a guess even from a clear start; the spare covers one.
+- Look: ink panel with the launcher's orange strip and title, a time bar (ProgressBar) that turns red under 25 %,
+  raised steel cells, cleared cells sunk dark, numbered cells tinted by the classic colours (1 blue, 2 green, 3 red...)
+  behind a white digit, orange flags, matching buttons.
+- **UE4SS pitfall:** TextBlock:SetColorAndOpacity({SpecifiedColor = ..., ColorUseRule = 0}) arrives as all zeros: the
+  text went transparent. Passing the widget's own ColorAndOpacity back errors. Writing the property's fields
+  (t.ColorAndOpacity.SpecifiedColor.R = ...) sticks but only shows if done before the widget is on screen. So text
+  colours are set at build time only; anything that changes later is a Button:SetBackgroundColor or
+  ProgressBar:SetFillColorAndOpacity (FLinearColor: those work).
+- Verified (Space_Alpha, director probes, no real input): small board with 12 and then 9 cells opened at start, numbers
+  coloured; a charge pressed through the board's own tick: caught, dark red "*", text updated, board still open; the
+  time bar red near the end; out of time -> the mine goes off; the 8x8 nuclear board fits (30/52 opened).
+- **Test hazard:** the desktop app can keep focus: SetForegroundWindow then fails silently and simulated clicks and keys
+  go to whatever window is in front (here, the Claude app). The R presses that "didn't take" and some board clicks went
+  there. Check GetForegroundWindow before sending input (scratchpad safeclick.ps1 pattern), or drive the board from a
+  probe: swap a cell's button for one that reads as just released and call tick.
+- Not verified: a win clicked by hand on the new board, a station mine (on foot) and the hold board with the new look.
