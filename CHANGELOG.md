@@ -2,7 +2,11 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
-## Next build (not released yet)
+## Public test, 21 Nov 2026, build 20 (`public-test-20261121.20`)
+
+A kinder defuse board (a cleared start and one slip forgiven, with a new look), and dismissing a crewmate no longer
+pushes the recruit you wanted out of the hire list. On build 1 of 17 Nov or later, the launcher's orange **!** installs
+this one for you, keeping your saves.
 
 ### Changes
 
