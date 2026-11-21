@@ -52,7 +52,7 @@ end
 -- widget is shown (SetColorAndOpacity from Lua gives transparent text, see defuse.lua tint).
 local LORE_Y, LORE_W, LORE_H, LORE_SIZE = 990, 1600, 60, 15
 local function lore()
-    local lines = require("lorelines")
+    local lines = require("lorelines").loading
     if #lines == 0 then return end
     local t = make("TextBlock")
     t.Font.Size = math.max(10, math.floor(LORE_SIZE * ui.scale + 0.5)) -- art pixels, like the rest of the layout
