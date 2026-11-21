@@ -43,6 +43,8 @@ keeping your saves.
   for the proposal on showing more of Marauders' lore in game. Feedback welcome in #272.
 - **Tools:** `tools/offline-audit/paknames.py` lists every packed file's path from the running game's memory, no pak key
   needed, and `approws.py` lists the appearance rows with their meshes (PR #271).
+- **Releases without the pak key (PR #290):** where the women's meshes can't be made, the build takes them from the latest
+  release, only if nothing that makes them changed since, every file checked against that release's checksums.
 - **NOTES:** ship damage and repair, first look (#70, PR #281).
 - **NOTES:** host and joiner extracting through the space gate together, tested (#214, PR #278).
 - **NOTES:** through UE4SS, a game function's text return value is junk (`GetPlayerName()`, even `Concat_StrStr`). The
