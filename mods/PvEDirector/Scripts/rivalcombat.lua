@@ -996,6 +996,10 @@ local function checkStolen()
             end
             S.playerShip, S.homeInside, S.playerShipMaxHull = c.ship, c.inside, c.maxHull
             S.home = { box = c.insideBox }
+            -- Its turrets are the mod's (fitTurrets: the hull's own were destroyed), kept on the crew, not in the hull's
+            -- SpawnedTurretArray: your gunner finds them here (#70: "mans 0 turret(s)" on a taken ship).
+            S.stolenTurrets = { ship = c.ship:GetAddress(), list = c.turrets or {} }
+            c.turrets = {}
             c.fireAt, c.target, c.ship, c.shipCtrl, c.insideBox, c.inside = nil, nil, nil, nil, nil, nil
             c.state = "gone"
             return
