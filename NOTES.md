@@ -4832,5 +4832,6 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
     1 m (a hull-0 ship doesn't fly).
   - A rival shot to 0 before its interior existed (the Widowmaker): interior made -> pipe 0, LifeSupportDestroyed true;
     boarded, taken ("you took the Widowmaker"), W: 3 m; torch -> mended, hull 345; W: 38 m.
-- Not handled: the rival wreck's hull fire effects (rivals.lua hull fx) stay on after it's repaired; repairing the engine
+- The wreck's fire effects (20 Nov, later): rivals.lua hullDamageFx already lights one smoke/fire emitter per quarter of hull lost (all of them, plus the engine fire, at 0 or with life support broken) and puts them out as the hull rises. The fire seen on the repaired Widowmaker was its hull still low. The real gap: repair stopped at the interior's Curr Max Health, while the effects count against the hull's own full (S.playerShipMaxHull, the hull at launch). A taken Light Interceptor read interior 575, hull 700: the old cap would have left it short. Repair now goes to the larger of the two (R.playerShipMaxHull). Verified: the taken Rusty Mule (Light Interceptor) torched from 0: at 361/700 one emitter left and the engine fire out; at 700/700 fx level 0, every emitter inactive, a clean hull from the helm view. The first torch ran dry at 361 (250 charge): repairs cost charge.
+- Not handled (now): the rival wreck's hull fire effects are fine once full; repairing the engine
   or turret flags (only life support and hull were seen broken); a hull mended by someone other than you.

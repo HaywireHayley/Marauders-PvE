@@ -158,7 +158,11 @@ local function mend(s, part, inside, ship, dt)
         end
     end
     if not ship then return end
+    -- full is the larger of the interior's figure and the hull's own: a taken Heavy borrows a Capital interior, whose
+    -- Curr Max Health need not match, and the hull's smoke and fire (rivals.lua hullDamageFx) count against the hull's
     local max = inside["Curr Max Health"]
+    local ok, hullMax = pcall(function() return require("rivals").playerShipMaxHull() end)
+    if ok and type(hullMax) == "number" and (type(max) ~= "number" or hullMax > max) then max = hullMax end
     local old = ship.MainHullHealth
     if type(max) ~= "number" or type(old) ~= "number" or old >= max then return end
     local new = math.min(max, old + HULL_PER_SECOND * dt)

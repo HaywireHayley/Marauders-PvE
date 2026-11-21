@@ -1887,5 +1887,7 @@ function R.inAirlock(l, margin)
     return nil
 end
 function R.playerShip() return S and valid(S.playerShip) and S.playerShip or nil end
+-- Its full hull as the damage effects count it (your own at raid start; a taken one's from when it launched).
+function R.playerShipMaxHull() return S and S.playerShipMaxHull or nil end
 
 return R
