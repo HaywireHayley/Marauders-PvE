@@ -2,7 +2,11 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
-## Next build (not released yet)
+## Public test, 20 Nov 2026, build 18 (`public-test-20261120.18`)
+
+Repair your ship with the blowtorch, take nuclear mines home to the hold, find survivors (and loot) in wrecked ships,
+and a hidden Blood Raider outfit. On build 1 of 17 Nov or later, the launcher's orange **!** installs this one for you,
+keeping your saves.
 
 ### Changes
 
@@ -21,7 +25,8 @@ Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Mar
 - **Repair your ship with the blowtorch (#70, PR #282):** a ship shot to 0 hull is disabled (its life support broken)
   and used to stay that way offline. Fire the **Blowtorch** at a part of your ship (the life-support pipe in the engine
   room, the helm gun, the engine): broken parts come back first, then the hull rises until the ship can fly, up to full.
-  It uses the torch's charge. A rival wreck you board and take now needs the same repair before it flies. Its smoke and fire go out as the hull comes back (PR #284).
+  It uses the torch's charge. A rival wreck you board and take now needs the same repair before it flies. Its smoke
+  and fire go out as the hull comes back (PR #284).
 - **Co-op joiner's minimap shows the map (#214, PR #269):** after build 17's fix the joiner had tasks and directions but
   no floor plan. The plans that ship with the mod (your ship, the stations) now load for a joiner too.
 
