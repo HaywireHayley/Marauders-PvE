@@ -671,7 +671,8 @@ local function startScan(p)
     if S.me and S.me.place == p then table.insert(S.scan.seeds, 1, S.me.at) end
 end
 
-local function nextScan()
+-- cachedOnly: load plans already on disk, never scan (a co-op joiner: its game has no navmesh to read; #214).
+local function nextScan(cachedOnly)
     local all = {}
     if S.ship then all[1] = S.ship end
     for _, p in pairs(S.places or {}) do
@@ -679,7 +680,7 @@ local function nextScan()
     end
     local waiting = false
     for _, p in ipairs(all) do
-        if not p.plan and not p.noPlan and not readPlan(p) then
+        if not p.plan and not p.noPlan and not readPlan(p) and not cachedOnly then
             if os.clock() >= (p.retryAt or 0) then
                 startScan(p)
                 return
@@ -1343,7 +1344,10 @@ function M.tick(pc)
         S.thinkAt = now + CFG.THINK
         S.ready = think(pc, me)
         if S.ready then writeText(me) end
-        if S.ready and raid.navReady and not S.scan and not S.scansDone then nextScan() end
+        if S.ready and not S.scan and not S.scansDone then
+            if raid.navReady then nextScan()
+            elseif S.joiner then nextScan(true) end
+        end
     end
     if S.ready then draw(me) end
 end
