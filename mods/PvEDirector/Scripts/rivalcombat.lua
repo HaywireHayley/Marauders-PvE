@@ -679,6 +679,20 @@ local function pairInterior(c)
     local box = c.inside.InSideComp
     c.insideBox = { c = box:K2_GetComponentLocation(), e = box:GetScaledBoxExtent() }
     X.addInteriorNav(S.pc, c.inside)
+    -- A hull already shot to 0 before its interior came: the interior is new, its life-support pipe whole, so the ship
+    -- read "disabled" with nothing broken to mend (#70). Break it the way the game's own damage does (pipe Health 0,
+    -- LifeSupportDestroyed on hull and interior): the blowtorch then mends it (blowtorch.lua) and the ship flies again.
+    if (c.ship.MainHullHealth or 0) <= 0 then
+        pcall(function()
+            local comps = c.inside:K2_GetComponentsByClass(StaticFindObject("/Script/RaidGame.RaidUseableFrigatePartComponent"))
+            for i = 1, #comps do
+                local part = comps[i]:get()
+                if valid(part) and part:GetFName():ToString():find("LifeSupport", 1, true) then part.Health = 0 end
+            end
+            c.inside.LifeSupportDestroyed = true
+            c.ship.bLifeSupportDestroyed = true
+        end)
+    end
     X.log(("[rivals] interior for the %s ready"):format(c.shipName))
 end
 

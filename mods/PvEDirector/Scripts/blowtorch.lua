@@ -10,6 +10,14 @@
 -- a door's locks are down it also sets bIsUnlocked, which "F requires blowtorch" checks. Soldiers already take the torch's own damage.
 -- Barrels and gas cans are left alone: their Blueprint only takes damage from a flamethrower or a fire grenade area (or an event the
 -- game's bullet hits call), and it is not known that the real torch sets them off.
+-- Ship repairs (#70, 2026-11-20): the same native torch code is meant to mend your ship, and offline it doesn't either (8 s of real
+-- torch on a broken life-support pipe: nothing). A ship shot to 0 hull has its life-support pipe broken (the interior's
+-- RaidUseableFrigatePartComponent "...LifeSupport...": Health 1 -> 0, LifeSupportDestroyed on hull and interior): that is a
+-- disabled ship. So while the torch fires at a part of your own ship (the pipe, the helm gun, the engine's repair area), within
+-- RANGE and REPAIR_REACH of your aim: a broken part comes back first (PART_SECONDS to full; the pipe then clears
+-- LifeSupportDestroyed and tells the interior with its own OnLifeSupportDestroyed(JustFixed = true)), then the hull rises
+-- HULL_PER_SECOND to the interior's Curr Max Health, each step told through ShipHullHealthChangeEvent(old, new), the event the
+-- hull's OnRep would send.
 local P = {}
 local X -- log, valid
 local raid -- the per-raid table (setRaid); the torch's state lives in raid.torch, so a new world starts clean
@@ -21,6 +29,9 @@ local STEP = 0.1 -- seconds between burns
 local FIND_EVERY = 10 -- seconds between looks for the doors' lock volumes while firing (a FindAllOf walks every object)
 local NEAR = 1500 -- cm: lock volumes farther than this from you are not looked at
 local LOCKS = { Top = "TopLock", Middle = "MiddleLock", Bottom = "BottomLock" }
+local REPAIR_REACH = 80 -- cm: a ship part is bigger than a lock
+local PART_SECONDS = 4 -- seconds of torch to mend a broken part
+local HULL_PER_SECOND = 25 -- hull points a second once the parts are whole (575 for a starter frigate: about 23 s from 0)
 
 function P.init(ctx) X = ctx end
 function P.setRaid(r) raid = r end
@@ -95,6 +106,91 @@ local function burn(s, now, pc, pawn)
     for _, b in pairs(best) do burnLock(s, b.v, DPS * dt) end
 end
 
+-- Your ship's interior: the hull you fly (rivals.lua's playerShip: your own, or one you took), else the raid's home.
+local function myInside()
+    local ok, ship = pcall(function() return require("rivals").playerShip() end)
+    local inside = ok and ship and X.valid(ship) and ship.MyShipInside
+    if inside and X.valid(inside) then return inside, ship end
+    inside = raid.home
+    if inside and X.valid(inside) then
+        local hull = inside.SpaceshipToPairTo
+        return inside, hull and X.valid(hull) and hull or nil
+    end
+end
+
+-- The parts of an interior the torch mends: { c = component, full = health when whole, life = the life-support pipe }.
+-- The engine's repair area has no health of its own: torching it only raises the hull.
+local function repairParts(inside)
+    local out = {}
+    pcall(function()
+        local comps = inside:K2_GetComponentsByClass(X.lib("/Script/RaidGame.RaidUseableFrigatePartComponent"))
+        for i = 1, #comps do
+            local c = comps[i]:get()
+            if X.valid(c) then
+                local max = c.MaxHealth
+                out[#out + 1] = { c = c, full = (type(max) == "number" and max > 0) and max or 1,
+                    life = nameOf(c):find("LifeSupport", 1, true) ~= nil }
+            end
+        end
+        local all = inside:K2_GetComponentsByClass(X.lib("/Script/Engine.SceneComponent"))
+        for i = 1, #all do
+            local c = all[i]:get()
+            if X.valid(c) and nameOf(c) == "ShipEngineRepairInteractArea" then out[#out + 1] = { c = c, area = true } end
+        end
+    end)
+    return out
+end
+
+local function mend(s, part, inside, ship, dt)
+    if not part.area then
+        local h = part.c.Health
+        if type(h) == "number" and h < part.full then
+            local now = math.min(part.full, h + part.full * dt / PART_SECONDS)
+            part.c.Health = now
+            pcall(function() part.c:Onrep_HealthChange() end)
+            if now >= part.full and part.life then
+                pcall(function() inside.LifeSupportDestroyed = false end)
+                if ship then pcall(function() ship.bLifeSupportDestroyed = false end) end
+                pcall(function() inside:OnLifeSupportDestroyed(true) end)
+                X.log("blowtorch: your ship's life support is mended")
+            end
+            return
+        end
+    end
+    if not ship then return end
+    local max = inside["Curr Max Health"]
+    local old = ship.MainHullHealth
+    if type(max) ~= "number" or type(old) ~= "number" or old >= max then return end
+    local new = math.min(max, old + HULL_PER_SECOND * dt)
+    ship.MainHullHealth = new
+    pcall(function() inside:ShipHullHealthChangeEvent(old, new) end)
+    if new >= max then X.log("blowtorch: your ship's hull is back to full") end
+    if old <= 0 and new > 0 then X.log("blowtorch: your ship's hull is patched, it can fly again") end
+end
+
+local function repair(s, now, pc, dt)
+    local inside, ship = myInside()
+    if not inside then return end
+    local key = tostring(inside:GetAddress())
+    if s.partsOf ~= key then s.parts, s.partsOf = repairParts(inside), key end
+    local cam = pc.PlayerCameraManager
+    local loc, rot = cam:GetCameraLocation(), cam:GetCameraRotation()
+    local p, y = math.rad(rot.Pitch), math.rad(rot.Yaw)
+    local dx, dy, dz = math.cos(p) * math.cos(y), math.cos(p) * math.sin(y), math.sin(p)
+    local best, bestMiss
+    for _, part in ipairs(s.parts) do
+        if X.valid(part.c) then
+            local c = part.c:K2_GetComponentLocation()
+            local rx, ry, rz = c.X - loc.X, c.Y - loc.Y, c.Z - loc.Z
+            local t = math.max(0, math.min(RANGE, rx * dx + ry * dy + rz * dz))
+            local ex, ey, ez = rx - dx * t, ry - dy * t, rz - dz * t
+            local miss = math.sqrt(ex * ex + ey * ey + ez * ez)
+            if miss <= REPAIR_REACH and (not bestMiss or miss < bestMiss) then best, bestMiss = part, miss end
+        end
+    end
+    if best then mend(s, best, inside, ship, dt) end
+end
+
 -- From the director's frame, with the player controller. Cheap while the torch is not in your hands.
 function P.frame(pc)
     if not raid then return end
@@ -118,7 +214,9 @@ function P.frame(pc)
         s.lastBurn = now
         return
     end
+    local dt = math.min(now - s.lastBurn, 0.25)
     burn(s, now, pc, pawn)
+    pcall(repair, s, now, pc, dt)
 end
 
 return P
