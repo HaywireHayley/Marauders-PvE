@@ -203,6 +203,7 @@ local Female = require("female")
 local Gunseat = require("gunseat")
 local Unstuck = require("unstuck") -- F9 unstuck and no collision (#198)
 local Defuse = require("defuse") -- station mines: F and a Minesweeper board (#197)
+local DeathScreen = require("deathscreen") -- who killed you, on your death (#331)
 -- main.lua's own parts, in modules: each takes main's helpers in init(ctx), and the per-raid table in setRaid (below)
 local PlayAreas = require("playareas") -- where bots may go on a station
 local Bots = require("bots") -- soldiers: spawning, awareness, patrols, noises, cover, aim, animation, garrisons
@@ -718,6 +719,8 @@ local function onTick(ctx)
         ok, err = ppcall("defuse", Defuse.update, ticker)
         if not ok and not raid.defuseFailed then raid.defuseFailed = true log("defuse failed: " .. tostring(err)) end
         if pveBodies then pveBodies() end
+        ok, err = ppcall("deathscreen", DeathScreen.frame, ticker)
+        if not ok and not raid.deathFailed then raid.deathFailed = true log("death screen failed: " .. tostring(err)) end
         ok, err = ppcall("gatetext", RaidTime.frame)
         if not ok and not raid.gateTextFailed then raid.gateTextFailed = true log("space gate countdown failed: " .. tostring(err)) end
         ok, err = ppcall("minimap", Minimap.tick, ticker)
@@ -940,7 +943,7 @@ end
 raid = { world = nil }
 -- The modules keep their own reference to the per-raid table: each is handed the new one whenever it's replaced.
 local function shareRaid()
-    for _, m in ipairs({ PlayAreas, Bots, Loadout, Launch, Space, DebugActions, RaidTime, LevelProps, Blowtorch, Civilians }) do
+    for _, m in ipairs({ PlayAreas, Bots, Loadout, Launch, Space, DebugActions, RaidTime, LevelProps, Blowtorch, Civilians, DeathScreen }) do
         if m then m.setRaid(raid) end
     end
 end
@@ -960,6 +963,7 @@ function resetRaid(worldKey)
     Gunseat.reset()
     Unstuck.reset()
     Defuse.reset()
+    DeathScreen.reset()
     ShipSpeed.reset()
     if Rivals then Rivals.reset() end
     if Crew then Crew.reset() end
@@ -1432,6 +1436,7 @@ RegisterHook("/Script/RaidGame.RaidWeapon:ServerMultiSimulateWeaponFire", functi
     end
     if valid(owner) and not isBot then raid.playerShotAt = os.clock() end -- (civilians.lua: they run from gunfire)
     if isBot then
+        pcall(DeathScreen.botShot, w, owner)
         local okr, errr = pcall(Bots.botShot, w, owner)
         if not okr and not raid.reloadErr then raid.reloadErr = true log("bot reload: " .. tostring(errr)) end
     end
@@ -1563,6 +1568,7 @@ RegisterKeyBind(Key.R, function() table.insert(pending, function() Defuse.key("R
 DebugActions.init({ log = log, valid = valid, lib = lib, CFG = CFG, RAID_OPTS = RAID_OPTS, aux = Aux, rivals = Rivals,
     bots = Bots, loadout = Loadout, menuClosed = menuClosed })
 Defuse.init({ log = log, valid = valid, lib = lib, menuClosed = menuClosed })
+DeathScreen.init({ log = log, valid = valid, lib = lib })
 
 math.randomseed(os.time())
 log("loaded")
