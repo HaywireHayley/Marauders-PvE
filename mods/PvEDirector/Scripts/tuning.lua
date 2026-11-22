@@ -237,6 +237,7 @@ local function define()
     local ships = { name = "Rival ships", id = "Crews" }
     add(ships, X.RCFG, {
         { "BARON", "The Red Baron in every raid", 0, 1, 1, "1 = on: one rival crew is the Red Baron's, in his strike frigate, and he hunts any ship he sees. Takes effect next raid" },
+        { "IMPOSTOR_CHANCE", "Chance a crew's captain poses as the Red Baron", 0, 1, 0.01, "0 = never. Per raid, one ordinary crew's captain wears the Baron's head and coat; he fights like any rival and the log calls him an impostor. Never with the real Baron on. Takes effect next raid" },
         { "RUSHERS","Crews that head straight for a station", 0, 1, 0.01, "0 = none, 1 = all. They only fight if shot at" },
         { "ATTACK_CHANCE", "Chance a crew attacks a ship it sees", 0, 1, 0.01, "Aggressive crews attack more often" },
         { "BOARD_ONE", "Chance one crew member boards", 0, 1, 0.01, "Only for crews of 2 or more" },

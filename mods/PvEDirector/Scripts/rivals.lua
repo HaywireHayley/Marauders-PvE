@@ -41,6 +41,7 @@ local CFG = {
     MAX_CREWS = 15,
     CREWS = 5,                      -- rival crews per raid; 0 = one per free player slot (up to MAX_CREWS: 11 on solo maps)
     BARON = 0,                      -- event (#78): 1 = one crew in every raid is the Red Baron's (makeBaron; F3 Rival ships)
+    IMPOSTOR_CHANCE = 0.25,         -- #319: chance per raid that one ordinary crew's captain dresses as the Red Baron (never with BARON on; 0 = off)
     ARRIVAL_SPREAD = { 5, 60 },     -- crews launch from their spawn points this many seconds after you are aboard
     STATIONS_PER_RAID = { 2, 4 },   -- each crew raids this many places before extracting
     DOCK_SECONDS = { 200, 450 },    -- time spent inside a station

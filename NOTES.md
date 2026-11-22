@@ -1020,6 +1020,16 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
   Strike Frigate (RocketArtillery): heading for Navy Outpost"; a Ship_RedBaron_StrikeFrigate01_Pawn_C in the world
   (bridge find); docked at Navy Outpost a minute later; no Lua errors. Not seen yet: the captain's Baron look in
   person, and a fight with him.
+- Red Baron impostors (2026-11-21, #319 first pass, NOT tested in game): lore "three men have been brought in as the Red
+  Baron. None of them was." makeCrews (rivalcrews.lua) rolls CFG.IMPOSTOR_CHANCE (rivals.lua, default 0.25; F3 Rival
+  ships "Chance a crew's captain poses as the Red Baron", 0 = off) once per raid, never when BARON >= 1 (the Baron
+  hunt condition sets Crews:BARON = 1). One crew with no condition hull and not the Baron's is picked; R.baron.impostor
+  puts its captain in the Baron's head and coat (headPath/bodyPath, male, male voice) and sets c.captain to
+  `"Red Baron" <his name>`. Crew, ship, health, gear roll, helmet and AI profile stay the crew's own (normal "rival"
+  profile), so his cap is whatever he rolled, "not quite right". Shown only in the log: a launch-time line "a man calling
+  himself the Red Baron (an impostor)" and the kill line "(a man calling himself the Red Baron: not the Baron)"; the
+  game's kill list (killstats.lua) has no names, so nothing there. The Baron has no unique drop (BaronCap is an ordinary
+  priced item in gear.lua), so nothing to withhold. Not done: other named bosses of #319, a nameplate.
 - Next (#78): event presets (config/event.txt or a lobby picker) bundling map + overrides, loot scaling for harder
   presets, other bosses.
 
