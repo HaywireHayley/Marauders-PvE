@@ -2,6 +2,29 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 22 Nov 2026, build 24 (`public-test-20261122.24`)
+
+Station guards fight again: in build 23 a fault in the mod left soldiers and guards standing still. Also smoother
+menus and raids, bots that reload and heal behind cover, and a Red Baron who gets likelier the longer you go without
+him (off unless you turn it up). On build 1 of 17 Nov or later, the launcher's orange **!** installs this one for
+you, keeping your saves.
+
+### Fixes
+
+- **Guards and soldiers frozen (#358, PR #362, thanks Taki for the report zip):** soldiers and station guards stopped
+  moving and fighting, and rival crews ignored them. One guard whose health read back wrong stopped the mod from
+  taking over every guard at that station. Fixed.
+- **Smoother lobby and raids (#336, PR #362):** the new frame-time lines in testers' logs showed the lobby searching
+  every object in the game on every frame, and raids doing two smaller searches over and over. They now look once and
+  remember.
+
+### Changes
+
+- **Bots reload and heal behind cover (#314, PR #357):** a bot low on ammo takes cover to reload, and a hurt one
+  heals behind cover once. Cocky bots push you while you reload or heal. F3 > Cover.
+- **The Red Baron gets likelier (#322, PR #355):** each raid without him can raise his chance, up to a cap, kept per
+  save. Off by default: F3 > Rival ships > Baron rise per raid (0.05 is a good start).
+
 ## Public test, 22 Nov 2026, build 23 (`public-test-20261121.23`)
 
 Set the game up before you launch: the launcher's new **SETTINGS** page has every F3 setting, difficulty levels and
