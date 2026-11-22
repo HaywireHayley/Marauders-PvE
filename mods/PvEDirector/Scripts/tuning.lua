@@ -298,6 +298,18 @@ local function define()
         { "HOLE_SIZE", "Bullet hole size (cm, half width)", 2, 12, 0.5, "5 = a 10 cm hole" },
     })
     tabs[#tabs + 1] = fx
+    -- Features (#324): whole parts of the mod on or off (features.lua). Each reads its switch as it runs.
+    local feats = { name = "Features" }
+    add(feats, require("features"), {
+        { "DEATH_SCREEN", "Death screen: who killed you", 0, 1, 1, "1 = on, 0 = off. After a death: who shot you, with what, from how far" },
+        { "LORE_LOADING", "Lore line on the loading screen", 0, 1, 1, "1 = on, 0 = off" },
+        { "LORE_ARRIVAL", "Lore line when you reach a place", 0, 1, 1, "1 = on, 0 = off. Shown on the minimap for a few seconds" },
+        { "MAP_KILLS", "Minimap: where your kills fell", 0, 1, 1, "1 = on, 0 = off" },
+        { "MAP_DROPS", "Minimap: where you dropped things", 0, 1, 1, "1 = on, 0 = off" },
+        { "MAP_CREW", "Minimap: your crewmates", 0, 1, 1, "1 = on, 0 = off" },
+        { "FRAME_LOG", "Frame times in the log", 0, 1, 1, "1 = on, 0 = off. Helps us find stutter: please leave it on if you report one" },
+    })
+    tabs[#tabs + 1] = feats
     tabs[#tabs + 1] = { name = "Saved setups", rows = {}, mine = true }
 end
 
