@@ -1416,6 +1416,22 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
   of each living roster bot, the same read its nametags already do every frame). New art assets/minimap/cross.png and
   bag.png (written with stdlib zlib; the same shapes added to tools/make_minimap_art.py); missing art falls back to
   the dot instead of failing build().
+- **Blank panel watchdog (2026-11-21, #334; NOT tested in game, not reproduced).** Reported: the small map a solid dark
+  rectangle for a whole clip, no plan, marker or text. Found in the code: the backdrop (panel + map Border) went on
+  screen at build(), while every piece of text and the plan is only written once `think` returns ready, so anything
+  keeping think, locate or the survey from finishing left the empty box up; an error anywhere in M.tick (stepScan,
+  command, think, draw) left through main.lua's "minimap failed", logged every frame, and skipped the rest of that
+  frame (a throwing floor scan blocked text and draw for the whole raid); a build() that threw part-way left a half
+  `ui` with no `ui.pc`, never retried; `S.failed` was permanent; `ui` survived an `S` rebuild if main's reset never
+  came; `ui.pc:GetAddress()` ran on a pc without a valid() check. Now: the host is collapsed until `S.ready`; each step
+  runs under `guard` (one log line per distinct message, 20 per raid); a failed floor scan marks the place noPlan; and
+  `watch` (end of M.tick) sees "no successful think+writeText, or no successful draw, for CFG.STALL = 20 s" while the
+  panel is on, logs the reason once (`minimap: panel stalled ...: no valid pawn / widget freed / no places / tasks
+  unreadable / no task / no floor plan / plan texture failed / last error: ...`) and rebuilds the widget (`dropUi`:
+  valid() first, RemoveFromParent on a live host so no stale rectangle stays under the new one; at most 3 per raid, 30 s
+  apart; not for a missing pawn, which just waits). Look for `minimap: panel stalled` and `minimap: rebuilding` in
+  last_game.log. Not verified: that this is the cause of the clip (the overlay of the stream was never ruled out),
+  RemoveFromParent on the host in game, and the collapsed-until-ready start.
 
 ## Stutter, lighting, bot aim, kit looks (2026-11-06, written; NOT yet run in game)
 Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame numbers are only rough: p50 11 ms, 100-400 ms hitches several times a second. The render thread was busy and the game thread mostly waiting.
