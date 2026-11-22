@@ -1071,7 +1071,7 @@ PveGuild = require("guild") -- (a global: lobbylabel.lua reads it)
 PveGuild.init({ log = log, valid = valid, project = PROJECT })
 LobbyLabel = require("lobbylabel") -- the lobby's START RAID label (lobbylabel.lua)
 InvQol = require("invqol") -- stash SORT / SELL JUNK / search / double-click to gear (invqol.lua)
-InvQol.init({ log = log, valid = valid, lib = lib })
+InvQol.init({ log = log, valid = valid, lib = lib, minimap = Minimap })
 LobbyLabel.init({ log = log, offline = function() return Launch.offlineBackend() end })
 InvKeys = require("invkeys") -- Esc / lean with the inventory open (invkeys.lua)
 InvKeys.init({ log = log, valid = valid,
@@ -1118,7 +1118,8 @@ Missions = require("missions")
 Missions.init({ log = log, valid = valid })
 -- Manning a turret yourself (gunseat.lua): the seat's client half (turning, firing, getting up) that never runs offline.
 Gunseat.init({ log = log, valid = valid })
-Minimap.init({ log = log, valid = valid, lib = lib, missions = Missions, raid = function() return raid end })
+Minimap.init({ log = log, valid = valid, lib = lib, missions = Missions, crew = Crew, raid = function() return raid end })
+require("killstats").onKills = Minimap.noteKills -- your kill list growing turns recent deaths into map markers (#326)
 BotDamage.init({ log = log, valid = valid, bots = function() return raid.spawned and raid.bots end })
 
 -- Main update ---------------------------------------------------------------------------------------
@@ -1494,6 +1495,7 @@ RegisterHook("/Script/RaidGame.RaidCharacter:Multi_Deathevent", function(ctx)
     if not (valid(bot) and bot:IsA(botClass)) then return end
     table.insert(pending, function()
         if not valid(bot) then return end
+        pcall(function() Minimap.noteDeath(bot:K2_GetActorLocation()) end) -- a kill marker if it was yours (#326)
         for _, e in ipairs(raid.bots) do
             if e.bot == bot or (valid(e.bot) and e.bot:GetAddress() == bot:GetAddress()) then
                 pcall(Voice.say, e, "Death", true)

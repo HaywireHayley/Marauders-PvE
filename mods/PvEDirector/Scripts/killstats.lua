@@ -23,6 +23,7 @@ local grow = package.loadlib(PROJECT .. "native/pvepatch.dll", "pve_array_grow")
 local seen = {}      -- name -> amount at the last look (after our own moves)
 local pending = {}   -- os.clock() of each rival death not yet matched to a kill stat
 local log = print
+K.onKills = nil      -- fn(n): your kill list grew by n since the last look (the minimap's kill markers, #326)
 
 function K.init(logFn) log = logFn or print end
 
@@ -86,6 +87,14 @@ function K.update(pc)
     local now = os.clock()
     while pending[1] and now - pending[1] > PENDING_SECONDS do table.remove(pending, 1) end
     local list = read(arr)
+    if K.onKills then
+        local grew = 0
+        for _, s in ipairs(list) do
+            if s.name:sub(1, 2) == "K_" then grew = grew + s.n end
+        end
+        for name, n in pairs(seen) do if name:sub(1, 2) == "K_" then grew = grew - n end end
+        if grew > 0 then pcall(K.onKills, grew) end
+    end
     if #pending > 0 then
         for _, s in ipairs(list) do
             local added = s.n - (seen[s.name] or 0)
