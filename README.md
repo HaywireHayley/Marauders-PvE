@@ -33,19 +33,30 @@ salvage and docking. Along the way the mod has also added things the live game n
   survivor or two who fight on.
 - **Smarter soldiers:** they reload, take cover, take head, body and leg damage, and their helmets and vests protect
   them by how good they are. A shotgun volley knocks them back.
+- **Guards lose their leader:** when a station's guard leader is shot down, the rest break off and run away from you for
+  25 to 40 seconds, and fight only if you get close.
+- **A death screen** that says who killed you, with what and from how far, and your last three hits. It's a best guess
+  from the shots just before, so it can be wrong when several bots fire at once.
 
 **Make the raid you want**
 - **F3 AI tuning:** every enemy, rival and crew setting as a slider: how many crews, guards and ship battles, how hard
   they fight, and difficulty presets.
+- **Loot density:** F3's **Loot** tab sets how much floor loot spawns and how much is in each body, from 0 (none) to 3
+  times the usual. Ammo in bodies and loot in containers are not changed.
 - **Settings before a raid:** the launcher's **SETTINGS** button shows every F3 setting by tab, with the difficulty
-  levels and your own presets: save a setup, export it to a file to share, import a friend's. (The list fills in after
-  the game has started once with this build.)
+  levels and your own presets: save a setup, export it to a file to share, import a friend's. Changes save as you make
+  them. The game reads them when it starts, and F3 still works in a raid. (The list fills in after the game has started
+  once with this build.)
 - **Raid conditions:** one-raid set-ups such as Baron hunt, Hunted, Busy sky, Capital ships and Minefield. Make your own
   and share them.
 - **Pick your map** in the lobby's REGION box, and the **raid length** in the launcher (15 minutes to no limit).
 
 **Getting around**
 - **A minimap** (N, M, B) with floor plans of the stations, your tasks, and a route to where you're going.
+- **Minimap marks:** a grey X where the bots you killed fell, a bag where you dropped an item with J, and blue dots for
+  your living crewmates.
+- **Lore in raids:** a line from the lore on the raid loading screen, and a line when you first reach a station or ship
+  (it shows above the minimap for a few seconds).
 - **A faster Rustbucket** and a **boost** (Space) at the helm of any ship.
 - **Play as a woman or a man** (F2): women's versions of every outfit, for you and for the soldiers, with voices.
 - **Hidden outfits** the menus never listed (two long coats and a bloodied Blood Raider suit): F9 in the lobby.
@@ -255,6 +266,10 @@ All open known issues: [known-issue label](https://github.com/HaywireHayley/Mara
 **Found a bug?** Press **REPORT** in the launcher. It saves one zip to your Desktop with the logs, the crash report if
 the game crashed, and your build number. Your Windows user name, Steam ID and in-game name are taken out first.
 [Open an issue](https://github.com/HaywireHayley/Marauders-PvE/issues) or post on the Discord with that zip and a line on what you were doing.
+
+**Stutter?** Send the report right after the raid where it happened. During a raid the log gets a `frames:` line every
+10 seconds: the worst gap between frames, how many frames ran over 50, 100 and 200 ms, and the slowest parts of the
+mod's own work. Stutter that grows over a raid shows up there, where an average frame rate would hide it.
 
 ---
 
