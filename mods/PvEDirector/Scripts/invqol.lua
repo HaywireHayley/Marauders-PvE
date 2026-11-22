@@ -67,7 +67,7 @@ end
 
 -- The menu player's inventory component (the one the stash belongs to).
 local function inventory()
-    local pc = FindFirstOf("MenuPlayerController_C")
+    local pc = require("cache").menuPc()
     if not X.valid(pc) then return nil end
     local comps = pc:K2_GetComponentsByClass(X.lib("/Script/SIGISPlugin.SIGISInventoryComponent"))
     for i = 1, #comps do

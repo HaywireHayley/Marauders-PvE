@@ -173,7 +173,7 @@ end
 addRandom = function(like)
     local box = like:GetParent()
     if not (box and box:IsValid()) then return end
-    local pc = FindFirstOf("MenuPlayerController_C")
+    local pc = require("cache").menuPc()
     if not (pc and pc:IsValid()) then return end
     local b = StaticFindObject("/Script/UMG.Default__WidgetBlueprintLibrary"):Create(pc, like:GetClass(), pc)
     if not (b and b:IsValid()) then return end

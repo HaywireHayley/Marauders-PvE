@@ -78,7 +78,7 @@ function M.init(ctx)
 end
 
 local function lobbyPc()
-    local pc = FindFirstOf("MenuPlayerController_C")
+    local pc = require("cache").menuPc()
     return X.valid(pc) and pc or nil
 end
 

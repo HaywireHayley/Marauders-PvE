@@ -10,6 +10,13 @@ local AI, CFG, Gear, GearScale, Kills, NodeBots = H.AI, H.CFG, H.Gear, H.GearSca
 local Out, R, between, crewLabel, dist, helper = H.Out, H.R, H.between, H.crewLabel, H.dist, H.helper
 local inBox, lib, loadClass, newMember, pick, rnd = H.inBox, H.lib, H.loadClass, H.newMember, H.pick, H.rnd
 local valid = H.valid
+-- A bot's Health as a number. A placed NPC from the spawn hook can be a stale or reused address whose `Health`
+-- reads back as an object, and comparing it threw: the garrison and stray sweep died on it and the station's guards
+-- were never taken over, standing still (build 23 report, 2026-11-22).
+local function hpOf(b)
+    local h = b.Health
+    return type(h) == "number" and h or 0
+end
 -- Bodies ---------------------------------------------------------------------------------------------------------
 -- Building one takes more than one update: the kit goes on at once, but its gun arrives a moment later.
 local function comps(actor)
@@ -208,7 +215,7 @@ end
 
 local function holdGun(e)
     local bot = e.bot
-    if not valid(bot) or (bot.Health or 0) <= 0 then return end
+    if not valid(bot) or hpOf(bot) <= 0 then return end
     local gun = bot.CurrentWeapon
     if not valid(gun) then
         bot.Inventory:ForEach(function(_, w)
@@ -622,7 +629,7 @@ local function dematerialize(c)
     if not c.bodies then return end
     for _, e in ipairs(c.bodies) do
         -- Corpses stay where they fell (lootable); only the living go back into the simulation.
-        if valid(e.bot) and (e.bot.Health or 0) > 0 then
+        if valid(e.bot) and hpOf(e.bot) > 0 then
             e.rival.hp = e.bot.Health
             R.destroy(e.bot)
         end
@@ -634,7 +641,7 @@ end
 local function bodiesAlive(c)
     local n = 0
     for _, e in ipairs(c.bodies or {}) do
-        if valid(e.bot) and (e.bot.Health or 0) > 0 then
+        if valid(e.bot) and hpOf(e.bot) > 0 then
             n = n + 1
             pcall(holdGun, e)
         elseif e.rival.alive then
@@ -746,7 +753,7 @@ local function crewArrival(c, now)
     elseif now - a.out >= CFG.ARRIVAL_CLOSE then
         local inside = false
         for _, e in ipairs(c.bodies or {}) do
-            if valid(e.bot) and (e.bot.Health or 0) > 0 and dist(e.bot:K2_GetActorLocation(), a.lock.floor) < 600 then inside = true end
+            if valid(e.bot) and hpOf(e.bot) > 0 and dist(e.bot:K2_GetActorLocation(), a.lock.floor) < 600 then inside = true end
         end
         if S.foot and valid(S.foot) and dist(S.foot:K2_GetActorLocation(), a.lock.floor) < 600 then inside = true end
         if not inside or now - a.out > 40 then
@@ -919,7 +926,7 @@ local function placedDefenders(st)
     end
     local list = {}
     for _, b in ipairs(found) do
-        if valid(b) and not managed[b:GetAddress()] and (b.Health or 0) > 0
+        if valid(b) and not managed[b:GetAddress()] and hpOf(b) > 0
             and inBox(st.box, b:K2_GetActorLocation(), 500) and not X.offLimits(b:K2_GetActorLocation()) then
             table.insert(list, b)
         end
@@ -930,7 +937,7 @@ end
 -- Wake one placed NPC under the director's soldier AI: a RaidAIController instead of its GOAP one, its own gun
 -- held in the body mesh's hand, the station's faction and team.
 local function adopt(b)
-    if not valid(b) or (b.Health or 0) <= 0 then return nil end
+    if not valid(b) or hpOf(b) <= 0 then return nil end
     local soldier = lib(CFG.SOLDIER .. ".Default__BotPawnMilitary_C")
     if not valid(soldier) then pcall(LoadAsset, CFG.SOLDIER) soldier = lib(CFG.SOLDIER .. ".Default__BotPawnMilitary_C") end
     if not valid(soldier) then return nil end
@@ -1177,7 +1184,7 @@ local function sweepStrays(st, now)
     local before = S.strays[cls] or {}
     do
         for _, b in ipairs(bots) do
-            if valid(b) and (b.Health or 0) > 0 and not managed[b:GetAddress()] then
+            if valid(b) and hpOf(b) > 0 and not managed[b:GetAddress()] then
                 local at = b:K2_GetActorLocation()
                 if (inBox(st.box, at, 500) or (foot and dist(at, foot) <= CFG.STRAY_RANGE)) and not X.offLimits(at) then
                     local key = b:GetAddress()

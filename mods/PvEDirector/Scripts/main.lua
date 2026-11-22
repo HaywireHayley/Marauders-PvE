@@ -240,6 +240,7 @@ local ShipSpeed = require("shipspeed") -- a faster Rustbucket and a boost at the
 local Blowtorch = require("blowtorch") -- the blowtorch burns a vault door's three locks offline
 local BulletHoles = require("bulletholes") -- bullet holes in walls and floors, which the offline game never makes
 AI.init({ log = log, valid = valid, dist = dist })
+require("cache").init(valid) -- (lookups kept while valid: the menu's controller, the world)
 
 -- Weapon role-check patches (native/pvepatch.dll applies them when loaded and reports to patch_out.txt).
 local PATCH_DLL = PROJECT .. "native/pvepatch.dll"
@@ -615,7 +616,7 @@ local function mouseBusy(now)
     end
     if not mouse.seen then
         mouse.seen = true
-        log(("menu: mouse position read (%d, %d); voice lines load while it is still"):format(x, y))
+        log(("menu: mouse position read (%.0f, %.0f); voice lines load while it is still"):format(x, y))
     end
     if x ~= mouse.x or y ~= mouse.y then mouse.x, mouse.y, mouse.movedAt = x, y, now end
     return now - (mouse.movedAt or 0) < 0.5
