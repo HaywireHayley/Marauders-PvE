@@ -85,6 +85,7 @@ function M.boost()
     local pc = lastPc
     local ship = valid(pc) and shipOf(pc)
     if not ship then return end -- on foot: Space is the game's jump
+    require("gatetaps").tap() -- a press at the helm may be a gate tap (#332)
     local now = os.clock()
     if now < boost.untilT then return end
     if now < boost.readyAt then
@@ -113,6 +114,7 @@ end
 function M.reset()
     boost = { untilT = 0, readyAt = 0, on = false }
     lastPc = nil
+    require("gatetaps").reset()
 end
 
 return M

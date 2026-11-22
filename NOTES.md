@@ -5073,3 +5073,17 @@ Inspired by SPT's SVM: every F3 setting before a raid, with presets to save, sha
   arrival, minimap kill/drop/crew markers, the frames: log line). tuning.lua shows them as a "Features" tab, so F3 and
   the launcher's SETTINGS page both have them; each feature reads its switch where it runs. Not tested in game.
 
+
+## Gate superstitions: Tick's two taps (#332, 2026-11-21, space gate)
+- gatetaps.lua (lore: docs/lore/fragments/18_gate_superstitions.md rule 2). A tap is a Space press at a frigate's helm
+  (shipspeed.lua's M.boost calls gatetaps.tap, before the cooldown checks, so a recharging boost still counts). When
+  your own controller runs EnterEvacRaidVolume / Server_EnterEvacRaidVolume (loadout.lua, the `mine(ctx)` filter), the
+  presses in the last TAP_WINDOW s (6) are counted. Exactly 2: a GoldCoin row appended to backend/gifts_in.txt (the
+  hand-off defuse.lua's nuclear material uses; the stand-in's watch_checkout puts it in the lobby's gift box) plus a HUD
+  line. 1: "Once is rude."; 3+: "Three's greedy."; 0: "You go through without a word." No reward for those.
+  HUD line is `pc:ClientMessage(msg, FName("Event"), 5.0)`, as rivals.lua's say().
+- Judged once per raid (the hook fires for both RPC names; ShipSpeed.reset also resets it) so re-entering can't farm it.
+- CFG: GATE_TAPS (0 = off), TAP_WINDOW; both in F3 > Effects. A cash bonus was not used: a raid controller reads 0 cash
+  and the stand-in has no payout hand-off file, whereas the gift box is already wired.
+- Not tested in game (luacheck only). Unverified: that the Space bind fires while piloting at the moment of the gate
+  overlap, and that ClientMessage shows over the gate's jump cinematic.
