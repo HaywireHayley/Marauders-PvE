@@ -204,6 +204,7 @@ local Gunseat = require("gunseat")
 local Unstuck = require("unstuck") -- F9 unstuck and no collision (#198)
 local Defuse = require("defuse") -- station mines: F and a Minesweeper board (#197)
 local DeathScreen = require("deathscreen") -- who killed you, on your death (#331)
+local Fov = require("fov") -- the launcher's field of view (#328)
 -- main.lua's own parts, in modules: each takes main's helpers in init(ctx), and the per-raid table in setRaid (below)
 local PlayAreas = require("playareas") -- where bots may go on a station
 local Bots = require("bots") -- soldiers: spawning, awareness, patrols, noises, cover, aim, animation, garrisons
@@ -721,6 +722,8 @@ local function onTick(ctx)
         if pveBodies then pveBodies() end
         ok, err = ppcall("deathscreen", DeathScreen.frame, ticker)
         if not ok and not raid.deathFailed then raid.deathFailed = true log("death screen failed: " .. tostring(err)) end
+        ok, err = ppcall("fov", Fov.frame, ticker)
+        if not ok and not raid.fovFailed then raid.fovFailed = true log("fov failed: " .. tostring(err)) end
         ok, err = ppcall("gatetext", RaidTime.frame)
         if not ok and not raid.gateTextFailed then raid.gateTextFailed = true log("space gate countdown failed: " .. tostring(err)) end
         ok, err = ppcall("minimap", Minimap.tick, ticker)
@@ -943,7 +946,7 @@ end
 raid = { world = nil }
 -- The modules keep their own reference to the per-raid table: each is handed the new one whenever it's replaced.
 local function shareRaid()
-    for _, m in ipairs({ PlayAreas, Bots, Loadout, Launch, Space, DebugActions, RaidTime, LevelProps, Blowtorch, Civilians, DeathScreen }) do
+    for _, m in ipairs({ PlayAreas, Bots, Loadout, Launch, Space, DebugActions, RaidTime, LevelProps, Blowtorch, Civilians, DeathScreen, Fov }) do
         if m then m.setRaid(raid) end
     end
 end
@@ -1571,6 +1574,7 @@ DebugActions.init({ log = log, valid = valid, lib = lib, CFG = CFG, RAID_OPTS = 
     bots = Bots, loadout = Loadout, menuClosed = menuClosed })
 Defuse.init({ log = log, valid = valid, lib = lib, menuClosed = menuClosed })
 DeathScreen.init({ log = log, valid = valid, lib = lib })
+Fov.init({ log = log, valid = valid })
 
 math.randomseed(os.time())
 log("loaded")

@@ -5011,3 +5011,17 @@ classes) and the Lua heap / gc cycles. FindAllOf and FindFirstOf are wrapped onc
 - NOT tested in game. Unverified: that the hook fires before the Health drop is visible in the same/next frame; that
   the panel shows over the game's death UI and that the controller keeps ticking after death; attribution with several
   bots firing at once (could name a bot shooting at someone else).
+
+## Field of view (#328)
+- 2026-11-21, first pass, NOT tested in game. Launcher "Field of view" (click cycles Default/80/90/100/110, right-click
+  back) writes config/fov.txt as `base=<deg>`; Default deletes the file. mods/PvEDirector/Scripts/fov.lua, ticked from
+  main.lua's per-raid frame block, reads it once per raid (setRaid) and, once per pawn (by address: respawn, helm, map),
+  sets PlayerCameraManager.DefaultFOV and the pawn's camera component FieldOfView via SetFieldOfView (tries properties
+  `FirstPersonCamera`, `Camera`, then GetComponentByClass(CameraComponent)). Not verified: which camera the pawn really
+  uses, whether the game's own Settings FovModifier (VideoSettings.sav, see "Window mode lives in VideoSettings.sav")
+  rescales or overwrites our value, and whether the helm/ship camera is a different view target. Not re-forced each
+  frame on purpose, so aiming isn't fought; if the game rewrites the FOV, the value will drift back (check with
+  `lua` probes of pc.Pawn's camera FieldOfView and PlayerCameraManager.CameraCachePrivate.POV.FOV).
+- ADS zoom: `ads_zoom=` is parsed but not applied. Nothing in the scripts or these notes names where the game sets the
+  aiming FOV; needs a probe of the weapon/character Blueprint (look for an aim/ADS FOV or zoom float on the held weapon
+  or the pawn, and whether the game's FovModifier already scales it).

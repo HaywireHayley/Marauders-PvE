@@ -44,6 +44,8 @@ GATE_TIME = os.path.join(ROOT, "config", "gate_time.txt")  # minutes, "instant" 
 RAID_CONDITIONS = [os.path.join(ROOT, "config", n) for n in ("raid_conditions.txt", "my_raid_conditions.txt")]
 RAID_CONDITION = os.path.join(ROOT, "config", "raid_condition.txt")
 RAID_LENGTHS = ["default", "15", "30", "45", "60", "90", "120", "none"]  # the slider's stops; the game's own is 25 min
+FOV = os.path.join(ROOT, "config", "fov.txt")  # "base=<degrees>" or no file: the camera's field of view (fov.lua, #328)
+FOVS = ["default", "80", "90", "100", "110"]
 GATE_TIMES = ["default", "instant", "5", "10", "15"]  # the space gate slider's stops; the game's own is 5 min into the raid
 WINDOW_SETTING = os.path.join(ROOT, "config", "window_mode.txt")  # read by scripts/launch-offline.ps1
 SKIP_INTRO_SETTING = os.path.join(ROOT, "config", "skip_intro.txt")  # read by scripts/mode.ps1
@@ -585,6 +587,14 @@ class App(tk.Tk):
                  highlightthickness=0, bd=0, sliderrelief="flat", sliderlength=18, width=10,
                  cursor="hand2").pack(side="left", fill="x", expand=True, padx=(12, 4))
         self.gate_label.config(text=self.gate_time_text(self.gate_var.get()))
+        fov = tk.Frame(self.right, bg=PANEL)
+        fov.pack(fill="x")
+        tk.Label(fov, text="Field of view", bg=PANEL, fg=TEXT, font=font(12), anchor="w").pack(side="left")
+        self.fov_label = tk.Label(fov, bg=PANEL, fg=ORANGE, font=font(12, "SemiBold"), anchor="e", cursor="hand2")
+        self.fov_label.pack(side="right")
+        self.fov_label.bind("<Button-1>", lambda e: self.cycle_fov(1))
+        self.fov_label.bind("<Button-3>", lambda e: self.cycle_fov(-1))
+        self.fov_label.config(text=self.fov_text(self.read_fov()))
         # Raid conditions (#78): the value cycles on a click (right-click goes back); the status line says what it does.
         # (No line of its own for that: the column is full at 150 % scaling, #147.)
         cond = tk.Frame(self.right, bg=PANEL)
@@ -1145,6 +1155,38 @@ class App(tk.Tk):
         i = self.gate_var.get()
         self.gate_label.config(text=self.gate_time_text(i))
         self.write_setting(GATE_TIME, GATE_TIMES[i] + "\n")
+
+    @staticmethod
+    def read_fov():
+        try:
+            with open(FOV, encoding="utf-8") as f:
+                for line in f:
+                    k, _, v = line.partition("=")
+                    if k.strip() == "base":
+                        return FOVS.index(v.strip().lower())
+        except (OSError, ValueError):
+            pass
+        return 0
+
+    @staticmethod
+    def fov_text(i):
+        return "Default" if FOVS[i] == "default" else f"{FOVS[i]} deg"
+
+    def cycle_fov(self, step):
+        # the player camera's field of view, from the next raid (fov.lua); "default" leaves the game's own
+        i = (self.read_fov() + step) % len(FOVS)
+        if FOVS[i] == "default":
+            try:
+                os.remove(FOV)
+            except FileNotFoundError:
+                pass
+            except OSError as e:
+                self.say(f"Couldn't reset the field of view: {e.strerror or e}")
+                return
+        elif not self.write_setting(FOV, f"base={FOVS[i]}\n"):
+            return
+        self.fov_label.config(text=self.fov_text(i))
+        self.say("Field of view: " + ("the game's own." if FOVS[i] == "default" else f"{FOVS[i]} degrees from the next raid."))
 
     @staticmethod
     def raid_conditions():
