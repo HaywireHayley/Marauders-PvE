@@ -45,6 +45,7 @@ FILES = [  # (from, to), relative to the dev tree and the release
     ("launcher/saves.py", "launcher/saves.py"),
     ("launcher/update.py", "launcher/update.py"),
     ("launcher/report.py", "launcher/report.py"),
+    ("launcher/settings.py", "launcher/settings.py"),  # the SETTINGS page (#324)
     ("backend/nakama_standin.py", "backend/nakama_standin.py"),
     ("scripts/mode.ps1", "scripts/mode.ps1"),
     ("scripts/launch-offline.ps1", "scripts/launch-offline.ps1"),
