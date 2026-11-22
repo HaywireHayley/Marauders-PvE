@@ -4962,3 +4962,15 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   bridge/crew_cmd: "Rosco left the crew for good", the pool still 8 with Uri last, Rosco gone from crew.lua.
 - Seen on the way, not chased: the crew_cmd `hire` test command read the cash as 0 (pc:GetCash() on the controller it's
   given) while the lobby showed 122,086, so hiring through it refused; a real click on HIRE wasn't tried.
+
+## Frame times in every tester's log (2026-11-21, #336; NOT run in game)
+Players report stutter that grows over a raid, but the status line only had an average fps (72-87 in a report where the
+player felt stutter). main.lua's profiler wrapper now always runs a light mode (`light(tick)`): in a raid, every 10 s
+one `frames:` line with the worst gap between frames, frames over 50/100/200 ms, the director's worst and average tick,
+the four slowest `ppcall` sections (total and max ms), FindAllOf/FindFirstOf calls (count, ms, the two costliest
+classes) and the Lua heap / gc cycles. FindAllOf and FindFirstOf are wrapped once at load for the counts (one
+`os.clock` pair each); `bridge/profile_on` still swaps in the full profiler on top. `ppcall` now always times sections.
+- raidtime.lua: the gate countdown searched every TextBlock every 3 s until it found its text, with no limit, so a raid
+  without that text (no HUD countdown) searched all raid long. Now at most 20 searches, then a log line.
+- Not verified: the cost of the light mode itself (expected well under 0.1 ms a frame), and the log line's format in game.
+
