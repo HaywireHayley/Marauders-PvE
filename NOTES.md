@@ -632,6 +632,15 @@ Built:
   moving halves it; 50 deg off-centre 2.5-4 s.
 - In game (Spaceport): loads, soldiers hear footsteps and log "(soldier/Rat) heard footsteps". Spotting not yet
   seen in game (test teleports put the player under the map; the start spot is inside the drop pod).
+- Gunshot range by calibre and suppressor (#317 first pass, 2026-11-21, NOT tested in game): the shot radius was one flat
+  CFG.GUNSHOT_RANGE (x BOT_GUNSHOT_SCALE for bots), not per weapon class as AI_DESIGN says. ai.lua AI.gunshotRadius(gun, base,
+  strength, suppMul), called from the ServerMultiSimulateWeaponFire hook, multiplies by CALIBRE_MUL[gun.BulletType]
+  (EBulletType order of loadout.lua AMMO_ROWS: 12ga 1.1, .30-06 1.25, .32 0.6, .45 0.75, 9mm 0.7, 10mm 0.8, 7.62 1.3, 7.62x54R 1.35,
+  5.56 1.15, 40mm 1.5, flare/flame/dart small) and 1.5 for MG42/Bren/DP28 (by class name; BulletType can't tell an MG from a
+  rifle). F3 Senses: CALIBRE_EFFECT blends it in (mult = 1 + s*(m-1); 0 = old flat range) and SUPPRESSED_GUNSHOT (0.35) scales
+  down when the gun's MuzzleSlot actor (property read, as space.lua hide() does) has a class name containing supp/supr/silenc.
+  Not verified: that suppressors really sit in MuzzleSlot (the Mat49/Sten suppressor items may use another slot), the exact
+  actor class names, and which BulletType values each gun reports. Wrong guesses fall back to x1.
 - Testing tip: don't teleport the player by navmesh projection on Spaceport, the navmesh reaches under the map.
 
 ## Bot leg animation vs speed (2026-10-31)
