@@ -120,11 +120,60 @@ function R.baron.impostor(c)
     c.captain = '"Red Baron" ' .. b.name
 end
 
+-- #322 (SPT's ABPS): the longer you go without meeting the Baron, the likelier he is. A per-save count of raids since he
+-- last flew, in <backend>/saves/<active save id>/baron_streak.txt (a launcher save is a folder; switching saves switches
+-- the file, copying a save copies it, deleting one deletes it). No launcher (no active_save.txt) or a co-op joiner's own
+-- PVE_BACKEND folder: baron_streak.txt next to it. The mod writes this file only, never state.json.
+function R.baron.streakFile()
+    local dir = require("pvebackend")
+    local ok, id = pcall(function()
+        local f = io.open(dir .. "active_save.txt", "r")
+        if not f then return nil end
+        local t = f:read("*l"); f:close()
+        t = (t or ""):gsub("^%s+", ""):gsub("%s+$", "")
+        return t:match("^[%w_%-%.]+$") and t ~= "." and t ~= ".." and t or nil
+    end)
+    if ok and id then
+        local sdir = dir .. "saves/" .. id .. "/"
+        local f = io.open(sdir .. "meta.json", "r") -- only a save that exists (a stale id never makes a folder)
+        if f then f:close(); return sdir .. "baron_streak.txt" end
+    end
+    return dir .. "baron_streak.txt"
+end
+
+function R.baron.streak(set)
+    local path = R.baron.streakFile()
+    if set == nil then
+        local f = io.open(path, "r")
+        local n = f and tonumber(f:read("*l")) or 0
+        if f then f:close() end
+        return math.max(0, math.floor(n or 0))
+    end
+    local f = io.open(path, "w")
+    if f then f:write(tostring(set), "\n"); f:close() end
+end
+
+-- Does the Baron fly this raid? chance = BARON + BARON_RISE * raids without him, never above BARON_MAX (and never
+-- below BARON; BARON >= 1 or his hunt condition = always). BARON_RISE 0 = off. Resets the count when he's in.
+function R.baron.roll()
+    local base = math.max(0, math.min(1, tonumber(CFG.BARON) or 0))
+    local rise, cap = math.max(0, tonumber(CFG.BARON_RISE) or 0), math.max(0, math.min(1, tonumber(CFG.BARON_MAX) or 0))
+    local n = R.baron.streak()
+    local chance = base
+    if rise > 0 and base < 1 then chance = math.max(base, math.min(cap, base + rise * n)) end
+    local yes = base >= 1 or (chance > 0 and math.random() < chance)
+    X.log(("[rivals] Baron: base chance %.2f, +%.2f after %d raids without him = %.2f: %s"):format(
+        base, chance - base, n, chance, yes and "he flies" or "not this raid"))
+    local want = yes and 0 or n + 1
+    if want ~= n then pcall(R.baron.streak, want) end
+    return yes
+end
+
 local function makeCrews(slots, kind)
     local crews, used = {}, {}
     local n = CFG.CREWS > 0 and math.floor(CFG.CREWS) or math.min(CFG.MAX_CREWS, math.max(0, slots - 1))
     local size = CFG.CREW_SIZE
-    local baron = (tonumber(CFG.BARON) or 0) >= 1 and R.baron.design() ~= nil
+    local baron = R.baron.design() ~= nil and R.baron.roll()
     -- A raid condition's guaranteed hulls (#78, conditions.lua): the crews after the Baron's fly them, fight to the
     -- death and attack what they see, like a boss.
     local ships = R.conditions and R.conditions.ships() or {}
