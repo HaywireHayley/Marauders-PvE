@@ -21,6 +21,7 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageTk
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import report
 import saves
+import settings
 import update
 
 # Linux / Steam Deck (issue #127): Steam starts the game through the launch option (linux/marauders-offline.sh ->
@@ -507,6 +508,7 @@ class App(tk.Tk):
         Button(head, "REPORT", self.report_problem, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
         Button(head, "IMPORT", self.import_saves, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
         Button(head, "CO-OP", self.show_coop, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
+        Button(head, "SETTINGS", self.show_settings, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
         tk.Frame(left, bg=ORANGE, height=2).pack(fill="x", pady=(7, 8))
         self.list_box = tk.Frame(left, bg=INK)
         self.list_box.pack(fill="both", expand=True)
@@ -844,6 +846,281 @@ class App(tk.Tk):
         box.bind("<Return>", lambda e: join())
         d.show()
         box.focus_set()
+
+    def show_settings(self):
+        """Every F3 setting, before a raid (#324, inspired by SPT's SVM): tabs on the left, the tab's settings on the
+        right, difficulty and your own presets on top, which you can save, export to share, and import. Changes are
+        written at once to the file F3 uses (config/ai_tuning.txt), which the game reads when it starts; F3 in a raid
+        still changes things live. The list of settings comes from the mod (config/settings_schema.json)."""
+        d = Dialog(self, "Settings")
+        schema = settings.load_schema()
+        if not schema:
+            tk.Label(d.body, text="Start the game once with this build (to the lobby is enough): it writes the list of "
+                     "settings this page shows. Until then, press F3 in a raid to change them.", bg=PANEL, fg=TEXT,
+                     font=font(11), justify="left", wraplength=wrap(460)).pack(anchor="w")
+            r = d.row()
+            Button(r, "Close", d.destroy, size=11, pad=(14, 6)).pack(side="left")
+            d.show()
+            return
+        values = settings.read_values()
+        mine = settings.read_presets()
+        known = {r["id"]: r for r in settings.rows(schema)}
+        state = {"tab": 0}
+        status = None
+
+        def value(r):
+            return values.get(r["id"], r["default"])
+
+        def status_text():
+            n = settings.changed_count(schema, values)
+            run = "  The game is running: these apply next time it starts (F3 changes them now)." if game_running() else ""
+            return (f"{n} setting(s) changed from the defaults." if n else "Everything at its default.") + run
+
+        def save():
+            try:
+                settings.write_values(schema, values)
+            except OSError as e:
+                self.say(f"Couldn't save the settings: {e}")
+            if status is not None:
+                status.config(text=status_text())
+
+        # Presets: the difficulty levels (they set the values they name, and put the ones another level names back to
+        # their defaults), then your own (a whole setup: anything a preset leaves out is at its default).
+        top = tk.Frame(d.body, bg=PANEL)
+        top.pack(fill="x")
+        tk.Label(top, text="Difficulty", bg=PANEL, fg=MUTED, font=font(11)).pack(side="left", padx=(0, 8))
+
+        def apply_builtin(p):
+            for other in schema["presets"]:
+                for key in other["values"]:
+                    if key in known and key not in p["values"]:
+                        values.pop(key, None)
+            for key, v in p["values"].items():
+                if key in known:
+                    values[key] = v
+            save()
+            show_tab(state["tab"])
+            self.say(f"Difficulty: {p['name']}.")
+
+        for p in schema["presets"]:
+            Button(top, p["name"], lambda p=p: apply_builtin(p), size=10, pad=(10, 4)).pack(side="left", padx=(0, 4))
+        mine_row = tk.Frame(d.body, bg=PANEL)
+        mine_row.pack(fill="x", pady=(8, 0))
+        tk.Label(mine_row, text="My presets", bg=PANEL, fg=MUTED, font=font(11)).pack(side="left", padx=(0, 8))
+        pick = tk.StringVar(value=mine[0]["name"] if mine else "")
+        menu_holder = tk.Frame(mine_row, bg=PANEL)
+        menu_holder.pack(side="left")
+
+        def rebuild_menu():
+            for w in menu_holder.winfo_children():
+                w.destroy()
+            names = [m["name"] for m in mine] or ["(none yet)"]
+            if pick.get() not in names:
+                pick.set(names[0])
+            om = tk.OptionMenu(menu_holder, pick, *names)
+            om.config(bg=PANEL_HI, fg=TEXT, activebackground=LINE, activeforeground=TEXT, highlightthickness=0, bd=0,
+                      font=font(10), width=18)
+            om["menu"].config(bg=PANEL_HI, fg=TEXT, activebackground=ORANGE, font=font(10))
+            om.pack(side="left")
+
+        def chosen():
+            return next((m for m in mine if m["name"] == pick.get()), None)
+
+        def load_mine():
+            m = chosen()
+            if not m:
+                return self.say("No preset picked: save one first, or import one.")
+            values.clear()
+            values.update(m["values"])
+            save()
+            show_tab(state["tab"])
+            self.say(f"Loaded the preset \"{m['name']}\".")
+
+        def save_mine():
+            ask = Dialog(self, "Save as preset")
+            box = entry(ask.body, 13, 28)
+            box.pack(fill="x")
+            box.insert(0, chosen()["name"] if chosen() else "My preset")
+
+            def done():
+                name = settings.clean_name(box.get())
+                if not name:
+                    return
+                current = {k: v for k, v in values.items()
+                           if k not in known or not settings.same(known[k], v, known[k]["default"])}
+                for m in mine:
+                    if m["name"] == name:
+                        m["values"] = current
+                        break
+                else:
+                    mine.append({"name": name, "values": current})
+                try:
+                    settings.write_presets(mine)
+                except OSError as e:
+                    return self.say(f"Couldn't save the preset: {e}")
+                pick.set(name)
+                rebuild_menu()
+                ask.destroy()
+                self.say(f"Saved the preset \"{name}\" (F3's Saved setups lists it too).")
+
+            r = ask.row()
+            Button(r, "Cancel", ask.destroy, size=11, pad=(14, 6)).pack(side="left", padx=(0, 8))
+            Button(r, "SAVE", done, "main", 11, (14, 6)).pack(side="left")
+            box.bind("<Return>", lambda e: done())
+            ask.show()
+            box.focus_set()
+
+        def delete_mine():
+            m = chosen()
+            if m:
+                mine.remove(m)
+                settings.write_presets(mine)
+                rebuild_menu()
+                self.say(f"Deleted the preset \"{m['name']}\".")
+
+        def export_mine():
+            m = chosen()
+            if not m:
+                return self.say("Pick a preset to export (save one first).")
+            path = filedialog.asksaveasfilename(parent=d, title="Share a preset", defaultextension=".txt",
+                                                initialfile=f"{m['name']}.txt", filetypes=[("Preset", "*.txt")])
+            if path:
+                try:
+                    settings.export_preset(m, path)
+                    self.say(f"Exported to {os.path.basename(path)}: send it to a friend, who presses Import...")
+                except OSError as e:
+                    self.say(f"Couldn't export: {e}")
+
+        def import_mine():
+            path = filedialog.askopenfilename(parent=d, title="A shared preset",
+                                              filetypes=[("Preset", "*.txt"), ("All files", "*.*")])
+            if not path:
+                return
+            p = settings.import_preset(path)
+            if not p:
+                return self.say("That file has no preset in it.")
+            names = {m["name"] for m in mine}
+            base, n = p["name"], 2
+            while p["name"] in names:
+                p["name"], n = f"{base} ({n})", n + 1
+            mine.append(p)
+            settings.write_presets(mine)
+            pick.set(p["name"])
+            rebuild_menu()
+            self.say(f"Imported \"{p['name']}\". Press Load to use it.")
+
+        rebuild_menu()
+        for label, fn in (("Load", load_mine), ("Save as...", save_mine), ("Delete", delete_mine),
+                          ("Export...", export_mine), ("Import...", import_mine)):
+            Button(mine_row, label, fn, size=10, pad=(10, 4)).pack(side="left", padx=(6, 0))
+
+        tk.Frame(d.body, bg=LINE, height=1).pack(fill="x", pady=(12, 10))
+        main = tk.Frame(d.body, bg=PANEL)
+        main.pack(fill="both")
+        tab_list = tk.Frame(main, bg=PANEL)
+        tab_list.pack(side="left", fill="y", padx=(0, 14))
+        holder = tk.Frame(main, bg=PANEL)
+        holder.pack(side="left", fill="both")
+        k = self.scale_factor()
+        canvas = tk.Canvas(holder, bg=PANEL, highlightthickness=0, width=int(560 * k), height=int(400 * k))
+        bar = tk.Scrollbar(holder, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=bar.set)
+        canvas.pack(side="left", fill="both")
+        bar.pack(side="left", fill="y")
+        inner = tk.Frame(canvas, bg=PANEL)
+        canvas.create_window((0, 0), window=inner, anchor="nw", width=int(560 * k))
+        inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
+        def wheel(ev):
+            canvas.yview_scroll(-int(ev.delta / 120) or (-1 if ev.delta > 0 else 1), "units")
+
+        canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", wheel))
+        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+        d.bind("<Destroy>", lambda e: e.widget is d and canvas.unbind_all("<MouseWheel>"))
+        tab_buttons = []
+
+        def fmt(r, v):
+            step = r.get("step") or 1
+            return f"{v:.0f}" if step >= 1 else (f"{v:.1f}" if step >= 0.1 else f"{v:.2f}")
+
+        def caption(r, v):
+            return fmt(r, v) + ("" if settings.same(r, v, r["default"]) else f"   (normally {fmt(r, r['default'])})")
+
+        def show_tab(i):
+            state["tab"] = i
+            for j, b in enumerate(tab_buttons):
+                b.config(fg=ORANGE if j == i else TEXT)
+            for w in inner.winfo_children():
+                w.destroy()
+            for r in schema["tabs"][i]["rows"]:
+                box = tk.Frame(inner, bg=PANEL)
+                box.pack(fill="x", pady=(0, 8))
+                head_row = tk.Frame(box, bg=PANEL)
+                head_row.pack(fill="x")
+                tk.Label(head_row, text=r["label"], bg=PANEL, fg=TEXT, font=font(11), anchor="w").pack(side="left")
+                shown = tk.Label(head_row, text=caption(r, value(r)), bg=PANEL, fg=ORANGE, font=font(11, "SemiBold"))
+                shown.pack(side="right")
+                var = tk.DoubleVar(value=value(r))
+
+                def changed(_=None, r=r, var=var, shown=shown):
+                    v = settings.clamp(r, var.get())
+                    if settings.same(r, v, r["default"]):
+                        values.pop(r["id"], None)
+                    else:
+                        values[r["id"]] = v
+                    shown.config(text=caption(r, v))
+                    save()
+
+                def reset(r=r, var=var, changed=changed):
+                    var.set(r["default"])
+                    changed()
+
+                line = tk.Frame(box, bg=PANEL)
+                line.pack(fill="x")
+                tk.Scale(line, from_=r["min"], to=r["max"], resolution=r.get("step") or 1, orient="horizontal",
+                         variable=var, showvalue=False, command=changed, bg=ORANGE, troughcolor=PANEL_HI,
+                         activebackground=ORANGE, highlightthickness=0, bd=0, sliderrelief="flat", sliderlength=16,
+                         width=9, cursor="hand2").pack(side="left", fill="x", expand=True)
+                Button(line, "Default", reset, size=9, pad=(8, 2)).pack(side="left", padx=(8, 0))
+                if r.get("help"):
+                    tk.Label(box, text=r["help"], bg=PANEL, fg=MUTED, font=font(9), anchor="w", justify="left",
+                             wraplength=wrap(520)).pack(fill="x")
+            canvas.yview_moveto(0)
+
+        for i, t in enumerate(schema["tabs"]):
+            b = tk.Label(tab_list, text=t["name"], bg=PANEL, fg=TEXT, font=font(11), anchor="w", cursor="hand2")
+            b.pack(fill="x", pady=1)
+            b.bind("<Button-1>", lambda e, i=i: show_tab(i))
+            tab_buttons.append(b)
+
+        def reset_tab():
+            for r in schema["tabs"][state["tab"]]["rows"]:
+                values.pop(r["id"], None)
+            save()
+            show_tab(state["tab"])
+
+        def reset_all():
+            for key in [x for x in values if x in known]:
+                values.pop(key)
+            save()
+            show_tab(state["tab"])
+
+        status = tk.Label(d.body, text=status_text(), bg=PANEL, fg=MUTED, font=font(10), anchor="w", justify="left",
+                          wraplength=wrap(700))
+        status.pack(fill="x", pady=(10, 0))
+        r = d.row()
+        Button(r, "Reset this tab", reset_tab, size=11, pad=(14, 6)).pack(side="left", padx=(0, 8))
+        Button(r, "Reset all", reset_all, "danger", 11, (14, 6)).pack(side="left", padx=(0, 8))
+        Button(r, "Done", d.destroy, "main", 11, (14, 6)).pack(side="left")
+        show_tab(0)
+        d.show()
+
+    def scale_factor(self):
+        """Display scaling (1.0 at 100 %), for sizes given in pixels."""
+        try:
+            return max(1.0, self.winfo_fpixels("1i") / 96)
+        except tk.TclError:
+            return 1.0
 
     def backup(self):
         s = self.current()

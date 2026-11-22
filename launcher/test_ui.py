@@ -29,6 +29,16 @@ saves.STASH_ROWS = os.path.join(TMP, "stash_rows.txt")
 for name in ("FEMALE_SETTING", "FEMALE_SHARE", "WINDOW_SETTING", "SKIP_INTRO_SETTING", "UNLOCK_LOOKS_SETTING",
              "MINIMIZE_SETTING", "UPDATE_CHECK_SETTING", "RAID_CONDITION", "COOP_HOST", "COOP_JOIN", "COOP_LAST"):
     setattr(L, name, os.path.join(TMP, name.lower() + ".txt"))
+# Settings page (#324): a small schema and the files it edits, all in the temporary folder.
+L.settings.SCHEMA = os.path.join(TMP, "settings_schema.json")
+L.settings.VALUES = os.path.join(TMP, "ai_tuning.txt")
+L.settings.PRESETS = os.path.join(TMP, "ai_presets.txt")
+with open(L.settings.SCHEMA, "w", encoding="utf-8") as f:
+    f.write('{"version":1,"tabs":[{"name":"Aim","rows":[{"id":"Aim:MISS","label":"Miss rate","min":0,"max":2,"step":0.05,'
+            '"default":0.35,"help":"How often they miss"},{"id":"Aim:REACT","label":"Reaction","min":0,"max":3,"step":0.1,'
+            '"default":1,"help":""}]},{"name":"How many","rows":[{"id":"Spawns:CIV","label":"Civilians","min":0,"max":20,'
+            '"step":1,"default":6,"help":"0 turns them off"}]}],"presets":[{"name":"Easy","values":{"Aim:MISS":0.55}},'
+            '{"name":"Normal","values":[]}]}')
 with open(L.UPDATE_CHECK_SETTING, "w") as f:
     f.write("off\n")  # no network in tests
 os.makedirs(saves.SAVES)
@@ -155,7 +165,7 @@ class Window(unittest.TestCase):
         opens = {
             "new_save": self.app.new_save, "controls": self.app.show_controls, "rename": self.app.rename,
             "give_items": self.app.give_items, "import": self.app.import_saves, "report": self.app.report_problem,
-            "delete": self.app.delete, "coop": self.app.show_coop,
+            "delete": self.app.delete, "coop": self.app.show_coop, "settings": self.app.show_settings,
         }
         for name, open_it in opens.items():
             with self.subTest(dialog=name):
@@ -245,6 +255,48 @@ class Window(unittest.TestCase):
             self.app.running = False
         self.assertFalse(os.path.exists(L.COOP_JOIN))
         os.remove(L.COOP_HOST)
+
+    def test_settings_page_files_and_presets(self):
+        """SETTINGS (#324): only changed values are written to ai_tuning.txt, a difficulty level sets its values, and a
+        saved preset round-trips through export and import."""
+        S = L.settings
+        schema = S.load_schema()
+        self.assertEqual([t["name"] for t in schema["tabs"]], ["Aim", "How many"])
+        self.assertEqual(schema["presets"][1]["values"], {})  # (an empty Lua table arrives as [])
+        values = {"Aim:MISS": 0.351, "Spawns:CIV": 0, "Old:GONE": 3}
+        S.write_values(schema, values)
+        self.assertEqual(S.read_values(), {"Spawns:CIV": 0, "Old:GONE": 3})  # default dropped, unknown id kept
+        self.assertEqual(S.clamp(schema["tabs"][0]["rows"][0], 5), 2)
+        self.assertEqual(S.clamp(schema["tabs"][0]["rows"][0], 0.333), 0.35)
+        S.write_presets([{"name": "Mine", "values": {"Spawns:CIV": 2}}])
+        self.assertEqual(S.read_presets(), [{"name": "Mine", "values": {"Spawns:CIV": 2}}])
+        shared = os.path.join(TMP, "shared.txt")
+        S.export_preset({"name": "Hard [x]", "values": {"Aim:MISS": 0.2}}, shared)
+        self.assertEqual(S.import_preset(shared), {"name": "Hard (x)", "values": {"Aim:MISS": 0.2}})
+        # the page: opens, shows the first tab's rows, Reset all clears the file
+        self.app.show_settings()
+        settle(self.app)
+        d = dialogs(self.app)[0]
+        scales = [w for w in d.winfo_children()[0].winfo_children()]
+        self.assertTrue(scales)
+        reset_all = [w for w in self._all(d) if isinstance(w, L.Button) and w.cget("text") == "Reset all"][0]
+        reset_all.press()
+        self.assertEqual(S.read_values(), {"Old:GONE": 3})
+        easy = [w for w in self._all(d) if isinstance(w, L.Button) and w.cget("text") == "Easy"][0]
+        easy.press()
+        self.assertEqual(S.read_values().get("Aim:MISS"), 0.55)
+        d.destroy()
+        settle(self.app)
+        for path in (S.VALUES, S.PRESETS):
+            if os.path.exists(path):
+                os.remove(path)
+
+    def _all(self, w):
+        out = []
+        for c in w.winfo_children():
+            out.append(c)
+            out.extend(self._all(c))
+        return out
 
     def test_layout_fits(self):
         self.app.update_idletasks()
