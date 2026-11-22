@@ -297,6 +297,10 @@ local function define()
         { "MAX_HOLES", "Most bullet holes at once", 0, 500, 10, "The oldest go first. Lower = better frame rate in long firefights" },
         { "HOLE_SIZE", "Bullet hole size (cm, half width)", 2, 12, 0.5, "5 = a 10 cm hole" },
     })
+    add(fx, require("gatetaps").CFG, {
+        { "GATE_TAPS", "Gate superstition: two taps", 0, 1, 1, "1 = tap Space exactly twice just before the space gate and a gold coin lands in your gift box (once or three times: only a remark). 0 = off" },
+        { "TAP_WINDOW", "Gate taps count this far back (seconds)", 2, 15, 1, "How long before entering the gate a Space press still counts" },
+    })
     tabs[#tabs + 1] = fx
     tabs[#tabs + 1] = { name = "Saved setups", rows = {}, mine = true }
 end

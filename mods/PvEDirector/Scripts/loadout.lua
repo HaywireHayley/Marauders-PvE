@@ -290,6 +290,7 @@ end
 
 function M.init(ctx)
     CFG, log, valid, lib, TREE = ctx.CFG, ctx.log, ctx.valid, ctx.lib, ctx.TREE
+    require("gatetaps").init(ctx)
     RegisterHook("/Script/SIGISPlugin.SIGISInventoryComponent:Client_GetOutWithLoot", function()
         if not raid.extractedAt then raid.extractedAt = os.clock() end
         tellBackend(CFG.SHIP_LOST_FILE, "") -- out on foot or by pod: a ship leaves through Client_GetOutWithLootAndShip
@@ -345,7 +346,10 @@ function M.init(ctx)
     end
     for _, fn in ipairs({ "Server_EnterEvacRaidVolume", "EnterEvacRaidVolume" }) do
         RegisterHook("/Script/RaidGame.RaidPlayerController:" .. fn, function(ctx)
-            if mine(ctx) then tellBackend(CFG.SHIP_GATE_FILE, "1") end
+            if mine(ctx) then
+                tellBackend(CFG.SHIP_GATE_FILE, "1")
+                pcall(function() require("gatetaps").enter(ctx:get()) end) -- Tick's two taps (#332)
+            end
         end)
     end
     RegisterHook("/Script/RaidGame.RaidPlayerController:LeaveEvacRaidVolume", function(ctx)
