@@ -2,6 +2,42 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 22 Nov 2026, build 23 (`public-test-20261121.23`)
+
+Set the game up before you launch: the launcher's new **SETTINGS** page has every F3 setting, difficulty levels and
+presets you can save and share, plus switches to turn the newer features off. Also: loot amounts, gunshots that carry
+by calibre, cowards who beg, impostor Barons, and a minimap that recovers instead of going blank. All new and lightly
+tested: tell us how it behaves. On build 1 of 17 Nov or later, the launcher's orange **!** installs this one for you,
+keeping your saves.
+
+### Changes
+
+- **Settings before a raid (#324, PR #346):** the launcher's **SETTINGS** button shows every F3 setting by tab, with
+  the difficulty levels (Easy to Very Hard) and **My presets**: save a setup, export it to a file to share, import a
+  friend's. Changes are saved as you make them and the game reads them when it starts; F3 still changes things live.
+  The page fills in after the game has started once with this build.
+- **Feature switches (#324, PR #347):** a Features tab (F3 and SETTINGS) turns the death screen, the lore lines, the
+  minimap markers and the frame-time log line on or off.
+- **Loot amounts (#325, PR #344):** F3 > Loot sets floor loot and loot on bodies, from none to three times the usual.
+  Container loot is the game's own and stays as it is.
+- **Gunshots carry by calibre (#317, PR #348):** bots hear pistols from less far than rifles, and machine guns from
+  furthest; a suppressed gun is much quieter. F3 > Senses has both (calibre effect 0 = as before).
+- **Cowards beg, Chads taunt (#316, PR #353):** a badly hurt Rat, Coward or Timmy sometimes drops the fight, calls
+  for help and then runs; shoot it and it fights again. Cocky bots taunt after a kill or a hit on you. F3 >
+  Personalities sets both chances (0 = off).
+- **Red Baron impostors (#319, PR #349):** in some raids a rival captain wears the Baron's cap and coat and calls
+  himself the Red Baron. He isn't, and fights like any captain. Never in a raid with the real Baron. F3 > Rival ships.
+- **Tap the gate twice (#332, PR #352):** pilots say you tap the gate plate twice on the way out. Press boost twice
+  in the last seconds before your ship enters the gate and something turns up in your gift box. Once is rude; three
+  times is greedy. F3 > Effects turns it off.
+- **README (PR #351):** the features of the last few builds, and why a report after a stuttery raid helps.
+
+### Fixes
+
+- **Blank minimap (#334, PR #350):** the minimap could stay a dark empty panel for a whole raid: one failing step
+  stopped it every frame. Errors are now logged once and skipped, the panel stays hidden until it has something to
+  show, and if it stops updating it rebuilds itself (and the log says why).
+
 ## Public test, 21 Nov 2026, build 22 (`public-test-20261121.22`)
 
 A death screen that tells you who got you, markers on the minimap for your kills, drops and crew, and station guards
