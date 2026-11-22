@@ -632,6 +632,15 @@ Built:
   moving halves it; 50 deg off-centre 2.5-4 s.
 - In game (Spaceport): loads, soldiers hear footsteps and log "(soldier/Rat) heard footsteps". Spotting not yet
   seen in game (test teleports put the player under the map; the start spot is inside the drop pod).
+- Gunshot range by calibre and suppressor (#317 first pass, 2026-11-21, NOT tested in game): the shot radius was one flat
+  CFG.GUNSHOT_RANGE (x BOT_GUNSHOT_SCALE for bots), not per weapon class as AI_DESIGN says. ai.lua AI.gunshotRadius(gun, base,
+  strength, suppMul), called from the ServerMultiSimulateWeaponFire hook, multiplies by CALIBRE_MUL[gun.BulletType]
+  (EBulletType order of loadout.lua AMMO_ROWS: 12ga 1.1, .30-06 1.25, .32 0.6, .45 0.75, 9mm 0.7, 10mm 0.8, 7.62 1.3, 7.62x54R 1.35,
+  5.56 1.15, 40mm 1.5, flare/flame/dart small) and 1.5 for MG42/Bren/DP28 (by class name; BulletType can't tell an MG from a
+  rifle). F3 Senses: CALIBRE_EFFECT blends it in (mult = 1 + s*(m-1); 0 = old flat range) and SUPPRESSED_GUNSHOT (0.35) scales
+  down when the gun's MuzzleSlot actor (property read, as space.lua hide() does) has a class name containing supp/supr/silenc.
+  Not verified: that suppressors really sit in MuzzleSlot (the Mat49/Sten suppressor items may use another slot), the exact
+  actor class names, and which BulletType values each gun reports. Wrong guesses fall back to x1.
 - Testing tip: don't teleport the player by navmesh projection on Spaceport, the navmesh reaches under the map.
 
 ## Bot leg animation vs speed (2026-10-31)
@@ -1011,6 +1020,16 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
   Strike Frigate (RocketArtillery): heading for Navy Outpost"; a Ship_RedBaron_StrikeFrigate01_Pawn_C in the world
   (bridge find); docked at Navy Outpost a minute later; no Lua errors. Not seen yet: the captain's Baron look in
   person, and a fight with him.
+- Red Baron impostors (2026-11-21, #319 first pass, NOT tested in game): lore "three men have been brought in as the Red
+  Baron. None of them was." makeCrews (rivalcrews.lua) rolls CFG.IMPOSTOR_CHANCE (rivals.lua, default 0.25; F3 Rival
+  ships "Chance a crew's captain poses as the Red Baron", 0 = off) once per raid, never when BARON >= 1 (the Baron
+  hunt condition sets Crews:BARON = 1). One crew with no condition hull and not the Baron's is picked; R.baron.impostor
+  puts its captain in the Baron's head and coat (headPath/bodyPath, male, male voice) and sets c.captain to
+  `"Red Baron" <his name>`. Crew, ship, health, gear roll, helmet and AI profile stay the crew's own (normal "rival"
+  profile), so his cap is whatever he rolled, "not quite right". Shown only in the log: a launch-time line "a man calling
+  himself the Red Baron (an impostor)" and the kill line "(a man calling himself the Red Baron: not the Baron)"; the
+  game's kill list (killstats.lua) has no names, so nothing there. The Baron has no unique drop (BaronCap is an ordinary
+  priced item in gear.lua), so nothing to withhold. Not done: other named bosses of #319, a nameplate.
 - Next (#78): event presets (config/event.txt or a lobby picker) bundling map + overrides, loot scaling for harder
   presets, other bosses.
 
@@ -1397,6 +1416,22 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
   of each living roster bot, the same read its nametags already do every frame). New art assets/minimap/cross.png and
   bag.png (written with stdlib zlib; the same shapes added to tools/make_minimap_art.py); missing art falls back to
   the dot instead of failing build().
+- **Blank panel watchdog (2026-11-21, #334; NOT tested in game, not reproduced).** Reported: the small map a solid dark
+  rectangle for a whole clip, no plan, marker or text. Found in the code: the backdrop (panel + map Border) went on
+  screen at build(), while every piece of text and the plan is only written once `think` returns ready, so anything
+  keeping think, locate or the survey from finishing left the empty box up; an error anywhere in M.tick (stepScan,
+  command, think, draw) left through main.lua's "minimap failed", logged every frame, and skipped the rest of that
+  frame (a throwing floor scan blocked text and draw for the whole raid); a build() that threw part-way left a half
+  `ui` with no `ui.pc`, never retried; `S.failed` was permanent; `ui` survived an `S` rebuild if main's reset never
+  came; `ui.pc:GetAddress()` ran on a pc without a valid() check. Now: the host is collapsed until `S.ready`; each step
+  runs under `guard` (one log line per distinct message, 20 per raid); a failed floor scan marks the place noPlan; and
+  `watch` (end of M.tick) sees "no successful think+writeText, or no successful draw, for CFG.STALL = 20 s" while the
+  panel is on, logs the reason once (`minimap: panel stalled ...: no valid pawn / widget freed / no places / tasks
+  unreadable / no task / no floor plan / plan texture failed / last error: ...`) and rebuilds the widget (`dropUi`:
+  valid() first, RemoveFromParent on a live host so no stale rectangle stays under the new one; at most 3 per raid, 30 s
+  apart; not for a missing pawn, which just waits). Look for `minimap: panel stalled` and `minimap: rebuilding` in
+  last_game.log. Not verified: that this is the cause of the clip (the overlay of the stream was never ruled out),
+  RemoveFromParent on the host in game, and the collapsed-until-ready start.
 
 ## Stutter, lighting, bot aim, kit looks (2026-11-06, written; NOT yet run in game)
 Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame numbers are only rough: p50 11 ms, 100-400 ms hitches several times a second. The render thread was busy and the game thread mostly waiting.
@@ -5034,6 +5069,9 @@ Inspired by SPT's SVM: every F3 setting before a raid, with presets to save, sha
 - Before the game has run once with this build there is no schema: the page says so.
 - Tested: `launcher/test_ui.py` (16 OK, incl. the new settings test and every dialog on screen with the grab); the
   JSON writer checked with lupa. Not tested: a real schema from the game (179 rows) and loading the result in game.
+- Feature switches (same day): `features.lua` holds 1/0 switches (death screen, lore on the loading screen and on
+  arrival, minimap kill/drop/crew markers, the frames: log line). tuning.lua shows them as a "Features" tab, so F3 and
+  the launcher's SETTINGS page both have them; each feature reads its switch where it runs. Not tested in game.
 
 
 ## Bots beg and taunt (2026-11-21, #316 first pass; luacheck only, NOT tested in game)
@@ -5055,3 +5093,17 @@ Inspired by SPT's SVM: every F3 setting before a raid, with presets to save, sha
   foe could also have been lost); that rival-crew members' own movement code doesn't override the flee; the plea volume
   and which of the quiet/shout takes plays (Voice.say picks at random). Not done: callouts, answering F7/F8, notes
   dropped by spared bots, security contractors.
+
+## Gate superstitions: Tick's two taps (#332, 2026-11-21, space gate)
+- gatetaps.lua (lore: docs/lore/fragments/18_gate_superstitions.md rule 2). A tap is a Space press at a frigate's helm
+  (shipspeed.lua's M.boost calls gatetaps.tap, before the cooldown checks, so a recharging boost still counts). When
+  your own controller runs EnterEvacRaidVolume / Server_EnterEvacRaidVolume (loadout.lua, the `mine(ctx)` filter), the
+  presses in the last TAP_WINDOW s (6) are counted. Exactly 2: a GoldCoin row appended to backend/gifts_in.txt (the
+  hand-off defuse.lua's nuclear material uses; the stand-in's watch_checkout puts it in the lobby's gift box) plus a HUD
+  line. 1: "Once is rude."; 3+: "Three's greedy."; 0: "You go through without a word." No reward for those.
+  HUD line is `pc:ClientMessage(msg, FName("Event"), 5.0)`, as rivals.lua's say().
+- Judged once per raid (the hook fires for both RPC names; ShipSpeed.reset also resets it) so re-entering can't farm it.
+- CFG: GATE_TAPS (0 = off), TAP_WINDOW; both in F3 > Effects. A cash bonus was not used: a raid controller reads 0 cash
+  and the stand-in has no payout hand-off file, whereas the gift box is already wired.
+- Not tested in game (luacheck only). Unverified: that the Space bind fires while piloting at the moment of the gate
+  overlap, and that ClientMessage shows over the gate's jump cinematic.

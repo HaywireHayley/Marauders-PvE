@@ -54,6 +54,8 @@ local CFG = {
     RETARGET_NEAR = 1500,    -- ...within this range
     RETARGET_RATIO = 0.5,    -- ...and at most this share of the current foe's distance
     GUNSHOT_RANGE = 10000,   -- gunshots carry this far (at hearing 1.0)
+    CALIBRE_EFFECT = 1,      -- (#317) how much the gun's calibre changes how far its shot carries: 0 = every gun the same
+    SUPPRESSED_GUNSHOT = 0.35, -- ...and a suppressed gun's shot carries this share of that
     BOT_RELOAD_SECONDS = 2.4, -- a bot's magazine is empty: this long without shooting (issue #115), plus up to
     BOT_RELOAD_JITTER = 0.8,  -- this much more
     BOT_GUNSHOT_SCALE = 0.4, -- a bot's own shots carry this share of that: at 100 m every bot in a station heard every
@@ -506,7 +508,7 @@ local function light(tick)
         local ms = (os.clock() - t) * 1000
         tickMs, frames = tickMs + ms, frames + 1
         if ms > worstTick then worstTick = ms end
-        if t - flushed >= FRAMES_EVERY and frames > 0 and not (raid and raid.pcAddr) then -- (only raids are logged)
+        if t - flushed >= FRAMES_EVERY and frames > 0 and (not (raid and raid.pcAddr) or require("features").FRAME_LOG ~= 1) then -- (only raids are logged)
             last, flushed, worst, worstTick, tickMs, frames, over = nil, os.clock(), 0, 0, 0, 0, {}
             scansLight, _G.PVE_PROF = {}, {}
         elseif t - flushed >= FRAMES_EVERY and frames > 0 then
@@ -1443,7 +1445,8 @@ RegisterHook("/Script/RaidGame.RaidWeapon:ServerMultiSimulateWeaponFire", functi
     botClass = botClass or lib("/Script/RaidGame.RaidBot")
     local isBot = valid(owner) and owner:IsA(botClass)
     if valid(owner) then
-        local range = CFG.GUNSHOT_RANGE * (isBot and CFG.BOT_GUNSHOT_SCALE or 1)
+        local range = AI.gunshotRadius(w, CFG.GUNSHOT_RANGE * (isBot and CFG.BOT_GUNSHOT_SCALE or 1),
+            CFG.CALIBRE_EFFECT, CFG.SUPPRESSED_GUNSHOT)
         local ok, err = pcall(AI.noise, owner:K2_GetActorLocation(), range, "gunshot", owner:GetAddress())
         if not ok then log("gunshot noise failed: " .. tostring(err)) end
     end

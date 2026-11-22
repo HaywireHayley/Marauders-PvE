@@ -56,6 +56,9 @@ local CFG = {
     SHOW_CREW = true,       -- your crewmates (#326)
     MAX_KILLS = 40,         -- oldest dropped beyond this
     MAX_DROPS = 20,
+    STALL = 20,             -- watchdog (#334): seconds with nothing updated before the panel is rebuilt
+    REBUILD_GAP = 30,       -- ...at least this far apart,
+    MAX_REBUILDS = 3,       -- ...and no more than this many per raid
     KILL_WINDOW = 3,        -- a death counts as yours if your kill list grew within this many seconds of it
 }
 M.CFG = CFG
@@ -1223,10 +1226,10 @@ local function drawExtras(v, me)
         return out
     end
     local mine = marks.world == X.raid().world
-    drawList(v, CFG.SHOW_KILLS and mine and here(marks.kills) or NONE, ui.kills, function(m) return m.at end)
-    drawList(v, CFG.SHOW_DROPS and mine and here(marks.drops) or NONE, ui.drops, function(m) return m.at end)
+    drawList(v, CFG.SHOW_KILLS and require("features").MAP_KILLS == 1 and mine and here(marks.kills) or NONE, ui.kills, function(m) return m.at end)
+    drawList(v, CFG.SHOW_DROPS and require("features").MAP_DROPS == 1 and mine and here(marks.drops) or NONE, ui.drops, function(m) return m.at end)
     local crew = NONE
-    if foot and CFG.SHOW_CREW and X.crew then
+    if foot and CFG.SHOW_CREW and require("features").MAP_CREW == 1 and X.crew then
         local ok, list = pcall(X.crew.positions)
         if ok and list then crew = list end
     end
@@ -1399,32 +1402,124 @@ local function command()
     elseif line == "next" then M.next() end
 end
 
--- Every frame, from the director. Hidden until you can see the game. The game's menus draw over it (see build).
-function M.tick(pc)
-    local raid = X.raid()
-    -- Land raids (the debug menu's test raid) have no stations or ship, so nothing to map: the survey could never find
-    -- a place, and locate() threw every frame there (valid(false) on the missing ship's hull).
-    if not raid.space then return end
-    if not raid.revealed then return end
-    local now = os.clock()
-    if not S or S.key ~= raid.world then
-        S = { key = raid.world, thinkAt = 0, drawAt = 0, joiner = not valid(pc:GetWorld().AuthorityGameMode) }
+-- Watchdog (#334) -------------------------------------------------------------------------------------------------
+-- The panel was seen as a solid dark rectangle for a whole raid: the backdrop up, no plan, no text. Everything that
+-- writes into it runs from M.tick, so if that stops getting anywhere the box just stays. Errors used to leave through
+-- main.lua's "minimap failed" (logged every frame) and take the rest of the frame with them; now each step is guarded,
+-- an error is logged once per distinct message, and when the panel has gone CFG.STALL seconds without a successful
+-- update the reason is logged once and the widget is rebuilt (at most CFG.MAX_REBUILDS per raid, CFG.REBUILD_GAP apart).
+local function newWatch() return { seen = {}, nseen = 0, logged = {}, rebuilds = 0, lastRebuild = -1e9 } end
+local W = newWatch()
+
+local function guard(name, fn, ...)
+    local ok, err = pcall(fn, ...)
+    if ok then return true end
+    local msg = name .. ": " .. tostring(err)
+    W.lastErr, W.lastErrAt = msg, os.clock()
+    if not W.seen[msg] then
+        if W.nseen < 20 then
+            W.seen[msg] = true
+            W.nseen = W.nseen + 1
+            X.log("minimap failed (once per message): " .. msg)
+        elseif not W.seenFull then
+            W.seenFull = true
+            X.log("minimap: more than 20 distinct errors this raid, no more logged")
+        end
     end
-    if S.scan then stepScan(pc) end
+    return false
+end
+
+-- Drops the widgets without touching a freed one (valid() first, as everywhere); a live one comes off the screen so a
+-- stale rectangle can't sit under the new panel. The next tick builds a new one.
+local function dropUi()
+    local old = ui
+    ui = nil
+    if old and old.host and valid(old.host) then pcall(function() old.host:RemoveFromParent() end) end
+end
+
+-- What can be told from here about why nothing is being drawn. Second value: a new widget might help.
+local function diagnose(pc)
+    if not ui then
+        return S.failed and "the widget could not be built (art files or the host widget class missing)" or "no widget", true
+    end
+    if not valid(ui.host) then return "the widget was freed", true end
+    if not valid(pc.Pawn) then return "no valid pawn to locate you with (dead, loading or between pawns)", false end
+    local now = os.clock()
+    if W.lastErr and now - (W.lastErrAt or 0) < CFG.STALL * 3 then return "last error: " .. W.lastErr, true end
+    if not S.places then
+        return ("no places found yet (%d contract actor(s) known)"):format(#X.missions.actors()), true
+    end
+    if not S.contracts then return "the raid's tasks were not readable" .. (S.taskError and " (see 'tasks not readable')" or ""), true end
+    if not S.tracked then return "no task to follow", true end
+    local p = S.me and S.me.place
+    if p and p.noPlan then return "no floor plan for " .. p.name .. " (no walkable floor found)", true end
+    if p and not p.plan then return "floor plan of " .. p.name .. " not built yet", true end
+    if p and ui.planFor and not p.tex then return "floor plan texture of " .. p.name .. " failed to load", true end
+    return "updates stopped for no reason that could be read", true
+end
+
+local function watch(pc, now)
+    if not shown then
+        S.watchFrom = now
+        return
+    end
+    local base = math.max(S.created, S.watchFrom or 0, ui and ui.builtAt or 0)
+    local stale = now - math.max(S.okAt or 0, base) > CFG.STALL
+        or (S.ready and now - math.max(S.drawnAt or 0, base) > CFG.STALL)
+    if not stale then return end
+    local why, fix = diagnose(pc)
+    if not W.logged[why] and W.nseen < 20 then
+        W.logged[why] = true
+        X.log(("minimap: panel stalled, nothing updated for %d s: %s"):format(CFG.STALL, why))
+    end
+    if not fix then
+        S.watchFrom = now
+        return
+    end
+    if W.rebuilds >= CFG.MAX_REBUILDS then
+        if not W.gaveUp then
+            W.gaveUp = true
+            X.log(("minimap: rebuilt %d times this raid, giving up until the next one"):format(W.rebuilds))
+        end
+        S.watchFrom = now
+        return
+    end
+    if now - W.lastRebuild < CFG.REBUILD_GAP then return end
+    W.rebuilds, W.lastRebuild = W.rebuilds + 1, now
+    X.log(("minimap: rebuilding the panel (%d of %d)"):format(W.rebuilds, CFG.MAX_REBUILDS))
+    dropUi()
+    S.failed, S.ready, S.okAt, S.drawnAt, S.watchFrom, S.thinkAt = nil, false, nil, nil, now, 0
+end
+
+-- One frame of the minimap (M.tick guards it).
+local function step(pc, raid, now)
+    if not S or S.key ~= raid.world then
+        if ui then dropUi() end -- (main.lua's reset normally got here first)
+        S = { key = raid.world, created = now, thinkAt = 0, drawAt = 0, joiner = not valid(pc:GetWorld().AuthorityGameMode) }
+    end
+    local sc = S.scan
+    if sc and not guard("floor scan", stepScan, pc) then
+        if sc.place then sc.place.noPlan = true end
+        S.scan = nil
+    end
     if now - (S.cmdAt or 0) >= 0.25 then
         S.cmdAt = now
-        command()
+        guard("command", command)
     end
     local away = not shown
-    if ui and ui.pc and ui.pc:GetAddress() ~= pc:GetAddress() then ui = nil end
+    if ui and ui.pc and not (valid(ui.pc) and ui.pc:GetAddress() == pc:GetAddress()) then dropUi() end
     if not ui then
         if away or S.failed then return end
-        if not build(pc) then
+        local built
+        if not guard("build", function() built = build(pc) end) or not built then
+            dropUi()
             S.failed = true
             return
         end
         ui.pc = pc
-        ui.visible = true
+        ui.builtAt = now
+        ui.host:SetVisibility(1) -- Collapsed until there is something to show: a backdrop alone is the blank box of #334
+        ui.visible = false
         applyLayout()
     end
     if away then
@@ -1434,7 +1529,7 @@ function M.tick(pc)
         end
         return
     end
-    if not ui.visible then
+    if not ui.visible and S.ready then
         ui.host:SetVisibility(3)
         ui.visible = true
     end
@@ -1445,23 +1540,41 @@ function M.tick(pc)
     if not me then return end
     if S.me and S.me.place and S.me.place.isShip and me.place and not me.place.isShip then S.entry = { place = me.place, at = me.at } end
     S.me = me
-    pcall(arrive, me)
+    if require("features").LORE_ARRIVAL == 1 then pcall(arrive, me) end
     local moved = S.routeFrom and not me.piloting and dist(me.at, S.routeFrom) > CFG.ROUTE_MOVED
     if now >= S.thinkAt or moved then
         S.thinkAt = now + CFG.THINK
-        S.ready = think(pc, me)
-        if S.ready then writeText(me) end
-        if S.ready and not S.scan and not S.scansDone then
-            if raid.navReady then nextScan()
-            elseif S.joiner then nextScan(true) end
+        local ok = guard("think", function()
+            S.ready = think(pc, me)
+            if S.ready then
+                writeText(me)
+                S.okAt = now
+            end
+        end)
+        if ok and S.ready and not S.scan and not S.scansDone then
+            if raid.navReady then guard("floor plans", nextScan)
+            elseif S.joiner then guard("floor plans", nextScan, true) end
         end
     end
-    if S.ready then draw(me) end
+    if S.ready and guard("draw", draw, me) then S.drawnAt = now end
+end
+
+-- Every frame, from the director. Hidden until you can see the game. The game's menus draw over it (see build).
+function M.tick(pc)
+    local raid = X.raid()
+    -- Land raids (the debug menu's test raid) have no stations or ship, so nothing to map: the survey could never find
+    -- a place, and locate() threw every frame there (valid(false) on the missing ship's hull).
+    if not raid.space then return end
+    if not raid.revealed then return end
+    local now = os.clock()
+    guard("tick", step, pc, raid, now)
+    if S then guard("watchdog", watch, pc, now) end
 end
 
 -- A new world: the old one took the widgets with it, so they're dropped untouched.
 function M.reset()
     ui, S = nil, nil
+    W = newWatch()
 end
 
 return M

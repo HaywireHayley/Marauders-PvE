@@ -639,7 +639,8 @@ local function bodiesAlive(c)
             pcall(holdGun, e)
         elseif e.rival.alive then
             e.rival.alive = false
-            X.log(("[rivals] %s (%s, %s) was killed"):format(e.rival.name, e.rival.tier.name, e.rival.gunName or "?"))
+            X.log(("[rivals] %s (%s, %s) was killed%s"):format(e.rival.name, e.rival.tier.name, e.rival.gunName or "?",
+                e.rival.impostor and " (a man calling himself the Red Baron: not the Baron)" or ""))
             -- Rivals stand in for other players: their deaths count for "Kill N Marauders" (tag Human). Bodies only
             -- exist near you and share the soldiers' team, so you're the only one who can kill them.
             pcall(function() S.pc:Client_CheckMissionEvent(FName("Human"), 2) end)

@@ -136,6 +136,8 @@ local function define()
         { "PERCEIVE_RANGE", "How far away they notice people (cm)", 1000, 20000, 100, "" },
         { "GUNSHOT_RANGE", "How far away they hear gunshots (cm)", 1000, 30000, 100, "" },
         { "BOT_GUNSHOT_SCALE", "How far enemies' own gunshots carry", 0.1, 1, 0.05, "Share of the range above. Lower = fights between them draw in fewer others" },
+        { "CALIBRE_EFFECT", "How much the gun's calibre changes how far its shot carries", 0, 1, 0.05, "0 = every gun as loud (the range above). 1 = pistols short, rifles long, machine guns longest" },
+        { "SUPPRESSED_GUNSHOT", "How far suppressed gunshots carry", 0.05, 1, 0.05, "Share of the range. 1 = a suppressor makes no difference" },
         { "LOOK_AROUND", 1, "Time checking out a noise, shortest (seconds)", 0, 20, 0.5, "" },
         { "LOOK_AROUND", 2, "Time checking out a noise, longest (seconds)", 0, 30, 0.5, "" },
         { "PATROL_RADIUS", "How far they wander when nothing's happening (cm)", 200, 6000, 50, "" },
@@ -240,6 +242,7 @@ local function define()
     local ships = { name = "Rival ships", id = "Crews" }
     add(ships, X.RCFG, {
         { "BARON", "The Red Baron in every raid", 0, 1, 1, "1 = on: one rival crew is the Red Baron's, in his strike frigate, and he hunts any ship he sees. Takes effect next raid" },
+        { "IMPOSTOR_CHANCE", "Chance a crew's captain poses as the Red Baron", 0, 1, 0.01, "0 = never. Per raid, one ordinary crew's captain wears the Baron's head and coat; he fights like any rival and the log calls him an impostor. Never with the real Baron on. Takes effect next raid" },
         { "RUSHERS","Crews that head straight for a station", 0, 1, 0.01, "0 = none, 1 = all. They only fight if shot at" },
         { "ATTACK_CHANCE", "Chance a crew attacks a ship it sees", 0, 1, 0.01, "Aggressive crews attack more often" },
         { "BOARD_ONE", "Chance one crew member boards", 0, 1, 0.01, "Only for crews of 2 or more" },
@@ -302,7 +305,23 @@ local function define()
         { "MAX_HOLES", "Most bullet holes at once", 0, 500, 10, "The oldest go first. Lower = better frame rate in long firefights" },
         { "HOLE_SIZE", "Bullet hole size (cm, half width)", 2, 12, 0.5, "5 = a 10 cm hole" },
     })
+    add(fx, require("gatetaps").CFG, {
+        { "GATE_TAPS", "Gate superstition: two taps", 0, 1, 1, "1 = tap Space exactly twice just before the space gate and a gold coin lands in your gift box (once or three times: only a remark). 0 = off" },
+        { "TAP_WINDOW", "Gate taps count this far back (seconds)", 2, 15, 1, "How long before entering the gate a Space press still counts" },
+    })
     tabs[#tabs + 1] = fx
+    -- Features (#324): whole parts of the mod on or off (features.lua). Each reads its switch as it runs.
+    local feats = { name = "Features" }
+    add(feats, require("features"), {
+        { "DEATH_SCREEN", "Death screen: who killed you", 0, 1, 1, "1 = on, 0 = off. After a death: who shot you, with what, from how far" },
+        { "LORE_LOADING", "Lore line on the loading screen", 0, 1, 1, "1 = on, 0 = off" },
+        { "LORE_ARRIVAL", "Lore line when you reach a place", 0, 1, 1, "1 = on, 0 = off. Shown on the minimap for a few seconds" },
+        { "MAP_KILLS", "Minimap: where your kills fell", 0, 1, 1, "1 = on, 0 = off" },
+        { "MAP_DROPS", "Minimap: where you dropped things", 0, 1, 1, "1 = on, 0 = off" },
+        { "MAP_CREW", "Minimap: your crewmates", 0, 1, 1, "1 = on, 0 = off" },
+        { "FRAME_LOG", "Frame times in the log", 0, 1, 1, "1 = on, 0 = off. Helps us find stutter: please leave it on if you report one" },
+    })
+    tabs[#tabs + 1] = feats
     tabs[#tabs + 1] = { name = "Saved setups", rows = {}, mine = true }
 end
 

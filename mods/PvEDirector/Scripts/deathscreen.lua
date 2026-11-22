@@ -191,6 +191,7 @@ end
 
 -- Every frame from the director's tick, with this raid's player controller.
 function M.frame(pc)
+    if require("features").DEATH_SCREEN ~= 1 then return end
     local now = os.clock()
     if panel and now > panel.untilAt then
         local h = panel.host
