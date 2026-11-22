@@ -450,6 +450,7 @@ local Bodies = require("rivalbodies")
 H.bodiesAlive, H.breachSpots, H.dematerialize = Bodies.bodiesAlive, Bodies.breachSpots, Bodies.dematerialize
 H.entryPoints, H.insideAnchor, H.joined = Bodies.entryPoints, Bodies.insideAnchor, Bodies.joined
 H.materialize, H.projected, H.reachableNear = Bodies.materialize, Bodies.projected, Bodies.reachableNear
+R.routPoint = Bodies.routPoint -- a walkable point to run to, away from someone (banter.lua flee)
 local Combat = require("rivalcombat")
 local function shareState()
     for _, m in ipairs({ Crews, Ships, Bodies, Combat }) do m.bind(X, S) end

@@ -5035,3 +5035,23 @@ Inspired by SPT's SVM: every F3 setting before a raid, with presets to save, sha
 - Tested: `launcher/test_ui.py` (16 OK, incl. the new settings test and every dialog on screen with the grab); the
   JSON writer checked with lupa. Not tested: a real schema from the game (179 rows) and loading the result in game.
 
+
+## Bots beg and taunt (2026-11-21, #316 first pass; luacheck only, NOT tested in game)
+- New `banter.lua` (called from bots.lua updateBots; settings in main.lua CFG: BEG_HP .25, BEG_CHANCE .4, BEG_RANGE 1500,
+  BEG_SECONDS {6,10}, BEG_FLEE_SECONDS 20, TAUNT_CHANCE .4, TAUNT_EVERY 12, TAUNT_GAP 4; F3 Personalities tab has rows
+  for BEG_CHANCE, BEG_HP and TAUNT_CHANCE, 0 = off). Only the game's own voice rows (voicelines.lua, played through
+  `Voice.say`): "Help" for pleas, "Insult01"/"FuckOff" for taunts.
+- Begging: a Rat, Coward or Timmy (not crewmates, not a rival crew's captain (`rival.isCaptain`, set in rivalcrews
+  makeCrew), not the Red Baron, not profile "boss") under BEG_HP of its max health (`e.hpMax`, the highest Health seen;
+  rivals use `rival.maxHp`), fighting or alerted, within BEG_RANGE of you: one roll per bot (`e.begDone`). If it wins,
+  `e.begUntil`: updateBots treats it as "routed" (no fighting, no patrol; holdFire each update), StopMovement, "Help"
+  now and again halfway. Hit meanwhile = begging ends, it fights back (the existing "shot by someone" branch engages).
+  Time up = `Banter.flee`: sets e.routUntil/routNear (the #313 rout), picks a point with `Rivals.routPoint` (new export
+  of rivalbodies routPoint) and walks there; you coming within ROUT_FIRE_RANGE makes it fight.
+- Taunts: Chad/GigaChad. When a fight ends with no foe left (`won`, replaces the old 50% generic insult for them only)
+  and when your health dropped this update while it fights you (`raid.pHp`; any fighting Chad can claim it, TAUNT_GAP
+  keeps them from talking over each other).
+- Unverified: that StopMovement plus holdFire really stops the tree shooting; that a "won" fight is always a kill (the
+  foe could also have been lost); that rival-crew members' own movement code doesn't override the flee; the plea volume
+  and which of the quiet/shout takes plays (Voice.say picks at random). Not done: callouts, answering F7/F8, notes
+  dropped by spared bots, security contractors.

@@ -65,6 +65,7 @@ local function newCrew(i, used, size)
     end
     c.rusher = math.random() < CFG.RUSHERS
     c.captain = c.members[1].name
+    c.members[1].isCaptain = true -- (banter.lua: captains never beg)
     return c
 end
 
