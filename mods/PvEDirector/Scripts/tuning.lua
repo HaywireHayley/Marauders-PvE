@@ -130,6 +130,13 @@ local function define()
         { "LOW_COVER_PENALTY", "How much they avoid low cover", 0, 2000, 25, "0 = low cover is as good as tall cover. Higher = they prefer tall cover" },
         { "COVER_PLAYER_DIST", 1, "Closest cover to you they'll use (cm)", 0, 2000, 25, "" },
         { "COVER_PLAYER_DIST", 2, "Furthest cover from you they'll use (cm)", 500, 10000, 50, "" },
+        { "BOT_LOW_MAG", "Reload in cover when the magazine is down to this share", 0, 0.6, 0.05, "They go to cover and reload before running dry. 0 = only when empty, in the open" },
+        { "BOT_HEAL_COUNT", "Times each enemy heals in cover", 0, 5, 1, "0 = they never heal" },
+        { "BOT_HEAL_HP", "They heal below this share of health", 0.05, 0.9, 0.05, "Only if not shot for a few seconds, and cover is near" },
+        { "BOT_HEAL_QUIET", "...and not shot for (seconds)", 0, 20, 0.5, "" },
+        { "BOT_HEAL_SECONDS", "Healing takes (seconds)", 1, 20, 0.5, "" },
+        { "BOT_HEAL_TO", "They heal back up to this share of health", 0.1, 1, 0.05, "" },
+        { "BOT_PUSH_SECONDS", "Chads rush you while you reload or heal (seconds)", 0, 10, 0.5, "Chads and GigaChads fighting you close in for this long. 0 = never" },
     })
     local senses = { name = "Senses" }
     add(senses, CFG, {

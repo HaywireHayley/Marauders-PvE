@@ -58,6 +58,16 @@ local CFG = {
     SUPPRESSED_GUNSHOT = 0.35, -- ...and a suppressed gun's shot carries this share of that
     BOT_RELOAD_SECONDS = 2.4, -- a bot's magazine is empty: this long without shooting (issue #115), plus up to
     BOT_RELOAD_JITTER = 0.8,  -- this much more
+    BOT_LOW_MAG = 0.15,      -- (#314, selfcare.lua) a fighting bot whose magazine is down to this share goes to cover to reload (0 = only when empty)
+    BOT_HEAL_COUNT = 1,      -- a hurt bot heals in cover this many times (0 = never)...
+    BOT_HEAL_HP = 0.4,       -- ...once it's below this share of its health...
+    BOT_HEAL_QUIET = 4,      -- ...and hasn't been shot for this many seconds...
+    BOT_HEAL_SECONDS = 5,    -- ...taking this long...
+    BOT_HEAL_TO = 0.7,       -- ...to get back to this share
+    BOT_CARE_GIVEUP = 8,     -- no cover reached in this many seconds: it carries on (and waits BOT_CARE_COOLDOWN to try again)
+    BOT_CARE_COOLDOWN = 12,
+    BOT_PUSH_SECONDS = 4,    -- Chads and GigaChads fighting you rush you this long while you reload or heal (0 = never)...
+    BOT_PUSH_RANGE = 2500,   -- ...if within this range
     BOT_GUNSHOT_SCALE = 0.4, -- a bot's own shots carry this share of that: at 100 m every bot in a station heard every
                              -- firefight, went to look and died in the first two minutes (2026-11-14, Moon Base)
     LOOK_AROUND = { 3, 6 },  -- seconds spent looking around where a noise came from

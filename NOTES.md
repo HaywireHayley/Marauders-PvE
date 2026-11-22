@@ -5107,3 +5107,26 @@ Inspired by SPT's SVM: every F3 setting before a raid, with presets to save, sha
   and the stand-in has no payout hand-off file, whereas the gift box is already wired.
 - Not tested in game (luacheck only). Unverified: that the Space bind fires while piloting at the moment of the gate
   overlap, and that ClientMessage shows over the gate's jump cinematic.
+
+## Bots reload and heal in cover, Chads push when you reload (2026-11-21, #314 first pass; luacheck only, NOT tested in game)
+- Magazines were already counted (#115): `bots.lua M.botShot` (from the `ServerMultiSimulateWeaponFire` hook) counts shots
+  per bot against `WeaponConfig.AmmoPerClip` (fallback 30), keeps `CurrentAmmoInClip` in step, and on empty holds fire and
+  calls `ReloadAIWeapon`. New: `selfcare.lua` (`Care.step`, once per update for a fighting bot). When
+  `mag - shots <= mag * BOT_LOW_MAG` (0.15) the bot sets `e.careWant`; `coverCycle` then skips its chance roll and open-fight
+  timer and goes to cover. Hiding in cover it zeroes `e.shots`, sets `reloadUntil`/`holdUntil` (BOT_RELOAD_SECONDS) and pins
+  the cover's `until` so it doesn't peek; the existing frame loop refills the clip. No cover in BOT_CARE_GIVEUP (8 s): it
+  carries on and tries again after BOT_CARE_COOLDOWN (12 s); empty still reloads in the open as before.
+- Heal: below BOT_HEAL_HP (0.4) of max health (`rival.maxHp` or the highest health seen), not hurt for BOT_HEAL_QUIET (4 s),
+  fewer than BOT_HEAL_COUNT (1) heals so far: cover, then `Health` is ramped (set directly, as botdamage.lua's armour
+  refund does) from now to BOT_HEAL_TO (0.7) over BOT_HEAL_SECONDS (5). A hit, flanked cover or leaving the fight
+  interrupts it (the heal still counts). No animation: `MultiCast_HealingAnim` has no probe anywhere in NOTES or scripts,
+  so it was not called (a bad call crashes the game).
+- Push: `Care.watchPlayer` polls `pawn:IsHealing()` and `pawn.CurrentWeapon:IsReloading()` (getters listed as callable
+  under "Shared AI brain", but never called by the mod before: UNVERIFIED on the player's pawn; both valid-checked and
+  pcall'd). While true, a Chad or GigaChad fighting you within BOT_PUSH_RANGE (2500) leaves cover and walks at you
+  (`advancePoint`) for BOT_PUSH_SECONDS (4). Not done: reacting to looting or grenade pins, bots using carried meds
+  (the med leaving their loot), and a reload animation beyond `ReloadAIWeapon`.
+- CFG: BOT_LOW_MAG, BOT_HEAL_COUNT/HP/QUIET/SECONDS/TO, BOT_CARE_GIVEUP/COOLDOWN, BOT_PUSH_SECONDS/RANGE; F3 rows in the
+  Cover tab (all but GIVEUP/COOLDOWN/PUSH_RANGE). Log lines: "reloads in cover", "heals in cover", "pushes while the
+  player is busy". To check in game: watch for those lines in `backend/last_game.log`, that a reloading bot stays hidden
+  and fires again after, and that `IsReloading` ever reports true on your gun.

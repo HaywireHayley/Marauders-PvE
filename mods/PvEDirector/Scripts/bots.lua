@@ -7,6 +7,7 @@ local AI = require("ai")
 local Cover = require("cover")
 local Voice = require("voice")
 local Banter = require("banter") -- begging and taunts (#316)
+local Care = require("selfcare") -- reload and heal in cover, push while you reload (#314)
 local Female = require("female")
 local M = {}
 
@@ -19,6 +20,7 @@ function M.init(ctx)
     lib, navLib, navMesh, queryFilter = ctx.lib, ctx.navLib, ctx.navMesh, ctx.queryFilter
     TREE, BOT_TEAM, Aux, Rivals, offLimits = ctx.TREE, ctx.BOT_TEAM, ctx.aux, ctx.rivals, ctx.offLimits
     Banter.init({ CFG = CFG, log = log, valid = valid, dist = dist, rivals = Rivals, queryFilter = queryFilter })
+    Care.init({ CFG = CFG, log = log, valid = valid, dist = dist })
 end
 function M.setRaid(r) raid = r end
 
@@ -601,13 +603,15 @@ local function coverCycle(e, pawn, playerLoc, now)
         c, e.nextCover = e.nextCover, nil
     elseif not c then
         if justHurt then e.openUntil, e.nextCoverSearch = 0, 0 end -- shot in the open: think about cover now
+        if Care.wantCover(e) then e.openUntil = 0 end -- reload or heal (selfcare.lua): wants cover now
         if now < (e.nextCoverSearch or 0) or now < (e.openUntil or 0) then return false end
         e.nextCoverSearch = now + CFG.COVER_RETRY
         -- Does it want cover at all? Bold personalities would rather keep shooting.
         local p = e.mind and e.mind.personality
         local hold = p and p.holdGround or 1
         -- chance ^ aggression: 0.95 is ~0.93 for a GigaChad (1.5) and ~0.86 for a Wreckless (3)
-        if math.random() >= (justHurt and CFG.COVER_HURT_CHANCE or CFG.COVER_SEEK_CHANCE) ^ (p and p.aggression or 1) then
+        if not Care.wantCover(e) and math.random() >= (justHurt and CFG.COVER_HURT_CHANCE or CFG.COVER_SEEK_CHANCE)
+            ^ (p and p.aggression or 1) then
             e.openUntil = now + CFG.OPEN_FIGHT_SECONDS * hold
             M.openLog(e, now, "chose not to look for cover")
             return false
@@ -837,7 +841,12 @@ local function combatHints(e, pawn, playerLoc)
 
     if M.meleeHints(e, pawn, playerLoc, los, now) then return end
     Cover.want(e.bot:K2_GetActorLocation(), CFG.COVER_SEARCH_FAR)
-    if coverCycle(e, pawn, playerLoc, now) then
+    local pushing = Care.pushing(e, now)
+    if pushing then -- a Chad rushing you while you reload or heal: out of cover, no new cover
+        if e.cover then releaseCover(e, "pushing") end
+        e.openUntil = e.pushUntil
+    end
+    if not pushing and coverCycle(e, pawn, playerLoc, now) then
         e.standUntil, e.crouchSince = nil, nil -- cover decides the posture
         return
     end
@@ -855,7 +864,8 @@ local function combatHints(e, pawn, playerLoc)
     if now >= (e.nextHint or 0) then
         local here = e.bot:K2_GetActorLocation()
         -- Without sight of the player, close in on where they were last seen; with it, strafe quickly.
-        local dest = los and strafePoint(e, playerLoc)
+        local dest = pushing and M.advancePoint(e, playerLoc)
+            or los and strafePoint(e, playerLoc)
             or M.advancePoint(e, e.lastSeen or playerLoc)
         if dest then
             bb:SetValueAsVector(FName("destination"), dest)
@@ -864,7 +874,7 @@ local function combatHints(e, pawn, playerLoc)
             -- strafing move run: the soldier keeps its focus, so it keeps facing and shooting the player.
             ctrl:MoveToLocation(dest, 40, false, true, true, true, queryFilter(), true)
         end
-        e.nextHint = now + (los and rnd(CFG.STRAFE_SECONDS)
+        e.nextHint = now + (pushing and 1 or los and rnd(CFG.STRAFE_SECONDS)
             or math.random(CFG.REPOSITION_SECONDS[1], CFG.REPOSITION_SECONDS[2]))
     end
 end
@@ -894,6 +904,7 @@ local function updateBots(pc)
     -- Did something just hurt you? (a taunting Chad that is fighting you takes credit, below)
     local playerHurt = alive and raid.pHp ~= nil and pawn.Health < raid.pHp
     raid.pHp = alive and pawn.Health or nil
+    if alive then Care.watchPlayer(pawn, os.clock()) end
     local cam
     pcall(function() cam = pc.PlayerCameraManager:GetCameraLocation() end)
     raid.camAt = cam or playerLoc
@@ -972,6 +983,9 @@ local function updateBots(pc)
                 local okb, rb = pcall(Banter.beg, e, now, hp, hurt, here, playerLoc, fighting or e.alert ~= nil or e.inCombat,
                     holdFire)
                 if okb and rb == true then routed = true end
+            end
+            if fighting and not routed then
+                pcall(Care.step, e, now, hp, fighting, holdFire, here, playerLoc, e.foeEntry == PLAYER)
             end
             if routed and (fighting or e.alert or e.investigate) then
                 e.inCombat, e.foeEntry, e.cover, e.alert, e.investigate = false, nil, nil, nil, nil
