@@ -136,6 +136,8 @@ local function define()
         { "PERCEIVE_RANGE", "How far away they notice people (cm)", 1000, 20000, 100, "" },
         { "GUNSHOT_RANGE", "How far away they hear gunshots (cm)", 1000, 30000, 100, "" },
         { "BOT_GUNSHOT_SCALE", "How far enemies' own gunshots carry", 0.1, 1, 0.05, "Share of the range above. Lower = fights between them draw in fewer others" },
+        { "CALIBRE_EFFECT", "How much the gun's calibre changes how far its shot carries", 0, 1, 0.05, "0 = every gun as loud (the range above). 1 = pistols short, rifles long, machine guns longest" },
+        { "SUPPRESSED_GUNSHOT", "How far suppressed gunshots carry", 0.05, 1, 0.05, "Share of the range. 1 = a suppressor makes no difference" },
         { "LOOK_AROUND", 1, "Time checking out a noise, shortest (seconds)", 0, 20, 0.5, "" },
         { "LOOK_AROUND", 2, "Time checking out a noise, longest (seconds)", 0, 30, 0.5, "" },
         { "PATROL_RADIUS", "How far they wander when nothing's happening (cm)", 200, 6000, 50, "" },

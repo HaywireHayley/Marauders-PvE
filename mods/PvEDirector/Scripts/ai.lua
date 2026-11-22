@@ -153,6 +153,45 @@ function AI.noise(at, radius, kind, source)
     if #noises > 64 then table.remove(noises, 1) end
 end
 
+-- How far a shot carries by calibre (#317): multipliers on the base radius, keyed on the gun's BulletType (EBulletType, the
+-- same order as loadout.lua AMMO_ROWS). Pistols short, rifles long, shotguns medium-long; machine guns (by class name:
+-- BulletType doesn't tell them from rifles) longest. Averages close to 1 over what spawns, so the base range holds.
+local CALIBRE_MUL = { [0] = 1.1, 1.25, 0.6, 0.75, 0.7, 0.8, 1.3, 1.35, 1.15, 1.5, 0.5, 0.3, 0.1 }
+local MG_MUL, MG_NAMES = 1.5, { "MG42", "Bren", "DP28" }
+local suppressedBy = {} -- muzzle actor address -> true/false (its class name doesn't change)
+
+-- Is a suppressor on the gun's muzzle? Properties only: MuzzleSlot is the attachment actor (space.lua hide()), and
+-- its class name carries "Suppress"/"Supress" (the game's own spelling)/"Silenc". Unknown = not suppressed.
+local function suppressed(gun)
+    local m = gun.MuzzleSlot
+    if not X.valid(m) then return false end
+    local key = m:GetAddress()
+    local v = suppressedBy[key]
+    if v == nil then
+        local name = m:GetClass():GetFName():ToString():lower()
+        v = (name:find("supp", 1, true) or name:find("supr", 1, true) or name:find("silenc", 1, true)) and true or false
+        suppressedBy[key] = v
+    end
+    return v
+end
+
+-- Radius (cm at hearing 1.0) of one gunshot: base x calibre (blended in by strength, 0 = the old flat range) x the
+-- suppressed multiplier when the muzzle holds a suppressor.
+function AI.gunshotRadius(gun, base, strength, suppMul)
+    local mul = 1
+    local ok, err = pcall(function()
+        local m = CALIBRE_MUL[tonumber(gun.BulletType) or -1] or 1
+        local cls = gun:GetClass():GetFName():ToString()
+        for _, n in ipairs(MG_NAMES) do
+            if cls:find(n, 1, true) then m = MG_MUL break end
+        end
+        mul = 1 + (strength or 0) * (m - 1)
+        if suppMul and suppMul ~= 1 and suppressed(gun) then mul = mul * suppMul end
+    end)
+    if not ok and not AI.radiusWarned then AI.radiusWarned = true X.log("gunshot radius: " .. tostring(err)) end
+    return base * mul
+end
+
 -- Heard position: the true spot plus an error growing with distance (dispersion: exact within 10 m,
 -- then linear, capped at 50 m), halved when facing the noise and x1.5 when it's behind.
 local function disperse(mind, here, fwd, at, d)
