@@ -2,6 +2,24 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 21 Nov 2026, build 22 (`public-test-20261121.22`)
+
+A death screen that tells you who got you, markers on the minimap for your kills, drops and crew, and station guards
+who break and run when their leader falls. All three are new and lightly tested: tell us how they behave. On build 1
+of 17 Nov or later, the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Changes
+
+- **Death screen (#331, PR #341, from a Discord suggestion):** when you die, a panel shows for 10 s: who killed you
+  (a rival's name and crew, or a station guard), with which gun, from how far, your last three hits, and roughly how
+  much damage you did to them. The same line goes into the log. It's worked out from who was shooting when you were
+  hit, so in a crowded fight it can name the wrong shooter.
+- **Minimap markers (#326, PR #342):** a grey X where bots you killed fell, a bag where you dropped something with J,
+  and blue dots for your crewmates, on the small map and the overview. Toggles in minimap.lua's settings.
+- **Guards run when their leader dies (#313, PR #340):** each station's guards have a leader (the boss, if there is
+  one). Kill the leader and the rest stop fighting, hold fire and fall back for 25-40 s, unless you get right on top
+  of them. F3 > How many sets the time (0 turns it off) and how close is too close.
+
 ## Public test, 21 Nov 2026, build 21 (`public-test-20261121.21`)
 
 A ship you take from a rival crew now comes with its key card, lore on the loading screen and the minimap, and a lot
