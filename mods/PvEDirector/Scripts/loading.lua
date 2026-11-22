@@ -48,6 +48,23 @@ local function bar(r, g, b, a)
     return w
 end
 
+-- One random line from lorelines.lua under the progress bar. Its colour is written into the property before the
+-- widget is shown (SetColorAndOpacity from Lua gives transparent text, see defuse.lua tint).
+local LORE_Y, LORE_W, LORE_H, LORE_SIZE = 990, 1600, 60, 15
+local function lore()
+    local lines = require("lorelines").loading
+    if #lines == 0 then return end
+    local t = make("TextBlock")
+    t.Font.Size = math.max(10, math.floor(LORE_SIZE * ui.scale + 0.5)) -- art pixels, like the rest of the layout
+    t:SetText(FText(lines[math.random(#lines)]))
+    local c = t.ColorAndOpacity
+    c.SpecifiedColor.R, c.SpecifiedColor.G, c.SpecifiedColor.B, c.SpecifiedColor.A = 0.85, 0.82, 0.74, 0.85
+    c.ColorUseRule = 0
+    pcall(function() t:SetAutoWrapText(true) end)
+    t:SetVisibility(4)
+    place(t, BAR_X, LORE_Y, LORE_W, LORE_H)
+end
+
 function L.show(pc)
     if ui then return true end
     local lib = X.lib
@@ -88,6 +105,7 @@ function L.show(pc)
     ui.fill = bar(1, 0.3, 0.02, 1)
     ui.fillSlot = place(ui.fill, BAR_X, BAR_Y, 1, BAR_H)
     for _, w in ipairs({ track, ui.fill }) do w:SetVisibility(4) end -- HitTestInvisible: nothing to click
+    pcall(lore) -- a line of lore under the bar (#272); without it the screen is as before
     host:SetVisibility(4) -- HitTestInvisible: never takes the mouse from the game under it
     host:AddToViewport(1000)
     L.stage("world", 0)

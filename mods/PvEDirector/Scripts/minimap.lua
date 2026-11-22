@@ -1163,6 +1163,23 @@ local function taskLine(t, tracked)
     return ("%s%s%s%s\n      %s"):format(tracked and "> " or "   ", t.title, count, where, t.summary)
 end
 
+-- Lore (#272): the first time you reach a place in a raid, a line about it sits over the step text for ARRIVAL seconds.
+local ARRIVAL = 9
+local function arrive(me)
+    local p = me.place
+    if not p or p.isShip or not p.tag or p.tag == "" then return end
+    S.arrived = S.arrived or {}
+    if S.arrived[p.key] then return end
+    S.arrived[p.key] = true
+    for tag, lines in pairs(require("lorelines").places) do
+        local k = key5(tag)
+        if k == p.tag or TAG_KEYS[p.tag] == k then
+            S.arrival = { text = p.name .. ": " .. lines[math.random(#lines)], untilAt = os.clock() + ARRIVAL }
+            return
+        end
+    end
+end
+
 local function writeText(me)
     local t = S.tracked
     local st = S.stage
@@ -1174,6 +1191,7 @@ local function writeText(me)
         ui.titleText = title
     end
     local step = st and st.text or t.summary
+    if S.arrival and os.clock() < S.arrival.untilAt then step = S.arrival.text .. "\n\n" .. step end
     if st and st.walk and st.at then
         -- No route from where you stand (an airlock chamber is off the navmesh): a path of length 0. Straight line then.
         local straight = dist(me.at, st.at)
@@ -1339,6 +1357,7 @@ function M.tick(pc)
     if not me then return end
     if S.me and S.me.place and S.me.place.isShip and me.place and not me.place.isShip then S.entry = { place = me.place, at = me.at } end
     S.me = me
+    pcall(arrive, me)
     local moved = S.routeFrom and not me.piloting and dist(me.at, S.routeFrom) > CFG.ROUTE_MOVED
     if now >= S.thinkAt or moved then
         S.thinkAt = now + CFG.THINK
