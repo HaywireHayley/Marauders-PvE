@@ -183,6 +183,11 @@ local function define()
             r.oldId, r.id = r.id, "Personalities:" .. n .. ":" .. tostring(r.k)
         end
     end
+    add(pers, X.CFG, {
+        { "BEG_CHANCE", "Hurt Rats, Cowards and Timmys beg for their life", 0, 1, 0.05, "Chance, once per person, near you and under a quarter health. They hold fire, then run. 0 = never" },
+        { "BEG_HP", "Begging starts below this share of health", 0.05, 0.6, 0.05, "" },
+        { "TAUNT_CHANCE", "Chads taunt after a kill or a hit on you", 0, 1, 0.05, "Chance each time (and not too often). 0 = silent" },
+    })
     tabs[#tabs + 1] = pers
     -- How many bots there are. Read when they're placed (crews at the start of a raid, guards when a station is first
     -- reached), so a change shows from the next raid or station.

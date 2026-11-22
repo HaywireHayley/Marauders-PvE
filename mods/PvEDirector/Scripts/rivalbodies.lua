@@ -1230,5 +1230,6 @@ M.materialize, M.pickLock, M.projected, M.reachableNear = materialize, pickLock,
 M.removeEntry, M.roamGuards, M.rollKit, M.setWatch = removeEntry, roamGuards, rollKit, setWatch
 M.spreadPoint, M.startBody, M.stationSpawnSpots = spreadPoint, startBody, stationSpawnSpots
 M.routGuards, M.sweepStrays, M.topUpStep = routGuards, sweepStrays, topUpStep
+M.routPoint = routPoint
 
 return M

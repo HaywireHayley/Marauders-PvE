@@ -42,6 +42,14 @@ local CFG = {
     -- with chance 1 - x; above 1 a spawner that rolled nothing rolls again (floor(x - 1) more times, plus one more with
     -- the fraction's chance).
     FLOOR_LOOT = 1,
+    BEG_HP = 0.25,           -- a Rat, Coward or Timmy below this share of its health may beg (banter.lua, #316)...
+    BEG_CHANCE = 0.4,        -- ...with this chance, once per bot, when within BEG_RANGE of you (0 = never)
+    BEG_RANGE = 1500,
+    BEG_SECONDS = { 6, 10 }, -- it holds fire and stays put this long, then runs for BEG_FLEE_SECONDS (fights again if hit)
+    BEG_FLEE_SECONDS = 20,
+    TAUNT_CHANCE = 0.4,      -- a Chad or GigaChad that wins a fight or hits you taunts with this chance (0 = never)...
+    TAUNT_EVERY = 12,        -- ...at most once in this many seconds per bot...
+    TAUNT_GAP = 4,           -- ...and not within this many seconds of anyone else's
     RETARGET_EVERY = 1.0,    -- while fighting, how often (s) a bot looks for a much closer enemy to switch to
     RETARGET_NEAR = 1500,    -- ...within this range
     RETARGET_RATIO = 0.5,    -- ...and at most this share of the current foe's distance

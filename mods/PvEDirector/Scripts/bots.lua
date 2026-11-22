@@ -6,6 +6,7 @@ local Out = require("outref") -- releases UE4SS's out-param registry refs (outre
 local AI = require("ai")
 local Cover = require("cover")
 local Voice = require("voice")
+local Banter = require("banter") -- begging and taunts (#316)
 local Female = require("female")
 local M = {}
 
@@ -17,6 +18,7 @@ function M.init(ctx)
     CFG, log, valid, dist, dist2d, rnd = ctx.CFG, ctx.log, ctx.valid, ctx.dist, ctx.dist2d, ctx.rnd
     lib, navLib, navMesh, queryFilter = ctx.lib, ctx.navLib, ctx.navMesh, ctx.queryFilter
     TREE, BOT_TEAM, Aux, Rivals, offLimits = ctx.TREE, ctx.BOT_TEAM, ctx.aux, ctx.rivals, ctx.offLimits
+    Banter.init({ CFG = CFG, log = log, valid = valid, dist = dist, rivals = Rivals, queryFilter = queryFilter })
 end
 function M.setRaid(r) raid = r end
 
@@ -889,6 +891,9 @@ local function updateBots(pc)
     local alive = valid(pawn) and (pawn.Health or 0) > 0
     local playerLoc = alive and pawn:K2_GetActorLocation() or nil
     reapDead()
+    -- Did something just hurt you? (a taunting Chad that is fighting you takes credit, below)
+    local playerHurt = alive and raid.pHp ~= nil and pawn.Health < raid.pHp
+    raid.pHp = alive and pawn.Health or nil
     local cam
     pcall(function() cam = pc.PlayerCameraManager:GetCameraLocation() end)
     raid.camAt = cam or playerLoc
@@ -946,6 +951,7 @@ local function updateBots(pc)
             local hp = e.bot.Health
             local hurt = e.hp ~= nil and hp < e.hp
             e.hp = hp
+            e.hpMax = math.max(e.hpMax or 0, hp)
             local now = os.clock()
             if hurt then
                 e.hurtAt = now
@@ -960,6 +966,13 @@ local function updateBots(pc)
             -- while it runs, unless you come within e.routNear.
             local routed = e.routUntil and now < e.routUntil
                 and not (playerLoc and dist(here, playerLoc) < (e.routNear or 0)) or false
+            -- Begging (banter.lua, #316): a badly hurt Rat, Coward or Timmy near you holds fire and stays put like a routed
+            -- bot, then runs (routUntil, from the next update) or fights again if hit.
+            if e.mind then
+                local okb, rb = pcall(Banter.beg, e, now, hp, hurt, here, playerLoc, fighting or e.alert ~= nil or e.inCombat,
+                    holdFire)
+                if okb and rb == true then routed = true end
+            end
             if routed and (fighting or e.alert or e.investigate) then
                 e.inCombat, e.foeEntry, e.cover, e.alert, e.investigate = false, nil, nil, nil, nil
                 fighting = false
@@ -1060,13 +1073,17 @@ local function updateBots(pc)
             end
             foe = foeOf(e)
             -- A won fight gets an insult; a long one gets the odd call to the crew.
-            if e.fighting and not (fighting and foe) and math.random() < 0.5 then
+            local won = e.fighting and not (fighting and foe)
+            if won and Banter.isTaunter(e) then
+                Banter.taunt(e, now) -- Chads gloat (rate-limited, CFG.TAUNT_CHANCE)
+            elseif won and math.random() < 0.5 then
                 pcall(Voice.say, e, math.random() < 0.5 and "Insult01" or "FuckOff")
             elseif e.fighting and now >= (e.calloutAt or 0) then
                 e.calloutAt = now + math.random(8, 16)
                 local calls = { "Attack", "CoverMe", "HoldPosition" }
                 pcall(Voice.say, e, calls[math.random(#calls)])
             end
+            if playerHurt and fighting and e.foeEntry == PLAYER and Banter.isTaunter(e) then Banter.taunt(e, now) end
             e.fighting = fighting and foe ~= nil
             if e.fighting then combatHints(e, foe, foe:K2_GetActorLocation()) end
             if e.fighting then -- every update: how fighting soldiers spend their time (logged with the status line)
