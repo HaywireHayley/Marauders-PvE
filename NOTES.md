@@ -4986,3 +4986,16 @@ classes) and the Lua heap / gc cycles. FindAllOf and FindFirstOf are wrapped onc
   without that text (no HUD countdown) searched all raid long. Now at most 20 searches, then a log line.
 - Not verified: the cost of the light mode itself (expected well under 0.1 ms a frame), and the log line's format in game.
 
+
+## Death screen (#331)
+- 2026-11-21, #331 first pass: `deathscreen.lua`. Nothing in the mod saw damage to the player (botdamage.lua and
+  hitzones.lua are your shots at bots), so hits are inferred: main.lua's `ServerMultiSimulateWeaponFire` hook calls
+  `DeathScreen.botShot` for every bot shot, and `DeathScreen.frame` (director tick) watches your `PlayerPawn_C`'s
+  `Health`. A drop is put down to the most recent bot shot within 0.6 s (attacker: a rival's `rival.name` and crew from
+  `raid.bots`, else the bot's class name; gun cleaned like rivalbodies `gunName`; distance pawn to pawn). No recent shot:
+  "unknown cause (fall, blast, fire?)". At Health 0: a DebugInfo_Widget panel for 10 s (headline, last 3 hits, rough
+  damage you'd done to the killer = highest Health it was seen shooting with minus now) and a `death: ...` log line.
+  Dropped (not touched) in `resetRaid`. No hit zone: the damage event isn't seen.
+- NOT tested in game. Unverified: that the hook fires before the Health drop is visible in the same/next frame; that
+  the panel shows over the game's death UI and that the controller keeps ticking after death; attribution with several
+  bots firing at once (could name a bot shooting at someone else).
