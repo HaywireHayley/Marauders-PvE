@@ -455,8 +455,75 @@ end
 -- The flag is looked for every PROFILE_CHECK s, so it can be dropped in or taken out mid-raid (bridge/dir_eval.lua
 -- only runs while it's on). Without it the tick runs as is, apart from that check.
 local PROFILE_CHECK = 3
+-- Always on (#336): testers' logs only had an average fps, which hides hitches. Every FRAMES_EVERY s one "frames:" line
+-- in the normal log: the worst gap between frames and how many went over 50/100/200 ms, the director's own worst tick,
+-- its slowest sections (ppcall), the object scans (FindAllOf / FindFirstOf: 40-50 ms each on space maps) and the Lua
+-- heap. Costs an os.clock per frame, per section and per scan. bridge/profile_on still gives the full profile.
+local FRAMES_EVERY = 10
+local scansLight = {}
+for _, name in ipairs({ "FindAllOf", "FindFirstOf" }) do
+    local real = _G[name]
+    if real then
+        _G[name] = function(cls)
+            local t = os.clock()
+            local out = real(cls)
+            local key = name .. " " .. tostring(cls)
+            local s = scansLight[key]
+            if not s then s = { n = 0, ms = 0 } scansLight[key] = s end
+            s.n, s.ms = s.n + 1, s.ms + (os.clock() - t) * 1000
+            return out
+        end
+    end
+end
+local function light(tick)
+    local last, flushed, worst, worstTick, tickMs, frames = nil, os.clock(), 0, 0, 0, 0
+    local over = {}
+    _G.PVE_PROF = {}
+    return function(ctx)
+        local t = os.clock()
+        if last then
+            local gap = (t - last) * 1000
+            if gap > worst then worst = gap end
+            for _, limit in ipairs({ 50, 100, 200 }) do
+                if gap >= limit then over[limit] = (over[limit] or 0) + 1 end
+            end
+        end
+        last = t
+        tick(ctx)
+        local ms = (os.clock() - t) * 1000
+        tickMs, frames = tickMs + ms, frames + 1
+        if ms > worstTick then worstTick = ms end
+        if t - flushed >= FRAMES_EVERY and frames > 0 and not (raid and raid.pcAddr) then -- (only raids are logged)
+            last, flushed, worst, worstTick, tickMs, frames, over = nil, os.clock(), 0, 0, 0, 0, {}
+            scansLight, _G.PVE_PROF = {}, {}
+        elseif t - flushed >= FRAMES_EVERY and frames > 0 then
+            local secs = {}
+            for k, v in pairs(_G.PVE_PROF or {}) do
+                if not k:find("Max$") and k ~= "swing" then secs[#secs + 1] = { k, v, (_G.PVE_PROF or {})[k .. "Max"] or 0 } end
+            end
+            table.sort(secs, function(a, b) return a[2] > b[2] end)
+            local top = {}
+            for i = 1, math.min(4, #secs) do top[#top + 1] = ("%s %.0f (max %.0f)"):format(secs[i][1], secs[i][2], secs[i][3]) end
+            local sc, scN, scMs = {}, 0, 0
+            for k, v in pairs(scansLight) do sc[#sc + 1] = { k, v } scN, scMs = scN + v.n, scMs + v.ms end
+            table.sort(sc, function(a, b) return a[2].ms > b[2].ms end)
+            local topScans = {}
+            for i = 1, math.min(2, #sc) do topScans[#topScans + 1] = ("%s x%d %.0f ms"):format(sc[i][1], sc[i][2].n, sc[i][2].ms) end
+            log(("frames: %d in %.0f s, worst gap %.0f ms, over 50/100/200 ms: %d/%d/%d | director worst %.0f ms, avg %.1f | sections ms: %s | scans %d, %.0f ms%s | lua %.0f MB, gc %d"):format(
+                frames, t - flushed, worst, over[50] or 0, over[100] or 0, over[200] or 0, worstTick, tickMs / frames,
+                #top > 0 and table.concat(top, ", ") or "-", scN, scMs,
+                #topScans > 0 and (" (" .. table.concat(topScans, "; ") .. ")") or "",
+                collectgarbage("count") / 1024, gc.cycles))
+            gc.cycles = 0
+            last, flushed, worst, worstTick, tickMs, frames, over = nil, os.clock(), 0, 0, 0, 0, {}
+            scansLight = {}
+            _G.PVE_PROF = {}
+        end
+    end
+end
 function profiler(tick)
     local live, undo, nextCheck = nil, nil, 0
+    local plain = light(tick)
     return function(ctx)
         local now = os.clock()
         if now >= nextCheck then
@@ -469,10 +536,11 @@ function profiler(tick)
             elseif not f and live then
                 undo()
                 live, undo = nil, nil
+                _G.PVE_PROF = {}
                 log("profiler off")
             end
         end
-        return (live or tick)(ctx)
+        return (live or plain)(ctx)
     end
 end
 end

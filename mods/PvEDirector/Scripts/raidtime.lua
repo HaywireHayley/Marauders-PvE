@@ -122,6 +122,8 @@ end
 -- among the TextBlocks (reading them is safe), every few seconds until they are first found, and never again after that.
 local HUD_TEXT = "Txt_SpacegateTimeArriveIn"
 local FIND_EVERY = 3 -- s between searches while the text blocks have not been found yet
+local FIND_TRIES = 20 -- then it stops looking: each search lists every TextBlock, and a raid without the gate text
+-- (no HUD countdown on that map) searched every 3 s for the whole raid, a hitch each time (#336)
 
 local function findGateTexts()
     local found = {}
@@ -148,10 +150,14 @@ function M.frame()
         -- Searched only until the blocks were first found: after that, "not valid" means the HUD is going (a raid ending, a map
         -- change), and listing every TextBlock while widgets are being torn down is the one thing here that could hurt.
         if raid.gateTextFound or (raid.gateTextAt and now - raid.gateTextAt < FIND_EVERY) then return end
-        raid.gateTextAt = now
+        if (raid.gateTextTries or 0) >= FIND_TRIES then return end
+        raid.gateTextAt, raid.gateTextTries = now, (raid.gateTextTries or 0) + 1
         list = findGateTexts()
         raid.gateTexts = list
-        if #list == 0 then return end
+        if #list == 0 then
+            if raid.gateTextTries == FIND_TRIES then X.log("space gate: countdown text not found after " .. FIND_TRIES .. " searches; stopped looking") end
+            return
+        end
         raid.gateTextFound = true
     end
     local gs = raid.gateState
