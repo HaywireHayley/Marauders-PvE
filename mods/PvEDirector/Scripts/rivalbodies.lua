@@ -155,8 +155,15 @@ local function rollCarried(b)
     if math.random() < CFG.CARRY_JACKPOT then cap = 1e9 end
     local bag = worn.BackPackToSpawn ~= nil
     local carried = {}
+    local mult = math.max(0, math.min(3, tonumber(CFG.BODY_LOOT) or 1)) -- #325; 1 = unchanged (no extra random draw)
+    local function scaled(n)
+        if mult == 1 then return n end
+        local x = n * mult
+        return math.floor(x) + (math.random() < x - math.floor(x) and 1 or 0)
+    end
     -- No bag: one pocket slot (the game turns away the rest), so one roll for it.
     if not bag then
+        if mult < 1 and math.random() >= mult then return {} end
         local function count() local n = 0 b.BotLootItems:ForEach(function() n = n + 1 end) return n end
         local before = count()
         for _ = 1, 4 do -- a roll too big for the pocket is turned away: roll again
@@ -182,11 +189,11 @@ local function rollCarried(b)
             carried[#carried + 1] = ammo .. " x" .. n
         end
     end
-    for _ = 1, math.random(CFG.MEDS[1], CFG.MEDS[2]) do
+    for _ = 1, scaled(math.random(CFG.MEDS[1], CFG.MEDS[2])) do
         local r = weightedRow(Gear.meds, cap)
         if r then add(r[1], 1) carried[#carried + 1] = r[1] end
     end
-    for _ = 1, math.random(CFG.CARRY_BAG[1], CFG.CARRY_BAG[2]) do
+    for _ = 1, scaled(math.random(CFG.CARRY_BAG[1], CFG.CARRY_BAG[2])) do
         local x, list = math.random(), Gear.loot
         if x < CFG.CARRY_BOX then list = Gear.boxes elseif x < CFG.CARRY_BOX + CFG.CARRY_PART then list = Gear.parts end
         local r = weightedRow(list, cap)

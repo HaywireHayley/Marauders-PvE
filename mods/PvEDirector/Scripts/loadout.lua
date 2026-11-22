@@ -151,15 +151,33 @@ local function spawnFloorLoot(pc)
     local gi = FindFirstOf("SIGISGameInstance")
     if not (valid(mgr) and valid(gi) and valid(gi.DefaultDropItem)) then return log("floor loot: no resource manager") end
     mgr.ActorForSingleSpawns = gi.DefaultDropItem
-    local n, placed = 0, 0
+    -- Density (#325, CFG.FLOOR_LOOT, 0-3). At 1 this is exactly the old single pass with no extra random draws.
+    local mult = math.max(0, math.min(3, tonumber(CFG.FLOOR_LOOT) or 1))
+    local extra = mult > 1 and (mult - 1) or 0
+    local n, placed, skipped, rerolled = 0, 0, 0, 0
     for _, sp in ipairs(FindAllOf("SIGISLootSingleSpawner") or {}) do
         if valid(sp) then
             n = n + 1
-            if not sp.HasCompletedASpawn then sp:TriggerSpawn() end
-            if valid(sp.ActiveActorHere) then placed = placed + 1 end
+            if not sp.HasCompletedASpawn then
+                if mult < 1 and math.random() >= mult then
+                    skipped = skipped + 1
+                else
+                    sp:TriggerSpawn()
+                    -- rolled "null": roll again, floor(extra) times plus once more with the fraction's chance
+                    local tries = math.floor(extra) + (math.random() < extra - math.floor(extra) and 1 or 0)
+                    while tries > 0 and valid(sp) and not valid(sp.ActiveActorHere) do
+                        tries = tries - 1
+                        rerolled = rerolled + 1
+                        sp.HasCompletedASpawn = false
+                        sp:TriggerSpawn()
+                    end
+                end
+            end
+            if valid(sp) and valid(sp.ActiveActorHere) then placed = placed + 1 end
         end
     end
-    log(("floor loot: %d of %d spawners placed an item"):format(placed, n))
+    log(("floor loot: %d of %d spawners placed an item (floor x%.2f: %d skipped, %d rerolls; body loot x%.2f)"):format(
+        placed, n, mult, skipped, rerolled, tonumber(require("rivals").CFG.BODY_LOOT) or 1))
 end
 
 -- Extraction. In a live raid the server calls the inventory's Client_GetOutWithLoot when the player gets out: the

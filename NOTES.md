@@ -666,6 +666,14 @@ Standing_LegsPlayrate 1.1/0.65) while watching the screen:
   spawner, rolls the loot table and sets the item. Space_Solo_01: 105 of 141 spawners place an item (the rest roll
   "null"). Pickups stay bIsActive=false offline; that doesn't matter: F picks them up into the inventory and the
   pickup goes back to the pool (it jumps ~64k units away, which looks like a bug in probes but isn't).
+- Loot density settings (2026-11-21, #325, first pass, NOT tested in game; luacheck only). F3 tuning "Loot" tab:
+  `CFG.FLOOR_LOOT` (main.lua) and `Rivals.CFG.BODY_LOOT` (rivals.lua), 0-3, default 1 = the old code path exactly (no
+  extra random draws). Floor: below 1 each spawner is skipped with chance 1-x; above 1 a spawner whose TriggerSpawn
+  left no ActiveActorHere gets `HasCompletedASpawn = false` and TriggerSpawn again (floor(x-1) times + fraction). Unverified:
+  that resetting HasCompletedASpawn lets TriggerSpawn re-roll, and that the pickup pool has enough free actors; the
+  floor-loot log line now prints both multipliers plus skipped/reroll counts to check this. Body: scales the meds and
+  CARRY_BAG pick counts in rivalbodies.lua rollCarried (and below 1, the chance a bagless body's pocket item exists);
+  gun ammo is untouched. Container loot has no setting: the game fills containers itself at map load (above).
   Probe: bridge/t_floor.lua.
 
 ## Enemy bodies (WORKING, user-confirmed 2026-10-31)

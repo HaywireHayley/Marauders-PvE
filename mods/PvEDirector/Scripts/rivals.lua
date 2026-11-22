@@ -354,6 +354,8 @@ local CFG = {
     POCKET_AMMO = 0.5, POCKET_MED = 0.2, -- no bag: the one pocket item is ammo, a med, or else loot / a part
     CARRY_CAP_MIN = 1500, CARRY_CAP_SHARE = 1.5, CARRY_JACKPOT = 0.05,
     CARRY_BOX = 0.06, CARRY_PART = 0.12, -- chance a pick is a sealed loot box (bags only) / a gun attachment
+    BODY_LOOT = 1,          -- (#325) multiplier, 0-3, on the meds and other-item picks in a body's bag and the chance its
+                            -- pocket item is there at all (rivalbodies.lua rollCarried); ammo for its guns is unchanged
     FEMALE = 0.35,          -- share of rivals, soldiers, station guards and new recruits who are women; the launcher's
                             -- "Women among others" slider writes config/female_share.txt (percent), read by R.femaleShare
     GUN_WAIT = 6,           -- seconds for a rolled gun to arrive (the game spawns it a moment after the kit)
