@@ -725,6 +725,19 @@ end
 -- freed name-tag widget and turrets (IsValid reads the object's memory: a crash on the next raid's load).
 function C.reset() S, roster = nil, {} end
 
+-- Where your living crewmates stand, as copied vectors (the minimap's crew dots, #326). Cheap: no FindAllOf.
+function C.positions()
+    local out = {}
+    for _, m in ipairs(roster) do
+        local e = m.entry
+        if e and valid(e.bot) and (e.bot.Health or 0) > 0 then
+            local l = e.bot:K2_GetActorLocation()
+            out[#out + 1] = { X = l.X, Y = l.Y, Z = l.Z }
+        end
+    end
+    return out
+end
+
 function C.init(ctx) X = ctx end
 
 return C

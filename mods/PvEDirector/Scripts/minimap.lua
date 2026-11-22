@@ -51,7 +51,14 @@ local CFG = {
     SCAN_RETRY = 8,         -- floor plan: seconds between tries when no floor is found
     SCAN_TRIES = 6,
     MENU_TYPES = { [1] = true }, -- Deliver: done from the menu, not in a raid
+    SHOW_KILLS = true,      -- grey X where each enemy you killed fell (this raid, this place; #326)
+    SHOW_DROPS = true,      -- bag where you dropped an item with J (#326)
+    SHOW_CREW = true,       -- your crewmates (#326)
+    MAX_KILLS = 40,         -- oldest dropped beyond this
+    MAX_DROPS = 20,
+    KILL_WINDOW = 3,        -- a death counts as yours if your kill list grew within this many seconds of it
 }
+M.CFG = CFG
 
 local COLOR = {
     panel = { R = 0.002, G = 0.003, B = 0.005, A = 0.86 }, -- linear colours: these read much brighter on screen
@@ -64,6 +71,9 @@ local COLOR = {
     ahtu = { R = 0.9, G = 0.9, B = 0.9, A = 0.95 }, -- Ahtu's illustrated maps: drawn near their own colours
     place = { R = 0.55, G = 0.75, B = 0.85, A = 0.9 },
     gate = { R = 0.3, G = 0.95, B = 0.5, A = 1 },
+    kill = { R = 0.35, G = 0.35, B = 0.35, A = 0.95 },
+    drop = { R = 0.95, G = 0.8, B = 0.3, A = 1 },
+    crew = { R = 0.25, G = 0.65, B = 1, A = 1 },
 }
 
 -- Levels whose file name doesn't read well.
@@ -76,6 +86,9 @@ local S       -- per-world state: places, tasks, stages, route
 local ui      -- the widgets
 local shown, expanded = true, false
 local stepLogged
+-- This raid's extra markers (#326): copied vectors only, never actors. { world, kills, drops, deaths }; each mark is
+-- { at = vector, place = the place you were in }. Lives outside S because deaths and drops can come before the map does.
+local marks = {}
 
 local function valid(o) return X.valid(o) end
 
@@ -110,6 +123,39 @@ function M.init(ctx)
 end
 
 -- Places ---------------------------------------------------------------------------------------------------------
+-- Markers from other modules (#326) ------------------------------------------------------------------------------
+local function markList(name)
+    local w = X.raid().world
+    if marks.world ~= w then marks = { world = w, kills = {}, drops = {}, deaths = {} } end
+    return marks[name]
+end
+
+local function addMark(name, at, cap)
+    local list = markList(name)
+    list[#list + 1] = { at = copy(at), place = S and S.me and S.me.place or nil, t = os.clock() }
+    while #list > cap do table.remove(list, 1) end
+end
+
+-- An enemy soldier died here (main.lua's Multi_Deathevent hook). Held until the kill list says whether it was yours.
+function M.noteDeath(at) if at then addMark("deaths", at, 16) end end
+
+-- Your kill list grew by n (killstats.lua): the newest n recent deaths become kill markers.
+function M.noteKills(n)
+    local deaths, now = markList("deaths"), os.clock()
+    while n > 0 and #deaths > 0 do
+        local d = table.remove(deaths)
+        if now - d.t <= CFG.KILL_WINDOW then
+            local kills = markList("kills")
+            kills[#kills + 1] = d
+            while #kills > CFG.MAX_KILLS do table.remove(kills, 1) end
+            n = n - 1
+        end
+    end
+end
+
+-- You dropped an item here (invqol.lua's J). The game picks the exact spot near your feet.
+function M.noteDrop(at) if at then addMark("drops", at, CFG.MAX_DROPS) end end
+
 local function placeFor(lvl)
     local p = S.places[lvl]
     if not p then
@@ -783,7 +829,7 @@ local function text(size, parent, wrap)
 end
 
 local function icon(file, size, color)
-    local tex = ui.art[file]
+    local tex = ui.art[file] or ui.art.dot
     local img = make("Image")
     img:SetBrushFromTexture(tex, false)
     img:SetColorAndOpacity(color)
@@ -822,6 +868,9 @@ local function build(pc)
     ui = { host = host, tree = host.WidgetTree, root = host.WidgetTree.RootWidget, art = {}, dots = {}, labels = {}, rings = {},
         gates = {}, planTex = {} }
     ui.root:ClearChildren()
+    for _, f in ipairs({ "cross", "bag" }) do -- #326, optional: older art folders fall back to the dot
+        ui.art[f] = texture(pc, DIR .. f .. ".png")
+    end
     for _, f in ipairs({ "dot", "arrow", "target", "station", "gate" }) do
         ui.art[f] = texture(pc, DIR .. f .. ".png")
         if not ui.art[f] then
@@ -848,6 +897,10 @@ local function build(pc)
     for i = 1, CFG.ROUTE_DOTS do ui.dots[i] = icon("dot", 7, COLOR.route) end
     for i = 1, 8 do ui.rings[i] = icon("station", 20, COLOR.place) end
     for i = 1, 2 do ui.gates[i] = icon("gate", 22, COLOR.gate) end
+    ui.kills, ui.drops, ui.crew = {}, {}, {}
+    for i = 1, CFG.MAX_KILLS do ui.kills[i] = icon("cross", 10, COLOR.kill) end
+    for i = 1, CFG.MAX_DROPS do ui.drops[i] = icon("bag", 13, COLOR.drop) end
+    for i = 1, 4 do ui.crew[i] = icon("dot", 10, COLOR.crew) end
     ui.target = icon("target", 20, COLOR.target)
     ui.me = icon("arrow", 20, COLOR.me)
     for i = 1, 8 do
@@ -1146,11 +1199,46 @@ local function drawRoute(v, me, st)
     hideRest(ui.dots, n + 1, hideIcon)
 end
 
+-- Kills, drops and crew (#326): on foot, in the place you're in, and only where they fall inside the map.
+local function drawList(v, list, widgets, at)
+    local n = 0
+    for _, m in ipairs(list) do
+        if n >= #widgets then break end
+        local x, y = project(v, at(m))
+        if x > 0 and y > 0 and x < ui.view.w and y < ui.view.h then
+            n = n + 1
+            setIcon(widgets[n], x, y)
+        end
+    end
+    hideRest(widgets, n + 1, hideIcon)
+end
+
+local NONE = {}
+local function drawExtras(v, me)
+    local foot = not v.space
+    local function here(list)
+        if not (foot and list) then return NONE end
+        local out = {}
+        for _, m in ipairs(list) do if m.place == me.place then out[#out + 1] = m end end
+        return out
+    end
+    local mine = marks.world == X.raid().world
+    drawList(v, CFG.SHOW_KILLS and mine and here(marks.kills) or NONE, ui.kills, function(m) return m.at end)
+    drawList(v, CFG.SHOW_DROPS and mine and here(marks.drops) or NONE, ui.drops, function(m) return m.at end)
+    local crew = NONE
+    if foot and CFG.SHOW_CREW and X.crew then
+        local ok, list = pcall(X.crew.positions)
+        if ok and list then crew = list end
+    end
+    drawList(v, crew, ui.crew, function(p) return p end)
+end
+
 local function draw(me)
     local st = S.stage
     local v = chooseView(me, st)
     drawPlan(v, v.place or nil)
     drawRoute(v, me, st)
+    drawExtras(v, me)
     drawMarkers(v, me, st)
 end
 

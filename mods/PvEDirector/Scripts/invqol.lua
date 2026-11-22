@@ -481,6 +481,8 @@ local function raidHotkey(what)
     if what == "discard" then
         if LOOT[fromType] then return tell("Take it first (K), then J drops it") end
         inv:Server_DropInHud(guid)
+        -- the minimap's bag marker (#326): your feet, since the game picks the spot itself near them
+        pcall(function() if X.minimap and X.valid(pc.Pawn) then X.minimap.noteDrop(pc.Pawn:K2_GetActorLocation()) end end)
         X.log("raid: dropped " .. iw.Item.ItemData:ToString())
         return tell("Dropped " .. name)
     end

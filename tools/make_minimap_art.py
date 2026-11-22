@@ -25,3 +25,9 @@ icon("station", lambda d, n: d.ellipse(
 icon("gate", lambda d, n: (
     d.ellipse((n * .04, n * .04, n * .96, n * .96), outline="white", width=int(n * .1)),
     d.ellipse((n * .33, n * .33, n * .67, n * .67), fill="white")))
+icon("cross", lambda d, n: (  # a kill (#326)
+    d.line((n * .15, n * .15, n * .85, n * .85), fill="white", width=int(n * .2)),
+    d.line((n * .15, n * .85, n * .85, n * .15), fill="white", width=int(n * .2))))
+icon("bag", lambda d, n: (  # a dropped item (#326)
+    d.rounded_rectangle((n * .12, n * .3, n * .88, n * .92), radius=int(n * .12), fill="white"),
+    d.arc((n * .3, n * .06, n * .7, n * .5), 180, 360, fill="white", width=int(n * .1))))

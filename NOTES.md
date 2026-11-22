@@ -1377,6 +1377,18 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
   UE4SS.log; the minimap never drew there). Fixing only that line made survey() retry its 3 FindAllOf scans every 5 s
   all raid instead (land maps have no stations, so it finds 0 places; worst frame gap 87-94 ms vs 12-21 ms). M.tick now
   returns early off space maps.
+- Extra markers (2026-11-21, #326 first pass; luacheck only, NOT tested in game): grey X where enemies you killed fell,
+  a bag where you dropped an item with J, blue dots for living crewmates. On foot only, only marks made in the place
+  you're in, only inside the map (no edge clamping); CFG SHOW_KILLS / SHOW_DROPS / SHOW_CREW, MAX_KILLS 40,
+  MAX_DROPS 20 (oldest dropped). Copied vectors only, kept per raid.world in minimap.lua's `marks`. Sources: kills =
+  main.lua's Multi_Deathevent hook (RaidBot deaths, rival bodies included) calls M.noteDeath(location); killstats.lua's
+  K.update calls K.onKills(n) (= M.noteKills) when the K_ totals in InMatchStats grow, and the newest n deaths of the
+  last KILL_WINDOW (3) s become kills. A guess at attribution: a crew kill at the same moment as yours can swap which
+  body gets the X. Drops = the player pawn's location when invqol.lua's J runs Server_DropInHud (the game picks the
+  exact spot; dropping by drag in the game's own UI is not caught). Crew = crew.lua C.positions() (K2_GetActorLocation
+  of each living roster bot, the same read its nametags already do every frame). New art assets/minimap/cross.png and
+  bag.png (written with stdlib zlib; the same shapes added to tools/make_minimap_art.py); missing art falls back to
+  the dot instead of failing build().
 
 ## Stutter, lighting, bot aim, kit looks (2026-11-06, written; NOT yet run in game)
 Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame numbers are only rough: p50 11 ms, 100-400 ms hitches several times a second. The render thread was busy and the game thread mostly waiting.
