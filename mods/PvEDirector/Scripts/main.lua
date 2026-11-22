@@ -38,6 +38,10 @@ local CFG = {
     -- Parking (bots.lua, parked): a guard or soldier at peace farther than PARK_RANGE from you is frozen and skipped until you
     -- come back within 85% of that or it's hurt. 0 = never park.
     PARK_RANGE = 15000,
+    -- Floor loot density (#325, loadout.lua spawnFloorLoot), 0-3. 1 = the game's own rolls. Below 1 a spawner is skipped
+    -- with chance 1 - x; above 1 a spawner that rolled nothing rolls again (floor(x - 1) more times, plus one more with
+    -- the fraction's chance).
+    FLOOR_LOOT = 1,
     RETARGET_EVERY = 1.0,    -- while fighting, how often (s) a bot looks for a much closer enemy to switch to
     RETARGET_NEAR = 1500,    -- ...within this range
     RETARGET_RATIO = 0.5,    -- ...and at most this share of the current foe's distance

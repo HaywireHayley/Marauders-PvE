@@ -219,6 +219,15 @@ local function define()
         { "OUTLIER", "Chance of any gear at all", 0, 0.5, 0.01, "The odd geared rival early on, or a poorly armed one late" },
     })
     tabs[#tabs + 1] = gear
+    -- Loot density (#325). Containers are filled by the game itself at map load, so they have no setting here.
+    local loot = { name = "Loot" }
+    add(loot, X.CFG, {
+        { "FLOOR_LOOT", "Floor loot", 0, 3, 0.05, "1 = the game's own odds. Lower = spawners skipped; higher = empty spawners roll again. Takes effect next raid" },
+    })
+    add(loot, X.RCFG, {
+        { "BODY_LOOT", "Loot on bodies", 0, 3, 0.05, "1 = normal. Scales the meds and items in a guard's or rival's bag (not their ammo) and the chance of a pocket item. Takes effect for bodies rolled after the change" },
+    })
+    tabs[#tabs + 1] = loot
     local ships = { name = "Rival ships", id = "Crews" }
     add(ships, X.RCFG, {
         { "BARON", "The Red Baron in every raid", 0, 1, 1, "1 = on: one rival crew is the Red Baron's, in his strike frigate, and he hunts any ship he sees. Takes effect next raid" },
