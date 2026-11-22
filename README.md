@@ -209,9 +209,16 @@ they come for you. F3 > How many sets how many (0 turns them off).
 
 ### Co-op (early)
 
-Play a raid with a friend: one of you hosts, the other joins from the launcher's **CO-OP** box. Across the internet
-you need a shared network, and [docs/COOP.md](docs/COOP.md) walks through it (ZeroTier, with a setup script for Windows
-and Linux). Early and lightly tested: tell us how it goes.
+Play a raid with a friend: one of you hosts, the other joins and comes aboard the host's ship.
+
+1. Both of you: the same mod build, your own save, and a shared network. Same house: nothing to do. Anywhere else:
+   ZeroTier (free, a setup script for Windows and Linux) or Hamachi, see [docs/COOP.md](docs/COOP.md).
+2. Host: launcher > **CO-OP** > tick **Host: friends can join my raids**, note the address it shows, then **PLAY**
+   and **START RAID**. Allow the game through Windows Firewall (Private and Public) the first time.
+3. Joiner, once the host is aboard in the raid: launcher > **CO-OP** > type the host's address > **JOIN**. The game
+   connects from the title screen by itself.
+
+The full guide, with troubleshooting, is [docs/COOP.md](docs/COOP.md). Early and lightly tested: tell us how it goes.
 
 ### Raid conditions (events)
 

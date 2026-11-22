@@ -1,13 +1,26 @@
 # Co-op: playing a raid together
 
-**Status: early.** Two players can share a raid: one hosts, the other joins and spawns aboard their own ship in the
-host's sector. It has been tested with two copies of the game on one PC; playing across the internet is the part this
-guide is for, and it is **not tested yet**. Please tell us how it goes (#200, #202).
+**Status: early.** Two players can share a raid: one hosts, the other joins and comes aboard the host's ship in the
+host's sector. You fly and fight together and extract through the gate together. It has been tested with two copies
+of the game on one PC; across the internet it's lightly tested. Please tell us how it goes (#200, #214).
+
+## Quick start
+
+1. **Both players:** the same mod build (bottom right of the launcher), your own save, and a shared network
+   (same house: nothing to do; anywhere else: ZeroTier or Hamachi, [step 1](#1-get-on-the-same-network)).
+2. **Host:** launcher > **CO-OP** > tick **Host: friends can join my raids**. Note the address it lists for your
+   friend. Close the box, press **PLAY**, then **START RAID**. Allow the game through Windows Firewall
+   (Private **and** Public) the first time.
+3. **Host:** tell your friend once you're **aboard in the raid** (not before: joining the lobby doesn't work).
+4. **Joiner:** launcher > select your save > **CO-OP** > type the host's address > **JOIN**. The game starts and
+   connects by itself from the title screen; you come aboard the host's ship about a minute later.
+5. **Afterwards:** untick **Host** if you're going back to solo raids. It doesn't hurt solo play, but there's no
+   reason to open a port nobody is using.
 
 What's known not to work yet:
-- Each player flies their **own** ship; you don't share the host's ship or crew.
 - Joining only works once the host is **in** a raid, not while they're still in the lobby.
-- Names may show as garbled characters.
+- The joiner's side of flying, turrets and boarding is lightly tested (#214).
+- Each player takes their own gear in and brings their own loot home: nothing is shared between saves.
 
 ## What each player needs
 
