@@ -1223,10 +1223,10 @@ local function drawExtras(v, me)
         return out
     end
     local mine = marks.world == X.raid().world
-    drawList(v, CFG.SHOW_KILLS and mine and here(marks.kills) or NONE, ui.kills, function(m) return m.at end)
-    drawList(v, CFG.SHOW_DROPS and mine and here(marks.drops) or NONE, ui.drops, function(m) return m.at end)
+    drawList(v, CFG.SHOW_KILLS and require("features").MAP_KILLS == 1 and mine and here(marks.kills) or NONE, ui.kills, function(m) return m.at end)
+    drawList(v, CFG.SHOW_DROPS and require("features").MAP_DROPS == 1 and mine and here(marks.drops) or NONE, ui.drops, function(m) return m.at end)
     local crew = NONE
-    if foot and CFG.SHOW_CREW and X.crew then
+    if foot and CFG.SHOW_CREW and require("features").MAP_CREW == 1 and X.crew then
         local ok, list = pcall(X.crew.positions)
         if ok and list then crew = list end
     end
@@ -1445,7 +1445,7 @@ function M.tick(pc)
     if not me then return end
     if S.me and S.me.place and S.me.place.isShip and me.place and not me.place.isShip then S.entry = { place = me.place, at = me.at } end
     S.me = me
-    pcall(arrive, me)
+    if require("features").LORE_ARRIVAL == 1 then pcall(arrive, me) end
     local moved = S.routeFrom and not me.piloting and dist(me.at, S.routeFrom) > CFG.ROUTE_MOVED
     if now >= S.thinkAt or moved then
         S.thinkAt = now + CFG.THINK

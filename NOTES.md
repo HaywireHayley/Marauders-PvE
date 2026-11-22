@@ -5034,4 +5034,7 @@ Inspired by SPT's SVM: every F3 setting before a raid, with presets to save, sha
 - Before the game has run once with this build there is no schema: the page says so.
 - Tested: `launcher/test_ui.py` (16 OK, incl. the new settings test and every dialog on screen with the grab); the
   JSON writer checked with lupa. Not tested: a real schema from the game (179 rows) and loading the result in game.
+- Feature switches (same day): `features.lua` holds 1/0 switches (death screen, lore on the loading screen and on
+  arrival, minimap kill/drop/crew markers, the frames: log line). tuning.lua shows them as a "Features" tab, so F3 and
+  the launcher's SETTINGS page both have them; each feature reads its switch where it runs. Not tested in game.
 

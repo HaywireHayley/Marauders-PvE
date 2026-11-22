@@ -498,7 +498,7 @@ local function light(tick)
         local ms = (os.clock() - t) * 1000
         tickMs, frames = tickMs + ms, frames + 1
         if ms > worstTick then worstTick = ms end
-        if t - flushed >= FRAMES_EVERY and frames > 0 and not (raid and raid.pcAddr) then -- (only raids are logged)
+        if t - flushed >= FRAMES_EVERY and frames > 0 and (not (raid and raid.pcAddr) or require("features").FRAME_LOG ~= 1) then -- (only raids are logged)
             last, flushed, worst, worstTick, tickMs, frames, over = nil, os.clock(), 0, 0, 0, 0, {}
             scansLight, _G.PVE_PROF = {}, {}
         elseif t - flushed >= FRAMES_EVERY and frames > 0 then
