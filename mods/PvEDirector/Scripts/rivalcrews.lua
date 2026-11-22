@@ -106,6 +106,19 @@ function R.baron.make(c, used)
     c.captain = b.name
 end
 
+-- #319: "Three men have been brought in as the Red Baron. None of them was." An ordinary crew's captain wears the real
+-- Baron's head and coat and the crew goes by "Red Baron" in quotes; everything else (ship, crew size, health, gear
+-- roll, AI profile) stays the crew's own, so he fights like anyone. He keeps his own name underneath (log: "a man
+-- calling himself the Red Baron"), and his cap is whatever his gear roll gave him, never the Baron's best kit.
+function R.baron.impostor(c)
+    local b = c.members[1]
+    c.impostor, b.impostor = true, true
+    b.female = false
+    b.voice = X.voice.pick(false)
+    b.headPath, b.bodyPath = R.baron.head, R.baron.body
+    c.captain = '"Red Baron" ' .. b.name
+end
+
 local function makeCrews(slots, kind)
     local crews, used = {}, {}
     local n = CFG.CREWS > 0 and math.floor(CFG.CREWS) or math.min(CFG.MAX_CREWS, math.max(0, slots - 1))
@@ -121,6 +134,16 @@ local function makeCrews(slots, kind)
     for j, row in ipairs(ships) do
         local c = crews[first - 1 + j]
         c.hullRow, c.diehard, c.rusher, c.aggression = row, true, false, 1
+    end
+    -- (never with the real Baron in the raid, nor on a condition's guaranteed boss hulls)
+    if not baron and (tonumber(CFG.BARON) or 0) < 1 and math.random() < (tonumber(CFG.IMPOSTOR_CHANCE) or 0) then
+        local plain = {}
+        for _, c in ipairs(crews) do if not c.hullRow and not c.baron then plain[#plain + 1] = c end end
+        if #plain > 0 then
+            local c = pick(plain)
+            R.baron.impostor(c)
+            X.log(("[rivals] crew %d: %s, a man calling himself the Red Baron (an impostor)"):format(c.id, c.captain))
+        end
     end
     return crews
 end
