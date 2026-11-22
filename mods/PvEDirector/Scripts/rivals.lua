@@ -221,6 +221,10 @@ local CFG = {
     GUARD_FIRST_ROAM = 10,          -- guards leave their posts within this many seconds of being taken over...
     GUARD_ROAM = { 60, 150 },       -- ...then move on to another part of the station this often
     ROAM_PATROL = 1200,             -- walking about within this radius of it in between
+    -- A station's guards have a leader (the boss, else the first adopted); when it dies the rest run (#313, routGuards):
+    ROUT_SECONDS = { 25, 40 },      -- each runs this long, holding fire...
+    ROUT_DIST = 4000,               -- ...heading for walkable points about this far off, away from you...
+    ROUT_FIRE_RANGE = 600,          -- ...but fights back if you come this close
     POD_RANGE = 4500,               -- in this close, each crew member launches a breaching pod at your hull
     POD = "/Game/Blueprints/Ships/Ship_DropPod_Pawn",
     POD_SPEED = { 900, 3200 },      -- pods accelerate from this to this (units/s) over POD_ACCEL seconds
@@ -1495,6 +1499,8 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
         if not okA and not S.strayErr then S.strayErr = true X.log("[rivals] stray sweep failed: " .. tostring(errA)) end
         local okR, errR = pcall(Bodies.roamGuards, place, now)
         if not okR and not S.roamErr then S.roamErr = true X.log("[rivals] guard roaming failed: " .. tostring(errR)) end
+        local okL, errL = pcall(Bodies.routGuards, place, now, playerLoc)
+        if not okL and not S.routErr then S.routErr = true X.log("[rivals] guard rout failed: " .. tostring(errL)) end
     end
     Bodies.adoptQueued()
     Bodies.topUpStep(pc)

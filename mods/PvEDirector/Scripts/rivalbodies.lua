@@ -514,6 +514,70 @@ local function roamGuards(st, now)
     end
 end
 
+-- Leaderless guards run (#313). Each station's guards (the group roamGuards counts as its own: no faction, not your
+-- crew) get a leader once two or more are up: its boss if it has one, else the first adopted defender, else the first
+-- found. When the leader dies the others are routed for ROUT_SECONDS: bots.lua stops them engaging (unless you come
+-- within ROUT_FIRE_RANGE, e.routNear) and this sends them to a walkable point away from you. Once per station a raid.
+local function guardName(e)
+    return e.bot and valid(e.bot) and e.bot:GetFName():ToString() or "a guard"
+end
+
+local function routPoint(e, here, from)
+    local best, bd
+    for _ = 1, 5 do
+        local p = reachableNear(here, CFG.ROUT_DIST)
+        if p then
+            local d = from and dist(p, from) or 0
+            if not bd or d > bd then best, bd = p, d end
+        end
+    end
+    return best
+end
+
+local function routGuards(st, now, playerLoc)
+    local hi = CFG.ROUT_SECONDS and CFG.ROUT_SECONDS[2] or 0
+    if st.routed or hi <= 0 then return end
+    local group = {}
+    for _, e in ipairs(X.raid().bots) do
+        if not e.faction and not e.crewmate and not e.follow and not e.dead and e.bot and valid(e.bot) then
+            if e.roamSt == nil then e.roamSt = nearStation(st, e.updAt or e.bot:K2_GetActorLocation()) and st or false end
+            if e.roamSt == st then group[#group + 1] = e end
+        end
+    end
+    local lead = st.leader
+    if not lead then
+        if #group < 2 then return end
+        for _, e in ipairs(group) do
+            if e.mind and e.mind.profileName == "boss" then lead = e break end
+        end
+        if not lead then
+            for _, a in ipairs(S.adopted or {}) do
+                if not a.dead and a.roamSt == st then lead = a break end
+            end
+        end
+        lead = lead or group[1]
+        st.leader, st.leaderName = lead, guardName(lead)
+        X.log(("[rivals] %s: guards' leader is %s (%s), %d guards"):format(st.name, st.leaderName,
+            lead.mind and AI.describe(lead) or "?", #group))
+        return
+    end
+    if not lead.dead then return end
+    st.routed, st.leader = true, nil -- (don't keep the dead entry)
+    local lo = math.min(CFG.ROUT_SECONDS[1] or hi, hi)
+    for _, e in ipairs(group) do
+        e.routUntil, e.routNear = now + lo + math.random() * (hi - lo), CFG.ROUT_FIRE_RANGE
+        e.alert, e.investigate, e.rehome = nil, nil, e.routUntil -- roamGuards leaves it alone till it's over
+        if valid(e.ctrl) then
+            local p = routPoint(e, e.updAt or e.bot:K2_GetActorLocation(), playerLoc)
+            if p then
+                e.home, e.patrolRadius, e.nextPatrol = p, CFG.ROAM_PATROL, e.routUntil
+                e.ctrl:MoveToLocation(p, 80, false, true, false, true, X.queryFilter(), true)
+            end
+        end
+    end
+    X.log(("[rivals] guards at %s run: their leader %s is down (%d running)"):format(st.name, st.leaderName or "?", #group))
+end
+
 -- Queue bodies for a crew's living members at the given spots (one spot per member, reused if fewer).
 -- corpses: those who went down with their ship (m.sankWith) are built too, and killed as soon as they're armed
 -- (rivals.lua finishBuilding): a wreck you board holds its dead, with their gear, as well as any survivors (#251).
@@ -1157,6 +1221,6 @@ M.keepDefendersArmed, M.keepShipMoving, M.lockExit = keepDefendersArmed, keepShi
 M.materialize, M.pickLock, M.projected, M.reachableNear = materialize, pickLock, projected, reachableNear
 M.removeEntry, M.roamGuards, M.rollKit, M.setWatch = removeEntry, roamGuards, rollKit, setWatch
 M.spreadPoint, M.startBody, M.stationSpawnSpots = spreadPoint, startBody, stationSpawnSpots
-M.sweepStrays, M.topUpStep = sweepStrays, topUpStep
+M.routGuards, M.sweepStrays, M.topUpStep = routGuards, sweepStrays, topUpStep
 
 return M

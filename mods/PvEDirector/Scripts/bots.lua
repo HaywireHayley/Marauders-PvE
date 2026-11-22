@@ -956,10 +956,19 @@ local function updateBots(pc)
             local here = e.updAt or e.bot:K2_GetActorLocation()
             e.lastAt = here
             local mine = factionOf(e)
+            -- Routed (rivalbodies.lua routGuards, #313: its leader is down): no fighting, no looking for one, no patrol
+            -- while it runs, unless you come within e.routNear.
+            local routed = e.routUntil and now < e.routUntil
+                and not (playerLoc and dist(here, playerLoc) < (e.routNear or 0)) or false
+            if routed and (fighting or e.alert or e.investigate) then
+                e.inCombat, e.foeEntry, e.cover, e.alert, e.investigate = false, nil, nil, nil, nil
+                fighting = false
+                pcall(function() holdFire(e) end)
+            end
             -- Size up every hostile body within range: the first spotted (nearest first) is the foe; otherwise
             -- the nearest one heard.
             local spotted, heard
-            if not fighting and not e.alert then
+            if not fighting and not e.alert and not routed then
                 local cands = {}
                 for _, b in ipairs(bodies) do
                     if b.faction ~= mine then
@@ -1040,7 +1049,7 @@ local function updateBots(pc)
                         df == math.huge and 0 or df / 100))
                 end
             end
-            if not fighting then
+            if not fighting and not routed then
                 -- your crew (crew.lua) follows you instead of patrolling or going to look at noises
                 if e.follow then
                     if e.cover then releaseCover(e) end

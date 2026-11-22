@@ -942,6 +942,18 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
 - Teams: player 3 (was 1, which the placed NPCs default to), soldiers/defenders 2, rival crews 10+.
 - Verified (Navy Outpost): 7 defenders up with their own guns (Webley, Bren MkII, LongDouble, Sten, DeLisle) in hand,
   visible, patrolling; one spotted the player at 4 m and engaged, another at 10 m. Screenshot: body looks normal.
+- 2026-11-21 (#313, first pass, NOT tested in game): leaderless guards run. rivalbodies.lua routGuards (called from
+  rivals.lua next to roamGuards) takes a station's guards as roamGuards groups them (raid.bots entries with no faction,
+  not crew/follow, e.roamSt == st), and once 2+ are up picks a leader: profile "boss", else the first adopted defender
+  (S.adopted order), else the first found; logged "[rivals] X: guards' leader is Y". When the leader entry is dead
+  (reapDead's e.dead) every other guard of the group gets e.routUntil (rivals CFG ROUT_SECONDS {25,40}) and
+  e.routNear (ROUT_FIRE_RANGE 600) and is sent with MoveToLocation to the reachable point (of 5, within ROUT_DIST
+  4000) furthest from you; logged "guards at X run: their leader Y is down". bots.lua updateBots: while routed (and
+  you're not within routNear) it drops combat/alert/investigation, holds fire, skips perception and patrol. Once per
+  station per raid; a leader killed by a rival crew counts too. F3 > How many: ROUT_SECONDS and ROUT_FIRE_RANGE
+  (ROUT_SECONDS max 0 = off). Only luacheck run; unverified: that the RaidAIController's tree doesn't override the
+  move or re-acquire on its own while MyEnemy/Enemy are clear, and that the leader is picked before you kill it
+  (a group whose first two guards aren't up yet has none).
 
 ## 8 defenders per station; space-map navmesh bug (2026-11-01)
 - MIN_DEFENDERS = 8. A station with some of its own placed NPCs is topped up with copies (topUpStep, one step per
