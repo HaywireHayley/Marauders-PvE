@@ -241,7 +241,9 @@ local function define()
     tabs[#tabs + 1] = loot
     local ships = { name = "Rival ships", id = "Crews" }
     add(ships, X.RCFG, {
-        { "BARON", "The Red Baron in every raid", 0, 1, 1, "1 = on: one rival crew is the Red Baron's, in his strike frigate, and he hunts any ship he sees. Takes effect next raid" },
+        { "BARON", "The Red Baron in every raid", 0, 1, 0.05, "1 = always: one rival crew is the Red Baron's, in his strike frigate, and he hunts any ship he sees. Below 1 = his chance per raid. Takes effect next raid" },
+        { "BARON_RISE", "Baron chance added per raid without him", 0, 0.5, 0.01, "0 = off. Each raid he doesn't fly raises his chance by this much; a raid with him resets it. Counted per save. Takes effect next raid" },
+        { "BARON_MAX", "Most the Baron's chance can rise to", 0, 1, 0.05, "The ceiling for the rise above. Takes effect next raid" },
         { "IMPOSTOR_CHANCE", "Chance a crew's captain poses as the Red Baron", 0, 1, 0.01, "0 = never. Per raid, one ordinary crew's captain wears the Baron's head and coat; he fights like any rival and the log calls him an impostor. Never with the real Baron on. Takes effect next raid" },
         { "RUSHERS","Crews that head straight for a station", 0, 1, 0.01, "0 = none, 1 = all. They only fight if shot at" },
         { "ATTACK_CHANCE", "Chance a crew attacks a ship it sees", 0, 1, 0.01, "Aggressive crews attack more often" },

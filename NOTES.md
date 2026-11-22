@@ -1030,6 +1030,17 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
   himself the Red Baron (an impostor)" and the kill line "(a man calling himself the Red Baron: not the Baron)"; the
   game's kill list (killstats.lua) has no names, so nothing there. The Baron has no unique drop (BaronCap is an ordinary
   priced item in gear.lua), so nothing to withhold. Not done: other named bosses of #319, a nameplate.
+- Progressive Baron chance (2026-11-21, #322 first pass, NOT tested in game): SPT's ABPS. makeCrews asks R.baron.roll():
+  chance = BARON + BARON_RISE x (raids since he last flew), capped at BARON_MAX (never below BARON; BARON >= 1 or the
+  Baron hunt condition = always). BARON_RISE defaults to 0 (off, so nothing changes until it is set; 0.05 suggested),
+  BARON_MAX 0.6. BARON itself may now be a fraction (F3 step 0.05) = his base chance per raid. Log at raid start:
+  `[rivals] Baron: base chance 0.00, +0.15 after 3 raids without him = 0.15: not this raid`. The count lives in a file the
+  mod writes (R.baron.streak): backend/saves/<active save id>/baron_streak.txt, the id from backend/active_save.txt (only
+  when that save's meta.json exists); without the launcher, or for a co-op joiner (PVE_BACKEND), baron_streak.txt in the
+  backend folder. Chosen over the stand-in / state.json because the launcher only copies state.json between saves, so a
+  file in the save's own folder follows the save (copy copies it, delete deletes it) and Lua never touches state.json.
+  Caveat: the count moves in makeCrews, so a raid that never builds rival crews doesn't count. F3 Rival ships: BARON_RISE
+  (0 = off), BARON_MAX. Not checked in game: the file is written, switching saves in the launcher, the F3 rows.
 - Next (#78): event presets (config/event.txt or a lobby picker) bundling map + overrides, loot scaling for harder
   presets, other bosses.
 

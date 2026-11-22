@@ -41,6 +41,8 @@ local CFG = {
     MAX_CREWS = 15,
     CREWS = 5,                      -- rival crews per raid; 0 = one per free player slot (up to MAX_CREWS: 11 on solo maps)
     BARON = 0,                      -- event (#78): 1 = one crew in every raid is the Red Baron's (makeBaron; F3 Rival ships)
+    BARON_RISE = 0,                 -- #322: chance added per raid without the Baron (0 = off; 0.05 suggested), reset when he flies
+    BARON_MAX = 0.6,                -- #322: the most that rise can take his chance to (BARON 1 = always)
     IMPOSTOR_CHANCE = 0.25,         -- #319: chance per raid that one ordinary crew's captain dresses as the Red Baron (never with BARON on; 0 = off)
     ARRIVAL_SPREAD = { 5, 60 },     -- crews launch from their spawn points this many seconds after you are aboard
     STATIONS_PER_RAID = { 2, 4 },   -- each crew raids this many places before extracting
