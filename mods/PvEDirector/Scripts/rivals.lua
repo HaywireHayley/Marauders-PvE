@@ -83,16 +83,16 @@ local CFG = {
     -- (flak, triple, howitzer, nuclear, dual rockets) use the closest one. range: how far a crew fires it; spread: deg;
     -- speed: the projectile's (its ProjectileMovement InitialSpeed), for leading moving targets.
     TURRET_TYPES = {
-        Singular = { cls = "InGame_Turret_SingleTurret01", range = 7000, spread = 1.5, speed = 15500 },
-        Dual25mm = { cls = "InGame_Turret_Dual25mm01", range = 7000, spread = 2.0, speed = 18500 },
-        Flak = { cls = "InGame_Turret_Dual25mm01", range = 6000, spread = 3.0, speed = 18500 },
-        ["75mm"] = { cls = "InGame_75mm_Turret01", range = 8500, spread = 1.0, speed = 10000 },
-        Triple = { cls = "InGame_75mm_Turret01", range = 8500, spread = 1.5, speed = 10000 },
-        Howitzer = { cls = "InGame_75mm_Turret01", range = 9500, spread = 1.0, speed = 10000 },
-        RocketArtillery = { cls = "InGame_Turret_RocketArtillery01", range = 8000, spread = 3.0, speed = 17500 },
-        DualRockets = { cls = "InGame_Turret_RocketArtillery01", range = 7500, spread = 2.5, speed = 17500 },
-        Torpedo = { cls = "InGame_Turret_TorpedoLauncher", range = 9000, spread = 1.0, speed = 3500 },
-        Nuclear = { cls = "InGame_Turret_TorpedoLauncher", range = 9000, spread = 0.5, speed = 3500 },
+        Singular = { cls = "InGame_Turret_SingleTurret01", damage = 65, range = 7000, spread = 1.5, speed = 15500 },
+        Dual25mm = { cls = "InGame_Turret_Dual25mm01", damage = 70, range = 7000, spread = 2.0, speed = 18500 },
+        Flak = { cls = "InGame_Turret_Dual25mm01", damage = 85, range = 6000, spread = 3.0, speed = 18500 },
+        ["75mm"] = { cls = "InGame_75mm_Turret01", damage = 170, range = 8500, spread = 1.0, speed = 10000 },
+        Triple = { cls = "InGame_75mm_Turret01", damage = 155, range = 8500, spread = 1.5, speed = 10000 },
+        Howitzer = { cls = "InGame_75mm_Turret01", damage = 225, range = 9500, spread = 1.0, speed = 10000 },
+        RocketArtillery = { cls = "InGame_Turret_RocketArtillery01", damage = 85, range = 8000, spread = 3.0, speed = 17500 },
+        DualRockets = { cls = "InGame_Turret_RocketArtillery01", damage = 235, range = 7500, spread = 2.5, speed = 17500 },
+        Torpedo = { cls = "InGame_Turret_TorpedoLauncher", damage = 600, range = 9000, spread = 1.0, speed = 3500 },
+        Nuclear = { cls = "InGame_Turret_TorpedoLauncher", damage = 3100, range = 9000, spread = 0.5, speed = 3500 },
     },
     -- Your gunner on a stationary turret (RaidSubNodeActor_Turret): fires from as far as those turrets fire at you
     -- (their FireDistance, 13500), not the hull guns' ship-to-ship ranges above, so you can snipe them back (#47).
@@ -1407,6 +1407,7 @@ local function hullDamageFx(hull, maxHull)
 end
 
 local function damageFxStep()
+    pcall(function() require("turretdamage").update(S.playerShip) end) -- full turret damage (turretdamage.lua)
     S.damageSeen = S.damageSeen or {}
     S.hullSeen = S.hullSeen or {}
     pcall(shipDamageFx, S.homeInside)

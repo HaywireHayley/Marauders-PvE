@@ -5155,3 +5155,66 @@ From Taki's report (`MaraudersOffline-report-20261121-2335`, build 23: soldiers 
 - Seen but not changed: a MineStaticActor_C scan (~70 ms) about once a minute in `defuse`; the game itself ran at a
   steady 30 fps late in the raid with the director at ~3 ms a frame.
 
+
+## Ship turrets: damage and helm aim, 2026-11-21 and 22 (measured in game, offline, install .23)
+Two fixes, each its own file: `turretdamage.lua` (damage) and `helmaim.lua` (where a helm shot goes). Both are class agnostic.
+
+### Damage: the impact half of a shot never landed
+Target: a spawned Scout frigate (hull 650), 20 m ahead of the Rustbucket; a turret of each kind fired 5 projectiles one at a time, the
+hull reset to 650 before each, the drop read over 3 s. Every shot of every kind lost exactly the explosion part and none of the impact
+part (HitDamage), so offline the impact half never lands:
+Singular 45 of 65, Dual25mm 50 of 70, 75mm 120 of 170, Triple 90 of 155, Howitzer 125 of 225, Flak 70 of 85, Rocket Artillery 70 of 85,
+Dual Rocket 85 of 235, Torpedo 300 of 600 (impact + explosion from the game files). Every turret's projectile is affected, the AI's too.
+A first run with a hull of a million read "lost 999350" on every shot: the game clamps a hit back to the hull's own maximum.
+- Writing `bDoesExplode = false` on the live projectile changed nothing: still exactly the explosion number, 0.12 s after the shot.
+- Code read (impact function at 0x14188fa20 in RaidGame-Win64-Shipping.exe): on an impact it takes the hit actor, passes the
+  NetMode == Client gate when standalone, then calls the victim's virtual TakeDamage (vtable +0x590) with an int damage (HitDamage at
+  +0x228, or the value at +0x264 when the byte at +0x249 is set). The call is not gated off offline, but the impact damage does not
+  show up on MainHullHealth. Why the native impact TakeDamage never lands is still open.
+- The fix does not chase that. The explosion half does land, so each projectile class's `ProjectileConfig.ExplosionDamage` is set to
+  impact + explosion (class default object, plus the turrets already on the ship, re-checked every 5 s). The AI's turrets are set
+  the same way when they are built (`rivalships.lua`), so both sides hit for the asset totals. `turretdamage.lua` `CFG.FULL_DAMAGE = 0`
+  turns it off.
+- Totals used: Singular 65, Dual25mm 70, 75mm 170, Triple 155, Howitzer 225, Flak 85, Rocket Artillery 85, Dual Rocket 235,
+  Torpedo 600, Nuclear 3100.
+- Confirmed by hand: a Scout shot at the helm dies from the expected number of hits.
+- The game unloads a turret class nothing is using and loads it fresh later, which puts the class default back. The aim test hit this:
+  fresh test turrets of Triple, Howitzer, Flak and Dual Rocket did only the old explosion numbers (90, 125, 70, 85) because their
+  classes had been reloaded after the first patch; the other kinds did the full numbers (65, 70, 170, 85, 600, hull emptied by the
+  nuke). `turretdamage.update` now reads the class defaults of the loaded classes every 5 s and sets any that read wrong. Turrets on
+  your ship are checked on their own copy every 5 s as before.
+- Nuclear (InGame_Turret_NuclearLauncher, 50 m blast) needs a target 100 m or more away so the blast does not reach your own ship.
+
+### Aim: shots landed below the reticle
+At the helm a shot flies a straight line (no drop in the tested range, at least to 900 m) from the barrel. The camera sits above the
+barrel, so a line parallel to the view line is 1.49 m under it at every distance: about 11 px low at 222 m on a 2560x1440 screen at
+90 degrees, 2 to 3 px at 1 km. The game bends the shot toward whatever its own check finds under the crosshair (about 1 degree up at
+90 m); with nothing under it the shot is parallel. So the reticle was right only for one distance, and at the one a player
+cares about (a ship in front of them) the shell passed under the point they aimed at.
+- Helm click: `RaidFrigate:ServerFireFrigate` fires `SpawnedTurretArray[0]` (Lua `[1]`) when nobody sits in it. Mouse moves the control
+  rotation; camera yaw = control yaw, camera pitch = control pitch minus 10; the ship lags toward the control rotation. The barrel
+  mesh points about 15 to 17 degrees up and does not follow the view (visual only, not changed).
+- Fix (v3): a pre hook on `/Script/RaidGame.RaidCharacterTurrent:ServerFireProjectile(Origin, Direction, SocketIndex)`. When the
+  call comes from the helm click (flag set by a hook on `ServerFireFrigate`, 0.05 s window, the controller's pawn is the turret's
+  frigate) the **origin is left alone** and the **direction** is replaced: a `LineTraceSingle` (channel 0, 15 m out to 3000 m, own
+  ship excluded) along the camera ray finds what is under the crosshair, and the shell is aimed from the barrel at that point (the
+  3 km point on the ray when nothing is hit). So the shot passes through the crosshair at the distance of the target and the
+  trail still leaves the turret. Moving the origin to the view line (v2) hit dead on but the trails then started at the reticle,
+  which was rejected. The gun seat (`gunseat.lua` `shotDir`) asks `helmaim.aimDir` first and keeps its old 600 m convergence as
+  the fallback; the gun seat path is not yet checked in game.
+- UE4SS notes: `originP:set({X,Y,Z})` and `dirP:set(...)` work in a pre hook. A hook on a game UFunction is safe. Hooks on engine sound
+  functions, and probes that sweep every widget or property, crashed the game (the probe that read every Image brush did).
+
+### Aim test (240 shots, 0 errors)
+A spawned Scout was put on the camera ray at 75, 200, 500 and 900 m, in open space (1500 m clear), with the view held and the ship
+frozen, and every kind was fired along six view directions: level (two headings), up 30 degrees (two) and down 30 degrees (two).
+Kinds: the real helm click, then a fresh turret of each of Singular, Dual25mm, 75mm, Triple, Howitzer, Flak, Rocket Artillery, Dual
+Rocket, Torpedo and Nuclear (the last two only to 200 m: they are slow). A shot counts as a hit when the Scout's hull drops.
+- 216 of 240 hit. Every one of the 24 misses is Flak at 200, 500 and 900 m (all 24 shots) or Dual Rocket at 900 m, and they are the
+  same on every direction: the shell was seen and ended D minus about 183 m away for Flak (it self destructs near 183 m) and about 82 m
+  short at 900 m for Dual Rocket (it runs out near 820 m). That is the weapons' own range, not the aim; both hit at every shorter range.
+  Not checked against the asset values.
+- Every other kind, helm click included, hit at every distance and direction.
+- Test pitfalls: the game unloads turret classes it is not using, so a spawn throws; the test loads them again and waits. The player's
+  mouse moves the camera and slides the target off the ray, so the test holds the control rotation. A probe that wraps
+  `Space.podFrame` must release it, or it keeps freezing the ship and locks the mouse. Probe files live in `bridge/dir_eval.lua`.

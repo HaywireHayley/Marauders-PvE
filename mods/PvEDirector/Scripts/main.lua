@@ -237,6 +237,8 @@ local Space = require("space") -- space maps: pod guns, docking, level effects, 
 local DebugActions = require("debugactions") -- the debug menu's buttons (F9) and god mode
 local RaidTime = require("raidtime") -- the launcher's raid length (#159)
 local ShipSpeed = require("shipspeed") -- a faster Rustbucket and a boost at the helm (#207)
+local HelmAim = require("helmaim") -- helm shots aim at your view line, so they land on the reticle at any range (helmaim.lua)
+local TurretDamage = require("turretdamage") -- ship turrets land impact + explosion damage, not just the explosion (turretdamage.lua)
 local Blowtorch = require("blowtorch") -- the blowtorch burns a vault door's three locks offline
 local BulletHoles = require("bulletholes") -- bullet holes in walls and floors, which the offline game never makes
 AI.init({ log = log, valid = valid, dist = dist })
@@ -990,6 +992,7 @@ function resetRaid(worldKey)
     Defuse.reset()
     DeathScreen.reset()
     ShipSpeed.reset()
+    TurretDamage.reset()
     if Rivals then Rivals.reset() end
     if Crew then Crew.reset() end
     if Missions then Missions.reset() end
@@ -1080,6 +1083,8 @@ Interiors.init({ log = log, valid = valid })
 LevelProps.init({ log = log, valid = valid, lib = lib })
 RaidTime.init({ log = log, valid = valid })
 ShipSpeed.init({ log = log, valid = valid })
+TurretDamage.init({ log = log, valid = valid })
+HelmAim.init({ log = log, valid = valid, lib = lib })
 Unstuck.init({ log = log, valid = valid, navLib = navLib, navMesh = navMesh, queryFilter = queryFilter })
 Blowtorch.init({ log = log, valid = valid, lib = lib })
 BulletHoles.init({ log = log, valid = valid })
