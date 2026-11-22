@@ -2,6 +2,39 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 21 Nov 2026, build 21 (`public-test-20261121.21`)
+
+A ship you take from a rival crew now comes with its key card, lore on the loading screen and the minimap, and a lot
+more detail in the log for the "NOT ENOUGH SPACE" and stutter reports. If you've hit either, please press **REPORT**
+in the launcher after that raid and post the zip: it's what we need to fix them. On build 1 of 17 Nov or later, the
+launcher's orange **!** installs this one for you, keeping your saves.
+
+### Fixes
+
+- **A taken ship's key card (#311, PR #312, thanks spacedork_ for the report):** nobody on a rival ship carried its
+  key card, so after taking one (a capital ship, in the report) a station airlock shut you out once you stepped off.
+  Taking the helm now swaps your old card for the taken ship's.
+- **Gate countdown search capped (#336, PR #338):** on a raid without the space gate's HUD countdown, the mod kept
+  searching every text on screen for it every 3 s, all raid long. It now gives up after a minute.
+
+### Changes
+
+- **Lore in raids (#272, PR #309):** a line of the world's lore under the raid loading screen's bar, and the first time
+  you reach a station or ship in a raid, a line about it on the minimap for a few seconds. Lines from
+  `docs/lore/loading_lines.md`; the ones based on fan theory are left out for now.
+- **Co-op guide (PR #337):** the README now has the host and join steps, and `docs/COOP.md` has a quick start and is
+  up to date (the joiner comes aboard the host's ship).
+
+### For the open reports
+
+- **"NOT ENOUGH SPACE", ghost items, items that vanish (#308, #307, PR #310, thanks KillSwitch, spacedork_ and Lilly
+  for the reports and clips):** not fixed yet. When the game refuses a pickup, the log now records what your
+  inventory held (items per container, duplicate items, loot copies, solo or co-op host). A report zip from a raid
+  where it happened tells us where the ghost item is.
+- **Stutter in long raids (#336, #295, PR #338):** every 10 s the log now records the worst frame, how many frames
+  went over 50/100/200 ms, and which part of the mod took the time. A report zip from a raid that stuttered shows
+  what it was.
+
 ## Public test, 21 Nov 2026, build 20 (`public-test-20261121.20`)
 
 A kinder defuse board (a cleared start and one slip forgiven, with a new look), and dismissing a crewmate no longer
