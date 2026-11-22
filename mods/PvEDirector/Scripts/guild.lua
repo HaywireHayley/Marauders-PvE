@@ -332,7 +332,7 @@ function G.frame()
     -- (Visible info, Collapsed "not in a guild" and hideout panel: already dressed)
     if w.Border_MyCurrentGuildInfo:GetVisibility() == 0 and w.Border_MyGuildCurrent_NotInGuild:GetVisibility() == 1
         and w.Border_GuildHideOut:GetVisibility() == 1 then return end
-    local pc = FindFirstOf("MenuPlayerController_C")
+    local pc = require("cache").menuPc()
     if X.valid(pc) then dress(w, pc) end
 end
 

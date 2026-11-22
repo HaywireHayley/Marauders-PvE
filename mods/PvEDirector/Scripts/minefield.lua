@@ -41,7 +41,7 @@ end
 -- Every update on space maps (main.lua).
 function M.update(pc)
     local times = X.conditions.mines and X.conditions.mines()
-    local world = FindFirstOf("World")
+    local world = (X.valid(pc) and pc:GetWorld()) or require("cache").world()
     if not X.valid(world) then return end
     local key = ("%x"):format(world:GetAddress())
     if key ~= state.world then state.world, state.since, state.done = key, os.clock(), false end

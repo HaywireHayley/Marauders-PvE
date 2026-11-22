@@ -5141,3 +5141,17 @@ Inspired by SPT's SVM: every F3 setting before a raid, with presets to save, sha
   Cover tab (all but GIVEUP/COOLDOWN/PUSH_RANGE). Log lines: "reloads in cover", "heals in cover", "pushes while the
   player is busy". To check in game: watch for those lines in `backend/last_game.log`, that a reloading bot stays hidden
   and fires again after, and that `IsReloading` ever reports true on your gun.
+
+## Build 23 report: guards frozen, lobby scans, recurring raid scans (2026-11-22; NOT run in game)
+From Taki's report (`MaraudersOffline-report-20261121-2335`, build 23: soldiers and guards stop moving, rival crews ignore them).
+- `rivalbodies.lua:922` (garrison) and `:1180` (stray sweep) threw "attempt to compare number with UObject": a placed NPC's
+  `Health` read back as an object (a stale or reused address from the spawn hook, most likely). One bad entry killed the
+  whole pass, so the station's own guards were never taken over and stood still. Fix: `hpOf(b)`, a number or 0.
+- The new `frames:` lines showed the lobby calling `FindFirstOf("MenuPlayerController_C")` every frame (x587 per 10 s,
+  ~6.9 s of 10 s) and raids calling `FindFirstOf("World")` twice a second (~17 ms each, minefield.lua and spacefx.lua).
+  New `cache.lua` keeps both while `valid()` and waits 2 s after a miss; guild, invqol, mappick and outfits use it.
+- levelprops `hum` scanned every RaidSpaceshipInside (~70 ms) every 15 s for the whole raid: now backs off to 120 s.
+- main.lua's mouse-position log line used %d on a float ("number has no integer representation").
+- Seen but not changed: a MineStaticActor_C scan (~70 ms) about once a minute in `defuse`; the game itself ran at a
+  steady 30 fps late in the raid with the director at ~3 ms a frame.
+

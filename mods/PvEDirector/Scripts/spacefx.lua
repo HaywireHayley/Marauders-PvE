@@ -42,7 +42,7 @@ local function explode(actor, soundKey, what)
     local loc = actor:K2_GetActorLocation()
     local rot = actor:K2_GetActorRotation() or NO_ROT
     local name = actor:GetFName():ToString()
-    local world = FindFirstOf("World")
+    local world = require("cache").world()
     local spawned, played = false, false
     if X.valid(cls) and X.valid(world) then
         spawned = pcall(function() world:SpawnActor(cls, loc, rot) end)

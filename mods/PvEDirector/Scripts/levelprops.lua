@@ -23,6 +23,7 @@ local KINDS = {
 }
 local PASSES = { 4, 30 } -- seconds into the raid: one pass as you arrive, one for anything that loaded later
 local HUM_EVERY = 15
+local HUM_MAX = 120 -- s: the longest gap between scans for new interiors
 
 function P.init(ctx) X = ctx end
 function P.setRaid(r) raid = r end
@@ -42,7 +43,9 @@ local function hum(age)
     local h = raid.hum
     if not h then h = { next = 4, done = {} } raid.hum = h end
     if age < h.next then return end
-    h.next = age + HUM_EVERY
+    -- backs off as the raid goes on (each pass is a ~70 ms scan, every 15 s for the whole raid before, #336)
+    h.passes = (h.passes or 0) + 1
+    h.next = age + math.min(HUM_MAX, HUM_EVERY * h.passes)
     for _, a in ipairs(FindAllOf("RaidSpaceshipInside") or {}) do
         if X.valid(a) and not h.done[a:GetAddress()] then
             h.done[a:GetAddress()] = true
