@@ -37,6 +37,9 @@ salvage and docking. Along the way the mod has also added things the live game n
 **Make the raid you want**
 - **F3 AI tuning:** every enemy, rival and crew setting as a slider: how many crews, guards and ship battles, how hard
   they fight, and difficulty presets.
+- **Settings before a raid:** the launcher's **SETTINGS** button shows every F3 setting by tab, with the difficulty
+  levels and your own presets: save a setup, export it to a file to share, import a friend's. (The list fills in after
+  the game has started once with this build.)
 - **Raid conditions:** one-raid set-ups such as Baron hunt, Hunted, Busy sky, Capital ships and Minefield. Make your own
   and share them.
 - **Pick your map** in the lobby's REGION box, and the **raid length** in the launcher (15 minutes to no limit).

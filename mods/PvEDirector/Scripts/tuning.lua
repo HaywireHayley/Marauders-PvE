@@ -19,6 +19,10 @@ local SAVE_DELAY = 2 -- seconds after the last change
 
 local tabs, rows = {}, {}
 local mine = {} -- your presets: { name, values = { id = value } }; a setting left out is at its default
+-- The launcher's SETTINGS page (#324) edits SAVE_FILE and PRESET_FILE before a raid; it learns what the settings are
+-- (tabs, labels, ranges, defaults, the difficulty presets) from SCHEMA_FILE, written here at every start.
+local SCHEMA_FILE = PROJECT .. "config/settings_schema.json"
+local writeSchema -- (below presetValue, which it uses)
 
 -- Difficulty: how capable bots are, not how they behave, so cover and sprint tuning stays as set at every level.
 -- profile = multipliers on every bot type's defaults (Rivals, Bosses, Guards, Soldiers tabs); aim = values for the Aim
@@ -365,6 +369,8 @@ function T.init(ctx)
     for _, r in ipairs(rows) do r.default = get(r) end
     local n = load()
     loadMine()
+    local okS, errS = pcall(writeSchema)
+    if not okS then X.log("tuning: settings list for the launcher not written: " .. tostring(errS)) end
     X.log(("tuning: %d settings, %d changed from the defaults, %d saved presets (F3 in a raid)"):format(#rows, n, #mine))
 end
 
@@ -511,6 +517,60 @@ local function presetValue(r, p)
     end
     v = math.floor(v / r.step + 0.5) * r.step
     return tonumber(string.format("%.4f", math.max(r.min, math.min(r.max, v))))
+end
+
+-- JSON for the launcher: strings, numbers, booleans, arrays (sequential tables) and objects.
+local function json(v)
+    local t = type(v)
+    if t == "number" then return (v ~= v or v == math.huge or v == -math.huge) and "0" or tostring(v) end
+    if t == "boolean" then return v and "true" or "false" end
+    if t == "string" then
+        local esc = v:gsub('[%c"\\]', function(c)
+            if c == '"' then return '\\"' elseif c == "\\" then return "\\\\" elseif c == "\n" then return "\\n" end
+            return string.format("\\u%04x", c:byte())
+        end)
+        return '"' .. esc .. '"'
+    end
+    if t == "table" then
+        local out = {}
+        if #v > 0 or next(v) == nil then
+            for _, x in ipairs(v) do out[#out + 1] = json(x) end
+            return "[" .. table.concat(out, ",") .. "]"
+        end
+        local keys = {}
+        for k in pairs(v) do keys[#keys + 1] = tostring(k) end
+        table.sort(keys)
+        for _, k in ipairs(keys) do out[#out + 1] = json(k) .. ":" .. json(v[k]) end
+        return "{" .. table.concat(out, ",") .. "}"
+    end
+    return "null"
+end
+
+writeSchema = function()
+    local out = { version = 1, tabs = {}, presets = {} }
+    for _, tab in ipairs(tabs) do
+        if not tab.mine then
+            local list = {}
+            for _, r in ipairs(tab.rows or {}) do
+                local d = r.default -- (taken before any saved value or raid condition was applied)
+                list[#list + 1] = { id = r.id, label = r.label or r.id, min = r.min, max = r.max, step = r.step,
+                    default = d, help = r.help or "" }
+            end
+            out.tabs[#out.tabs + 1] = { name = tab.name, rows = list }
+        end
+    end
+    for _, p in ipairs(PRESETS) do
+        local values = {}
+        for _, r in ipairs(rows) do
+            local v = presetValue(r, p)
+            if v ~= nil and v ~= r.default then values[r.id] = v end
+        end
+        out.presets[#out.presets + 1] = { name = p.name, values = values }
+    end
+    local f = io.open(SCHEMA_FILE, "w")
+    if not f then return X.log("tuning: can't write " .. SCHEMA_FILE) end
+    f:write(json(out))
+    f:close()
 end
 
 -- Which preset the current values match (nil: tuned by hand).

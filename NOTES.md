@@ -5019,3 +5019,19 @@ classes) and the Lua heap / gc cycles. FindAllOf and FindFirstOf are wrapped onc
 - NOT tested in game. Unverified: that the hook fires before the Health drop is visible in the same/next frame; that
   the panel shows over the game's death UI and that the controller keeps ticking after death; attribution with several
   bots firing at once (could name a bot shooting at someone else).
+
+## Launcher SETTINGS page and presets (2026-11-21, #324; launcher tested headless, NOT in game)
+Inspired by SPT's SVM: every F3 setting before a raid, with presets to save, share and load.
+- The mod stays the owner of the settings. `tuning.lua writeSchema` writes `config/settings_schema.json` at every start
+  (each tab and row: id, label, min, max, step, default, help; and each difficulty level's values from `presetValue`).
+  Defaults are the tables' values taken before the saved file or a raid condition is applied.
+- `launcher/settings.py` reads the schema and edits the same files F3 does: `config/ai_tuning.txt` (only values that
+  differ from the default; ids the schema doesn't know are kept) and `config/ai_presets.txt` (F3's Saved setups). A
+  shared preset is one `[name]` block with a `# Marauders Offline settings preset` header line.
+- `launcher.pyw show_settings`: tabs on the left, sliders with a Default button and help on the right, difficulty
+  buttons and My presets (Load, Save as, Delete, Export, Import) on top, Reset this tab / Reset all. Each change is
+  written at once. The game reads the file when it starts; F3 changes things live in a raid.
+- Before the game has run once with this build there is no schema: the page says so.
+- Tested: `launcher/test_ui.py` (16 OK, incl. the new settings test and every dialog on screen with the grab); the
+  JSON writer checked with lupa. Not tested: a real schema from the game (179 rows) and loading the result in game.
+
