@@ -124,11 +124,12 @@ Not yet tested under real Proton: if you try it, please say how it went in
 the mod through a launch option, so it works from Game Mode on a Deck too. The launcher window (saves and settings) is
 optional on Linux: it's there in Desktop Mode if your Python has Tk and Pillow.
 
-1. **Unzip** the small `MaraudersOffline-<build>-installer.zip` somewhere permanent, e.g. `~/Games/MaraudersOffline`
+1. **Download only** `MaraudersOffline-<build>-installer.zip` from the
+   [latest release](https://github.com/HaywireHayley/Marauders-PvE/releases/latest) and **unzip** it somewhere permanent, e.g. `~/Games/MaraudersOffline`
    (step 2 downloads the rest). Internal storage is safest; spaces in the path are fine, non-English letters aren't. On
    a Deck, do this in **Desktop Mode**. Downloading by hand instead? Extract **every** zip of the release (the main one
    and all the `-deps-` ones) into the same folder: the `-deps-` zips hold UE4SS and the female models.
-2. **Open a terminal in that folder** and run:
+2. **Open a terminal in the `MaraudersOffline` folder** and run:
 
    ```bash
    sh linux/install.sh

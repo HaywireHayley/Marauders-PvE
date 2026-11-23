@@ -2,6 +2,25 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 23 Nov 2026, build 26 (`public-test-20261123.26`)
+
+A simpler Linux install, and Undo last raid now brings back crewmates who died in that raid. On build 1 of 17 Nov or
+later, the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Fixes
+
+- **Crewmates gone forever after Undo last raid (PR #397, thanks spacedork_ for the report):** the crew was kept apart
+  from your save, so Undo rolled back the stash but not the crew, and every save shared one crew. Each save now keeps
+  its own crew, and Undo last raid brings back the crewmates lost in that raid. Saves from before this keep the crew
+  you have now.
+
+### Changes
+
+- **Linux / Steam Deck: one small download (PR #399, thanks Pöhlbert for testing):** download only the installer zip,
+  unzip it and run `sh linux/install.sh`: it downloads the rest (every file checked), finds the game and prints the
+  Steam launch option. Downloading by hand still works: extract every zip, the `-deps-` ones too, into one folder.
+  Still not working under Proton for everyone yet (#161): reports with a Proton log are very welcome.
+
 ## Public test, 23 Nov 2026, build 25 (`public-test-20261123.25`)
 
 Station turrets no longer shred your ship and escape pods in seconds, quitting a raid keeps its XP and contract
