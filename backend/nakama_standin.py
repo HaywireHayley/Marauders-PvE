@@ -394,8 +394,22 @@ class Handler(BaseHTTPRequestHandler):
             save_state(state)
             return {}, f"deleted {[(o['collection'], o['key']) for o in ids]}"
         if path == "/v2/storage" and verb == "PUT":
-            acks = []
+            acks, twins = [], []
+            dropped = state.setdefault("dropped_twins", [])
             for o in (body or {}).get("objects", []):
+                # #370: a new item that is an exact copy of one already in the same place (same row, stack, condition,
+                # cell and container) is a duplicate, never a real item: two can't share a cell. It's acknowledged so
+                # the game carries on, but not stored, and later writes to that key are ignored the same way.
+                if o["collection"] == "inventory" and (o["key"] in dropped or (
+                        o["key"] not in st.get("inventory", {}) and twin_of(st.get("inventory", {}), o["key"], o.get("value")))):
+                    if o["key"] not in dropped:
+                        dropped.append(o["key"])
+                        del dropped[:-1000]  # (the game lists the stash again each login, so old keys don't come back)
+                    twins.append(o["key"])
+                    now = stamp()
+                    acks.append({"collection": "inventory", "key": o["key"], "version": uuid.uuid4().hex, "user_id": uid,
+                                 "create_time": now, "update_time": now})
+                    continue
                 if o["key"] not in st.get(o["collection"], {}):
                     o = settle_ship(o)
                 # A cheat save (launcher) never runs out: spending is put straight back.
@@ -411,7 +425,9 @@ class Handler(BaseHTTPRequestHandler):
                 acks.append({"collection": o["collection"], "key": o["key"], "version": col[o["key"]]["version"],
                              "user_id": uid, "create_time": col[o["key"]]["create_time"], "update_time": now})
             save_state(state)
-            return {"acks": acks}, f"wrote {[(a['collection'], a['key']) for a in acks]}"
+            if twins:
+                log(f"inventory: {len(twins)} duplicate item(s) not stored (copies of items already in that place, #370): {twins}")
+            return {"acks": acks}, f"wrote {[(a['collection'], a['key']) for a in acks if a['key'] not in twins]}"
         if path == "/v2/storage" and verb == "POST":  # read by id
             objs = []
             for o in (body or {}).get("object_ids", []):
@@ -487,6 +503,59 @@ POCKETS, POCKET_SIDE = ("PocketLeft",), 2
 # PocketRight is in the inventory, but the game never shows its grid: anything there is invisible and stuck (the mod
 # put loot and ammo there in builds 10-14). It all goes to the stash.
 HIDDEN_CONTAINERS = ("PocketRight",)
+
+
+def item_fields(value):
+    """An inventory object's item string as its fields (key, row, stack, condition, column, row, rotated, container,
+    attachments...), or None."""
+    try:
+        return json.loads(value)["value"].split("-")
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return None
+
+
+def twin_of(inv, key, value):
+    """The key of another item exactly like this one in the same place (all fields but the key equal), or None."""
+    f = item_fields(value)
+    if not f or len(f) < 8:
+        return None
+    for k, o in inv.items():
+        if k != key:
+            g = item_fields(o.get("value"))
+            if g and g[1:] == f[1:]:
+                return k
+    return None
+
+
+def drop_twins():
+    """#370: removes items that are exact copies of an older item in the same place (a space-gate extraction once
+    wrote a whole stash's container contents again under new keys). The oldest copy stays; a removed container's
+    contents move into the one that stays, where they are compared again. Returns how many went."""
+    inv = state["storage"].get("inventory", {})
+    gone = 0
+    while True:
+        seen, twins = {}, []
+        for k, o in sorted(inv.items(), key=lambda kv: (kv[1].get("create_time", ""), kv[0])):
+            f = item_fields(o.get("value"))
+            if not f or len(f) < 8:
+                continue
+            sig = "-".join(f[1:])
+            if sig in seen:
+                twins.append((k, seen[sig]))
+            else:
+                seen[sig] = k
+        if not twins:
+            return gone
+        for k, keep in twins:
+            inv.pop(k, None)
+            gone += 1
+            for ck, co in inv.items():  # its contents go into the copy that stays
+                g = item_fields(co.get("value"))
+                if g and len(g) >= 8 and g[7] == k:
+                    g[7] = keep
+                    v = json.loads(co["value"])
+                    v["value"] = "-".join(g)
+                    co["value"] = json.dumps(v, indent="	")
 
 
 def repair_inventory():
@@ -680,6 +749,13 @@ def main():
         use_dir(os.path.abspath(args.dir), args.name)
     state = load_state()
     return_unfinished_raid("the stand-in started")
+    before = json.dumps(state)
+    twins = drop_twins()
+    if twins:
+        with open(STATE.replace("state.json", "state.before-twins.json"), "w", encoding="utf-8") as f:
+            f.write(before)
+        save_state(state)
+        log(f"inventory: {twins} duplicate item(s) removed (exact copies of an item in the same place, #370)")
     repair_inventory()
     log(f"listening on 127.0.0.1:{port} as {state['user']['display_name']} "
         f"({len(state['storage'].get('inventory', {}))} stash items)")
