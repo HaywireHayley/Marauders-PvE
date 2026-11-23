@@ -24,7 +24,7 @@ jobs:
       - name: Linux mode switch (scripts/pvemode.py, issue #127)
         run: python scripts/test_pvemode.py
       - name: Offline backend (the stand-in's login, stash, schema and coverage; issue #80)
-        run: python tools/test_standin_flow.py && python tools/test_standin_gaps.py
+        run: python tools/test_standin_flow.py && python tools/test_standin_gaps.py && python tools/test_crew_undo.py
       - name: Native DLLs compile (native/build.sh all, MinGW-w64 cross; the committed DLLs are not replaced)
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq gcc-mingw-w64-x86-64

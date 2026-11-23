@@ -24,6 +24,8 @@ TMP = tempfile.mkdtemp(prefix="pve-ui-test-")
 saves.SAVES = os.path.join(TMP, "saves")
 saves.LIVE = os.path.join(TMP, "state.json")
 saves.RAID_COPY = os.path.join(TMP, "state.before-last-raid.json")
+saves.CREW = os.path.join(TMP, "crew.lua")
+saves.CREW_RAID_COPY = os.path.join(TMP, "crew.before-last-raid.lua")
 saves.ACTIVE = os.path.join(TMP, "active_save.txt")
 saves.STASH_ROWS = os.path.join(TMP, "stash_rows.txt")
 for name in ("FEMALE_SETTING", "FEMALE_SHARE", "WINDOW_SETTING", "SKIP_INTRO_SETTING", "UNLOCK_LOOKS_SETTING",
