@@ -28,7 +28,7 @@ local CFG = {
 local cache       -- item row -> mesh path (saved)
 local W           -- this lobby: { key, stands, slots, booth, donor, queue, photos, portraits, shown }
 
-local function valid(o) return X.valid(o) end
+local valid -- main.lua's helpers, from ctx (init)
 local function real(o) return valid(o) and not o:GetFName():ToString():find("^Default__") end
 local function pathOf(o) return o:GetFullName():match("^%S+ (.+)$") end
 
@@ -471,6 +471,7 @@ function L.reset() W = nil end
 
 function L.init(ctx)
     X = ctx
+    valid = ctx.valid
     loadCache()
 end
 

@@ -27,7 +27,7 @@ local REFUND_WINDOW = 0.5 -- a health drop counts as your shot's only this long 
 local PELLETS, PELLET_DAMAGE = 10, 18 -- a shotgun shot (the Guilds 1.0 notes)
 local PUSH = 900 -- cm/s, the throw of a shotgun volley: a stand in for the knockback the game once applied (not read from the game)
 
-local function valid(o) return X.valid(o) end
+local valid -- main.lua's helpers, from ctx (init)
 local function warn(key, text)
     B.warned = B.warned or {}
     if B.warned[key] then return end
@@ -366,6 +366,6 @@ function B.frame(pc)
 end
 
 -- ctx: log(text), valid(object), bots() -> the raid's bot entries (each with .bot), or nil outside a raid.
-function B.init(ctx) X = ctx end
+function B.init(ctx) X = ctx valid = ctx.valid end
 
 return B

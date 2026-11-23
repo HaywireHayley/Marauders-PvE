@@ -3,6 +3,7 @@
 -- in your hold, and the per-update work for rival crews and your crew (updateSpace: Space.update in main's update).
 local PROJECT = require("pveproject")
 local Out = require("outref") -- releases UE4SS's out-param registry refs (outref.lua)
+local Crew = require("crew") -- your crew's per-update work (crew.lua)
 local M = {}
 
 local CFG, log, valid, lib, dist, Aux, Rivals, Bots, navReadyAt -- from main.lua (M.init)

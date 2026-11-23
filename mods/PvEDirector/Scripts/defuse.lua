@@ -82,9 +82,9 @@ local held   -- { mine, inside }: the nuclear mine in your hold
 -- Where you have to be for a kind of mine: on foot ("station": station mines, and the one in your hold) or at the helm.
 local function where(kind) return kind == "space" and "space" or "station" end
 
-function M.init(ctx) X = ctx end
+local lib -- main.lua's helpers, from ctx (init)
+function M.init(ctx) X = ctx lib = ctx.lib end
 
-local function lib(p) return X.lib(p) end
 local function make(tree, cls) return StaticConstructObject(lib("/Script/UMG." .. cls), tree) end
 
 local function host(pc)

@@ -24,7 +24,7 @@ G.CFG = CFG
 
 local S -- while seated: { body, turret, comp, socks, si, left, ammo, rate, reload, next, at, fDown }
 
-local function valid(o) return X.valid(o) end
+local valid -- main.lua's helpers, from ctx (init)
 
 local function keyDown(pc, k)
     local down = false
@@ -175,6 +175,6 @@ function G.seated() return S and valid(S.turret) and S.turret or nil end
 
 function G.reset() S = nil end
 
-function G.init(ctx) X = ctx end
+function G.init(ctx) X = ctx valid = ctx.valid end
 
 return G

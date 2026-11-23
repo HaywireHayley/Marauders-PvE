@@ -58,8 +58,7 @@ local roster = {}  -- this raid's crewmates (members in rivals.lua's form)
 local people = {}  -- the same person's member table from raid to raid, by hire id (keeps their look meshes)
 local S            -- this raid: { key, entries, building, ... }
 
-local function valid(o) return X.valid(o) end
-local function dist(a, b) return X.dist(a, b) end
+local valid, dist -- main.lua's helpers, from ctx (init)
 local function rnd(r) return r[1] + math.random() * (r[2] - r[1]) end
 
 local function say(msg)
@@ -738,6 +737,6 @@ function C.positions()
     return out
 end
 
-function C.init(ctx) X = ctx end
+function C.init(ctx) X = ctx valid, dist = ctx.valid, ctx.dist end
 
 return C

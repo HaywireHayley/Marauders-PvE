@@ -4,6 +4,7 @@
 local PROJECT = require("pveproject")
 local Out = require("outref") -- releases UE4SS's out-param registry refs (outref.lua)
 local AI = require("ai")
+local Crew = require("crew") -- your crew (crew.lua), for the status line
 local Cover = require("cover")
 local Voice = require("voice")
 local Banter = require("banter") -- begging and taunts (#316)
