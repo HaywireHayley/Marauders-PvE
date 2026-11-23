@@ -4,6 +4,8 @@
 -- The buttons are found once per lobby with a FindAllOf (about 50 ms), and kept as object paths, not objects: each
 -- check looks them up again (StaticFindObject, a name lookup), so a lobby torn down by a raid is never touched.
 local L = {}
+local PveMapPick = require("mappick") -- the REGION picker, ticked from here
+local PveGuild = require("guild") -- the guild page, ticked from here
 local X -- log, offline (function)
 
 local CHECK_SECONDS = 1

@@ -2,6 +2,9 @@
 -- loading veil over a space map until you're aboard your ship.
 local PROJECT = require("pveproject")
 local Loading = require("loading")
+local PveMapPick = require("mappick") -- the REGION box's map pick
+local Conditions = require("conditions") -- a raid condition's fixed map (#78)
+local Hire = require("hire") -- your crew's wages
 local M = {}
 
 local CFG, log, valid, lib, RAID_OPTS, Rivals -- from main.lua (M.init)

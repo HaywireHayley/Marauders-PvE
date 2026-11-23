@@ -15,6 +15,7 @@
 -- assets/minimap. Delete those (the place names, not the icons) to have them rebuilt.
 local PROJECT = require("pveproject") -- the install folder (".../MaraudersPvE/"), written by scripts/mode.ps1
 local Out = require("outref") -- releases UE4SS's out-param registry refs (outref.lua)
+local Census = require("census") -- object scans shared per world (census.lua)
 local M = {}
 local X -- context from main.lua: log, valid, lib, raid, missions
 
@@ -93,7 +94,7 @@ local stepLogged
 -- { at = vector, place = the place you were in }. Lives outside S because deaths and drops can come before the map does.
 local marks = {}
 
-local function valid(o) return X.valid(o) end
+local valid -- main.lua's helpers, from ctx (init)
 
 local function dist(a, b)
     return math.sqrt((a.X - b.X) ^ 2 + (a.Y - b.Y) ^ 2 + (a.Z - b.Z) ^ 2)
@@ -122,6 +123,7 @@ end
 
 function M.init(ctx)
     X = ctx
+    valid = ctx.valid
     loadSettings()
 end
 
@@ -191,12 +193,12 @@ local function surveyShip(home)
     if now < (S.shipSurveyAt or 0) then return end
     S.shipSurveyAt = now + CFG.SURVEY_RETRY
     local locks, helms = {}, {}
-    for _, c in ipairs(FindAllOf("RaidUseableAirLockComponent") or {}) do
+    for _, c in ipairs(Census.all("RaidUseableAirLockComponent", Census.FRESH)) do
         if valid(c) and not c.StationAirLock and valid(c:GetOwner()) and c:GetOwner():GetAddress() == home:GetAddress() then
             locks[#locks + 1] = copy(c:K2_GetComponentLocation())
         end
     end
-    for _, c in ipairs(FindAllOf("RaidUseableFrigateHelmComponent") or {}) do
+    for _, c in ipairs(Census.all("RaidUseableFrigateHelmComponent", Census.FRESH)) do
         if valid(c) and valid(c:GetOwner()) and c:GetOwner():GetAddress() == home:GetAddress() then
             helms[#helms + 1] = copy(c:K2_GetComponentLocation())
         end
@@ -240,7 +242,7 @@ local function survey()
     -- station's: they go to the place their name points to (TAG_KEYS too), else the nearest place. Before this they made
     -- a "Space Beta" place of their own, holding you once you were through (wrong station, empty map).
     local loose = {}
-    for _, c in ipairs(FindAllOf("RaidUseableAirLockComponent") or {}) do
+    for _, c in ipairs(Census.all("RaidUseableAirLockComponent", Census.FRESH)) do
         if valid(c) and c.StationAirLock then
             local owner = c:GetOwner()
             local lvl = levelOf(owner)
@@ -272,7 +274,7 @@ local function survey()
     end
     for _, p in pairs(S.places) do setRect(p) end
     -- What's actually in this map, seen from space: stations (their docking components)...
-    for _, c in ipairs(FindAllOf("RaidDockingComponent") or {}) do
+    for _, c in ipairs(Census.all("RaidDockingComponent", Census.FRESH)) do
         if valid(c) then
             local owner = c:GetOwner()
             local k = key5(owner:GetClass():GetFName():ToString())
@@ -288,7 +290,7 @@ local function survey()
         end
     end
     -- ...and big AI frigates whose interior holds contract actors: those fly around, so they're followed live.
-    for _, ins in ipairs(FindAllOf("RaidSpaceshipInside") or {}) do
+    for _, ins in ipairs(Census.all("RaidSpaceshipInside", Census.FRESH)) do
         if valid(ins) and ins.IsAnAIShip and valid(ins.SpaceshipToPairTo) then
             local l = ins:K2_GetActorLocation()
             for _, p in pairs(S.places) do
@@ -443,7 +445,7 @@ local function homeInside(pawn)
     if S.joinHomeTried then return nil end
     S.joinHomeTried = true
     local at, best, bd = pawn:K2_GetActorLocation(), nil, nil
-    for _, ins in ipairs(FindAllOf("RaidSpaceshipInside") or {}) do
+    for _, ins in ipairs(Census.all("RaidSpaceshipInside", Census.FRESH)) do
         if valid(ins) and not ins.IsAnAIShip then
             local d = dist(at, ins:K2_GetActorLocation())
             if not bd or d < bd then best, bd = ins, d end

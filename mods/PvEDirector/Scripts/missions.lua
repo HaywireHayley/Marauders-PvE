@@ -31,7 +31,7 @@ local CFG = {
 
 local S -- per-raid state
 
-local function valid(o) return X.valid(o) end
+local valid -- main.lua's helpers, from ctx (init)
 
 -- The contract actors are found once a raid but never kept as objects: one kept from that scan was freed later (a
 -- station's actors replaced, or an old world's still listed), and the first IsValid on it, when you walked up to it,
@@ -199,6 +199,6 @@ end
 -- The contract actors found so far (minimap.lua).
 function M.actors() return S and S.list or {} end
 
-function M.init(ctx) X = ctx end
+function M.init(ctx) X = ctx valid = ctx.valid end
 
 return M

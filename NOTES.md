@@ -5218,3 +5218,35 @@ From Taki's report (`MaraudersOffline-report-20261121-2335`, build 23: soldiers 
   overwritten; unparseable inventory/cosmetic rows and a failed coverage write are logged instead of skipped silently.
 - Tested: tools/test_standin_flow.py (CI), including the timing, a copy inside one request, and the .bak fallback. Not
   tested in game (the stand-in's API is unchanged).
+
+## Lua structure: no module globals, lobby.lua, census.lua (2026-11-22; luacheck and greps only, NOT tested in game)
+Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
+- No module globals: main.lua's `CrewLobby, Hire, Crew, PveMapPick, PveGuild, Conditions, Minefield, Civilians,
+  Missions` are forward-declared locals now (next to `Quit, GameSettings...`). The modules that read them as globals
+  `require` them instead (plain modules, no init-order dependency, no require cycles): launch.lua (mappick, conditions,
+  hire), lobbylabel.lua (mappick, guild), mappick.lua (conditions), bots.lua and space.lua (crew). Their `if X then`
+  nil guards are kept. `raid` was already local; every reader gets it by setRaid/shareRaid or a `raid()` getter.
+  Checked with a small free-name scanner (scratch script: tokenizes each file, tracks local scopes, prints names read
+  or written that aren't declared): only the UE4SS API (FindAllOf, FName, RegisterHook...) is left, plus one false
+  positive (`taken` in tuning.lua's repeat...until).
+- Trivial `local function valid(o) return X.valid(o) end` (and lib/dist) wrappers became locals set from ctx in
+  `init` in botdamage, crew, crewlobby, deathscreen, defuse, gunseat, minimap, missions. Not in rivals.lua: its `H`
+  table hands `valid/lib/dist` to the rival* modules at load time, before init, so the wrappers stay there.
+- lobby.lua: the main-menu block of main.lua's update moved verbatim (captain button hook, player level for gearscale,
+  Hire.lobby / Hire.leftLobby, stash rows and grid, the lobby character's outfit, the splash sweep), with the STASH_*
+  constants and gearscale's require. Called as `Lobby.tick(pc, age, inMenu)` at the same point in update; it reads
+  `raid` via shareRaid and gets pve_stash_rows as `ctx.stashRows`.
+- census.lua: per-world (raid.world) lists of FindAllOf results, `all(cls[, maxAge])`, `refresh(cls)`, valid() filtered
+  on read. playareas.findAll is now `Census.all(cls, Census.FRESH)` (FRESH = 3 s, its old cache window), and rivals.lua's
+  station survey (NavMeshBoundsVolume, airlocks, LevelStreamingVolume, PlayerStart, RaidSpaceshipInside,
+  RaidDockingComponent, RaidFrigateStationDock, aiStarts) plus minimap.lua's survey, surveyShip and homeInside use the
+  same call. So a class scanned less than 3 s ago is shared, anything older is scanned again: retries (minimap's
+  SURVEY_RETRY is 5 s) still see actors that streamed in. One difference: rivals' survey could now reuse a scan up to
+  3 s old instead of always scanning fresh (the same window playareas already accepted). Left alone: the gate rescans
+  (minimap), RaidFrigateIntSpawn and node turrets (rivals), which keep their own cadence.
+- main.lua: 115 of 200 locals in use before, 121 after (luacheck: 85 -> 79 to spare).
+- Verified: luacheck on every changed file; the free-name scan above; grep for each module name. NOT run in game.
+- In-game checklist: lobby (stash grid height with a stash_rows save, the character's outfit after F2, splash, START
+  RAID label, map/condition picker, guild page, crew stands); space map (rival crews launch and dock, minimap stations,
+  airlocks and your ship's plan, civilians, mines); a raid start (input on arrival, loadout) and an extraction back to
+  the lobby (crew wages).

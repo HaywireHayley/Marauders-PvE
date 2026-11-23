@@ -21,6 +21,7 @@
 --     navmesh at runtime on space maps (with a bounds volume for your ship's interior).
 local PROJECT = require("pveproject") -- the install folder (".../MaraudersPvE/"), written by scripts/mode.ps1
 local Out = require("outref") -- releases UE4SS's out-param registry refs (outref.lua)
+local Census = require("census") -- object scans shared per world (census.lua)
 local Kills = require("killstats") -- your rival kills show as Marauders in the end-of-raid kill list
 
 local R = {}
@@ -428,7 +429,7 @@ end
 -- Every RaidAINodeStart's location. FindAllOf walks every object, so callers scan once and filter per interior.
 local function aiStarts()
     local out = {}
-    for _, a in ipairs(FindAllOf("RaidAINodeStart") or {}) do
+    for _, a in ipairs(Census.all("RaidAINodeStart", Census.FRESH)) do
         if valid(a) then out[#out + 1] = a:K2_GetActorLocation() end
     end
     return out
@@ -471,7 +472,7 @@ end
 -- space-side target to fly to (a station node's docking volume, or the AI frigate that owns that interior).
 local function survey(pc, shipActor)
     local interiors = {}
-    for _, v in ipairs(FindAllOf("NavMeshBoundsVolume") or {}) do
+    for _, v in ipairs(Census.all("NavMeshBoundsVolume", Census.FRESH)) do
         if valid(v) and not v:GetFName():ToString():find("Rivals", 1, true) then
             local o, e = {}, {}
             Out.call(v, "GetActorBounds", false, o, e, false)
@@ -487,7 +488,7 @@ local function survey(pc, shipActor)
         if it then it.name = a.name end
     end
     -- Station airlocks name Navy Outpost / Spaceport and are where docked crews come in.
-    for _, c in ipairs(FindAllOf("RaidUseableAirLockComponent") or {}) do
+    for _, c in ipairs(Census.all("RaidUseableAirLockComponent", Census.FRESH)) do
         if valid(c) and c.StationAirLock then
             local l = c:K2_GetComponentLocation()
             local it = interiorAt(l, 300)
@@ -500,7 +501,7 @@ local function survey(pc, shipActor)
         end
     end
     local function key5(s) return s:lower():gsub("^node_", ""):gsub("[^a-z]", ""):sub(1, 5) end
-    for _, v in ipairs(FindAllOf("LevelStreamingVolume") or {}) do
+    for _, v in ipairs(Census.all("LevelStreamingVolume", Census.FRESH)) do
         if valid(v) then
             local o, e = {}, {}
             Out.call(v, "GetActorBounds", false, o, e, false)
@@ -523,14 +524,14 @@ local function survey(pc, shipActor)
             end
         end
     end
-    for _, s in ipairs(FindAllOf("PlayerStart") or {}) do
+    for _, s in ipairs(Census.all("PlayerStart", Census.FRESH)) do
         if valid(s) and s:GetClass():GetFName():ToString() == "RaidTeamStart" then
             local it = interiorAt(s:K2_GetActorLocation())
             if it then table.insert(it.entries, s:K2_GetActorLocation()) end
         end
     end
     -- AI frigate interiors: the big pirate ships; their space-side target is the frigate itself.
-    for _, ins in ipairs(FindAllOf("RaidSpaceshipInside") or {}) do
+    for _, ins in ipairs(Census.all("RaidSpaceshipInside", Census.FRESH)) do
         if valid(ins) and ins.IsAnAIShip and valid(ins.SpaceshipToPairTo) then
             local it = interiorAt(ins:K2_GetActorLocation(), 500)
             if it then
@@ -544,7 +545,7 @@ local function survey(pc, shipActor)
     local nodes, keyed = {}, {}
     local nodeSeen = {} -- docking-node class -> the name it matched, or false (for the survey log; issue #13)
     for _, it in ipairs(interiors) do if it.key then keyed[it.key] = it.name end end
-    for _, c in ipairs(FindAllOf("RaidDockingComponent") or {}) do
+    for _, c in ipairs(Census.all("RaidDockingComponent", Census.FRESH)) do
         -- (a node's BreachVolume wraps the whole hull for boarding pods: not a place to dock)
         if valid(c) and not c:GetFName():ToString():find("Breach", 1, true) and valid(c:GetOwner()) then
             local cls = c:GetOwner():GetClass():GetFName():ToString()
@@ -593,7 +594,7 @@ local function survey(pc, shipActor)
         end
     end
     -- Station airlocks: the chamber a docked ship's crew comes through (floor point) and its button on the station side.
-    for _, d in ipairs(FindAllOf("RaidFrigateStationDock") or {}) do
+    for _, d in ipairs(Census.all("RaidFrigateStationDock", Census.FRESH)) do
         if valid(d) and valid(d.InSideComp) and valid(d.OpenButton) then
             local c, e = d.InSideComp:K2_GetComponentLocation(), d.InSideComp:GetScaledBoxExtent()
             for _, st in ipairs(stations) do

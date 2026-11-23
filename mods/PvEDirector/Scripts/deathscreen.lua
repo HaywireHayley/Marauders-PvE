@@ -31,7 +31,8 @@ local seenHp = {}  -- bot address -> highest Health seen while it was shooting (
 local pawnAddr, lastHp, dead, lastPawn
 local panel        -- { host, untilAt }
 
-function M.init(ctx) X = ctx end
+local valid, lib -- main.lua's helpers, from ctx (init)
+function M.init(ctx) X = ctx valid, lib = ctx.valid, ctx.lib end
 function M.setRaid(r) raid = r or {} end
 
 -- New world: forget everything. The old panel's widgets belonged to the old world: dropped, never touched again.
@@ -39,8 +40,6 @@ function M.reset()
     shots, hits, seenHp, pawnAddr, lastHp, dead, panel, lastPawn = {}, {}, {}, nil, nil, nil, nil, nil
 end
 
-local function valid(o) return X.valid(o) end
-local function lib(p) return X.lib(p) end
 
 -- As rivalbodies.lua names a gun: "BP_AK47_Child_C" -> "AK47".
 local function gunName(gun)

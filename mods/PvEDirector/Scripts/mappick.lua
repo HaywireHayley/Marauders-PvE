@@ -7,6 +7,7 @@
 -- click comes from a hook on the button's own pressed event; the game stores the choice in
 -- SIGISGameInstancePGOS.ActiveMMRegion, but its default (0) can't tell "untouched" from "picked region 0".
 local M = {}
+local Conditions = require("conditions") -- raid conditions (#78): the CONDITION button, a condition's fixed map
 local X -- log, valid, project (path prefix)
 
 -- region -> map (the regions' own order in the picker: USA WEST 1, USA SOUTH 2, EU CENTRAL 3, ASIA NORTH 4,

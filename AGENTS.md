@@ -32,7 +32,7 @@ issue number, what was verified and what wasn't).
   `rivalbodies.lua`, `rivalcombat.lua`; plus `crew.lua`, `minimap.lua`...), or a new module with
   the same shape (`local M = {}`, `M.init(ctx)` taking main's helpers, `M.setRaid(r)` if it reads the per-raid table
   and listed in main.lua's `shareRaid`, `return M`). `main.lua` keeps only the director: CFG, onTick, update, hooks and
-  keys (101 of its 200 locals in use, 2026-11-17). No globals to dodge the limit.
+  keys (121 of its 200 locals in use, 2026-11-22). No globals to dodge the limit.
 - Python: `python -m py_compile <files>` and `python -m ruff check .` (`ruff.toml`: real mistakes, not layout; CI runs it). Launcher changes: `python launcher/test_ui.py [screenshot folder]` (Windows;
   temporary saves, every dialog, keyboard, 150 % scaling). Background threads in the launcher call `self.ui(fn)`,
   never Tk directly. Linux tooling: `python3 scripts/test_pvemode.py`.

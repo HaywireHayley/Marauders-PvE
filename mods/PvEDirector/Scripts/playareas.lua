@@ -1,6 +1,7 @@
 -- Play areas (moved out of main.lua): which parts of a station's navmesh bots may use. offLimits() is asked by the
 -- soldiers (bots.lua), rival crews and your crew; findAll() is a short-lived cache of object scans rivals.lua shares.
 local Out = require("outref") -- releases UE4SS's out-param registry refs (outref.lua)
+local Census = require("census") -- object scans shared per world (census.lua)
 local M = {}
 
 local log, valid -- from main.lua (M.init)
@@ -30,16 +31,9 @@ function M.inBox(b, p) return math.abs(p.X - b.at.X) <= b.ext.X and math.abs(p.Y
 
 -- Object scans shared for a few seconds: on stepping into a station, rivals.lua's garrison (seedSpots) and the boarding
 -- rescan below scan the same classes within a second or two (~50 ms each, so each class was paid twice). Results can
--- hold actors destroyed since; every caller checks valid().
-function M.findAll(cls)
-    local c, now = raid.scanCache, os.clock()
-    if not c or c.world ~= raid.world then c = { world = raid.world } raid.scanCache = c end
-    local e = c[cls]
-    if e and now - e.at < 3 then return e.list end
-    local list = FindAllOf(cls) or {}
-    c[cls] = { at = now, list = list }
-    return list
-end
+-- hold actors destroyed since; every caller checks valid(). The lists live in census.lua, shared with rivals.lua's
+-- station survey and minimap.lua.
+function M.findAll(cls) return Census.all(cls, Census.FRESH) end
 
 -- One marker class into a cell table. Airlocks don't count towards a box being mapped: they're on the hull and load
 -- with the outside of the station, before its insides.
