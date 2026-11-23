@@ -357,7 +357,14 @@ def stop(proc):
 # Steam's %command% ----------------------------------------------------------------------------------------------------
 def game_command(argv, game=None):
     """Steam's command line with the EAC bootstrapper (RaidGame.exe) swapped for the game itself, as the Windows
-    launcher starts it. Returns (argv, game folder) or (None, None) when there's no RaidGame.exe in it."""
+    launcher starts it. Returns (argv, game folder) or (None, None) when there's no RaidGame.exe in it.
+    Steam's command can come twice (a launch option with %command% in it twice): everything up to the first
+    RaidGame.exe is then a whole command of its own, and only the last one is run. Swapping the first one ran the
+    game with Steam's wrapper chain as its arguments, and the game stopped on an error box (#161, 2026-11-23)."""
+    exes = [i for i, a in enumerate(argv) if os.path.basename(a.replace("\\", "/")).lower() == BOOTSTRAP]
+    if len(exes) > 1:
+        say("Steam's command holds the game twice (is %command% in the launch option twice?): running the last one.")
+        argv = argv[exes[-2] + 1:]
     for i, arg in enumerate(argv):
         if os.path.basename(arg.replace("\\", "/")).lower() == BOOTSTRAP:
             folder = os.path.dirname(arg)

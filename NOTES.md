@@ -5314,3 +5314,8 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   (Wayland); now polled with winfo_viewable() before grab_set(). Also: Tk callback errors go to
   backend/launcher_errors.log (and the status line), and the report zip takes it and linux_launch.log.
   Tested: test_ui.py (Windows, 16 OK), the dialogs under WSLg; not on the tester's KDE.
+- Third log, same day: Proton's Command was our Shipping exe followed by Steam's WHOLE chain (steam-launch-wrapper,
+  reaper, _v2-entry-point, proton waitforexitandrun .../RaidGame.exe -nosplash): steam-run got %command% twice (the
+  launch option as typed, probably) and game_command swapped the first RaidGame.exe, so the game ran with Steam's chain
+  as arguments: that's the error box. game_command now runs only the last whole command and says so in the log.
+  Tested by test_pvemode.py; not under real Proton.
