@@ -43,12 +43,14 @@ local function nameOf(o)
 end
 
 -- Every lock volume in the level that belongs to a door: { c = volume, door = owner, name = "TopLock", key = address }.
+-- All of them: burn() keeps only those within NEAR. It used to stop at 24 in FindAllOf's order, which on a map with
+-- more than 8 lock doors could leave out the door in front of you (#374).
 local function findVolumes(s, now)
     if s.vols and now < s.findAt then return end
     s.findAt = now + FIND_EVERY
     s.vols = {}
     for _, c in ipairs(FindAllOf("RaidLockVolumeComponent") or {}) do
-        if X.valid(c) and #s.vols < 24 then
+        if X.valid(c) then
             local which = nameOf(c):match("RaidLockVolume_(%a+)")
             local door = c:GetOwner()
             if LOCKS[which] and X.valid(door) then
