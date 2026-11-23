@@ -425,6 +425,14 @@ local function inBox(b, l, margin)
     return math.abs(l.X - b.c.X) <= b.e.X + margin and math.abs(l.Y - b.c.Y) <= b.e.Y + margin
         and math.abs(l.Z - b.c.Z) <= b.e.Z + margin
 end
+-- Every RaidAINodeStart's location. FindAllOf walks every object, so callers scan once and filter per interior.
+local function aiStarts()
+    local out = {}
+    for _, a in ipairs(FindAllOf("RaidAINodeStart") or {}) do
+        if valid(a) then out[#out + 1] = a:K2_GetActorLocation() end
+    end
+    return out
+end
 local function say(pc, msg)
     X.log("[rivals] " .. msg)
     pcall(function() pc:ClientMessage(msg, FName("Event"), 5.0) end)
@@ -484,7 +492,8 @@ local function survey(pc, shipActor)
             local l = c:K2_GetComponentLocation()
             local it = interiorAt(l, 300)
             if it then
-                local owner = c:GetOwner():GetFName():ToString()
+                local o = c:GetOwner()
+                local owner = valid(o) and o:GetFName():ToString() or ""
                 it.name = it.name or (owner:find("Navy") and "Navy Outpost") or (owner:find("Spaceport") and "Spaceport")
                 table.insert(it.entries, l)
             end
@@ -537,7 +546,7 @@ local function survey(pc, shipActor)
     for _, it in ipairs(interiors) do if it.key then keyed[it.key] = it.name end end
     for _, c in ipairs(FindAllOf("RaidDockingComponent") or {}) do
         -- (a node's BreachVolume wraps the whole hull for boarding pods: not a place to dock)
-        if valid(c) and not c:GetFName():ToString():find("Breach", 1, true) then
+        if valid(c) and not c:GetFName():ToString():find("Breach", 1, true) and valid(c:GetOwner()) then
             local cls = c:GetOwner():GetClass():GetFName():ToString()
             local named = keyed[key5(cls)]
             if nodeSeen[cls] == nil then nodeSeen[cls] = false end
@@ -568,14 +577,15 @@ local function survey(pc, shipActor)
             end
         end
     end
-    local stations = {}
+    local stations, starts = {}, nil -- (starts: the AI start spots, one scan for all interiors)
     for _, it in ipairs(interiors) do
         if it.name and (it.frigate or (nodes[it.name] and #nodes[it.name] > 0)) then
             it.berths = it.frigate and { { side = 1 }, { side = -1 } } or nodes[it.name]
             -- No airlock (Mini Mine): come in at the station's own AI spawn spots.
             if #it.entries == 0 then
-                for _, a in ipairs(FindAllOf("RaidAINodeStart") or {}) do
-                    if valid(a) and inBox(it.box, a:K2_GetActorLocation()) then table.insert(it.entries, a:K2_GetActorLocation()) end
+                starts = starts or aiStarts()
+                for _, p in ipairs(starts) do
+                    if inBox(it.box, p) then table.insert(it.entries, p) end
                 end
             end
             if #it.entries == 0 then table.insert(it.entries, it.box.c) end
@@ -667,14 +677,15 @@ local function pointsOfInterest(pc, interiors, homeInside)
     local home = valid(homeInside) and homeInside:K2_GetActorLocation() or nil
     local isStation = {}
     for _, st in ipairs(S.stations) do isStation[st] = true end
-    local names = {}
+    local names, starts = {}, nil -- (starts: the AI start spots, one scan for all interiors)
     for _, it in ipairs(interiors) do
         if it.name and not it.frigate and not isStation[it]
             and not (home and inBox(it.box, home, 0)) then -- (not your own ship's interior)
             local kept = {}
             for _, p in ipairs(it.entries or {}) do if not X.offLimits(p) then kept[#kept + 1] = p end end
-            for _, a in ipairs(FindAllOf("RaidAINodeStart") or {}) do
-                if #kept < 8 and valid(a) and inBox(it.box, a:K2_GetActorLocation()) then kept[#kept + 1] = a:K2_GetActorLocation() end
+            starts = starts or aiStarts()
+            for _, p in ipairs(starts) do
+                if #kept < 8 and inBox(it.box, p) then kept[#kept + 1] = p end
             end
             for _, dz in ipairs({ -0.6, -0.3, 0, 0.3, 0.6 }) do
                 if #kept >= 4 then break end

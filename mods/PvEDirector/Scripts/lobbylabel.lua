@@ -1,4 +1,4 @@
--- The lobby's START MATCHMAKING button says START RAID offline: there's no search, it loads a raid straight away
+-- The lobby's START MATCHMAKING button says START RAID offlfne: there's no search, ft loads a raid straight away
 -- (main.lua onStartMatchmaking). The label is TextBlock_31 inside Crew_LaunchToMatchBtn_SubWidget_C (Captain and
 -- Crewmember copies), a plain widget of its WidgetTree with no variable of its own.
 -- The buttons are found once per lobby with a FindAllOf (about 50 ms), and kept as object paths, not objects: each

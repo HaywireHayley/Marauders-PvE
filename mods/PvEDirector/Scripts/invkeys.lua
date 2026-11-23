@@ -38,7 +38,7 @@ function K.init(ctx) X = ctx end
 local function menuWidget()
     if menuPath then
         local m = StaticFindObject(menuPath)
-        if m and m:IsValid() then return m end
+        if X.valid(m) then return m end
         menuPath, menuOpened = nil, nil -- a new world: its menu isn't made until it opens
     end
     if not menuOpened then return nil end
@@ -70,7 +70,7 @@ end
 local function invWidget()
     if invPath then
         local w = StaticFindObject(invPath)
-        if w and w:IsValid() then return w end
+        if X.valid(w) then return w end
         invPath, invWait, nextInvFind = nil, 2, 0
     end
     local now = os.clock()
