@@ -85,6 +85,38 @@ def log(msg):
         f.write(time.strftime("%H:%M:%S ") + msg + "\n")
 
 
+LOG_KEEP = 1_000_000  # bytes: a bigger server.log becomes server.log.1 at start-up (one old copy kept)
+
+
+def rotate_log():
+    try:
+        if os.path.getsize(LOG) > LOG_KEEP:
+            os.replace(LOG, LOG + ".1")
+    except OSError:
+        pass
+
+
+def write_atomic(path, text):
+    """Writes the file whole or not at all, and on disk before it replaces the old one (a power cut or a blue screen
+    mid-write leaves the old file, not an empty one)."""
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(text)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+
+
+_written = {}  # path -> the text last written, so unchanged side files aren't rewritten
+
+
+def write_if_changed(path, text):
+    if _written.get(path) == text and os.path.exists(path):
+        return
+    write_atomic(path, text)
+    _written[path] = text
+
+
 # ---- state --------------------------------------------------------------------------------------------
 def new_state():
     """The account as the live backend last held it, from the capture seed."""
@@ -151,9 +183,25 @@ def migrate(s):
     return have != SCHEMA
 
 
+def read_state_file():
+    """state.json, or its previous copy (state.json.bak) if state.json is missing or doesn't parse."""
+    for path in (STATE, STATE + ".bak"):
+        try:
+            with open(path, encoding="utf-8") as f:
+                s = json.load(f)
+            if path != STATE:
+                log(f"state.json missing or unreadable: loaded the previous copy, {os.path.basename(path)}")
+            return s
+        except FileNotFoundError:
+            continue
+        except ValueError as e:
+            log(f"{os.path.basename(path)} doesn't parse ({e})")
+    return None
+
+
 def load_state():
-    if os.path.exists(STATE):
-        s = json.load(open(STATE, encoding="utf-8"))
+    s = read_state_file()
+    if s is not None:
         if migrate(s):
             save_state(s)
             return s
@@ -167,9 +215,15 @@ def load_state():
 
 
 def save_state(s):
+    """Writes state.json (compact: it's rewritten on every stash change), on disk before it replaces the old one, and
+    keeps the copy it replaces as state.json.bak, which load_state falls back to."""
     tmp = STATE + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(s, f, indent=1)
+        f.write(json.dumps(s, separators=(",", ":")))
+        f.flush()
+        os.fsync(f.fileno())
+    if os.path.exists(STATE):
+        os.replace(STATE, STATE + ".bak")
     os.replace(tmp, STATE)
     write_loadout(s)
     write_cosmetics(s)
@@ -179,18 +233,18 @@ def write_loadout(s):
     """The equipped inventory items, as the raid server's SIGISPlayerController::Server_AwsN_EquippedItemsReturned
     takes them: a JSON array of storage objects whose value is {"equip":true,"value":"<item string>"}. There is no
     raid server offline; the PvEDirector mod feeds this file to that function at raid start."""
-    items = []
-    for o in s["storage"].get("inventory", {}).values():
+    items, bad = [], []
+    for k, o in s["storage"].get("inventory", {}).items():
         try:
             v = json.loads(o["value"])
-        except ValueError:
+        except (ValueError, KeyError, TypeError):
+            bad.append(k)
             continue
         if isinstance(v, dict) and v.get("equip"):
             items.append({"value": v})
-    tmp = LOADOUT + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(items, f, separators=(",", ":"))
-    os.replace(tmp, LOADOUT)
+    if bad:
+        log(f"loadout: {len(bad)} inventory item(s) don't parse, left out: {bad[:10]}")
+    write_if_changed(LOADOUT, json.dumps(items, separators=(",", ":")))
 
 
 def write_cosmetics(s):
@@ -202,15 +256,13 @@ def write_cosmetics(s):
     for k, o in sorted(s["storage"].get("cosequipped", {}).items()):
         try:
             v = json.loads(o["value"])
-        except ValueError:
+        except (ValueError, KeyError, TypeError):
+            log(f"cosmetics: {k} doesn't parse, left out")
             continue
         v = v.get("value") if isinstance(v, dict) else v
         if v not in (None, ""):
             out.append({"key": k, "value": str(v)})
-    tmp = COSMETICS + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(out, f, separators=(",", ":"))
-    os.replace(tmp, COSMETICS)
+    write_if_changed(COSMETICS, json.dumps(out, separators=(",", ":")))
 
 
 state = None
@@ -243,8 +295,8 @@ def flush_coverage():
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(coverage["data"], f, indent=1, sort_keys=True)
         os.replace(tmp, COVERAGE)
-    except OSError:
-        pass
+    except OSError as e:
+        log(f"coverage.json not written: {e}")
 
 
 def add_gifts(rows):
@@ -396,14 +448,21 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/v2/storage" and verb == "PUT":
             acks, twins = [], []
             dropped = state.setdefault("dropped_twins", [])
+            dropped_set, places = set(dropped), None
             for o in (body or {}).get("objects", []):
                 # #370: a new item that is an exact copy of one already in the same place (same row, stack, condition,
                 # cell and container) is a duplicate, never a real item: two can't share a cell. It's acknowledged so
                 # the game carries on, but not stored, and later writes to that key are ignored the same way.
-                if o["collection"] == "inventory" and (o["key"] in dropped or (
-                        o["key"] not in st.get("inventory", {}) and twin_of(st.get("inventory", {}), o["key"], o.get("value")))):
-                    if o["key"] not in dropped:
+                twin = None
+                if o["collection"] == "inventory" and o["key"] not in dropped_set \
+                        and o["key"] not in st.get("inventory", {}):
+                    if places is None:  # built once per request, kept up to date as items are stored below
+                        places = item_places(st.get("inventory", {}))
+                    twin = places.get(item_place(o.get("value")))
+                if o["collection"] == "inventory" and (o["key"] in dropped_set or twin):
+                    if o["key"] not in dropped_set:
                         dropped.append(o["key"])
+                        dropped_set.add(o["key"])
                         del dropped[:-1000]  # (the game lists the stash again each login, so old keys don't come back)
                     twins.append(o["key"])
                     now = stamp()
@@ -422,6 +481,8 @@ class Handler(BaseHTTPRequestHandler):
                                  "permission_read": o.get("permission_read", 1),
                                  "permission_write": o.get("permission_write", 1),
                                  "create_time": old["create_time"] if old else now, "update_time": now}
+                if places is not None and o["collection"] == "inventory":
+                    places.setdefault(item_place(o.get("value")), o["key"])
                 acks.append({"collection": o["collection"], "key": o["key"], "version": col[o["key"]]["version"],
                              "user_id": uid, "create_time": col[o["key"]]["create_time"], "update_time": now})
             save_state(state)
@@ -514,17 +575,31 @@ def item_fields(value):
         return None
 
 
+def item_place(value):
+    """What makes two items the same item in the same place: every field but the key (row, stack, condition, cell,
+    rotation, container, attachments). None for anything that isn't a full item string."""
+    f = item_fields(value)
+    return "-".join(f[1:]) if f and len(f) >= 8 else None
+
+
+def item_places(inv):
+    """{item_place: key} for the inventory, the oldest key for each place."""
+    out = {}
+    for k, o in sorted(inv.items(), key=lambda kv: (kv[1].get("create_time", ""), kv[0])):
+        p = item_place(o.get("value"))
+        if p is not None:
+            out.setdefault(p, k)
+    out.pop(None, None)
+    return out
+
+
 def twin_of(inv, key, value):
     """The key of another item exactly like this one in the same place (all fields but the key equal), or None."""
-    f = item_fields(value)
-    if not f or len(f) < 8:
+    p = item_place(value)
+    if p is None:
         return None
-    for k, o in inv.items():
-        if k != key:
-            g = item_fields(o.get("value"))
-            if g and g[1:] == f[1:]:
-                return k
-    return None
+    k = item_places({k: o for k, o in inv.items() if k != key}).get(p)
+    return k
 
 
 def drop_twins():
@@ -747,13 +822,13 @@ def main():
     port = args.port
     if args.dir:
         use_dir(os.path.abspath(args.dir), args.name)
+    rotate_log()
     state = load_state()
     return_unfinished_raid("the stand-in started")
     before = json.dumps(state)
     twins = drop_twins()
-    if twins:
-        with open(STATE.replace("state.json", "state.before-twins.json"), "w", encoding="utf-8") as f:
-            f.write(before)
+    if twins:  # (a new name each time: an earlier backup is never overwritten)
+        write_atomic(STATE.replace("state.json", time.strftime("state.before-twins-%Y%m%d-%H%M%S.json")), before)
         save_state(state)
         log(f"inventory: {twins} duplicate item(s) removed (exact copies of an item in the same place, #370)")
     repair_inventory()
