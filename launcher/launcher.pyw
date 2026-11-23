@@ -622,10 +622,17 @@ class App(tk.Tk):
         self.minimize_var = tk.BooleanVar(value=self.read_minimize())
         self.update_check_var = tk.BooleanVar(value=self.read_update_check())
         # Shown top right only when a newer build is out (check_update)
+        # Always shown, so players know the launcher updates itself: greyed out with why (checking, up to date, off, a
+        # dev checkout), orange with "!" when a newer build is out (show_update).
         self.update_badge = tk.Frame(self, bg=INK)
-        tk.Label(self.update_badge, text="!", bg=ORANGE, fg=INK, font=font(14, "Bold"), width=2).pack(side="left", fill="y")
+        self.update_mark = tk.Label(self.update_badge, text="!", bg=ORANGE, fg=INK, font=font(14, "Bold"), width=2)
+        self.update_mark.pack(side="left", fill="y")
         self.update_button = Button(self.update_badge, "UPDATE", self.offer_update, "plain", 11, (12, 6))
         self.update_button.pack(side="left")
+        self.update_button.bind("<Enter>", lambda e: None if self.update_button.enabled else self.say(
+            "Updates: the launcher installs new builds itself and keeps your saves. When one is out this button lights "
+            "up. " + ("Checking is off (SETTINGS)." if not self.update_check_var.get() else "")))
+        self.update_badge.place(relx=1.0, x=-36, y=40, anchor="ne")
 
         # width=1: the label asks for no room of its own and just fills its column (sticky ew). Sized to its text, a long
         # line (a raid condition's about, #188) widened column 0 and pushed the right-hand panel out of the window.
@@ -1575,15 +1582,21 @@ class App(tk.Tk):
 
     # Updates --------------------------------------------------------------------------------------------------------
     def check_update(self):
-        """Asks GitHub for the latest build off the UI thread; a badge appears only if it's newer than version.txt.
-        Offline, rate-limited or a dev checkout (no version.txt): nothing shows and nothing is said."""
+        """Asks GitHub for the latest build off the UI thread; the update button lights up only if it's newer than
+        version.txt, and otherwise says why not (up to date, can't check when offline or rate-limited, a dev checkout)."""
         current = update.installed()
-        if not self.update_check_var.get() or not current:
+        if not current:
+            self.show_update(None, "DEV BUILD")
             return
+        if not self.update_check_var.get():
+            self.show_update(None, "UPDATES OFF")
+            return
+        self.show_update(None, "CHECKING...")
 
         def work():
-            rel = update.newer(update.latest(), current)
-            self.ui(lambda: self.show_update(rel))
+            latest = update.latest()
+            rel = update.newer(latest, current)
+            self.ui(lambda: self.show_update(rel, "UP TO DATE" if latest else "CAN'T CHECK"))
             if rel:
                 return  # updating fetches the changed dependencies anyway
             # Dependencies that don't match this build's deps.json (an update by a launcher from before deps.json, or
@@ -1594,13 +1607,19 @@ class App(tk.Tk):
                 self.ui(lambda: self.start_repair(own, parts))
         threading.Thread(target=work, daemon=True).start()
 
-    def show_update(self, release):
+    def show_update(self, release, idle="UP TO DATE"):
+        """The update button: lit with the new build's name, or greyed out with `idle` (why there's nothing to do)."""
         self.release = release
         if release and self.update_check_var.get():
             self.update_button.config(text=f"UPDATE TO {release['tag'].replace('public-test-', 'BUILD ')}")
-            self.update_badge.place(relx=1.0, x=-36, y=40, anchor="ne")
+            self.update_button.enable(True)
+            self.update_mark.pack(side="left", fill="y", before=self.update_button)
         else:
-            self.update_badge.place_forget()
+            if not self.update_check_var.get() and update.installed():
+                idle = "UPDATES OFF"
+            self.update_button.config(text=idle)
+            self.update_button.enable(False)
+            self.update_mark.pack_forget()
 
     def offer_update(self):
         rel = self.release
