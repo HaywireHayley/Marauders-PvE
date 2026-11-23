@@ -2,6 +2,18 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 23 Nov 2026, build 27 (`public-test-20261123.27`)
+
+For Linux players helping us get it running under Proton. Nothing changes on Windows. On build 1 of 17 Nov or later,
+the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Changes
+
+- **Linux: a launch log for reports (#161, PR #402, thanks Pöhlbert for testing):** every PLAY now writes
+  `backend/linux_launch.log`: Steam's command, the one the mod ran, Proton's and the game's own output and the exit
+  code. If PLAY fails (for example "unable to load library steamclient64.dll"), please send that file, and for more
+  detail `~/steam-1789480.log` after adding `PROTON_LOG=1 ` in front of the launch option.
+
 ## Public test, 23 Nov 2026, build 26 (`public-test-20261123.26`)
 
 A simpler Linux install, and Undo last raid now brings back crewmates who died in that raid. On build 1 of 17 Nov or
