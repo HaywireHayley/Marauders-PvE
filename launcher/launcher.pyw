@@ -309,12 +309,23 @@ class Dialog(tk.Toplevel):
         dark_title_bar(self)
         self.deiconify()
         self.lift(self.app)
+        self.focus_force()
+        self._grab(0)
+
+    def _grab(self, tries):
+        """The grab once the window is mapped (a grab on an unmapped window fails or grabs nothing). Polled, not
+        wait_visibility(): a compositing window manager (Wayland, KDE, WSLg) may never send the VisibilityNotify it
+        waits for, which hung every dialog on Linux (#161)."""
         try:
-            self.wait_visibility()  # a grab on a window that isn't mapped yet fails or grabs nothing
-            self.grab_set()
+            if not self.winfo_exists():
+                return
+            if self.winfo_viewable():
+                self.grab_set()
+                self.focus_force()
+            elif tries < 100:
+                self.after(20, self._grab, tries + 1)
         except tk.TclError:
             pass  # closed already, or another grab: it still works, only without blocking the launcher
-        self.focus_force()
 
     def row(self):
         f = tk.Frame(self.body, bg=PANEL)
@@ -350,7 +361,29 @@ def check(parent, text, var, size=12, command=None, **kw):
     return tk.Checkbutton(parent, text=text, variable=var, command=command, font=font(size), **kw)
 
 
+ERROR_LOG = os.path.join(ROOT, "backend", "launcher_errors.log")
+
+
+def log_error(text):
+    """Appends to backend/launcher_errors.log. pythonw (and a Linux desktop entry) has no console, so an error in a
+    button's handler used to vanish and the button just seemed to do nothing (#161: SETTINGS and saves on Linux)."""
+    try:
+        os.makedirs(os.path.dirname(ERROR_LOG), exist_ok=True)
+        with open(ERROR_LOG, "a", encoding="utf-8") as f:
+            f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S ") + text.rstrip() + "\n")
+    except OSError:
+        pass
+
+
 class App(tk.Tk):
+    def report_callback_exception(self, exc, val, tb):
+        import traceback
+        log_error("".join(traceback.format_exception(exc, val, tb)))
+        try:
+            self.say(f"Something went wrong ({exc.__name__}: {val}). Details: backend/launcher_errors.log")
+        except Exception:
+            pass
+
     def __init__(self):
         super().__init__()
         self.title("Marauders Offline")

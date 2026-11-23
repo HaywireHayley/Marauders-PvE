@@ -5302,3 +5302,15 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
 - steam-run now writes backend/linux_launch.log every launch: Steam's command, Steam/Proton env (SteamAppId,
   SteamGameId, STEAM_COMPAT_*, PROTON_*, pressure-vessel paths, WINEDLLOVERRIDES), the command run, the game's and
   Proton's stdout/stderr, and the exit code. Tested by test_pvemode.py (Windows, WSL); not under real Proton.
+- Second report (2026-11-23, Proton Experimental 11, CachyOS): Steam's PROTON_LOG shows our command ran
+  (RaidGame-Win64-Shipping.exe, WINEDLLOVERRIDES dwmapi=n,b), dwmapi and UE4SS.dll loaded, UE4SS threw two caught C++
+  exceptions, SteamAPI_Init loaded steamclient64 OK, then a message box (window class #32770 with a Button) came up and
+  the game sat on it. Its text isn't in the log. UE4SS.log would say, but Folder.online() deleted it with the rest:
+  it's now copied to backend/last_game.log first (the Windows launcher already did). Still unknown: what the box says.
+  No linux_launch.log in the tester's backend/ although steam-run clearly ran: steam-run now prints the log's path to
+  stderr (it shows in Steam's log) and creates backend/ if missing; maybe the launch option points at an older copy.
+- Same tester: SETTINGS and NEW SAVE "don't open" in the launcher. Dialog.show() blocked in wait_visibility(), which
+  waits for a VisibilityNotify a compositing window manager may never send. Reproduced once in three runs under WSLg
+  (Wayland); now polled with winfo_viewable() before grab_set(). Also: Tk callback errors go to
+  backend/launcher_errors.log (and the status line), and the report zip takes it and linux_launch.log.
+  Tested: test_ui.py (Windows, 16 OK), the dialogs under WSLg; not on the tester's KDE.
