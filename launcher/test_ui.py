@@ -182,7 +182,10 @@ class Window(unittest.TestCase):
                                 "centred on the launcher")
                 grab(d, f"ui_{name}.png")
                 d.event_generate("<Escape>")
-                settle(self.app)
+                for _ in range(20):  # up to 2 s: the first dialog of a run can be slow to go
+                    settle(self.app, 0.1)
+                    if not dialogs(self.app):
+                        break
                 self.assertEqual(dialogs(self.app), [])
 
     def test_new_save_gear_and_money_are_separate(self):
