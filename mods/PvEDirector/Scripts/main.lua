@@ -1101,7 +1101,7 @@ PveGuild.init({ log = log, valid = valid, project = PROJECT })
 LobbyLabel = require("lobbylabel") -- the lobby's START RAID label (lobbylabel.lua)
 InvQol = require("invqol") -- stash SORT / SELL JUNK / search / double-click to gear (invqol.lua)
 InvQol.init({ log = log, valid = valid, lib = lib, minimap = Minimap })
-LobbyLabel.init({ log = log, offline = function() return Launch.offlineBackend() end })
+LobbyLabel.init({ log = log, valid = valid, offline = function() return Launch.offlineBackend() end })
 InvKeys = require("invkeys") -- Esc / lean with the inventory open (invkeys.lua)
 InvKeys.init({ log = log, valid = valid,
     pc = function() local pc = Hire.lastPc() return valid(pc) and pc:GetClass():GetFName():ToString() == "MainPlayerController_C" and pc or nil end,
@@ -1257,15 +1257,22 @@ update = function(pc)
                 pveStashRows(math.tointeger(inv:GetAddress()), rows)
                 -- The stash grid keeps its own size and builds its slots when the menu does: rebuilt when they differ.
                 local w = raid.stashGrid
-                if not valid(w) then
+                -- FindAllOf is 30-45 ms and finds nothing until the stash menu is built: after a miss the wait
+                -- between looks grows from 2 s to 10 s, and starts over when a look finds it.
+                if not valid(w) and age >= (raid.stashGridAt or 0) then
                     w = nil
                     for _, x in ipairs(FindAllOf("InventoryContainerWidget") or {}) do
-                        if valid(x) and x:GetFullName():find("Transient", 1, true)
-                            and x:GetFullName():find("InventoryStashGrid", 1, true) and x.InventorySlots:GetArrayNum() > 0 then
+                        local name = valid(x) and x:GetFullName() or ""
+                        if name:find("Transient", 1, true) and name:find("InventoryStashGrid", 1, true)
+                            and x.InventorySlots:GetArrayNum() > 0 then
                             w = x
                         end
                     end
                     raid.stashGrid = w
+                    raid.stashGridWait = w and 2 or math.min((raid.stashGridWait or 1) * 2, 10)
+                    raid.stashGridAt = age + raid.stashGridWait
+                elseif not valid(w) then
+                    w = nil
                 end
                 if w and w.InventoryGridSize.Row ~= rows then
                     w.InventoryGridSize.Row = rows
@@ -1280,12 +1287,17 @@ update = function(pc)
         if age >= (raid.lobbyDress or 0) then
             raid.lobbyDress = age + 3
             if Female.playerDue() then
-                for _, char in ipairs(FindAllOf("MM_PlayerChar_C") or {}) do
-                    -- only your own stand: the others are your crew's (crewlobby.lua)
-                    if valid(char) and not char:GetFullName():find("Default__", 1, true) and char.isPlayer then
-                        pcall(Female.dress, char, Female.playerOn())
+                -- The stand is kept (raid is per world) and only looked for again once it's gone.
+                if not valid(raid.lobbyStand) then
+                    raid.lobbyStand = nil
+                    for _, char in ipairs(FindAllOf("MM_PlayerChar_C") or {}) do
+                        -- only your own stand: the others are your crew's (crewlobby.lua)
+                        if valid(char) and not char:GetFullName():find("Default__", 1, true) and char.isPlayer then
+                            raid.lobbyStand = char
+                        end
                     end
                 end
+                if raid.lobbyStand then pcall(Female.dress, raid.lobbyStand, Female.playerOn()) end
             end
         end
         if not raid.splashDone and age >= (raid.splashSweep or 0) then

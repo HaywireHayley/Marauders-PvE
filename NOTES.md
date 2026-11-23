@@ -5178,6 +5178,23 @@ From Taki's report (`MaraudersOffline-report-20261121-2335`, build 23: soldiers 
   the containers empty because of the overlapping copies or for another reason (not checked in game). Test: a raid
   ending through the space gate with full bags in the stash, then compare the stash before and after.
 
+## Lua hot paths: lobby scans, owner checks, one AI-start scan (2026-11-22; luacheck only, NOT tested in game)
+- main.lua lobby stash grid: the `FindAllOf("InventoryContainerWidget")` (30-45 ms) ran every 2 s while the stash
+  menu wasn't built. Now a miss doubles the wait (2 s up to 10 s; `raid.stashGridAt`/`stashGridWait`), and
+  `GetFullName` is read once per candidate. No cheap "stash menu open" signal was used: the grid can be resized up to
+  10 s late after opening the stash for the first time in a lobby.
+- main.lua lobby stand: `FindAllOf("MM_PlayerChar_C")` every 3 s while `Female.playerDue()`; the stand is now kept in
+  `raid.lobbyStand` and looked for again only once `valid()` fails (it dressed every matching stand before; there is one).
+- invqol.lua `Q.tick`: `valid(ticker)` instead of `IsValid()`, and the class/world lookup is done once per ticker address.
+- minimap.lua (home airlocks/helms) and rivals.lua (station airlock owner name, docking node class): the component's
+  owner is checked with `valid()` before `GetAddress`/`GetFName`/`GetClass`.
+- rivals.lua: `FindAllOf("RaidAINodeStart")` ran once per interior in the station survey and in `pointsOfInterest`;
+  now one scan (`aiStarts()`) per call, filtered per interior.
+- gamesettings/guild/invqol/lobbylabel/invkeys path lookups use the director's `valid()` (lobbylabel's ctx now gets it).
+- Skipped: main.lua's `Default__GameplayStatics` at the time-dilation and controller lookups. `lib()` is not cached
+  (it is `StaticFindObject` itself) and is defined below those lines, so it would change nothing.
+- To check in game: the lobby `frames:` lines in last_game.log (no 30-45 ms spikes every 2 s), the stash grid's rows
+  after opening the stash, the lobby character's outfit, the minimap's home ship, rival crews on space maps.
 ## Stand-in robustness (2026-11-22, review of the backend)
 - Saves: `save_state` writes compact JSON, fsyncs the temp file before the rename (a power cut or blue screen used to be
   able to leave an empty state.json), and keeps the replaced copy as `state.json.bak`; `load_state` falls back to it when

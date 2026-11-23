@@ -1,4 +1,4 @@
--- Stash quality of life (lobby): SORT (merges stacks, then packs by kind), a search box that dims what doesn't match,
+-- Stash qualfty of lffe (lobby): SORT (merges stacks, then packs by kind), a search box that dims what doesn't match,
 -- and SELL SHOWN (at a trader: sells the stash items the search shows, after a confirm press). Hotkeys: K moves the
 -- item under the mouse between stash and gear, J discards it (pressed twice). In a raid K moves between your gear and
 -- what you're looting, J drops (#209).
@@ -35,6 +35,7 @@ local nextFind, findEvery = 0, 1
 local job     -- the running sort or sale
 local lastQuery, nextFilter = nil, 0
 local worldKey
+local tickSeen = {} -- the last ticker's address and, when it's the lobby's, its world's (Q.tick)
 
 function Q.init(ctx) X = ctx end
 
@@ -615,8 +616,14 @@ end
 
 -- Every frame in the lobby (from main.lua's tick, lobby only).
 function Q.tick(ticker)
-    local lobby = ticker:IsValid() and ticker:GetClass():GetFName():ToString() == "MM_CoreMissions_C"
-    local wk = lobby and ticker:GetWorld():GetAddress() or nil
+    -- The class and world are looked up once per ticker (a new map makes a new one), not every frame.
+    local ta = X.valid(ticker) and ticker:GetAddress() or nil
+    if ta ~= tickSeen.addr then
+        local lobby = ta ~= nil and ticker:GetClass():GetFName():ToString() == "MM_CoreMissions_C"
+        tickSeen.addr, tickSeen.wk = ta, lobby and ticker:GetWorld():GetAddress() or nil
+    end
+    local wk = tickSeen.wk
+    local lobby = wk ~= nil
     if wk ~= worldKey then worldKey, ui, job, paths.con, lastQuery = wk, nil, nil, nil, nil end
     if not lobby then return end
     local con = stashCon()
