@@ -102,6 +102,15 @@ class Command(unittest.TestCase):
         self.assertEqual(cmd, ["/steam/proton", "waitforexitandrun", os.path.join(game, pvemode.EXE_REL), "-someflag",
                                "-nosplash"])
 
+    def test_command_given_twice_runs_the_last(self):
+        # #161: the tester's Steam log had our Shipping exe followed by Steam's whole wrapper chain as its arguments
+        game = "/home/deck/.local/share/Steam/steamapps/common/PHtest"
+        chain = ["/steam/reaper", "SteamLaunch", "AppId=1789480", "--", "/steam/proton", "waitforexitandrun"]
+        argv = chain + [game + "/RaidGame.exe"] + chain + [game + "/RaidGame.exe"]
+        cmd, folder = pvemode.game_command(argv)
+        self.assertEqual(folder, game)
+        self.assertEqual(cmd, chain + [os.path.join(game, pvemode.EXE_REL), "-nosplash"])
+
     def test_no_game_in_command(self):
         self.assertEqual(pvemode.game_command(["/usr/bin/true"]), (None, None))
 

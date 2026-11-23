@@ -81,6 +81,8 @@ def build(root, game_folder, save_dir=None, crash=True, out_dir=None):
         "server.log": os.path.join(root, "backend", "server.log"),
         "standin_err.log": os.path.join(root, "backend", "standin_err.log"),
         "coverage.json": os.path.join(root, "backend", "coverage.json"),  # what the stand-in can't answer (#80)
+        "launcher_errors.log": os.path.join(root, "backend", "launcher_errors.log"),  # #161
+        "linux_launch.log": os.path.join(root, "backend", "linux_launch.log"),  # #161
         "UE4SS.log": os.path.join(game_folder, "RaidGame", "Binaries", "Win64", "UE4SS.log"),
         "version.txt": os.path.join(root, "version.txt"),
     }

@@ -71,9 +71,14 @@ LAUNCH_LOG = os.path.join(ROOT, "backend", "linux_launch.log")
 def open_launch_log(argv):
     global _launch_log
     try:
+        os.makedirs(os.path.dirname(LAUNCH_LOG), exist_ok=True)
         _launch_log = open(LAUNCH_LOG, "w", encoding="utf-8")
-    except OSError:
+    except OSError as e:
+        print(f"Marauders Offline: can't write {LAUNCH_LOG}: {e}", file=sys.stderr, flush=True)
         return
+    # Steam's own log (steam-<appid>.log with PROTON_LOG=1) shows stderr: say where this log is, in case it's not
+    # the folder the player looks in (#161)
+    print("Marauders Offline: launch log at " + LAUNCH_LOG, file=sys.stderr, flush=True)
     say("steam-run, Python " + sys.version.split()[0] + ", Steam's command: " + " ".join(argv))
     for k in LAUNCH_LOG_ENV + tuple(sorted(k for k in os.environ if k.startswith("PROTON_"))):
         if k in os.environ:
@@ -254,6 +259,14 @@ class Folder:
             f.write(self.game + "\n")
 
     def online(self):
+        # UE4SS.log goes with the rest; keep it first, as the launcher does on Windows: it's the only record of why a
+        # modded start failed (#161: the game sat on an error box under Proton and the log was gone after).
+        log = os.path.join(self.bin, "UE4SS.log")
+        if os.path.exists(log):
+            try:
+                shutil.copyfile(log, os.path.join(ROOT, "backend", "last_game.log"))
+            except OSError:
+                pass
         for rel in ADDED:
             p = os.path.normpath(os.path.join(self.bin, rel))
             if os.path.isdir(p) and not os.path.islink(p):
@@ -344,7 +357,14 @@ def stop(proc):
 # Steam's %command% ----------------------------------------------------------------------------------------------------
 def game_command(argv, game=None):
     """Steam's command line with the EAC bootstrapper (RaidGame.exe) swapped for the game itself, as the Windows
-    launcher starts it. Returns (argv, game folder) or (None, None) when there's no RaidGame.exe in it."""
+    launcher starts it. Returns (argv, game folder) or (None, None) when there's no RaidGame.exe in it.
+    Steam's command can come twice (a launch option with %command% in it twice): everything up to the first
+    RaidGame.exe is then a whole command of its own, and only the last one is run. Swapping the first one ran the
+    game with Steam's wrapper chain as its arguments, and the game stopped on an error box (#161, 2026-11-23)."""
+    exes = [i for i, a in enumerate(argv) if os.path.basename(a.replace("\\", "/")).lower() == BOOTSTRAP]
+    if len(exes) > 1:
+        say("Steam's command holds the game twice (is %command% in the launch option twice?): running the last one.")
+        argv = argv[exes[-2] + 1:]
     for i, arg in enumerate(argv):
         if os.path.basename(arg.replace("\\", "/")).lower() == BOOTSTRAP:
             folder = os.path.dirname(arg)
