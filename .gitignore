@@ -19,6 +19,8 @@ trailer/
 
 # --- your own saves, settings and logs ---
 backend/state*.json
+backend/state.json.bak
+backend/server.log.1
 backend/saves/
 backend/joiners/
 # the launcher's marker for the save in play (launcher/saves.py ACTIVE)
