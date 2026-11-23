@@ -198,6 +198,35 @@ def make_female():
 FEMALE_RECIPE = ("tools/female", "assets/female/list.txt")
 
 
+def _code_shape(text):
+    """A Python file's code with formatting ignored (whitespace, comments, how plain imports are split or repeated)."""
+    import ast
+    tree = ast.parse(text)
+    imports = sorted({(a.name, a.asname) for n in tree.body if isinstance(n, ast.Import) for a in n.names})
+    tree.body = [n for n in tree.body if not isinstance(n, ast.Import)]
+    return repr(imports) + ast.dump(tree, annotate_fields=False)
+
+
+def recipe_changed(tag):
+    """Whether anything in FEMALE_RECIPE changed since tag in a way that can change its output: a .py file whose code
+    is the same once parsed (lint reformatting, #378) doesn't count."""
+    names = subprocess.run(["git", "diff", "--name-only", tag, "HEAD", "--", *FEMALE_RECIPE], cwd=SRC,
+                           capture_output=True, text=True)
+    if names.returncode:
+        return True
+    for path in names.stdout.split():
+        if not path.endswith(".py"):
+            return True
+        old = subprocess.run(["git", "show", f"{tag}:{path}"], cwd=SRC, capture_output=True, text=True)
+        new = subprocess.run(["git", "show", f"HEAD:{path}"], cwd=SRC, capture_output=True, text=True)
+        try:
+            if old.returncode or new.returncode or _code_shape(old.stdout) != _code_shape(new.stdout):
+                return True
+        except SyntaxError:
+            return True
+    return False
+
+
 def female_from_release():
     """Without the pak key or repak (no make_female.py here), the female meshes of the latest release, when nothing
     that makes them (FEMALE_RECIPE) changed since its tag: its -deps-female-* zips, each checked against GitHub's SHA-256,
@@ -211,8 +240,7 @@ def female_from_release():
     tag = rel["tag"]
     if subprocess.run(["git", "rev-parse", "--verify", "-q", tag], cwd=SRC, capture_output=True).returncode:
         subprocess.run(["git", "fetch", "-q", "upstream", "--tags"], cwd=SRC, capture_output=True)
-    diff = subprocess.run(["git", "diff", "--quiet", tag, "HEAD", "--", *FEMALE_RECIPE], cwd=SRC, capture_output=True)
-    if diff.returncode != 0:
+    if recipe_changed(tag):
         sys.exit(f"female meshes: no pak key here, and {' or '.join(FEMALE_RECIPE)} changed since {tag} (or its tag "
                  "isn't fetched): its meshes would be the old shape. Build where make_female.py can run.")
     parts = sorted(p for p in (rel.get("deps") or {}) if p.startswith("female"))
