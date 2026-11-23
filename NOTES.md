@@ -5257,3 +5257,15 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   RAID label, map/condition picker, guild page, crew stands); space map (rival crews launch and dock, minimap stations,
   airlocks and your ship's plan, civilians, mines); a raid start (input on arrival, loadout) and an extraction back to
   the lobby (crew wages).
+
+## Station turret aim (#364, 2026-11-23)
+- RaidSubNodeActor_Turret's fire routine (exe 0x18aea60..0x18aec5f, static disasm): direction to CurrentAimingActor
+  (+0x268, its current spot, no lead) -> rotator, then pitch, yaw and roll each get rand*2*MissRange - MissRange
+  (MissRange +0x294, DEGREES), fire, AmmoLeft (+0x288) -1. Flak_NodeTurret_C: MissRange 3, FireRate 0.75, TotalAmmo 10,
+  ReloadTime 8, FireDistance 13500, Health 150. Radar_NodeTurret_C: FireRate 10000, FireDistance 10 (doesn't shoot).
+- Measured (Space_Solo_01, starter frigate piloted, hull reset to 5000): MissRange 3 -> ~4800 hull lost in 20 s
+  (ship disabled); MissRange 10 -> nothing in 20 s with 2 flak aiming. Later rounds read nothing at either value (the
+  turrets had stopped engaging), so this is one clean pair, not a curve. Turrets ignored a hull teleported next to them
+  until the player flew it.
+- Fix: rivals.lua easeNodeTurrets sets MissRange every 0.5 s: CFG.STATION_TURRET_MISS 7, 14 when the turret aims at a
+  pod (bADropPod). NOT tested in game after the change (needs a relaunch); pod case not measured.
