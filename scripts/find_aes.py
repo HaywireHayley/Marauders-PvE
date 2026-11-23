@@ -1,7 +1,9 @@
 """Finds the pak AES-256 key in the game exe: UE writes it with 8 'mov dword [reg+off], imm32'.
 Each candidate is checked by decrypting the first block of the pak index (mount point "../../../")."""
-import re, struct, sys
-import os; from pvepaths import ROOT, GAME  # noqa: E402
+import re
+import struct
+import sys
+import os; from pvepaths import GAME  # noqa: E402
 from Crypto.Cipher import AES
 
 EXE = os.path.join(GAME, r'RaidGame/Binaries/Win64/RaidGame-Win64-Shipping.exe')

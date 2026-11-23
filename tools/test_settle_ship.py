@@ -1,6 +1,6 @@
 # Checks the stand-in's settle_ship on the items a bad extraction really wrote. Touches no save: it uses its own state.
 import importlib.util
-import sys; import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
+import sys; import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'scripts')); from pvepaths import ROOT  # noqa: E402
 
 spec = importlib.util.spec_from_file_location("standin", os.path.join(ROOT, r'backend/nakama_standin.py'))
 s = importlib.util.module_from_spec(spec)

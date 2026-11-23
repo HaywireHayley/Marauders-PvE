@@ -1,5 +1,8 @@
 # Scans the bytecode of every loaded Blueprint function for calls to authority / net-mode checks.
-import sys, struct, re, json, collections
+import sys
+import struct
+import re
+import collections
 import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
 import procmem as m
 t = open(os.path.join(GAME, r'RaidGame/Binaries/Win64/UE4SS.log'), encoding='utf-8', errors='ignore').read()

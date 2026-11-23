@@ -3,7 +3,10 @@
 # plain ASCII. Read-only (PROCESS_QUERY_INFORMATION | PROCESS_VM_READ).
 #   python -I tools/offline-audit/paknames.py <pid> Characters/ out.txt      (pid: tasklist /FI "IMAGENAME eq RaidGame*")
 # A prefix starting with /Game/ finds nothing: the index holds paths relative to Content.
-import ctypes, ctypes.wintypes as W, re, sys
+import ctypes
+import ctypes.wintypes as W
+import re
+import sys
 pid, prefix, outp = int(sys.argv[1]), sys.argv[2].encode(), sys.argv[3]
 k = ctypes.WinDLL("kernel32", use_last_error=True)
 h = k.OpenProcess(0x0410, False, pid)

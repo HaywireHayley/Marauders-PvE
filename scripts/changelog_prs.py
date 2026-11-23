@@ -11,7 +11,11 @@ can stop on it.
 Needs the GitHub CLI (gh), signed in. Write the notes from this list, not from memory: a bullet names its PR(s), and
 work by anyone but the maintainer says "thanks <user>".
 """
-import json, os, re, subprocess, sys
+import json
+import os
+import re
+import subprocess
+import sys
 
 REPO = "HaywireHayley/Marauders-PvE"
 MAINTAINERS = {"HaywireHayley", "dmchaledev"}  # everyone else is thanked by name

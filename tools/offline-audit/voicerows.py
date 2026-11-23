@@ -1,7 +1,10 @@
 # Lists a voice set table (rows of S_VoiceSets: TArray<TSoftObjectPtr<USoundCue>>): voicerows.py <DataTable hex> [json out]
-import sys, struct, json
-import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
-import procmem as m, gbase
+import sys
+import struct
+import json
+import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts'))   # noqa: E402
+import procmem as m
+import gbase
 POOL = gbase.base() + 0x1a63226 + 0x3e6b91a
 
 

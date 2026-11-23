@@ -9,7 +9,10 @@ playerstats, contracts, ship rotation, gifts, cosmetics) is kept as returned, an
 is kept as an example. Writes capture/seed/account.json (nothing secret: tokens and auth replies are left out)
 and prints a summary.
 """
-import glob, json, os, sys
+import glob
+import json
+import os
+import sys
 from urllib.parse import urlsplit
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")

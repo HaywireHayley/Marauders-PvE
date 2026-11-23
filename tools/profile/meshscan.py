@@ -1,4 +1,6 @@
-import sys, struct, re
+import sys
+import struct
+import re
 d = open(sys.argv[1], 'rb').read()
 print('size', len(d))
 # FPositionVertexBuffer: Stride 12, NumVertices, then BulkSerialize: element size 12, count, floats

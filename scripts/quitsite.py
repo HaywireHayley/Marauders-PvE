@@ -5,7 +5,8 @@
 Prints each dumped region (addresses are RVAs in RaidGame-Win64-Shipping.exe) and flags byte stores of 1 to a
 RIP-relative global (`mov byte ptr [rip+X], 1`) with the global's RVA: GIsRequestingExit is set that way.
 """
-import re, sys
+import re
+import sys
 from capstone import Cs, CS_ARCH_X86, CS_MODE_64
 
 md = Cs(CS_ARCH_X86, CS_MODE_64)

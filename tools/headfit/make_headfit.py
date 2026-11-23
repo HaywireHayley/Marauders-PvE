@@ -5,7 +5,9 @@
 # A pair fits with at most max(FLOOR, best * SLACK) such vertices, `best` being the helmet's best head (a few tight
 # helmets clip a little on every head).
 #   make_headfit.py   reads the cooked meshes from the game's pak, writes mods/PvEDirector/Scripts/headfit.lua
-import os, re, sys
+import os
+import re
+import sys
 import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'female'))

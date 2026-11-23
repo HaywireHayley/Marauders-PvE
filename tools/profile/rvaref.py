@@ -1,7 +1,9 @@
 # Finds image-relative table references ([reg+idx*4+RVA]) by searching code sections for the RVA as raw bytes.
-import sys, struct
-import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
-import procmem as m, gbase
+import sys
+import struct
+import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts'))   # noqa: E402
+import procmem as m
+import gbase
 base = gbase.base(); hdr = m.read(base, 0x1000)
 pe = struct.unpack_from('<I', hdr, 0x3c)[0]; nsec = struct.unpack_from('<H', hdr, pe+6)[0]; opt = struct.unpack_from('<H', hdr, pe+20)[0]
 for i in range(nsec):

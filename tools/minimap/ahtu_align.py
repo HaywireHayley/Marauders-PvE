@@ -186,13 +186,13 @@ def main(keys):
         full = Image.open(os.path.join(AHTU, image))
         work_scale = WORK / full.width
         work = np.asarray(full.convert("RGB").resize((WORK, round(full.height * work_scale)), Image.BILINEAR))
-        lines, footprints, shown = [], [], []
+        footprints, shown = [], []
         # One image, one drawing: every floor shares its mirror, rotation and scale. The largest floor is fitted
         # freely; the others only look for their place (a small floor alone fitted at twice the scale, mirrored).
         srcs = [floor_mask(work[y0:y1, x0:x1]) for _, x0, y0, x1, y1 in boxes]
         main_i = max(range(len(srcs)), key=lambda i: srcs[i].sum())
         _, flip0, angle0, s0, _, _ = fit(target, srcs[main_i])
-        def footprint(src, dy, dx):
+        def footprint(src, dy, dx, h=h, w=w, flip0=flip0, angle0=angle0, s0=s0):
             fp = np.zeros((h, w), bool)
             ys, xs = np.nonzero(transform_mask(src, flip0, angle0, s0))
             ys, xs = ys + dy, xs + dx

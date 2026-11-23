@@ -1,10 +1,14 @@
 # Read-only: while the game loads, catches a thread inside the AES block routine (0x19fcb80-0x19fdde0) and looks for the
 # decryption key schedule at its registers and on its stack. Checks each candidate against the pak index, prints the key.
 #   keysample.py <seconds> <out file>
-import ctypes as C, struct, subprocess, sys, time
+import ctypes as C
+import struct
+import subprocess
+import sys
+import time
 from ctypes import wintypes as W
 from Crypto.Cipher import AES
-import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
+import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import GAME  # noqa: E402
 import gbase
 
 PAK = os.path.join(GAME, r'RaidGame/Content/Paks/pakchunk0-WindowsNoEditor.pak')
@@ -36,7 +40,7 @@ def candidates(buf):
             w = struct.unpack_from(endian + '60I', buf, p)
             if len(set(w)) < 50: continue
             # stored as big-endian words: the bytes of a word, most significant first
-            be = lambda x: struct.pack('>I', x)
+            def be(x): return struct.pack('>I', x)
             first = b''.join(be(x) for x in w[56:60])
             second = b''.join(mix(be(x)) for x in w[52:56])
             yield first + second                                  # decrypt schedule

@@ -13,7 +13,15 @@ part (loadout.json out, checkout.txt in; see write_loadout / watch_checkout). St
 this file; the first run builds it from capture/seed/account.json (scripts/capture_seed.py). Every request is
 logged to server.log, and unknown endpoints answer {} so they show up there instead of breaking the client.
 """
-import argparse, base64, json, os, re, shutil, threading, time, uuid
+import argparse
+import base64
+import json
+import os
+import re
+import shutil
+import threading
+import time
+import uuid
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
@@ -549,7 +557,7 @@ def drop_twins():
         for k, keep in twins:
             inv.pop(k, None)
             gone += 1
-            for ck, co in inv.items():  # its contents go into the copy that stays
+            for co in inv.values():  # its contents go into the copy that stays
                 g = item_fields(co.get("value"))
                 if g and len(g) >= 8 and g[7] == k:
                     g[7] = keep
@@ -592,7 +600,7 @@ def repair_inventory():
     for it in items:
         if it[1][7] in ONE_ITEM_SLOTS:
             by_slot.setdefault(it[1][7], []).append(it)
-    for slot, held in by_slot.items():
+    for held in by_slot.values():
         held.sort(key=lambda it: it[2])
         misplaced += held[:-1]  # the newest one stays (the one the game shows)
     taken = {}

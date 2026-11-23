@@ -1,5 +1,8 @@
 """Tiny helper to read the running game's memory (read-only)."""
-import ctypes, ctypes.wintypes as wt, struct, subprocess
+import ctypes
+import ctypes.wintypes as wt
+import struct
+import subprocess
 
 k32 = ctypes.WinDLL('kernel32', use_last_error=True)
 k32.OpenProcess.restype = wt.HANDLE
