@@ -12,6 +12,7 @@ import tempfile
 import time
 import tkinter as tk
 import tkinter.font as tkfont
+from tkinter import ttk
 from tkinter import filedialog
 import webbrowser
 from datetime import datetime
@@ -219,6 +220,17 @@ def stop_standin():
 
 def when(t):
     return datetime.fromtimestamp(t).strftime("%d %b %Y, %H:%M") if t else "never"
+
+
+def scrollbar(parent, **kw):
+    """A vertical scrollbar in the launcher's colours."""
+    style = ttk.Style(parent)
+    if "Dark.Vertical.TScrollbar" not in style.element_names() and style.theme_use() != "clam":
+        style.theme_use("clam")
+    style.configure("Dark.Vertical.TScrollbar", background=PANEL_HI, troughcolor=INK, bordercolor=INK, arrowcolor=MUTED,
+                    lightcolor=PANEL_HI, darkcolor=PANEL_HI, gripcount=0)
+    style.map("Dark.Vertical.TScrollbar", background=[("active", ORANGE_DIM), ("pressed", ORANGE)])
+    return ttk.Scrollbar(parent, orient="vertical", style="Dark.Vertical.TScrollbar", **kw)
 
 
 class Button(tk.Label):
@@ -542,6 +554,9 @@ class App(tk.Tk):
         self.b_undo = Button(row2, "Undo last raid", self.undo, size=11, pad=(10, 6))
         self.b_backup = Button(row2, "Back up", self.backup, size=11, pad=(10, 6))
         self.b_undo.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        self.b_undo.bind("<Enter>", lambda e: None if self.b_undo.enabled else self.say(
+            "Undo last raid: nothing to undo yet. It puts this save back to the start of its last raid, once you've "
+            "played one with it."))
         self.b_backup.grid(row=0, column=1, sticky="ew")
         row2.columnconfigure(0, weight=2)
         row2.columnconfigure(1, weight=1)
@@ -553,18 +568,12 @@ class App(tk.Tk):
         self.female_var = tk.BooleanVar(value=self.read_female())
         self.toggle("Infinite money", self.cheat_var, self.toggle_cheat)
         self.toggle("Play as a woman  (F2 switches in game)", self.female_var, self.toggle_female)
-        # sliders are one row each (label, slider, value): the settings column only just fits at 150 % scaling (#147)
-        share = tk.Frame(self.right, bg=PANEL)
-        share.pack(fill="x", pady=(2, 0))
-        tk.Label(share, text="Female enemies and crew", bg=PANEL, fg=TEXT, font=font(12), anchor="w").pack(side="left")
-        self.share_label = tk.Label(share, bg=PANEL, fg=ORANGE, font=font(12, "SemiBold"), width=5, anchor="e")
-        self.share_label.pack(side="right")
+        # The save panel holds this save and the next raid; options for every save and the app are on the SETTINGS page
+        # (app_options). Sliders are one row each (label, slider, value).
         self.share_var = tk.IntVar(value=self.read_share())
-        tk.Scale(share, from_=0, to=100, resolution=5, orient="horizontal", variable=self.share_var, showvalue=False,
-                 command=self.change_share, bg=ORANGE, troughcolor=PANEL_HI, activebackground=ORANGE, highlightthickness=0, bd=0,
-                 sliderrelief="flat", sliderlength=18, width=10,
-                 cursor="hand2").pack(side="left", fill="x", expand=True, padx=(12, 4))
-        self.share_label.config(text=f"{self.share_var.get()}%")
+        self.share_label = None
+        tk.Label(self.right, text="NEXT RAID", bg=PANEL, fg=MUTED, font=font(10, "SemiBold"), anchor="w").pack(
+            fill="x", pady=(8, 2))
         length = tk.Frame(self.right, bg=PANEL)
         length.pack(fill="x")
         tk.Label(length, text="Raid length", bg=PANEL, fg=TEXT, font=font(12), anchor="w").pack(side="left")
@@ -587,32 +596,43 @@ class App(tk.Tk):
                  highlightthickness=0, bd=0, sliderrelief="flat", sliderlength=18, width=10,
                  cursor="hand2").pack(side="left", fill="x", expand=True, padx=(12, 4))
         self.gate_label.config(text=self.gate_time_text(self.gate_var.get()))
-        # Raid conditions (#78): the value cycles on a click (right-click goes back); the status line says what it does.
-        # (No line of its own for that: the column is full at 150 % scaling, #147.)
+        # Raid conditions (#78): < Name > (click either arrow or the name; right-click goes back), and what it does
+        # on the line under it.
         cond = tk.Frame(self.right, bg=PANEL)
-        cond.pack(fill="x")
+        cond.pack(fill="x", pady=(2, 0))
         tk.Label(cond, text="Raid conditions", bg=PANEL, fg=TEXT, font=font(12), anchor="w").pack(side="left")
-        self.cond_label = tk.Label(cond, bg=PANEL, fg=ORANGE, font=font(12, "SemiBold"), anchor="e", cursor="hand2")
+        nxt = tk.Label(cond, text="\u203a", bg=PANEL_HI, fg=ORANGE, font=font(12, "SemiBold"), width=2, cursor="hand2")
+        nxt.pack(side="right")
+        self.cond_label = tk.Label(cond, bg=PANEL, fg=ORANGE, font=font(12, "SemiBold"), anchor="center", cursor="hand2",
+                                   padx=6)
         self.cond_label.pack(side="right")
-        self.cond_label.bind("<Button-1>", lambda e: self.cycle_condition(1))
+        prev = tk.Label(cond, text="\u2039", bg=PANEL_HI, fg=ORANGE, font=font(12, "SemiBold"), width=2, cursor="hand2")
+        prev.pack(side="right")
+        for w, step in ((nxt, 1), (prev, -1), (self.cond_label, 1)):
+            w.bind("<Button-1>", lambda e, step=step: self.cycle_condition(step))
         self.cond_label.bind("<Button-3>", lambda e: self.cycle_condition(-1))
+        self.cond_about = tk.Label(self.right, bg=PANEL, fg=MUTED, font=font(10), anchor="w", justify="left",
+                                   wraplength=wrap(310))
+        self.cond_about.pack(fill="x", pady=(2, 0))
         self.show_condition()
+        # App-wide options: their variables live here, their boxes on the SETTINGS page (app_options).
         self.borderless_var = tk.BooleanVar(value=self.read_borderless())
-        if IS_WIN:  # (launch-offline.ps1 applies it; on Linux the game's own video settings do)
-            self.toggle("Borderless fullscreen", self.borderless_var, self.toggle_borderless)
         self.skip_intro_var = tk.BooleanVar(value=self.read_skip_intro())
-        self.toggle("Skip the intro video", self.skip_intro_var, self.toggle_skip_intro)
         self.unlock_looks_var = tk.BooleanVar(value=self.read_unlock_looks())
-        self.toggle("Unlock all looks and voices", self.unlock_looks_var, self.toggle_unlock_looks)
         self.minimize_var = tk.BooleanVar(value=self.read_minimize())
-        self.toggle("Minimize while playing", self.minimize_var, self.toggle_minimize)
         self.update_check_var = tk.BooleanVar(value=self.read_update_check())
-        self.toggle("Check for new builds", self.update_check_var, self.toggle_update_check)
         # Shown top right only when a newer build is out (check_update)
+        # Always shown, so players know the launcher updates itself: greyed out with why (checking, up to date, off, a
+        # dev checkout), orange with "!" when a newer build is out (show_update).
         self.update_badge = tk.Frame(self, bg=INK)
-        tk.Label(self.update_badge, text="!", bg=ORANGE, fg=INK, font=font(14, "Bold"), width=2).pack(side="left", fill="y")
+        self.update_mark = tk.Label(self.update_badge, text="!", bg=ORANGE, fg=INK, font=font(14, "Bold"), width=2)
+        self.update_mark.pack(side="left", fill="y")
         self.update_button = Button(self.update_badge, "UPDATE", self.offer_update, "plain", 11, (12, 6))
         self.update_button.pack(side="left")
+        self.update_button.bind("<Enter>", lambda e: None if self.update_button.enabled else self.say(
+            "Updates: the launcher installs new builds itself and keeps your saves. When one is out this button lights "
+            "up. " + ("Checking is off (SETTINGS)." if not self.update_check_var.get() else "")))
+        self.update_badge.place(relx=1.0, x=-36, y=40, anchor="ne")
 
         # width=1: the label asks for no room of its own and just fills its column (sticky ew). Sized to its text, a long
         # line (a raid condition's about, #188) widened column 0 and pushed the right-hand panel out of the window.
@@ -622,14 +642,18 @@ class App(tk.Tk):
         tag = tk.Label(self, text=f"OFFLINE  PvE   ·   build {build}", bg=INK, fg=ORANGE_DIM, font=font(11, "SemiBold"))
 
         self.status.grid(row=2, column=0, sticky="ew", padx=(36, 0), pady=18)
+        self.status.grid_remove()  # until there's something to say (say)
         tag.grid(row=2, column=1, sticky="e", padx=(0, 36), pady=18)
         # The window is as big as the grid needs once the details panel holds stand-ins as tall as what refresh() writes.
         self.d_name.config(text="Save")
         self.d_mode.config(text="Save")
         self.d_info.config(text="Cash   ·   XP\nStash\nStarted")
+        longest = max((a for _, a in self.raid_conditions()), key=len, default="")
+        self.cond_about.config(text=longest)
         self.update_idletasks()
         w, h = max(W, self.winfo_reqwidth()), max(H, self.winfo_reqheight())
         self.geometry(f"{w}x{h}")
+        self.show_condition()
 
         canvas = tk.Canvas(self, width=w, height=h, bg=INK, highlightthickness=0)
         canvas.place(x=0, y=0, relwidth=1, relheight=1)  # the backdrop, behind the grid
@@ -645,8 +669,37 @@ class App(tk.Tk):
         self.back_art = ImageTk.PhotoImage(back)
         canvas.create_image(0, 0, image=self.back_art, anchor="nw")
 
-    def toggle(self, text, var, command):
-        check(self.right, text, var, command=command, anchor="w", justify="left", wraplength=wrap(300)).pack(fill="x")
+    def toggle(self, text, var, command, parent=None):
+        check(parent or self.right, text, var, command=command, anchor="w", justify="left",
+              wraplength=wrap(300)).pack(fill="x")
+
+    def app_options(self, parent):
+        """The options that apply to every save and to the app (the SETTINGS page's top section)."""
+        box = tk.Frame(parent, bg=PANEL)
+        box.pack(fill="x", pady=(0, 6))
+        tk.Label(box, text="GAME AND LAUNCHER", bg=PANEL, fg=MUTED, font=font(10, "SemiBold"), anchor="w").pack(fill="x")
+        cols = tk.Frame(box, bg=PANEL)
+        cols.pack(fill="x")
+        left, right = tk.Frame(cols, bg=PANEL), tk.Frame(cols, bg=PANEL)
+        left.pack(side="left", fill="x", expand=True, anchor="n")
+        right.pack(side="left", fill="x", expand=True, anchor="n", padx=(16, 0))
+        if IS_WIN:  # (launch-offline.ps1 applies it; on Linux the game's own video settings do)
+            self.toggle("Borderless fullscreen", self.borderless_var, self.toggle_borderless, left)
+        self.toggle("Skip the intro video", self.skip_intro_var, self.toggle_skip_intro, left)
+        self.toggle("Unlock all looks and voices", self.unlock_looks_var, self.toggle_unlock_looks, left)
+        self.toggle("Minimize while playing", self.minimize_var, self.toggle_minimize, right)
+        self.toggle("Check for new builds", self.update_check_var, self.toggle_update_check, right)
+        share = tk.Frame(box, bg=PANEL)
+        share.pack(fill="x", pady=(4, 0))
+        tk.Label(share, text="Female enemies and crew", bg=PANEL, fg=TEXT, font=font(12), anchor="w").pack(side="left")
+        self.share_label = tk.Label(share, bg=PANEL, fg=ORANGE, font=font(12, "SemiBold"), width=5, anchor="e")
+        self.share_label.pack(side="right")
+        tk.Scale(share, from_=0, to=100, resolution=5, orient="horizontal", variable=self.share_var, showvalue=False,
+                 command=self.change_share, bg=ORANGE, troughcolor=PANEL_HI, activebackground=ORANGE, highlightthickness=0,
+                 bd=0, sliderrelief="flat", sliderlength=18, width=10,
+                 cursor="hand2").pack(side="left", fill="x", expand=True, padx=(12, 4))
+        self.share_label.config(text=f"{self.share_var.get()}%")
+        tk.Frame(box, bg=LINE, height=1).pack(fill="x", pady=(10, 0))
 
     def refresh(self):
         for w in self.list_box.winfo_children():
@@ -716,6 +769,10 @@ class App(tk.Tk):
 
     def say(self, text):
         self.status.config(text=text)
+        if text:
+            self.status.grid()
+        else:
+            self.status.grid_remove()
 
     # Save actions ---------------------------------------------------------------------------------------------------
     def new_save(self):
@@ -853,6 +910,7 @@ class App(tk.Tk):
         written at once to the file F3 uses (config/ai_tuning.txt), which the game reads when it starts; F3 in a raid
         still changes things live. The list of settings comes from the mod (config/settings_schema.json)."""
         d = Dialog(self, "Settings")
+        self.app_options(d.body)
         schema = settings.load_schema()
         if not schema:
             tk.Label(d.body, text="Start the game once with this build (to the lobby is enough): it writes the list of "
@@ -1023,7 +1081,7 @@ class App(tk.Tk):
         holder.pack(side="left", fill="both")
         k = self.scale_factor()
         canvas = tk.Canvas(holder, bg=PANEL, highlightthickness=0, width=int(560 * k), height=int(400 * k))
-        bar = tk.Scrollbar(holder, orient="vertical", command=canvas.yview)
+        bar = scrollbar(holder, command=canvas.yview)
         canvas.configure(yscrollcommand=bar.set)
         canvas.pack(side="left", fill="both")
         bar.pack(side="left", fill="y")
@@ -1265,7 +1323,7 @@ class App(tk.Tk):
         box.pack(fill="x")
         pick = tk.Listbox(box, bg=INK, fg=TEXT, selectbackground=ORANGE, selectforeground=INK, relief="flat", font=font(12),
                           height=10, activestyle="none", highlightthickness=0, exportselection=False)
-        bar = tk.Scrollbar(box, command=pick.yview)
+        bar = scrollbar(box, command=pick.yview)
         pick.config(yscrollcommand=bar.set)
         pick.pack(side="left", fill="both", expand=True)
         bar.pack(side="right", fill="y")
@@ -1455,8 +1513,9 @@ class App(tk.Tk):
         if name not in conds:
             name = "Normal"
         self.cond_label.config(text=name)
+        self.cond_about.config(text=conds[name] or "")
         if tell:
-            self.say(f"Raid conditions: {name}. {conds[name]} Click again for the next.")
+            self.say(f"Raid conditions: {name}")
 
     def cycle_condition(self, step):
         names = [n for n, _ in self.raid_conditions()]
@@ -1523,15 +1582,21 @@ class App(tk.Tk):
 
     # Updates --------------------------------------------------------------------------------------------------------
     def check_update(self):
-        """Asks GitHub for the latest build off the UI thread; a badge appears only if it's newer than version.txt.
-        Offline, rate-limited or a dev checkout (no version.txt): nothing shows and nothing is said."""
+        """Asks GitHub for the latest build off the UI thread; the update button lights up only if it's newer than
+        version.txt, and otherwise says why not (up to date, can't check when offline or rate-limited, a dev checkout)."""
         current = update.installed()
-        if not self.update_check_var.get() or not current:
+        if not current:
+            self.show_update(None, "DEV BUILD")
             return
+        if not self.update_check_var.get():
+            self.show_update(None, "UPDATES OFF")
+            return
+        self.show_update(None, "CHECKING...")
 
         def work():
-            rel = update.newer(update.latest(), current)
-            self.ui(lambda: self.show_update(rel))
+            latest = update.latest()
+            rel = update.newer(latest, current)
+            self.ui(lambda: self.show_update(rel, "UP TO DATE" if latest else "CAN'T CHECK"))
             if rel:
                 return  # updating fetches the changed dependencies anyway
             # Dependencies that don't match this build's deps.json (an update by a launcher from before deps.json, or
@@ -1542,13 +1607,19 @@ class App(tk.Tk):
                 self.ui(lambda: self.start_repair(own, parts))
         threading.Thread(target=work, daemon=True).start()
 
-    def show_update(self, release):
+    def show_update(self, release, idle="UP TO DATE"):
+        """The update button: lit with the new build's name, or greyed out with `idle` (why there's nothing to do)."""
         self.release = release
         if release and self.update_check_var.get():
             self.update_button.config(text=f"UPDATE TO {release['tag'].replace('public-test-', 'BUILD ')}")
-            self.update_badge.place(relx=1.0, x=-36, y=40, anchor="ne")
+            self.update_button.enable(True)
+            self.update_mark.pack(side="left", fill="y", before=self.update_button)
         else:
-            self.update_badge.place_forget()
+            if not self.update_check_var.get() and update.installed():
+                idle = "UPDATES OFF"
+            self.update_button.config(text=idle)
+            self.update_button.enable(False)
+            self.update_mark.pack_forget()
 
     def offer_update(self):
         rel = self.release

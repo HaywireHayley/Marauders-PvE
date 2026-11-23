@@ -107,7 +107,7 @@ file is put back to stock when the game closes.
 
 **Updating:** when a new build is out, an orange **!** appears top right in the launcher. Click it and **UPDATE**: it
 downloads the new build (and only the big parts that changed), checks every file, installs it over the folder and
-restarts. Your saves and settings are kept. Switch it off with **Check for new builds**.
+restarts. Your saves and settings are kept. Switch it off with **Check for new builds** on the **SETTINGS** page.
 
 **Back to the online game:** close the offline game, then launch Marauders from Steam as usual. If your PC crashed
 mid-game, open the launcher once and close it again (or run `Uninstall.bat`) first.
