@@ -59,16 +59,18 @@ PLAYING
 
 LINUX AND STEAM DECK  (experimental: not yet tested under Proton, please report how it goes)
 --------------------
-  No launcher window on Linux: Steam's PLAY button starts the mod through a launch option (Game Mode works too).
-  1. Unzip this folder somewhere permanent (internal storage is safest; no non-English letters in the path).
-     Easiest: the small MaraudersOffline-<build>-installer.zip alone; step 2 downloads the rest. By hand instead:
-     extract EVERY zip of the release (the main one and all the -deps- ones) into the same folder.
-  2. In a terminal, in this folder:   sh linux/install.sh
-     From the installer zip it first downloads the latest build (about 60 MB, every file checked). It finds the game in your Steam libraries and prints a line for
-     Marauders > Properties > General > Launch options, like:
-         "/home/deck/MaraudersOffline/linux/marauders-offline.sh" %command%
-  3. Press PLAY in Steam. The game folder goes offline for that game and back to stock when it closes; if the game
+  Steam's PLAY button starts the mod through a launch option (Game Mode on a Deck works too).
+  1. Download only MaraudersOffline-<build>-installer.zip and unzip it somewhere permanent, e.g. ~/Games
+     (internal storage is safest; no non-English letters in the path). On a Deck, use Desktop Mode.
+  2. In a terminal, in the MaraudersOffline folder:   sh linux/install.sh
+     It downloads the latest build (about 60 MB, every file checked), finds the game in your Steam libraries and
+     prints one line, like:
+         "/home/deck/Games/MaraudersOffline/linux/marauders-offline.sh" %command%
+  3. In Steam: Marauders > Properties > General > Launch options, paste that line.
+  4. Press PLAY in Steam. The game folder goes offline for that game and back to stock when it closes; if the game
      is killed or the Deck loses power, the next start puts it back first.
+  (Downloaded every zip by hand instead? Extract them all, the -deps- ones too, into the same folder, then step 2.)
+  The launcher window: if your Python has Tk and Pillow, install.sh adds "Marauders Offline" to your app menu.
   Saves:  python3 scripts/pvemode.py saves | use <id> | new <name> [--cheat]
   Online again:  clear the launch option, or  python3 scripts/pvemode.py steam off   ("steam on" to switch back)
 
