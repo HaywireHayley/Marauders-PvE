@@ -18,7 +18,6 @@ UE4SS's dwmapi.dll proxy loaded native), and when it closes put the save back an
 Stdlib only, Python 3.9+ (SteamOS has Python but not Tk or Pillow). Windows keeps using mode.ps1 and the launcher; this
 module works there too, but nothing on Windows calls it yet.
 """
-import json
 import os
 import shutil
 import signal

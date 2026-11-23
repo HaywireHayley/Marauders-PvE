@@ -2,8 +2,12 @@
 Candidates: 8-byte aligned 32-byte windows in private RW memory whose four qwords all look random
 (not pointers/small ints: top 16 bits non-zero, low 16 bits non-zero, all distinct). Each is checked
 by decrypting the first block of the pak index (mount point "../../../")."""
-import ctypes, ctypes.wintypes as wt, struct, subprocess, sys
-import os; from pvepaths import ROOT, GAME  # noqa: E402
+import ctypes
+import ctypes.wintypes as wt
+import struct
+import subprocess
+import sys
+import os; from pvepaths import GAME  # noqa: E402
 import numpy as np
 from Crypto.Cipher import AES
 

@@ -1,6 +1,7 @@
 # Every IsServer call in a ubergraph, with the bytes around it, and the JumpIfNot right after. bpis.py <ubergraph hex>
-import sys, struct
-import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
+import sys
+import struct
+import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts'))   # noqa: E402
 import procmem as m
 f = int(sys.argv[1], 16); d, n = m.q(f + 0x60), struct.unpack('<i', m.read(f + 0x68, 4))[0]
 print('script at %x, %d bytes' % (d, n))

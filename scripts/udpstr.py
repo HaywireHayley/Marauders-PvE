@@ -5,7 +5,8 @@
 UE4 packets are bit streams (LSB first) and strings sit at any bit offset, so each packet is re-aligned at all 8 bit
 shifts and printable ASCII runs of at least minlen (default 6) are printed with the packet's time, direction and port.
 """
-import re, sys
+import re
+import sys
 
 log, minlen = sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else 6
 run = re.compile(rb'[\x20-\x7e]{%d,}' % minlen)

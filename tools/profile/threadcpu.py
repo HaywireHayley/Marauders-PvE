@@ -1,6 +1,9 @@
 """Per-thread CPU use of the game over a window, read-only (GetThreadTimes deltas; no suspending).
 threadcpu.py <seconds>: prints the top threads' CPU share (100 = one full core) and the process total."""
-import ctypes as C, sys, time, subprocess
+import ctypes as C
+import sys
+import time
+import subprocess
 from ctypes import wintypes as W
 k = C.WinDLL("kernel32", use_last_error=True)
 class TE(C.Structure):

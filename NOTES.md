@@ -254,6 +254,18 @@ Why bots did nothing, and the fix for each (all automated in PvEDirector):
   exports, loaded with "*") have the same export and import-DLL lists as the committed ones (objdump -p); pvenet needs
   only `-lws2_32` (WinHTTP goes through the import tables it patches). Not verified: byte-identical output, or the
   rebuilt DLLs in game (the committed ones were not replaced). CI (check.yml) now cross-compiles all three on ubuntu.
+- 2026-11-22 (refactor/native-audit, stacked on #375): audit of the shipped native files. Shared helpers moved to
+  `native/pvecommon.h` (pve_readable, pve_project_dir, PVE_COUNT). pvenet: path/log snprintf truncation checked (the
+  -Wformat-truncation warnings are gone), sprintf/strcpy replaced, malloc/realloc/calloc and VirtualProtect results
+  checked (a failed allocation now passes the call through untracked instead of crashing), pvenet.log writes all go
+  through the lock, EnumProcessModules count clamped, thread handle closed, start() stops early if the project or game
+  folder path is unreadable (before: an empty game path matched every module). pvepatch: the bridge path no longer uses
+  strcat, stub allocation/call writing deduplicated (allocNear, writeCall), duplicate constants merged, object-array
+  layout named; patch table offsets and bytes unchanged (diff checked). pvenative: custom fill names no longer leak.
+  Verified: all three build with -Wall -Wextra and no warnings; objdump -p export names and import DLLs equal the
+  committed pvepatch.dll/pvenet.dll (and a build of the old pvenative.c), so the rebuilt pvepatch.dll and pvenet.dll
+  were committed. Not verified: anything in game. Left: Conn/Cb lists in pvenet are never freed (closing callbacks
+  arrive after WinHttpCloseHandle, so freeing them on close could lose the HANDLE_CLOSING callback; small and bounded).
 ## Offline inventory/equip findings — 2026-10-30 (session 3)
 - Tab did nothing because the HUD actor (MatchHUD_C, ASIGISHUD) has InGameOverlay == nil offline. Fix: `hud.InGameOverlay = _G.PVE_HUD`
   (our created SIGIS_HUDOverlay_C). Tab then only blurs + shows the cursor; the menu stays Collapsed until

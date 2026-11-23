@@ -1,6 +1,8 @@
 # Lists every UFunction referenced by a BP function's bytecode, named via the object dump's FName indices.
-import sys, struct, re
-import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
+import sys
+import struct
+import re
+import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT  # noqa: E402
 import procmem as m
 names = {}
 for line in open(os.path.join(ROOT, r'dumps/UE4SS_ObjectDump.txt'), encoding='utf-8', errors='ignore'):

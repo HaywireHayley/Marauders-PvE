@@ -1,0 +1,19 @@
+# Python lint (CI: `python -m ruff check .`). Catches real mistakes (unused or missing names, loop-variable closures,
+# shadowed builtins) without reformatting the codebase: the compact one-line style used across the tools is allowed.
+line-length = 120
+target-version = "py310"
+extend-exclude = [".claude", "release", "assets", "bridge"]
+
+[lint]
+select = ["E", "F", "W", "B"]
+ignore = [
+    "E501",  # long lines: lines are wrapped at 120 by hand; a few long strings and tables are left as they are
+    "E701",  # `if x: y` on one line: the house style in short scripts
+    "E702",  # `a; b` on one line: the same
+    "E741",  # `l` as a name: used for lines and lists in short loops
+    "B905",  # zip() without strict=: zips of equal lengths are the norm here
+]
+
+[lint.per-file-ignores]
+# the reverse-engineering scripts use `from capstone import *` like capstone's own examples
+"tools/**" = ["F403", "F405", "E402"]

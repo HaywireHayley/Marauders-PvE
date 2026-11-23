@@ -1,6 +1,10 @@
 # Lists every cooked skeletal mesh under an unpacked Characters folder with its skeleton and vertex bounds, to pick outfits.
 #   classify.py <unpacked root>
-import collections, os, re, struct, sys
+import collections
+import os
+import re
+import struct
+import sys
 
 root = sys.argv[1]
 

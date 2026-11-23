@@ -1,7 +1,11 @@
 # Re-resolves thunk -> implementation: ignores call targets shared by many thunks (frame/param helpers).
-import sys, json, re, struct, collections
-import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
-import procmem as m, gbase
+import sys
+import json
+import re
+import collections
+import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts'))   # noqa: E402
+import procmem as m
+import gbase
 from capstone import *
 base = gbase.base(); md = Cs(CS_ARCH_X86, CS_MODE_64)
 d = json.load(open(sys.argv[1]))

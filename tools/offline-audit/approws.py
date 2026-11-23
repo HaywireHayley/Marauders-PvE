@@ -3,10 +3,13 @@
 # The address: bridge `lua return ("%x"):format(StaticFindObject("/Game/Data/DT_PlayerAppearance.DT_PlayerAppearance"):GetAddress())`.
 # Row struct UnlockCosmeticData offsets (read live 2026-11-20): ItemName 8, Cosmetic 24, CosmeticSlot 72, cost 100,
 # UnlockRequirementStatName 80. Modelled on voicerows.py.
-import sys, struct, os
+import sys
+import struct
+import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', '..', 'scripts')); sys.path.insert(0, HERE)
-import procmem as m, gbase
+import procmem as m
+import gbase
 POOL = gbase.base() + 0x1a63226 + 0x3e6b91a
 def fname(i):
     blk = m.q(POOL + 0x10 + 8 * (i >> 16)); e = blk + 2 * (i & 0xffff)

@@ -18,10 +18,13 @@ for usage. Base comes from UE4SS.log via gbase, as for the other profile tools.
 Then: Ghidra > Import, language x86:LE:64:default. The dump goes stale after a game
 update, so re-dump rather than trusting an old file.
 """
-import os, struct, sys
+import os
+import struct
+import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "scripts"))
-from pvepaths import ROOT, GAME  # noqa: E402
-import procmem as m, gbase
+from pvepaths import GAME  # noqa: E402
+import procmem as m
+import gbase
 
 
 def main():

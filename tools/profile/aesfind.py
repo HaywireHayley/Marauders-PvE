@@ -1,7 +1,9 @@
 # Finds table-based AES in the running game: the Rijndael decrypt tables, then the code that references them.
-import sys, struct
-import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
-import procmem as m, gbase
+import sys
+import struct
+import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts'))   # noqa: E402
+import procmem as m
+import gbase
 base = gbase.base(); hdr = m.read(base, 0x1000)
 pe = struct.unpack_from('<I', hdr, 0x3c)[0]; nsec = struct.unpack_from('<H', hdr, pe+6)[0]; opt = struct.unpack_from('<H', hdr, pe+20)[0]
 image = {}
@@ -31,7 +33,6 @@ want = [a for n in ('Td0', 'Td0ror', 'InvSbox', 'Td0be') for a in found.get(n, [
 for sec, (va, d) in image.items():
     if sec not in ('.data2', '.xcode'): continue
     # rip-relative references: scan every position for a disp32 landing on a table
-    import array
     b = d
     for t in want:
         for i in range(0, len(b) - 8):

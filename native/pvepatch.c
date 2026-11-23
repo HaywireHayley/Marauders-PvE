@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include "pvecommon.h"
 
 typedef struct { const char *name; DWORD rva; unsigned char old[8], new_[8]; int len; } Patch;
 
@@ -120,7 +121,6 @@ static const Patch PATCHES[] = {
 #define RAIDER_BODY_CALL 0x17ee1cf /* call 0x8fac80 in 0x17ee0a0; rbx = the bot */
 #define BOT_SETTLED    0xcd0       /* ARaidBot.AiMissRange: unused once dead; main.lua settleRagdolls writes SETTLED_MARK */
 #define SETTLED_MARK   -12345.0f
-#define BOT_LOOT       0xbf0       /* ARaidBot.BotLootItems */
 #define SETTLE_MAX_MS  7000    /* after the setup call: pose anyway (main.lua gives up first; this covers a failed ragdoll) */
 #define RETIRE_DELAY_MS 35     /* body shown -> ragdoll hidden (~3 frames: the pose meshes need to draw first) */
 #define UFUNCTION_SCRIPT 0x60 /* TArray<uint8> Script: bytecode, count */
@@ -137,13 +137,14 @@ typedef void (*FloatFn)(void *, float);
 static unsigned char *g_base;
 
 typedef struct { void *death, *mesh, *meshComp, *head, *headComp, *bot; ULONGLONG at; int stage; } DeadBot; /* stage: 0 queued, 1 posed, 2 shown */
-static DeadBot g_dead[64];
+#define MAX_DEAD 64 /* bodies queued at once; past that a death keeps the stock (vanishing) body */
+static DeadBot g_dead[MAX_DEAD];
 static int g_numDead;
 
 #define VFN(obj, off) ((*(void ***)(obj))[(off) / 8])
 
 static void queueBody(void *death, void *mesh, void *meshComp, void *head, void *headComp, void *bot) {
-    if (g_numDead == (int)(sizeof g_dead / sizeof g_dead[0])) return;
+    if (g_numDead == MAX_DEAD) return;
     DeadBot d = { death, mesh, meshComp, head, headComp, bot, GetTickCount64(), 0 };
     g_dead[g_numDead++] = d;
 }
@@ -203,7 +204,7 @@ __declspec(dllexport) int pve_bodies(void *L) {
 #define LUA_TOP      0x10  /* lua_State.top */
 #define LUA_CI       0x20  /* lua_State.ci; its first field is the called function's stack slot */
 #define LUA_SLOT     16    /* sizeof(StackValue): value (8 bytes), then the type tag */
-#define LUA_VNUMINT  3
+#define LUA_VNUMINT  3     /* type tag of an integer */
 
 static long long intArg(void *L, int i, int n) {
     char *func = **(char ***)((char *)L + LUA_CI), *top = *(char **)((char *)L + LUA_TOP);
@@ -252,9 +253,34 @@ __declspec(dllexport) int pve_bodies_reset(void *L) {
     return 0;
 }
 
+/* Stubs called from game code by rel32 must sit within 2 GB of it: the first free 64 KB slot below the image. */
+#define STUB_GRANULE 0x10000     /* VirtualAlloc reservation granularity */
+#define STUB_REACH   0x70000000  /* search no further below the image than this (rel32 reach, with margin) */
+#define STUB_SIZE    0x1000
+static unsigned char *allocNear(unsigned char *base) {
+    unsigned char *stub = NULL;
+    for (unsigned char *p = (unsigned char *)(((ULONG_PTR)base - STUB_GRANULE) & ~(ULONG_PTR)(STUB_GRANULE - 1));
+         !stub && base - p < STUB_REACH; p -= STUB_GRANULE)
+        stub = VirtualAlloc(p, STUB_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+    return stub;
+}
+
+/* Overwrites the 5 bytes at `at` with `call stub`. */
+static const char *writeCall(unsigned char *at, unsigned char *stub) {
+    unsigned char call[5] = { 0xe8 };
+    int rel = (int)(stub - (at + 5));
+    memcpy(call + 1, &rel, 4);
+    DWORD prot;
+    if (!VirtualProtect(at, 5, PAGE_EXECUTE_READWRITE, &prot)) return "SKIPPED: VirtualProtect failed";
+    memcpy(at, call, 5);
+    VirtualProtect(at, 5, prot, &prot);
+    FlushInstructionCache(GetCurrentProcess(), at, 5);
+    return "applied";
+}
+
 /* Redirects the call at rva (to target) through a jump stub within rel32 reach of the game: code, then
    mov rax, fn ; jmp rax. A call that's already redirected only gets fn updated (live testing with renamed DLLs). */
-static const char *hookBody(unsigned char *base, DWORD rva, DWORD target, const unsigned char *code, int len, void *fn) {
+static const char *hookBody(unsigned char *base, DWORD rva, DWORD target, const unsigned char *code, size_t len, void *fn) {
     unsigned char *at = base + rva;
     int rel = (int)(target - (rva + 5));
     unsigned char old[5] = { 0xe8 };
@@ -266,24 +292,14 @@ static const char *hookBody(unsigned char *base, DWORD rva, DWORD target, const 
         FlushInstructionCache(GetCurrentProcess(), cur, len + 12);
         return "already applied (stub re-pointed to this DLL)";
     }
-    unsigned char *stub = NULL;
-    for (unsigned char *p = (unsigned char *)(((ULONG_PTR)base - 0x10000) & ~(ULONG_PTR)0xffff); !stub && base - p < 0x70000000; p -= 0x10000)
-        stub = VirtualAlloc(p, 0x1000, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+    unsigned char *stub = allocNear(base);
     if (!stub) return "SKIPPED: no memory near the game for the stub";
-    const unsigned char tail[] = { 0x48, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xe0 };
+    const unsigned char tail[] = { 0x48, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xe0 }; /* mov rax, fn ; jmp rax */
     memcpy(stub, code, len);
     memcpy(stub + len, tail, sizeof tail);
     memcpy(stub + len + 2, &fn, 8);
     FlushInstructionCache(GetCurrentProcess(), stub, len + sizeof tail);
-    unsigned char call[5] = { 0xe8 };
-    rel = (int)(stub - (at + 5));
-    memcpy(call + 1, &rel, 4);
-    DWORD prot;
-    if (!VirtualProtect(at, 5, PAGE_EXECUTE_READWRITE, &prot)) return "SKIPPED: VirtualProtect failed";
-    memcpy(at, call, 5);
-    VirtualProtect(at, 5, prot, &prot);
-    FlushInstructionCache(GetCurrentProcess(), at, 5);
-    return "applied";
+    return writeCall(at, stub);
 }
 
 /* Bot-on-bot hits taken as self-damage. RaidGameMode::ModifyDamage (vtable +0x940, 0x17e1870) scales a hit by
@@ -305,27 +321,20 @@ static const char *selfScaleFix(unsigned char *base) {
     unsigned char *at = base + SELF_SCALE_CMP;
     if (at[0] == 0xe8 && !memcmp(at + 5 + *(int *)(at + 1), code, sizeof code)) return "already applied";
     if (memcmp(at, old, sizeof old)) return "SKIPPED: unexpected bytes (game updated?)";
-    unsigned char *stub = NULL;
-    for (unsigned char *p = (unsigned char *)(((ULONG_PTR)base - 0x10000) & ~(ULONG_PTR)0xffff); !stub && base - p < 0x70000000; p -= 0x10000)
-        stub = VirtualAlloc(p, 0x1000, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+    unsigned char *stub = allocNear(base);
     if (!stub) return "SKIPPED: no memory near the game for the stub";
     memcpy(stub, code, sizeof code);
     FlushInstructionCache(GetCurrentProcess(), stub, sizeof code);
-    unsigned char call[5] = { 0xe8 };
-    int rel = (int)(stub - (at + 5));
-    memcpy(call + 1, &rel, 4);
-    DWORD prot;
-    if (!VirtualProtect(at, 5, PAGE_EXECUTE_READWRITE, &prot)) return "SKIPPED: VirtualProtect failed";
-    memcpy(at, call, 5);
-    VirtualProtect(at, 5, prot, &prot);
-    FlushInstructionCache(GetCurrentProcess(), at, 5);
-    return "applied";
+    return writeCall(at, stub);
 }
 
 /* Reports go to <project>\bridge\: this DLL is <project>\native\pvepatch.dll. */
 static char bridge[MAX_PATH];
 static FILE *report(const char *name, const char *mode) {
-    char path[MAX_PATH]; snprintf(path, sizeof path, "%s%s", bridge, name);
+    char path[MAX_PATH];
+    if (!bridge[0]) return NULL;
+    int w = snprintf(path, sizeof path, "%s%s", bridge, name);
+    if (w < 0 || (size_t)w >= sizeof path) return NULL;
     return fopen(path, mode);
 }
 
@@ -333,7 +342,7 @@ static void apply(void) {
     FILE *f = report("patch_out.txt", "w");
     unsigned char *base = (unsigned char *)GetModuleHandleA(NULL);
     g_base = base;
-    int ok = 0, n = (int)(sizeof PATCHES / sizeof PATCHES[0]);
+    int ok = 0, n = (int)PVE_COUNT(PATCHES);
     for (int i = 0; i < n; i++) {
         const Patch *p = &PATCHES[i];
         unsigned char *at = base + p->rva;
@@ -365,10 +374,12 @@ static void apply(void) {
 BOOL WINAPI DllMain(HINSTANCE h, DWORD why, LPVOID r) {
     (void)r;
     if (why == DLL_PROCESS_ATTACH) {
-        GetModuleFileNameA(h, bridge, sizeof bridge - 8);
-        for (char *c = bridge; *c; c++) if (*c == '/') *c = '\\'; /* package.loadlib was given a / path */
-        for (int up = 0; up < 2; up++) { char *s = strrchr(bridge, '\\'); if (s) s[up ? 1 : 0] = 0; }
-        strcat(bridge, "bridge\\");
+        char project[MAX_PATH];
+        /* No project folder (path too long): the patches still go in, only the report is lost. */
+        if (pve_project_dir(h, project, sizeof project)) {
+            int w = snprintf(bridge, sizeof bridge, "%sbridge\\", project);
+            if (w < 0 || (size_t)w >= sizeof bridge) bridge[0] = 0;
+        }
         apply();
     }
     return TRUE;
@@ -399,7 +410,7 @@ __declspec(dllexport) int pve_roll_kit(void *L) {
     setRow(bot, BOT_HELMET_ROW, table, helmet);
     setRow(bot, BOT_ARMOUR_ROW, table, armour);
     setRow(bot, BOT_BAG_ROW, table, bag);
-    ((void (*)(void *))((char *)GetModuleHandleA(NULL) + BOT_KIT_SPAWN))(bot);
+    ((void (*)(void *))((char *)g_base + BOT_KIT_SPAWN))(bot);
     return 0;
 }
 
@@ -411,7 +422,7 @@ __declspec(dllexport) int pve_add_item(void *L) {
     char *bot = (char *)intArg(L, 1, 3);
     long long row = intArg(L, 2, 3), stack = intArg(L, 3, 3);
     if (!bot || !row || stack <= 0) return 0;
-    ((void (*)(void *, long long, int, int, unsigned char))((char *)GetModuleHandleA(NULL) + BOT_ADD_ITEM))(bot, row, (int)stack, 1, LOOT_SLOT);
+    ((void (*)(void *, long long, int, int, unsigned char))((char *)g_base + BOT_ADD_ITEM))(bot, row, (int)stack, 1, LOOT_SLOT);
     return 0;
 }
 
@@ -424,7 +435,7 @@ __declspec(dllexport) int pve_add_item(void *L) {
 
 __declspec(dllexport) int pve_loose_assets(void *L) {
     (void)L;
-    char *base = (char *)GetModuleHandleA(NULL);
+    char *base = (char *)g_base;
     void *mgr = ((void *(*)(void))(base + PLATFORM_FILE_GET))();
     char *pak = mgr ? ((char *(*)(void *, const wchar_t *))(base + PLATFORM_FILE_FIND))(mgr, L"PakFile") : NULL;
     FILE *f = report("loose_out.txt", "w");
@@ -448,7 +459,7 @@ __declspec(dllexport) int pve_load(void *L) {
     long long path = intArg(L, 1, 1);
     if (!path) return 0;
     SoftPtr s = { -1, 0, 0, 0, path, NULL, 0, 0 };
-    ((void *(*)(SoftPtr *))((char *)GetModuleHandleA(NULL) + LOAD_ASSET_BLOCKING))(&s);
+    ((void *(*)(SoftPtr *))((char *)g_base + LOAD_ASSET_BLOCKING))(&s);
     return 0;
 }
 
@@ -456,15 +467,19 @@ __declspec(dllexport) int pve_load(void *L) {
    the garbage collector can't see, so a loaded sound or mesh got freed under them. */
 #define OBJECT_CHUNKS   0x58e7538  /* GUObjectArray's chunk table */
 #define OBJECT_INDEX    0xc        /* UObject.InternalIndex */
-#define ROOT_SET        (1 << 30)  /* FUObjectItem.Flags at +8; items are 24 bytes, 65536 to a chunk */
+#define ROOT_SET        (1 << 30)  /* FUObjectItem.Flags */
+#define OBJECT_ITEM_SIZE   24      /* sizeof(FUObjectItem): Object, then Flags at +8 */
+#define OBJECT_ITEM_FLAGS  8
+#define OBJECT_CHUNK_SHIFT 16      /* 65536 items to a chunk */
+#define OBJECT_CHUNK_MASK  0xffff
 
 __declspec(dllexport) int pve_root(void *L) {
     char *obj = (char *)intArg(L, 1, 1);
     if (!obj) return 0;
-    char **chunks = *(char ***)((char *)GetModuleHandleA(NULL) + OBJECT_CHUNKS);
+    char **chunks = *(char ***)((char *)g_base + OBJECT_CHUNKS);
     int index = *(int *)(obj + OBJECT_INDEX);
     if (chunks && index >= 0) {
-        volatile long *flags = (volatile long *)(chunks[index >> 16] + (index & 0xffff) * 24 + 8);
+        volatile long *flags = (volatile long *)(chunks[index >> OBJECT_CHUNK_SHIFT] + (index & OBJECT_CHUNK_MASK) * OBJECT_ITEM_SIZE + OBJECT_ITEM_FLAGS);
         InterlockedOr(flags, ROOT_SET);
     }
     return 0;
@@ -507,7 +522,7 @@ static int isWorn(char *item) {
     wchar_t *s = *(wchar_t **)(item + ITEM_CONTAINER);
     int len = *(int *)(item + ITEM_CONTAINER + 8);
     if (!s || len <= 1 || len > 64 || IsBadReadPtr(s, len * 2)) return 0;
-    for (unsigned i = 0; i < sizeof WORN / sizeof WORN[0]; i++) if (!wcscmp(s, WORN[i])) return 1;
+    for (size_t i = 0; i < PVE_COUNT(WORN); i++) if (!wcscmp(s, WORN[i])) return 1;
     return 0;
 }
 
@@ -561,13 +576,14 @@ __declspec(dllexport) int pve_array_grow(void *L) {
 typedef void (*ProcessEventFn)(void *, void *, void *);
 typedef struct __attribute__((aligned(16))) { float qx, qy, qz, qw, tx, ty, tz, pad0, sx, sy, sz, pad1; } FTransform;
 
-static void *g_hitFn[7], *g_hitClass;
+enum { HIT_FN_COUNT = 7 }; /* the UFunctions pve_hit_init takes, in its argument order */
+static void *g_hitFn[HIT_FN_COUNT], *g_hitClass;
 
 static void callUFn(void *obj, void *fn, void *parms) { ((ProcessEventFn)VFN(obj, UOBJECT_PROCESS_EVENT))(obj, fn, parms); }
 
 __declspec(dllexport) int pve_hit_init(void *L) {
-    for (int i = 0; i < 7; i++) g_hitFn[i] = (void *)intArg(L, i + 1, 8);
-    g_hitClass = (void *)intArg(L, 8, 8);
+    for (int i = 0; i < HIT_FN_COUNT; i++) g_hitFn[i] = (void *)intArg(L, i + 1, HIT_FN_COUNT + 1);
+    g_hitClass = (void *)intArg(L, HIT_FN_COUNT + 1, HIT_FN_COUNT + 1);
     return 0;
 }
 
@@ -585,7 +601,7 @@ __declspec(dllexport) int pve_hit_capsule(void *L) {
     char *bot = (char *)intArg(L, 1, N), *mesh = (char *)intArg(L, 2, N);
     long long socket = intArg(L, 3, N), area = intArg(L, 4, N);
     if (!bot || !mesh || !socket || !g_hitClass) return 0;
-    for (int i = 0; i < 7; i++) if (!g_hitFn[i]) return 0;
+    for (int i = 0; i < HIT_FN_COUNT; i++) if (!g_hitFn[i]) return 0;
     float v[8];
     for (int i = 0; i < 8; i++) v[i] = (float)intArg(L, 5 + i, N) / 100.0f;
     struct { void *cls; char manual; char p0[7]; FTransform t; char deferred; char p1[7]; void *ret; } add;
@@ -624,36 +640,27 @@ __declspec(dllexport) int pve_hit_capsule(void *L) {
 #define OBJECT_NUM      0x14       /* FChunkedFixedUObjectArray.NumElements, from its Objects pointer */
 #define PENDING_KILL    (1 << 29)
 #define UNREACHABLE     (1 << 28)
-#define LUA_VNUMINT_TAG 3
 
-static int readable(const void *p, size_t n) {
-    MEMORY_BASIC_INFORMATION mbi;
-    if (!VirtualQuery(p, &mbi, sizeof mbi) || mbi.State != MEM_COMMIT) return 0;
-    if (mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD)) return 0;
-    if (!(mbi.Protect & (PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE |
-          PAGE_EXECUTE_WRITECOPY))) return 0;
-    return (const char *)p + n <= (const char *)mbi.BaseAddress + mbi.RegionSize;
-}
 
 static int objectAlive(char *obj) {
-    if ((unsigned long long)obj < 0x10000 || ((unsigned long long)obj & 7)) return 0;
-    if (!readable(obj + OBJECT_INDEX, 4)) return 0;
+    if ((ULONG_PTR)obj < 0x10000 || ((ULONG_PTR)obj & 7)) return 0; /* null page or misaligned: not an object */
+    if (!pve_readable(obj + OBJECT_INDEX, 4)) return 0;
     int index = *(int *)(obj + OBJECT_INDEX);
-    char *arr = (char *)GetModuleHandleA(NULL) + OBJECT_CHUNKS;
+    char *arr = (char *)g_base + OBJECT_CHUNKS;
     char **chunks = *(char ***)arr;
     if (!chunks || index < 0 || index >= *(int *)(arr + OBJECT_NUM)) return 0;
-    char *item = chunks[index >> 16];
+    char *item = chunks[index >> OBJECT_CHUNK_SHIFT];
     if (!item) return 0;
-    item += (index & 0xffff) * 24;
+    item += (index & OBJECT_CHUNK_MASK) * OBJECT_ITEM_SIZE;
     if (*(char **)item != obj) return 0;
-    return !(*(int *)(item + 8) & (PENDING_KILL | UNREACHABLE));
+    return !(*(int *)(item + OBJECT_ITEM_FLAGS) & (PENDING_KILL | UNREACHABLE));
 }
 
 /* Pushes one integer as the C function's result (lua_pushinteger; a C function always has LUA_MINSTACK free slots). */
 static int pushInt(void *L, long long v) {
     char *top = *(char **)((char *)L + LUA_TOP);
     *(long long *)top = v;
-    top[8] = LUA_VNUMINT_TAG;
+    top[8] = LUA_VNUMINT;
     *(char **)((char *)L + LUA_TOP) = top + LUA_SLOT;
     return 1;
 }
