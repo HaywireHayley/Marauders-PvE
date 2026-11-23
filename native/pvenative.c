@@ -26,9 +26,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include "pvecommon.h"
 
 #define GMALLOC_RVA 0x58aee70u
 #define MAP_OFFSET 0x128u /* USIGISInventoryComponent::InventoryContainerSizes */
+#define MAX_ELEMS 128      /* the map's inline bit array (4 x 32 bits): fill/merge never go past it */
+#define MAX_CUSTOM 64      /* Name:CxR entries one fill command takes */
+#define KEY_LEN 96
 /* The project folder, with a trailing slash. native/build.sh passes it as -DPVE_ROOT="\"<folder>/\"". */
 #ifndef PVE_ROOT
 #define PVE_ROOT "C:/MaraudersPvE/"
@@ -48,13 +52,6 @@ static void say(const char *fmt, ...) {
     if (f) { fputs(buf, f); fputc('\n', f); fclose(f); }
 }
 
-static int readable(const void *p, size_t n) {
-    MEMORY_BASIC_INFORMATION mbi;
-    if (!VirtualQuery(p, &mbi, sizeof mbi)) return 0;
-    if (mbi.State != MEM_COMMIT || (mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD))) return 0;
-    return (uintptr_t)p + n <= (uintptr_t)mbi.BaseAddress + mbi.RegionSize;
-}
-
 /* ---- engine allocator ---- */
 typedef struct FMalloc FMalloc;
 typedef void *(*MallocFn)(FMalloc *, size_t, uint32_t);
@@ -63,14 +60,14 @@ static FMalloc *gmalloc;
 static int init_allocator(void) {
     uint8_t *base = (uint8_t *)GetModuleHandleA(NULL);
     FMalloc **slot = (FMalloc **)(base + GMALLOC_RVA);
-    if (!readable(slot, 8) || !*slot) return 0;
+    if (!pve_readable(slot, 8) || !*slot) return 0;
     void **vt = *(void ***)*slot;
-    if (!readable(vt, 8 * 19)) return 0;
+    if (!pve_readable(vt, 8 * 19)) return 0;
     /* vtable[18] = GetDescriptiveName(): lea rax,[rip+x]; ret  -> L"binned2" */
     uint8_t *f = (uint8_t *)vt[18];
-    if (!readable(f, 8) || f[0] != 0x48 || f[1] != 0x8d || f[2] != 0x05 || f[7] != 0xc3) return 0;
+    if (!pve_readable(f, 8) || f[0] != 0x48 || f[1] != 0x8d || f[2] != 0x05 || f[7] != 0xc3) return 0;
     const wchar_t *name = (const wchar_t *)(f + 7 + *(int32_t *)(f + 3));
-    if (!readable(name, 16) || wcsncmp(name, L"binned2", 7) != 0) return 0;
+    if (!pve_readable(name, 16) || wcsncmp(name, L"binned2", 7) != 0) return 0;
     gmalloc = *slot;
     return 1;
 }
@@ -104,13 +101,13 @@ static const Entry DEFAULTS[] = {
 
 static void dumpmap(Map *m) {
     say("map: num=%d max=%d bits=%d/%d hashSize=%d data=%p", m->num, m->max, m->numBits, m->maxBits, m->hashSize, (void *)m->data);
-    for (int i = 0; i < m->num && i < 128 && m->data && readable(m->data + i, sizeof(Elem)); i++) {
+    for (int i = 0; i < m->num && i < MAX_ELEMS && m->data && pve_readable(m->data + i, sizeof(Elem)); i++) {
         if (!(m->bitsInline[i / 32] >> (i % 32) & 1)) continue;
         Elem *e = &m->data[i];
-        char key[96] = "?";
-        if (e->data && readable(e->data, 2)) {
+        char key[KEY_LEN] = "?";
+        if (e->data && pve_readable(e->data, 2)) {
             int k = 0;
-            for (; k < 90 && e->data[k]; k++) key[k] = (char)e->data[k];
+            for (; k < KEY_LEN - 1 && e->data[k]; k++) key[k] = (char)e->data[k];
             key[k] = 0;
         }
         say("  [%d] %s = %dx%d next=%d", i, key, e->col, e->row, e->hashNext);
@@ -119,7 +116,7 @@ static void dumpmap(Map *m) {
 
 static int fill(Map *m, const Entry *list, int n) {
     if (m->data || m->num || m->numBits) { say("fill: map is not empty (num=%d); not touching it", m->num); return 0; }
-    if (n > 128) { say("fill: too many entries"); return 0; }
+    if (n > MAX_ELEMS) { say("fill: too many entries"); return 0; }
     Elem *el = (Elem *)engine_malloc((size_t)n * sizeof(Elem), 8);
     if (!el) { say("fill: Malloc failed"); return 0; }
     memset(el, 0, (size_t)n * sizeof(Elem));
@@ -140,7 +137,7 @@ static int fill(Map *m, const Entry *list, int n) {
     memset(m->bitsInline, 0, sizeof m->bitsInline);
     for (int i = 0; i < n; i++) m->bitsInline[i / 32] |= 1u << (i % 32);
     m->bitsSecondary = NULL;
-    m->numBits = n; m->maxBits = 128;
+    m->numBits = n; m->maxBits = MAX_ELEMS;
     m->firstFree = -1; m->numFree = 0;
     m->num = n; m->max = n;
     MemoryBarrier();
@@ -152,21 +149,21 @@ static int fill(Map *m, const Entry *list, int n) {
 /* Adds the entries of `list` whose key the map lacks (case-insensitive, like FString ==). The old element array and
  * hash buffer are left allocated (leaked): the engine never frees them, and the keys' buffers move to the new array. */
 static int merge(Map *m, const Entry *list, int n) {
-    if (m->bitsSecondary || m->maxBits > 128 || (m->num && !m->data)) { say("merge: unexpected map shape"); return 0; }
-    Elem tmp[128];
+    if (m->bitsSecondary || m->maxBits > MAX_ELEMS || (m->num && !m->data)) { say("merge: unexpected map shape"); return 0; }
+    Elem tmp[MAX_ELEMS];
     int cnt = 0;
-    for (int i = 0; i < m->num && i < 128; i++) {
+    for (int i = 0; i < m->num && i < MAX_ELEMS; i++) {
         if (!(m->bitsInline[i / 32] >> (i % 32) & 1)) continue;
-        if (!readable(m->data + i, sizeof(Elem))) { say("merge: unreadable element %d", i); return 0; }
+        if (!pve_readable(m->data + i, sizeof(Elem))) { say("merge: unreadable element %d", i); return 0; }
         tmp[cnt++] = m->data[i];
     }
     int added = 0;
-    for (int j = 0; j < n && cnt < 128; j++) {
+    for (int j = 0; j < n && cnt < MAX_ELEMS; j++) {
         int have = 0;
         for (int i = 0; i < cnt; i++) {
-            if (tmp[i].data && readable(tmp[i].data, 2)) {
-                char key[96]; int k = 0;
-                for (; k < 90 && tmp[i].data[k]; k++) key[k] = (char)tmp[i].data[k];
+            if (tmp[i].data && pve_readable(tmp[i].data, 2)) {
+                char key[KEY_LEN]; int k = 0;
+                for (; k < KEY_LEN - 1 && tmp[i].data[k]; k++) key[k] = (char)tmp[i].data[k];
                 key[k] = 0;
                 if (!_stricmp(key, list[j].name)) { have = 1; break; }
             }
@@ -192,7 +189,7 @@ static int merge(Map *m, const Entry *list, int n) {
     m->hashInline = 0; m->hashSecondary = NULL; m->hashSize = 1;
     memset(m->bitsInline, 0, sizeof m->bitsInline);
     for (int i = 0; i < cnt; i++) m->bitsInline[i / 32] |= 1u << (i % 32);
-    m->numBits = cnt; m->maxBits = 128;
+    m->numBits = cnt; m->maxBits = MAX_ELEMS;
     m->firstFree = -1; m->numFree = 0;
     m->num = cnt; m->max = cnt;
     MemoryBarrier();
@@ -215,21 +212,21 @@ static void run(char *line) {
         char *a = strtok_s(NULL, " \t\r\n", &save);
         if (!a) { say("needs an address"); return; }
         uint8_t *comp = (uint8_t *)(uintptr_t)strtoull(a, NULL, 0);
-        if (!readable(comp, MAP_OFFSET + sizeof(Map))) { say("bad address %s", a); return; }
+        if (!pve_readable(comp, MAP_OFFSET + sizeof(Map))) { say("bad address %s", a); return; }
         Map *m = (Map *)(comp + MAP_OFFSET);
         if (!strcmp(verb, "dumpmap")) { dumpmap(m); return; }
-        if (!strcmp(verb, "merge")) { merge(m, DEFAULTS, (int)(sizeof DEFAULTS / sizeof DEFAULTS[0])); dumpmap(m); return; }
-        Entry custom[64];
+        if (!strcmp(verb, "merge")) { merge(m, DEFAULTS, (int)PVE_COUNT(DEFAULTS)); dumpmap(m); return; }
+        Entry custom[MAX_CUSTOM];
         int n = 0;
-        for (char *t; n < 64 && (t = strtok_s(NULL, " \t\r\n", &save)); ) {
+        for (char *t; n < MAX_CUSTOM && (t = strtok_s(NULL, " \t\r\n", &save)); ) {
             char *colon = strchr(t, ':');
             int c, r;
             if (colon && sscanf(colon + 1, "%dx%d", &c, &r) == 2) {
                 *colon = 0;
-                custom[n].name = _strdup(t); custom[n].col = c; custom[n].row = r; n++;
+                custom[n].name = t; custom[n].col = c; custom[n].row = r; n++; /* fill copies the name into engine memory */
             }
         }
-        if (n) fill(m, custom, n); else fill(m, DEFAULTS, (int)(sizeof DEFAULTS / sizeof DEFAULTS[0]));
+        if (n) fill(m, custom, n); else fill(m, DEFAULTS, (int)PVE_COUNT(DEFAULTS));
         dumpmap(m);
     } else say("unknown command %s", verb);
 }
@@ -259,7 +256,8 @@ BOOL WINAPI DllMain(HINSTANCE h, DWORD why, LPVOID r) {
     (void)r;
     if (why == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(h);
-        CreateThread(NULL, 0, worker, NULL, 0, NULL);
+        HANDLE t = CreateThread(NULL, 0, worker, NULL, 0, NULL);
+        if (t) CloseHandle(t); /* runs for the life of the process */
     }
     return TRUE;
 }
