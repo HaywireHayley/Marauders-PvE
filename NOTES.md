@@ -5189,6 +5189,13 @@ From Taki's report (`MaraudersOffline-report-20261121-2335`, build 23: soldiers 
 - Not found: why the gate extraction's ExtractedLoot held the stash's container contents, and whether the lobby showed
   the containers empty because of the overlapping copies or for another reason (not checked in game). Test: a raid
   ending through the space gate with full bags in the stash, then compare the stash before and after.
+- Second guard (2026-11-23): the report's copies went into containers that never left the stash (202 of 324). Raid loot
+  can only sit in bags that went into the raid, and those leave the stash at checkout. So when a raid ends (ship_lost or
+  ship_gate=1) the stand-in remembers the stash's containers (`home_containers`), and the first PUT with new inventory
+  items after that refuses new items placed in one of them (acked, key added to dropped_twins). Later writes aren't
+  checked; the mark expires after 30 min. Covers copies that differ from the original (moved by #239's repair, other
+  stack), which twin_of misses. The 84 copies onto the stash grid are still only caught when exact. Tested:
+  tools/test_standin_flow.py. NOT tested in game, and the root cause (why ExtractedLoot held the stash) is still open.
 
 ## Lua hot paths: lobby scans, owner checks, one AI-start scan (2026-11-22; luacheck only, NOT tested in game)
 - main.lua lobby stash grid: the `FindAllOf("InventoryContainerWidget")` (30-45 ms) ran every 2 s while the stash

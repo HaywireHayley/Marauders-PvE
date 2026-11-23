@@ -457,6 +457,18 @@ class Handler(BaseHTTPRequestHandler):
             acks, twins = [], []
             dropped = state.setdefault("dropped_twins", [])
             dropped_set, places = set(dropped), None
+            home_mark = state.get("home_containers")
+            if home_mark and time.time() - home_mark.get("at", 0) > HOME_CONTAINERS_TTL:
+                state.pop("home_containers")
+                home_mark = None
+            home = set(home_mark["keys"]) if home_mark else set()
+            new_items = [o for o in (body or {}).get("objects", []) if o.get("collection") == "inventory"
+                         and o.get("key") not in st.get("inventory", {})]
+            if home and new_items:
+                state.pop("home_containers")  # only the first write of new items after a raid is checked
+            else:
+                home = set()
+            strays = []
             for o in (body or {}).get("objects", []):
                 # #370: a new item that is an exact copy of one already in the same place (same row, stack, condition,
                 # cell and container) is a duplicate, never a real item: two can't share a cell. It's acknowledged so
@@ -467,7 +479,12 @@ class Handler(BaseHTTPRequestHandler):
                     if places is None:  # built once per request, kept up to date as items are stored below
                         places = item_places(st.get("inventory", {}))
                     twin = places.get(item_place(o.get("value")))
-                if o["collection"] == "inventory" and (o["key"] in dropped_set or twin):
+                stray = None
+                if home and o["collection"] == "inventory" and o["key"] not in st.get("inventory", {}):
+                    stray = home_container_of(o.get("value"), home)
+                if stray:
+                    strays.append(o["key"])
+                if o["collection"] == "inventory" and (o["key"] in dropped_set or twin or stray):
                     if o["key"] not in dropped_set:
                         dropped.append(o["key"])
                         dropped_set.add(o["key"])
@@ -494,6 +511,10 @@ class Handler(BaseHTTPRequestHandler):
                 acks.append({"collection": o["collection"], "key": o["key"], "version": col[o["key"]]["version"],
                              "user_id": uid, "create_time": col[o["key"]]["create_time"], "update_time": now})
             save_state(state)
+            if strays:
+                log(f"inventory: {len(strays)} new item(s) placed in containers that never left the stash not stored "
+                    f"(not raid loot, #370): {strays}")
+            twins = [k for k in twins if k not in strays]
             if twins:
                 log(f"inventory: {len(twins)} duplicate item(s) not stored (copies of items already in that place, #370): {twins}")
             return {"acks": acks}, f"wrote {[(a['collection'], a['key']) for a in acks if a['key'] not in twins]}"
@@ -599,6 +620,33 @@ def item_places(inv):
             out.setdefault(p, k)
     out.pop(None, None)
     return out
+
+
+# #370: after a space-gate extraction the game once wrote the stash's container contents again under new keys. Loot
+# carried out of a raid can only sit in bags that went into the raid, and those left the stash at raid start, so a new
+# item placed inside a container that stayed in the stash isn't loot. When a raid ends, the containers still in the stash
+# are remembered; the first write of new items after that (the lobby saving ExtractedLoot) refuses new items placed in
+# them. Later writes (vendors, moving things around) aren't checked. Expires after HOME_CONTAINERS_TTL seconds.
+HOME_CONTAINERS_TTL = 1800
+
+
+def mark_home_containers():
+    """Remembers the containers in the stash as the raid ends. Call with the lock held."""
+    inv = state["storage"].get("inventory", {})
+    held = set()
+    for o in inv.values():
+        f = item_fields(o.get("value"))
+        if f and len(f) >= 8:
+            held.add(f[7])
+    state["home_containers"] = {"keys": sorted(k for k in held if k in inv), "at": time.time()}
+
+
+def home_container_of(value, home):
+    """The stash container a new item claims to be in, if it is one that never went into the raid, else None."""
+    f = item_fields(value)
+    if f and len(f) >= 8 and f[7] in home:
+        return f[7]
+    return None
 
 
 def twin_of(inv, key, value):
@@ -783,7 +831,9 @@ def watch_checkout():
             with lock:  # dead, out on foot / by pod, or in a space gate: the raid ended the game's way
                 if state.get("raid_out"):
                     state["raid_out"]["ended"] = lost is not None or gate == "1"
-                    save_state(state)
+                if lost is not None or gate == "1":
+                    mark_home_containers()
+                save_state(state)
         if lost is not None or row:
             with lock:
                 state.pop("ship_out", None)
