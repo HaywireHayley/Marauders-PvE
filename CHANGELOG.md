@@ -2,6 +2,23 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 23 Nov 2026, build 28 (`public-test-20261123.28`)
+
+A likely fix for Linux PLAY stopping on an error box, and launcher dialogs that wouldn't open on Linux. On build 1 of
+17 Nov or later, the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Changes
+
+- **Linux: PLAY ran the game with the wrong arguments (#161, PR #404, thanks Pöhlbert for the logs):** when Steam's
+  command reached the launch option twice, the mod started the game with Steam's own wrapper as its arguments and the
+  game stopped on an error box. It now runs only the last command, and says so in `backend/linux_launch.log`. Check
+  that the launch option has `%command%` only once.
+- **Linux: SETTINGS and NEW SAVE didn't open (#161, PR #404):** the launcher's dialogs could hang on Wayland/KDE.
+- **Better reports (#161, PR #404):** the game's UE4SS log is kept as `backend/last_game.log` after a failed start
+  on Linux; launcher errors go to `backend/launcher_errors.log`; the report zip includes both Linux logs.
+- **Blowtorch on vault locks (#374, PR #405):** the torch now considers every lock on the map, not just the first 24,
+  so the door in front of you is no longer left out on maps with many locked doors. Not yet confirmed in game.
+
 ## Public test, 23 Nov 2026, build 27 (`public-test-20261123.27`)
 
 For Linux players helping us get it running under Proton. Nothing changes on Windows. On build 1 of 17 Nov or later,
