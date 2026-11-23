@@ -5171,3 +5171,15 @@ From Taki's report (`MaraudersOffline-report-20261121-2335`, build 23: soldiers 
 - Not found: why the gate extraction's ExtractedLoot held the stash's container contents, and whether the lobby showed
   the containers empty because of the overlapping copies or for another reason (not checked in game). Test: a raid
   ending through the space gate with full bags in the stash, then compare the stash before and after.
+
+## Stand-in robustness (2026-11-22, review of the backend)
+- Saves: `save_state` writes compact JSON, fsyncs the temp file before the rename (a power cut or blue screen used to be
+  able to leave an empty state.json), and keeps the replaced copy as `state.json.bak`; `load_state` falls back to it when
+  state.json is missing or doesn't parse (logged). loadout.json and cosmetics.json are only rewritten when their text
+  changes (they were rewritten on every stash write).
+- The #370 duplicate check builds one {item place: key} index per PUT and updates it as items are stored (it scanned and
+  parsed the whole inventory once per item, under the lock). 500 items against a 1000-item stash: 0.02 s (CI test).
+- server.log over 1 MB becomes server.log.1 at start-up; the pre-clean-up backup is `state.before-twins-<time>.json`, never
+  overwritten; unparseable inventory/cosmetic rows and a failed coverage write are logged instead of skipped silently.
+- Tested: tools/test_standin_flow.py (CI), including the timing, a copy inside one request, and the .bak fallback. Not
+  tested in game (the stand-in's API is unchanged).
