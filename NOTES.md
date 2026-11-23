@@ -3733,6 +3733,10 @@ reference with flowcharts: [docs/internals/SALVAGE_CHAIN.md](docs/internals/SALV
   which looks like what a gun's hit calls. A plain damage hit and an explosion-type hit sent to a gas can (10 health) and a barrel
   (42) changed nothing. It is not known that the real torch sets them off, so they are left alone; if it does, calling
   `GenTakenDamage` from the burn loop is the likely fix (separate change). The decompiled flow is drawn in BLOWTORCH.md.
+- 2026-11-23 (#374, reported not burning on build 24): not traced to a cause from code (the repair code runs after
+  burn() and can't stop it). One weak spot fixed: findVolumes kept only the first 24 lock volumes in FindAllOf order,
+  before the 15 m check, so on a map with more than 8 lock doors yours could be missing. Now keeps all. NOT tested in game.
+
 ## Raid conditions (issue 78, 2026-11-18; conditions.lua, config/raid_conditions.txt)
 - A condition is a named set-up applied while a raid map is loaded: F3 settings by their ai_tuning.txt id
   (`Crews:BARON`, `Spawns:CREWS`...), `ships` (rival crews guaranteed in those hulls, boss-like: diehard, aggression 1,
