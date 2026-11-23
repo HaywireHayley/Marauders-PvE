@@ -3,8 +3,6 @@
 
     python3 scripts/test_pvemode.py            (the end-to-end steam-run tests need Linux: WSL works)
 """
-import filecmp
-import json
 import os
 import shutil
 import signal

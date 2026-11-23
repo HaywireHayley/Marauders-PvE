@@ -1,8 +1,10 @@
 # Searches the running game's whole FName pool for text: every name it knows, including cooked asset names from the
 # asset registry. fnames.py <text> [<text>...]
-import sys, struct
-import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
-import procmem as m, gbase
+import sys
+import struct
+import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts'))   # noqa: E402
+import procmem as m
+import gbase
 POOL = gbase.base() + 0x1a63226 + 0x3e6b91a
 cur = struct.unpack('<i', m.read(POOL + 8, 4))[0]
 print('blocks', cur + 1)

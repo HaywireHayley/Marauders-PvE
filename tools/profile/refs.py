@@ -1,8 +1,10 @@
 # Any rip-relative disp32 in the code sections that lands on the given RVAs: refs.py <rva> ...
-import sys, struct
+import sys
+import struct
 import numpy as np
-import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
-import procmem as m, gbase
+import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts'))   # noqa: E402
+import procmem as m
+import gbase
 base = gbase.base(); hdr = m.read(base, 0x1000)
 pe = struct.unpack_from('<I', hdr, 0x3c)[0]; nsec = struct.unpack_from('<H', hdr, pe+6)[0]; opt = struct.unpack_from('<H', hdr, pe+20)[0]
 T = [int(x, 16) for x in sys.argv[1:]]

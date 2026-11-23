@@ -1,7 +1,11 @@
 # Lists /SIGISPlugin/.../SIGIS_ExampleItemData by item type: itemrows.py <DataTable hex address>
-import sys, struct, collections, json
-import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
-import procmem as m, gbase
+import sys
+import struct
+import collections
+import json
+import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT  # noqa: E402
+import procmem as m
+import gbase
 POOL = gbase.base() + 0x1a63226 + 0x3e6b91a
 def fname(i):
     blk = m.q(POOL + 0x10 + 8 * (i >> 16)); e = blk + 2 * (i & 0xffff)

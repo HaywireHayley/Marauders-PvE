@@ -1,8 +1,12 @@
 # Names Blueprint-event wrappers: a short native function that loads a global FName and calls FindFunctionChecked
 # (0x1c312d0) then ProcessEvent. Reads the FName's index and resolves it via the object dump.
-import sys, json, re, struct
-import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
-import procmem as m, gbase
+import sys
+import json
+import re
+import struct
+import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT  # noqa: E402
+import procmem as m
+import gbase
 from capstone import *
 base = gbase.base(); md = Cs(CS_ARCH_X86, CS_MODE_64)
 dn = {}

@@ -325,7 +325,6 @@ def copy(sid):
 
 def export(sid, out_dir=None):
     """A backup of a save: one zip (its meta.json and state.json), on the Desktop unless out_dir is given (#98)."""
-    meta = _meta(sid)
     out_dir = out_dir or os.path.join(os.path.expanduser("~"), "Desktop")
     if not os.path.isdir(out_dir):
         out_dir = os.path.expanduser("~")

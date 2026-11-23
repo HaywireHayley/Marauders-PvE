@@ -1,8 +1,12 @@
 # Finds UTF-16 strings in the game module's readable memory, with the text around them.
 # strs.py <text> [<text>...]
-import sys, re, struct, ctypes, ctypes.wintypes as wt
-import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
-import procmem as m, gbase
+import sys
+import re
+import ctypes
+import ctypes.wintypes as wt
+import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts'))   # noqa: E402
+import procmem as m
+import gbase
 base = gbase.base()
 class MBI(ctypes.Structure):
     _fields_ = [('BaseAddress', ctypes.c_void_p), ('AllocationBase', ctypes.c_void_p), ('AllocationProtect', wt.DWORD), ('PartitionId', wt.WORD),

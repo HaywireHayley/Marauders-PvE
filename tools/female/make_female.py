@@ -2,9 +2,15 @@
 # LOD's bind-pose vertices are reshaped in place (same topology, weights, UVs and materials, so animations and textures
 # keep working) and the copy is saved beside the original under Meshes/<FEMALE_DIR>/.
 #   make_female.py (reads assets/female/list.txt: pak paths without extension)   writes assets/female/pak/, installed as loose files by scripts/mode.ps1
-import math, os, re, shutil, struct, subprocess, sys
+import math
+import os
+import re
+import shutil
+import struct
+import subprocess
+import sys
 
-import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
 GAME_PAK = os.path.join(GAME, r'RaidGame/Content/Paks/pakchunk0-WindowsNoEditor.pak')
 REPAK = ROOT + '/tools/repak/repak.exe'
 KEY = '0x' + open(ROOT + '/backup/keys/pak.key').read().strip()

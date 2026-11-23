@@ -1,9 +1,12 @@
 # For every native OnRep_*: does anything besides its exec thunk call its implementation? (offline nothing replicates,
 # so an OnRep only runs if code calls it). Checks rel32 calls/jmps across the whole exe and pointer refs (vtables).
-import sys, json, struct, re
+import sys
+import json
+import struct
 import numpy as np
-import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
-import procmem as m, gbase
+import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts'))   # noqa: E402
+import procmem as m
+import gbase
 from capstone import *
 base = gbase.base(); md = Cs(CS_ARCH_X86, CS_MODE_64)
 d = json.load(open(sys.argv[1]))

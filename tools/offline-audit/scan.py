@@ -1,7 +1,10 @@
 # Finds instructions using displacement(s) given on the command line inside the exe's code sections.
-import sys, struct, re
-import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
-import procmem as m, gbase
+import sys
+import struct
+import re
+import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts'))   # noqa: E402
+import procmem as m
+import gbase
 from capstone import *
 base = gbase.base() if hasattr(gbase,'base') else m.base()
 hdr = m.read(base, 0x1000)

@@ -1,6 +1,9 @@
 """Samples the game thread's instruction pointer from outside, read-only (brief SuspendThread per sample).
 threadsample.py <seconds> [hz]: prints which module the busiest threads spend time in, and per-thread busy share."""
-import ctypes as C, sys, time, collections
+import ctypes as C
+import sys
+import time
+import collections
 from ctypes import wintypes as W
 k = C.WinDLL("kernel32", use_last_error=True); psapi = C.WinDLL("psapi")
 TH32CS_SNAPTHREAD = 4

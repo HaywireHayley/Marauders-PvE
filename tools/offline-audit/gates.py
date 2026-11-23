@@ -1,8 +1,12 @@
 # Finds offline-relevant gates in game code: net-mode compares and Role (+0xF0) compares, works out which side
 # runs offline (NetMode = 0 Standalone, Role = 3 Authority) and lists the named calls on the side that never runs.
-import sys, json, re, struct, collections
-import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
-import procmem as m, gbase
+import sys
+import json
+import re
+import collections
+import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts'))   # noqa: E402
+import procmem as m
+import gbase
 from capstone import *
 base = gbase.base(); md = Cs(CS_ARCH_X86, CS_MODE_64); md.detail = False
 names = {int(k, 16): v for k, v in json.load(open(sys.argv[1])).items()}
@@ -12,7 +16,7 @@ names.update({0x1884b80: 'RaidWeapon::FireWeapon', 0x189a490: 'RaidWeapon::Simul
     0x316ebe0: 'IsStandalone', 0x1832420: 'RaidPlayerController get pooled impact', 0x17edf20: 'RaidBot death'})
 RANGES = [(0x7e0000, 0xb20000), (0x1700000, 0x1a00000)]
 code = {}
-for lo, hi in RANGES:
+for lo, _hi in RANGES:
     buf = bytearray()
     for off in range(lo, hi, 0x100000): buf += m.read(base + off, min(0x100000, hi - off))
     code[lo] = bytes(buf)
@@ -34,7 +38,7 @@ def tgt(ins):
     except ValueError: return None
 # pass 1: linear disassembly of all ranges; find call -> cmp eax,imm patterns to rank net-mode helpers
 ins_all = []
-for lo, hi in RANGES:
+for lo, _hi in RANGES:
     c = code[lo]; p = 0
     while p < len(c):
         got = False

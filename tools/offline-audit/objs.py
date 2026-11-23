@@ -1,7 +1,11 @@
 # Walks GUObjectArray (read-only) and writes every RaidGame/SIGIS UFunction: class, name, flags, thunk RVA, impl RVA.
-import sys, struct, re, json
+import sys
+import struct
+import re
+import json
 import os; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts')); from pvepaths import ROOT, GAME  # noqa: E402
-import procmem as m, gbase
+import procmem as m
+import gbase
 from capstone import *
 LOG = os.path.join(GAME, r'RaidGame/Binaries/Win64/UE4SS.log')
 t = open(LOG, encoding='utf-8', errors='ignore').read()
