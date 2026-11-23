@@ -858,6 +858,13 @@ def watch_checkout():
             return_unfinished_raid("a new raid started")
             save_state(state)  # the copy below is what to restore from if a raid ends without an extraction
             shutil.copyfile(STATE, STATE.replace("state.json", "state.before-last-raid.json"))
+            # the crew too (the mod's crew.lua: hired crewmates, who dies in a raid), so Undo last raid brings them back
+            crew = os.path.join(os.path.dirname(STATE), "crew.lua")
+            crew_copy = os.path.join(os.path.dirname(STATE), "crew.before-last-raid.lua")
+            if os.path.exists(crew):
+                shutil.copyfile(crew, crew_copy)
+            elif os.path.exists(crew_copy):
+                os.remove(crew_copy)
             inv = state["storage"].get("inventory", {})
             taken = {i: inv.pop(i) for i in ids if i in inv}
             gone = list(taken)

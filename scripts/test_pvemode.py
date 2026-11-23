@@ -51,6 +51,8 @@ def sandbox(tmp):
     s.SAVES = os.path.join(tmp, "saves")
     s.LIVE = os.path.join(tmp, "state.json")
     s.RAID_COPY = os.path.join(tmp, "state.before-last-raid.json")
+    s.CREW = os.path.join(tmp, "crew.lua")
+    s.CREW_RAID_COPY = os.path.join(tmp, "crew.before-last-raid.lua")
     s.ACTIVE = os.path.join(tmp, "active_save.txt")
     s.STASH_ROWS = os.path.join(cfg, "stash_rows.txt")
     os.makedirs(s.SAVES, exist_ok=True)

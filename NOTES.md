@@ -5280,3 +5280,14 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   appears (45 s at most). Gear: unchanged (#49 returns what you brought). The click path itself was NOT driven in game.
 - F9 "Extract now" already went through Client_GetOutWithLoot -> returnAfterExtract -> ESCAPED; Alt+F4 and crashes
   still lose the raid's progress.
+
+## Crew kept per save, and Undo last raid restores it (2026-11-23, Discord report on build 24)
+- Report (spacedork_): crewmates stayed dead after the launcher's "Undo last raid". Cause: the mod's crew (hire.lua
+  SAVE_FILE, backend/crew.lua: hired crewmates, pool, deaths) lives outside state.json, and save slots only ever
+  copied state.json. So one crew was shared by every save, and Undo rolled back only the stash.
+- Now: the stand-in copies crew.lua to crew.before-last-raid.lua at raid start (beside state.before-last-raid.json);
+  saves.settle files them as the slot's crew.lua / before-last-raid-crew.lua; activate puts the slot's crew.lua in play
+  (a slot without one, i.e. every save from before this, keeps the crew in play); undo_last_raid restores the crew with
+  the state. Export includes crew.lua (import doesn't read it yet).
+- Tested: tools/test_crew_undo.py (CI), test_pvemode.py, launcher/test_ui.py, test_standin_flow.py. NOT tested in game:
+  that hire.lua re-reads crew.lua at each launch (it's loaded per launch, so a relaunch is needed after Undo anyway).

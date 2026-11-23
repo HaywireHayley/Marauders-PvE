@@ -19,6 +19,12 @@ SAVES = os.path.join(BACKEND, "saves")
 LIVE = os.path.join(BACKEND, "state.json")
 RAID_COPY = os.path.join(BACKEND, "state.before-last-raid.json")
 ACTIVE = os.path.join(BACKEND, "active_save.txt")
+# The mod's crew (hired crewmates, the recruit pool, who died) lives in backend/crew.lua, outside state.json. Each save
+# keeps its own copy as crew.lua, and the stand-in copies it at raid start like the state, so Undo last raid brings back
+# crewmates lost in that raid. A save from before this has no crew.lua: it keeps whatever crew is in play.
+CREW = os.path.join(BACKEND, "crew.lua")
+CREW_RAID_COPY = os.path.join(BACKEND, "crew.before-last-raid.lua")
+SLOT_CREW, SLOT_CREW_UNDO = "crew.lua", "before-last-raid-crew.lua"
 ITEMS = os.path.join(ROOT, "assets", "saves", "items.json")
 
 # A new save starts as a brand-new live account did: on its first login the game itself gives 65,000 credits and its
@@ -228,9 +234,18 @@ def settle():
     folder = os.path.join(SAVES, sid)
     if os.path.isdir(folder) and os.path.exists(LIVE):
         _copy(LIVE, os.path.join(folder, "state.json"))
+        if os.path.exists(CREW):
+            _copy(CREW, os.path.join(folder, SLOT_CREW))
         if os.path.exists(RAID_COPY):
             _copy(RAID_COPY, os.path.join(folder, "before-last-raid.json"))
             os.remove(RAID_COPY)
+            undo_crew = os.path.join(folder, SLOT_CREW_UNDO)
+            if os.path.exists(CREW_RAID_COPY):
+                _copy(CREW_RAID_COPY, undo_crew)
+            elif os.path.exists(undo_crew):
+                os.remove(undo_crew)  # (that raid started with no crew file: an older one would bring back the wrong crew)
+        if os.path.exists(CREW_RAID_COPY):
+            os.remove(CREW_RAID_COPY)
         meta = _meta(sid)
         meta["played"] = time.time()
         _write(os.path.join(folder, "meta.json"), meta)
@@ -246,6 +261,10 @@ def stash_rows(meta):
 def activate(sid):
     settle()
     _copy(os.path.join(SAVES, sid, "state.json"), LIVE)
+    if os.path.exists(os.path.join(SAVES, sid, SLOT_CREW)):
+        _copy(os.path.join(SAVES, sid, SLOT_CREW), CREW)
+    if os.path.exists(CREW_RAID_COPY):
+        os.remove(CREW_RAID_COPY)
     rows = stash_rows(_meta(sid))
     if rows != STASH_H:
         with open(STASH_ROWS, "w", encoding="utf-8") as f:
@@ -330,8 +349,9 @@ def export(sid, out_dir=None):
         out_dir = os.path.expanduser("~")
     path = os.path.join(out_dir, f"MaraudersOffline-save-{sid}-{time.strftime('%Y%m%d-%H%M')}.zip")
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in ("meta.json", "state.json"):
-            z.write(os.path.join(SAVES, sid, f), f)
+        for f in ("meta.json", "state.json", SLOT_CREW):
+            if f == "meta.json" or f == "state.json" or os.path.exists(os.path.join(SAVES, sid, f)):
+                z.write(os.path.join(SAVES, sid, f), f)
     return path
 
 
@@ -431,3 +451,7 @@ def undo_last_raid(sid):
     folder = os.path.join(SAVES, sid)
     _copy(os.path.join(folder, "before-last-raid.json"), os.path.join(folder, "state.json"))
     os.remove(os.path.join(folder, "before-last-raid.json"))
+    undo_crew = os.path.join(folder, SLOT_CREW_UNDO)
+    if os.path.exists(undo_crew):  # crewmates lost in that raid come back
+        _copy(undo_crew, os.path.join(folder, SLOT_CREW))
+        os.remove(undo_crew)
