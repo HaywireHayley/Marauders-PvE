@@ -70,6 +70,7 @@ LINUX AND STEAM DECK  (experimental: not yet tested under Proton, please report 
   4. Press PLAY in Steam. The game folder goes offline for that game and back to stock when it closes; if the game
      is killed or the Deck loses power, the next start puts it back first.
   (Downloaded every zip by hand instead? Extract them all, the -deps- ones too, into the same folder, then step 2.)
+  PLAY fails? Send backend/linux_launch.log (Steam's command, what the mod ran, and Proton's own output).
   The launcher window: if your Python has Tk and Pillow, install.sh adds "Marauders Offline" to your app menu.
   Saves:  python3 scripts/pvemode.py saves | use <id> | new <name> [--cheat]
   Online again:  clear the launch option, or  python3 scripts/pvemode.py steam off   ("steam on" to switch back)
