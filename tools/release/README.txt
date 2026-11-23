@@ -61,8 +61,10 @@ LINUX AND STEAM DECK  (experimental: not yet tested under Proton, please report 
 --------------------
   No launcher window on Linux: Steam's PLAY button starts the mod through a launch option (Game Mode works too).
   1. Unzip this folder somewhere permanent (internal storage is safest; no non-English letters in the path).
+     Easiest: the small MaraudersOffline-<build>-installer.zip alone; step 2 downloads the rest. By hand instead:
+     extract EVERY zip of the release (the main one and all the -deps- ones) into the same folder.
   2. In a terminal, in this folder:   sh linux/install.sh
-     It finds the game in your Steam libraries and prints a line for
+     From the installer zip it first downloads the latest build (about 60 MB, every file checked). It finds the game in your Steam libraries and prints a line for
      Marauders > Properties > General > Launch options, like:
          "/home/deck/MaraudersOffline/linux/marauders-offline.sh" %command%
   3. Press PLAY in Steam. The game folder goes offline for that game and back to stock when it closes; if the game

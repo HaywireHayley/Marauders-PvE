@@ -317,10 +317,11 @@ def write_zip(path, rels):
                 z.write(src, arc)
 
 
-# The slim installer zip: just enough for Install.bat to fetch and install the latest build (bootstrap.py).
+# The slim installer zip: just enough for Install.bat (or linux/install.sh) to fetch and install the latest build (bootstrap.py).
 INSTALLER = (("tools/release/install.ps1", "scripts/install.ps1"), ("scripts/find-game.ps1", "scripts/find-game.ps1"),
              ("tools/release/bootstrap.py", "scripts/bootstrap.py"), ("launcher/update.py", "launcher/update.py"),
-             ("tools/release/README.txt", "README.txt"), ("CREDITS.md", "CREDITS.md"))
+             ("tools/release/README.txt", "README.txt"), ("CREDITS.md", "CREDITS.md"),
+             ("linux/install.sh", "linux/install.sh"))  # Linux / Steam Deck: the same download, then the launch option
 
 
 def write_installer(build, out_dir=OUT_DIR):
