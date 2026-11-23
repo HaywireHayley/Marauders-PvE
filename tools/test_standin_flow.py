@@ -48,6 +48,27 @@ h.route("POST", "/v2/storage/delete", {}, {"object_ids": [{"collection": "invent
 assert "54321" not in json.load(open(s.STATE, encoding="utf-8"))["storage"]["inventory"]
 print("login, masterstartfunction and the stash round trip work from seed.json")
 
+# #370: a new item that copies one already in the same place isn't stored, and later writes to it are ignored; a
+# container's copy and its contents are cleaned at login, the contents moving into the container that stays.
+def obj(key, rest):
+    return {"collection": "inventory", "key": key, "value": json.dumps({"value": key + "-" + rest})}
+h.route("PUT", "/v2/storage", {}, {"objects": [obj("100", "SmallContainer-1-1-0-0-0-Stash"), obj("101", "9mmAmmo-60-1-0-0-0-100")]})
+out, _ = h.route("PUT", "/v2/storage", {}, {"objects": [obj("102", "9mmAmmo-60-1-0-0-0-100"), obj("103", "9mmAmmo-60-1-1-0-0-100")]})
+assert [a["key"] for a in out["acks"]] == ["102", "103"], out
+inv = s.state["storage"]["inventory"]
+assert "102" not in inv and "103" in inv, sorted(inv)
+h.route("PUT", "/v2/storage", {}, {"objects": [obj("102", "9mmAmmo-60-1-5-5-0-Stash")]})
+assert "102" not in s.state["storage"]["inventory"]
+inv["200"] = dict(inv["100"], value=json.dumps({"value": "200-SmallContainer-1-1-0-0-0-Stash"}), create_time="2099")
+inv["201"] = dict(inv["101"], value=json.dumps({"value": "201-9mmAmmo-60-1-0-0-0-200"}), create_time="2099")
+inv["202"] = dict(inv["101"], value=json.dumps({"value": "202-Biscuit-1-1-2-0-0-200"}), create_time="2099")
+assert s.drop_twins() == 2 and "200" not in inv and "201" not in inv, sorted(inv)
+assert json.loads(inv["202"]["value"])["value"].endswith("-100"), inv["202"]
+assert s.drop_twins() == 0
+for k in ("100", "101", "103", "202"):
+    inv.pop(k)
+print("duplicates: not stored on write, removed at login with their contents kept")
+
 # An old save (no schema field) is brought up to date on load and written back; a newer one is left alone.
 old = dict(saved)
 old.pop("schema")

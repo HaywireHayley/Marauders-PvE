@@ -5155,3 +5155,19 @@ From Taki's report (`MaraudersOffline-report-20261121-2335`, build 23: soldiers 
 - Seen but not changed: a MineStaticActor_C scan (~70 ms) about once a minute in `defuse`; the game itself ran at a
   steady 30 fps late in the raid with the director at ~3 ms a frame.
 
+
+## Stash duplicated at a space-gate extraction (#370, 2026-11-22)
+- Report (KillSwitch, build 20261122.24): bags and containers showed empty in the lobby. The save held 456 items, 315 still
+  pointing at a bag or container that exists: nothing was lost from the file.
+- server.log: a raid ended through the space gate (19:04:44 `ship in the gate: True`, `ship lost`); at 19:04:58 the game
+  wrote 386 inventory objects in one PUT: the 23 items taken into the raid (22 written twice) plus 324 new keys, 202 of them
+  into containers that were already in the stash, 84 onto the stash grid, many exact copies of an item in the same cell.
+  Stash 175 -> 499 items; the stacked-item repair (#239) then moved some and found no room for 161.
+- Fix (stand-in): `twin_of` refuses a new inventory object whose fields after the key equal an existing item's (same row,
+  stack, condition, cell, container): it is acknowledged but not stored, and later writes to that key are ignored
+  (`state["dropped_twins"]`). `drop_twins` at start-up removes existing exact copies (oldest stays; a removed container's
+  contents move to the kept one and are compared again), backing up `state.before-twins.json`. On the reporter's save:
+  456 -> 250 items, 206 removed, a second run removes none; 10 cells still hold two different items (left alone).
+- Not found: why the gate extraction's ExtractedLoot held the stash's container contents, and whether the lobby showed
+  the containers empty because of the overlapping copies or for another reason (not checked in game). Test: a raid
+  ending through the space gate with full bags in the stash, then compare the stash before and after.
