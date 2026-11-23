@@ -4,7 +4,7 @@
  * bridge/capture_on or bridge/offline_backend exists:
  *   capture_on       log every request (below)
  *   offline_backend  WinHttpConnect to *.nakamacloud.io goes to 127.0.0.1:7350 instead (backend/nakama_standin.py;
- *                    env PVE_STANDIN_PORT picks another port: a co-op joiner's own stand-in, scripts/launch-joiner.ps1),
+ *                    env PVE_standinPort picks another port: a co-op joiner's own stand-in, scripts/launch-joiner.ps1),
  *                    and every other WinHTTP host too, as /_ext/<host>/<path> (Sentry: nothing reaches a live service),
  *                    as plain HTTP: WINHTTP_FLAG_SECURE is dropped and certificate options on those requests skipped;
  *                    and DNS lookups of anything but local names fail (see "offline: no live hosts").
@@ -21,29 +21,54 @@
 #include <windows.h>
 #include <winhttp.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
 #include <psapi.h>
+#include "pvecommon.h"
 
 /* The project folder: this DLL is <project>\native\pvenet.dll. Logs go to <project>\capture\, flags are in
    <project>\bridge\. */
 static char project[MAX_PATH];
-static void at(char *out, size_t n, const char *rel) { snprintf(out, n, "%s%s", project, rel); }
+/* <project><rel> into out; 0 (out empty) if it doesn't fit, so a cut-off path is never opened. */
+static int at(char *out, size_t n, const char *rel) {
+    int w = snprintf(out, n, "%s%s", project, rel);
+    if (w < 0 || (size_t)w >= n) { out[0] = 0; return 0; }
+    return 1;
+}
 #define STANDIN_HOST L"127.0.0.1"
-static INTERNET_PORT STANDIN_PORT = 7350; /* env PVE_STANDIN_PORT overrides it, read in start() */
+#define STANDIN_PORT_DEFAULT 7350
+#define RESCAN_MS 3000            /* modules load later (nakama-cpp on demand): re-scan import tables this often */
+#define MAX_MODULES 1024
+#define HOST_LEN 256
+#define EXT_LEN 128               /* the live host of an /_ext/ redirect */
+#define PATH_LEN 2048             /* a rewritten /_ext/<host>/<path> request path */
+static INTERNET_PORT standinPort = STANDIN_PORT_DEFAULT; /* env PVE_standinPort overrides it, read in start() */
 
+/* lock guards reqs/conns/cbs, the Bufs in them and the two log files: the wrappers run on any game or WinHTTP thread. */
 static CRITICAL_SECTION lock;
 static FILE *out, *dbg;
-static int offline;
+static int offline; /* written once in start() before any hook is installed, read-only after */
+
+/* One line in capture/pvenet.log. */
+static void logf_(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+static void logf_(const char *fmt, ...) {
+    EnterCriticalSection(&lock);
+    if (dbg) { va_list ap; va_start(ap, fmt); vfprintf(dbg, fmt, ap); va_end(ap); fflush(dbg); }
+    LeaveCriticalSection(&lock);
+}
 
 /* ---- growable byte buffer ------------------------------------------------------------------------ */
+/* Out of memory drops the bytes (the log entry comes out short) instead of crashing the game. */
 typedef struct { char *p; size_t n, cap; } Buf;
 static void put(Buf *b, const void *d, size_t n) {
     if (b->n + n + 1 > b->cap) {
         size_t c = b->cap ? b->cap * 2 : 256;
         while (c < b->n + n + 1) c *= 2;
-        b->p = realloc(b->p, c); b->cap = c;
+        char *np = realloc(b->p, c);
+        if (!np) return;
+        b->p = np; b->cap = c;
     }
     memcpy(b->p + b->n, d, n); b->n += n; b->p[b->n] = 0;
 }
@@ -53,9 +78,10 @@ static void wput(Buf *b, const wchar_t *w, int len) { /* UTF-16 -> UTF-8 */
     if (len < 0) len = (int)wcslen(w);
     int n = WideCharToMultiByte(CP_UTF8, 0, w, len, NULL, 0, NULL, NULL);
     if (n <= 0) return;
-    char *tmp = malloc(n);
-    WideCharToMultiByte(CP_UTF8, 0, w, len, tmp, n, NULL, NULL);
-    put(b, tmp, n); free(tmp);
+    char *tmp = malloc((size_t)n);
+    if (!tmp) return;
+    if (WideCharToMultiByte(CP_UTF8, 0, w, len, tmp, n, NULL, NULL) == n) put(b, tmp, (size_t)n);
+    free(tmp);
 }
 /* JSON string; bytes outside printable ASCII except valid UTF-8 are written as \u00XX (one per byte). */
 static void jstr(Buf *b, const char *s, size_t n) {
@@ -63,16 +89,16 @@ static void jstr(Buf *b, const char *s, size_t n) {
     for (size_t i = 0; i < n; i++) {
         unsigned char c = (unsigned char)s[i];
         char e[8];
-        if (c == '"' || c == '\\') { e[0] = '\\'; e[1] = c; put(b, e, 2); }
+        if (c == '"' || c == '\\') { e[0] = '\\'; e[1] = (char)c; put(b, e, 2); }
         else if (c == '\n') puts_(b, "\\n");
         else if (c == '\r') puts_(b, "\\r");
         else if (c == '\t') puts_(b, "\\t");
-        else if (c < 0x20 || c == 0x7f) { sprintf(e, "\\u%04x", c); puts_(b, e); }
+        else if (c < 0x20 || c == 0x7f) { snprintf(e, sizeof e, "\\u%04x", c); puts_(b, e); }
         else if (c >= 0x80) {
-            int len = c >= 0xf0 ? 4 : c >= 0xe0 ? 3 : c >= 0xc0 ? 2 : 0, ok = len && i + len <= n;
+            int len = c >= 0xf0 ? 4 : c >= 0xe0 ? 3 : c >= 0xc0 ? 2 : 0, ok = len && i + (size_t)len <= n;
             for (int k = 1; ok && k < len; k++) ok = ((unsigned char)s[i + k] & 0xc0) == 0x80;
-            if (ok) { put(b, s + i, len); i += len - 1; }
-            else { sprintf(e, "\\u%04x", c); puts_(b, e); }
+            if (ok) { put(b, s + i, (size_t)len); i += (size_t)len - 1; }
+            else { snprintf(e, sizeof e, "\\u%04x", c); puts_(b, e); }
         } else put(b, (char *)&c, 1);
     }
     puts_(b, "\"");
@@ -81,7 +107,7 @@ static void jstr(Buf *b, const char *s, size_t n) {
 /* ---- per-handle state ---------------------------------------------------------------------------- */
 typedef struct Req {
     HINTERNET h; struct Req *next;
-    char host[256]; int port; char verb[16];
+    char host[HOST_LEN]; int port; char verb[16];
     Buf path, reqHead, reqBody, respBody;
     DWORD status; Buf respHead;
     LPVOID readBuf; double start;
@@ -89,7 +115,7 @@ typedef struct Req {
     int local; /* sent to the stand-in backend */
 } Req;
 /* ext: the live host a non-Nakama connection was meant for (offline it goes to the stand-in as /_ext/<host>/<path>) */
-typedef struct Conn { HINTERNET h; struct Conn *next; char host[256]; int port; HINTERNET sess; int local; wchar_t ext[128]; } Conn;
+typedef struct Conn { HINTERNET h; struct Conn *next; char host[HOST_LEN]; int port; HINTERNET sess; int local; wchar_t ext[EXT_LEN]; } Conn;
 typedef struct Cb { HINTERNET h; struct Cb *next; WINHTTP_STATUS_CALLBACK fn; } Cb;
 static Req *reqs; static Conn *conns; static Cb *cbs;
 static int seq;
@@ -112,14 +138,14 @@ static void maskAuth(Buf *b) {
 static void finish(Req *r) {
     Buf j = {0};
     char tmp[512];
-    sprintf(tmp, "{\"seq\":%d,\"t\":%.3f,\"ms\":%.0f,\"host\":", ++seq, r->start, (now() - r->start) * 1000);
+    snprintf(tmp, sizeof tmp, "{\"seq\":%d,\"t\":%.3f,\"ms\":%.0f,\"host\":", ++seq, r->start, (now() - r->start) * 1000);
     puts_(&j, tmp); jstr(&j, r->host, strlen(r->host));
-    sprintf(tmp, ",\"port\":%d,\"verb\":", r->port); puts_(&j, tmp); jstr(&j, r->verb, strlen(r->verb));
+    snprintf(tmp, sizeof tmp, ",\"port\":%d,\"verb\":", r->port); puts_(&j, tmp); jstr(&j, r->verb, strlen(r->verb));
     puts_(&j, ",\"path\":"); jstr(&j, r->path.p ? r->path.p : "", r->path.n);
     maskAuth(&r->reqHead); maskAuth(&r->respHead);
     puts_(&j, ",\"reqHeaders\":"); jstr(&j, r->reqHead.p ? r->reqHead.p : "", r->reqHead.n);
     puts_(&j, ",\"reqBody\":"); jstr(&j, r->reqBody.p ? r->reqBody.p : "", r->reqBody.n);
-    sprintf(tmp, ",\"status\":%lu,\"respHeaders\":", (unsigned long)r->status); puts_(&j, tmp);
+    snprintf(tmp, sizeof tmp, ",\"status\":%lu,\"respHeaders\":", (unsigned long)r->status); puts_(&j, tmp);
     jstr(&j, r->respHead.p ? r->respHead.p : "", r->respHead.n);
     puts_(&j, ",\"respBody\":"); jstr(&j, r->respBody.p ? r->respBody.p : "", r->respBody.n);
     puts_(&j, "}\n");
@@ -139,13 +165,14 @@ static void dropReq(HINTERNET h) {
 /* Response status + headers, read with the real API when they become available. */
 static BOOL (WINAPI *rQueryHeaders)(HINTERNET, DWORD, LPCWSTR, LPVOID, LPDWORD, LPDWORD);
 static void grabHeaders(Req *r) {
+    if (!rQueryHeaders) return;
     DWORD st = 0, sz = sizeof st;
     if (rQueryHeaders(r->h, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, NULL, &st, &sz, NULL)) r->status = st;
     DWORD len = 0;
     rQueryHeaders(r->h, WINHTTP_QUERY_RAW_HEADERS_CRLF, NULL, NULL, &len, NULL);
     if (len) {
         wchar_t *w = malloc(len + 2);
-        if (rQueryHeaders(r->h, WINHTTP_QUERY_RAW_HEADERS_CRLF, NULL, w, &len, NULL)) wput(&r->respHead, w, (int)(len / 2));
+        if (w && rQueryHeaders(r->h, WINHTTP_QUERY_RAW_HEADERS_CRLF, NULL, w, &len, NULL)) wput(&r->respHead, w, (int)(len / 2));
         free(w);
     }
 }
@@ -159,11 +186,13 @@ static HINTERNET WINAPI hConnect(HINTERNET s, LPCWSTR server, INTERNET_PORT port
     int isLocal = server && (!_wcsicmp(server, L"localhost") || !wcscmp(server, L"127.0.0.1") || !wcscmp(server, L"::1"));
     int local = offline && server && !isLocal;
     int nakama = local && wcsstr(server, L"nakamacloud.io");
-    HINTERNET h = local ? rConnect(s, STANDIN_HOST, STANDIN_PORT, res) : rConnect(s, server, port, res);
+    HINTERNET h = local ? rConnect(s, STANDIN_HOST, standinPort, res) : rConnect(s, server, port, res);
     if (h) {
-        Conn *c = calloc(1, sizeof *c); c->h = h; c->port = local ? STANDIN_PORT : port; c->sess = s; c->local = local;
-        if (local && !nakama) wcsncpy(c->ext, server, 127);
-        WideCharToMultiByte(CP_UTF8, 0, local ? STANDIN_HOST : server, -1, c->host, sizeof c->host - 1, NULL, NULL);
+        Conn *c = calloc(1, sizeof *c);
+        if (!c) return h; /* untracked: requests on it go out unrewritten and unlogged */
+        c->h = h; c->port = local ? standinPort : port; c->sess = s; c->local = local;
+        if (local && !nakama) wcsncpy(c->ext, server, EXT_LEN - 1); /* calloc'd: stays terminated */
+        if (local || server) WideCharToMultiByte(CP_UTF8, 0, local ? STANDIN_HOST : server, -1, c->host, HOST_LEN - 1, NULL, NULL);
         EnterCriticalSection(&lock); c->next = conns; conns = c; LeaveCriticalSection(&lock);
     }
     return h;
@@ -174,18 +203,20 @@ static HINTERNET WINAPI hOpenRequest(HINTERNET c, LPCWSTR verb, LPCWSTR obj, LPC
     EnterCriticalSection(&lock);
     Conn *lc = findConn(c);
     int local = lc && lc->local;
-    wchar_t path[2048];
-    if (lc && lc->ext[0]) { _snwprintf(path, 2047, L"/_ext/%ls%ls%ls", lc->ext, obj && obj[0] == L'/' ? L"" : L"/", obj ? obj : L"");
-                            path[2047] = 0; obj = path; }
+    wchar_t path[PATH_LEN];
+    if (lc && lc->ext[0]) { _snwprintf(path, PATH_LEN - 1, L"/_ext/%ls%ls%ls", lc->ext, obj && obj[0] == L'/' ? L"" : L"/", obj ? obj : L"");
+                            path[PATH_LEN - 1] = 0; obj = path; }
     LeaveCriticalSection(&lock);
     if (local) fl &= ~WINHTTP_FLAG_SECURE;
     HINTERNET h = rOpenRequest(c, verb, obj, ver, ref, types, fl);
     if (h) {
-        Req *r = calloc(1, sizeof *r); r->h = h; r->start = now(); r->local = local;
+        Req *r = calloc(1, sizeof *r);
+        if (!r) return h; /* untracked: not logged, and its TLS options aren't skipped */
+        r->h = h; r->start = now(); r->local = local;
         EnterCriticalSection(&lock);
         Conn *cn = findConn(c);
         r->conn = c;
-        if (cn) { strcpy(r->host, cn->host); r->port = cn->port; r->sess = cn->sess; }
+        if (cn) { memcpy(r->host, cn->host, sizeof r->host); r->port = cn->port; r->sess = cn->sess; }
         WideCharToMultiByte(CP_UTF8, 0, verb ? verb : L"GET", -1, r->verb, sizeof r->verb - 1, NULL, NULL);
         wput(&r->path, obj ? obj : L"/", -1);
         r->next = reqs; reqs = r;
@@ -273,9 +304,10 @@ static void CALLBACK statusCb(HINTERNET h, DWORD_PTR ctx, DWORD st, LPVOID info,
 static WINHTTP_STATUS_CALLBACK (WINAPI *rSetCallback)(HINTERNET, WINHTTP_STATUS_CALLBACK, DWORD, DWORD_PTR);
 static WINHTTP_STATUS_CALLBACK WINAPI hSetCallback(HINTERNET h, WINHTTP_STATUS_CALLBACK fn, DWORD flags, DWORD_PTR res) {
     if (!fn || fn == (WINHTTP_STATUS_CALLBACK)(LONG_PTR)-1) return rSetCallback(h, fn, flags, res);
-    EnterCriticalSection(&lock);
-    Cb *c = calloc(1, sizeof *c); c->h = h; c->fn = fn; c->next = cbs; cbs = c;
-    LeaveCriticalSection(&lock);
+    Cb *c = calloc(1, sizeof *c);
+    if (!c) return rSetCallback(h, fn, flags, res); /* untracked: async traffic on h isn't logged */
+    c->h = h; c->fn = fn;
+    EnterCriticalSection(&lock); c->next = cbs; cbs = c; LeaveCriticalSection(&lock);
     rSetCallback(h, statusCb, flags | WINHTTP_CALLBACK_FLAG_HEADERS_AVAILABLE | WINHTTP_CALLBACK_FLAG_READ_COMPLETE, res);
     return NULL;
 }
@@ -319,13 +351,16 @@ static void blocked(const char *n, void *ret) {
                            (LPCSTR)ret, &m)) GetModuleFileNameA(m, mod, sizeof mod);
     const char *base = strrchr(mod, '\\');
     EnterCriticalSection(&lock);
-    if (dbg) { time_t t = time(NULL); char ts[16]; strftime(ts, sizeof ts, "%H:%M:%S", localtime(&t));
-               fprintf(dbg, "%s blocked lookup %s (from %s)\n", ts, n, base ? base + 1 : mod); fflush(dbg); }
+    if (dbg) { time_t t = time(NULL); struct tm *tm = localtime(&t); char ts[16] = "?";
+               if (tm) strftime(ts, sizeof ts, "%H:%M:%S", tm);
+               fprintf(dbg, "%s blocked lookup %s (from %s)\n", ts, n ? n : "(null)", base ? base + 1 : mod); fflush(dbg); }
     LeaveCriticalSection(&lock);
 }
+#define NAME_LEN 256 /* a DNS name is at most 253 characters */
 static void narrow(const wchar_t *w, char *out, int n) {
-    if (!w) { out[0] = 0; return; }
-    WideCharToMultiByte(CP_UTF8, 0, w, -1, out, n, NULL, NULL);
+    out[0] = 0;
+    /* Too long to convert: give it a name that isn't local, so the lookup is still blocked. */
+    if (w && !WideCharToMultiByte(CP_UTF8, 0, w, -1, out, n, NULL, NULL)) snprintf(out, (size_t)n, "(unconvertible)");
 }
 
 static INT (WSAAPI *rGetAddrInfo)(PCSTR, PCSTR, const ADDRINFOA *, PADDRINFOA *);
@@ -336,7 +371,7 @@ static INT WSAAPI hGetAddrInfo(PCSTR node, PCSTR svc, const ADDRINFOA *hints, PA
 }
 static INT (WSAAPI *rGetAddrInfoW)(PCWSTR, PCWSTR, const ADDRINFOW *, PADDRINFOW *);
 static INT WSAAPI hGetAddrInfoW(PCWSTR node, PCWSTR svc, const ADDRINFOW *hints, PADDRINFOW *res) {
-    char n[256]; narrow(node, n, sizeof n);
+    char n[NAME_LEN]; narrow(node, n, sizeof n);
     if (offline && !localName(node ? n : NULL)) { blocked(n, __builtin_return_address(0));
                                                   WSASetLastError(WSAHOST_NOT_FOUND); return WSAHOST_NOT_FOUND; }
     return rGetAddrInfoW(node, svc, hints, res);
@@ -346,7 +381,7 @@ static INT (WSAAPI *rGetAddrInfoExW)(PCWSTR, PCWSTR, DWORD, LPGUID, const ADDRIN
 static INT WSAAPI hGetAddrInfoExW(PCWSTR node, PCWSTR svc, DWORD ns, LPGUID id, const ADDRINFOEXW *hints,
                                   PADDRINFOEXW *res, struct timeval *to, LPOVERLAPPED ov,
                                   LPLOOKUPSERVICE_COMPLETION_ROUTINE cb, LPHANDLE h) {
-    char n[256]; narrow(node, n, sizeof n);
+    char n[NAME_LEN]; narrow(node, n, sizeof n);
     if (offline && !localName(node ? n : NULL)) { blocked(n, __builtin_return_address(0));
                                                   WSASetLastError(WSAHOST_NOT_FOUND); return WSAHOST_NOT_FOUND; }
     return rGetAddrInfoExW(node, svc, ns, id, hints, res, to, ov, cb, h);
@@ -376,7 +411,7 @@ static Hook HOOKS[] = {
     { "ws2_32.dll", "GetAddrInfoExW", hGetAddrInfoExW, (void **)&rGetAddrInfoExW },
     { "ws2_32.dll", "gethostbyname", hGetHostByName, (void **)&rGetHostByName },
 };
-#define NHOOKS (int)(sizeof HOOKS / sizeof HOOKS[0])
+#define NHOOKS (int)PVE_COUNT(HOOKS)
 
 static int patchModule(HMODULE m) {
     unsigned char *b = (unsigned char *)m;
@@ -396,7 +431,7 @@ static int patchModule(HMODULE m) {
         for (; names->u1.AddressOfData; names++, iat++) {
             for (int i = 0; i < NHOOKS; i++) if (*HOOKS[i].real && (void *)iat->u1.Function == *HOOKS[i].real) {
                 DWORD prot;
-                VirtualProtect(&iat->u1.Function, sizeof(void *), PAGE_READWRITE, &prot);
+                if (!VirtualProtect(&iat->u1.Function, sizeof(void *), PAGE_READWRITE, &prot)) continue;
                 iat->u1.Function = (ULONG_PTR)HOOKS[i].hook;
                 VirtualProtect(&iat->u1.Function, sizeof(void *), prot, &prot);
                 n++;
@@ -408,63 +443,66 @@ static int patchModule(HMODULE m) {
 
 static DWORD WINAPI start(LPVOID p) {
     (void)p;
+    /* A hook whose real function wasn't found stays NULL, and patchModule skips NULL ones. */
     HMODULE wh = LoadLibraryA("winhttp.dll"), ws = LoadLibraryA("ws2_32.dll");
-    for (int i = 0; i < NHOOKS; i++)
-        *HOOKS[i].real = (void *)GetProcAddress(_stricmp(HOOKS[i].dll, "ws2_32.dll") ? wh : ws, HOOKS[i].name);
-    rQueryHeaders = (void *)GetProcAddress(wh, "WinHttpQueryHeaders");
-    HMODULE self; GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCSTR)start, &self);
-    GetModuleFileNameA(self, project, sizeof project);
-    for (char *c = project; *c; c++) if (*c == '/') *c = '\\'; /* package.loadlib was given a / path */
-    for (int up = 0; up < 2; up++) { char *s = strrchr(project, '\\'); if (s) s[up ? 1 : 0] = 0; }
+    for (int i = 0; i < NHOOKS; i++) {
+        HMODULE m = _stricmp(HOOKS[i].dll, "ws2_32.dll") ? wh : ws;
+        *HOOKS[i].real = m ? (void *)GetProcAddress(m, HOOKS[i].name) : NULL;
+    }
+    if (wh) rQueryHeaders = (void *)GetProcAddress(wh, "WinHttpQueryHeaders");
+    HMODULE self = NULL;
+    /* Without UNCHANGED_REFCOUNT: the extra reference keeps this DLL loaded while its thread runs. */
+    if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCSTR)start, &self)) return 1;
+    if (!pve_project_dir(self, project, sizeof project)) return 1; /* nowhere to read flags from: stay out of the way */
     /* The game's own folder (the one holding RaidGame\), from the exe: ...\RaidGame\Binaries\Win64\<exe>. */
-    char game[MAX_PATH]; GetModuleFileNameA(NULL, game, sizeof game);
+    char game[MAX_PATH] = "";
+    DWORD gl = GetModuleFileNameA(NULL, game, sizeof game);
+    if (!gl || gl >= sizeof game) return 1;
     for (int up = 0; up < 4; up++) { char *s = strrchr(game, '\\'); if (s) s[up == 3 ? 1 : 0] = 0; }
     size_t gameLen = strlen(game);
     char name[MAX_PATH] = "(off)", flag[MAX_PATH];
-    at(flag, sizeof flag, "bridge\\offline_backend");
-    offline = GetFileAttributesA(flag) != INVALID_FILE_ATTRIBUTES;
-    at(flag, sizeof flag, "bridge\\capture_on");
-    if (GetFileAttributesA(flag) != INVALID_FILE_ATTRIBUTES) {
+    offline = at(flag, sizeof flag, "bridge\\offline_backend") && GetFileAttributesA(flag) != INVALID_FILE_ATTRIBUTES;
+    if (at(flag, sizeof flag, "bridge\\capture_on") && GetFileAttributesA(flag) != INVALID_FILE_ATTRIBUTES) {
         time_t t = time(NULL);
+        struct tm *tm = localtime(&t);
         char stamp[64];
-        strftime(stamp, sizeof stamp, "capture\\winhttp-%Y%m%d-%H%M%S.jsonl", localtime(&t));
-        at(name, sizeof name, stamp);
-        out = fopen(name, "ab");
+        if (tm && strftime(stamp, sizeof stamp, "capture\\winhttp-%Y%m%d-%H%M%S.jsonl", tm) && at(name, sizeof name, stamp))
+            out = fopen(name, "ab");
     }
-    at(flag, sizeof flag, "capture\\pvenet.log");
-    dbg = fopen(flag, "a");
+    if (at(flag, sizeof flag, "capture\\pvenet.log")) dbg = fopen(flag, "a");
     char portEnv[16];
-    DWORD pl = GetEnvironmentVariableA("PVE_STANDIN_PORT", portEnv, sizeof portEnv);
-    if (pl && pl < sizeof portEnv) { int p = atoi(portEnv); if (p > 0 && p < 65536) STANDIN_PORT = (INTERNET_PORT)p; }
-    if (dbg) {
-        if (offline) fprintf(dbg, "nakama -> local stand-in 127.0.0.1:%u\n", (unsigned)STANDIN_PORT);
-        else fprintf(dbg, "nakama -> live\n");
-        fflush(dbg);
-    }
+    DWORD pl = GetEnvironmentVariableA("PVE_standinPort", portEnv, sizeof portEnv);
+    if (pl && pl < sizeof portEnv) { int p = atoi(portEnv); if (p > 0 && p < 65536) standinPort = (INTERNET_PORT)p; }
+    if (offline) logf_("nakama -> local stand-in 127.0.0.1:%u\n", (unsigned)standinPort);
+    else logf_("nakama -> live\n");
     /* Modules can load later (and the game may load nakama-cpp on demand): re-scan every few seconds. */
     for (int round = 0; ; round++) {
-        HMODULE mods[1024]; DWORD need = 0;
+        HMODULE mods[MAX_MODULES]; DWORD need = 0;
         if (EnumProcessModules(GetCurrentProcess(), mods, sizeof mods, &need)) {
-            for (DWORD i = 0; i < need / sizeof(HMODULE); i++) {
+            DWORD count = need / sizeof(HMODULE);
+            if (count > MAX_MODULES) count = MAX_MODULES; /* need is the full count even when mods was too small */
+            for (DWORD i = 0; i < count; i++) {
                 if (mods[i] == self || mods[i] == wh || mods[i] == ws) continue;
                 /* Only the game's own folder: never touch anti-cheat or other third-party injected modules. */
-                char path[MAX_PATH]; GetModuleFileNameA(mods[i], path, sizeof path);
+                char path[MAX_PATH];
+                if (!GetModuleFileNameA(mods[i], path, sizeof path)) continue; /* unloaded since EnumProcessModules */
                 if (_strnicmp(path, game, gameLen) || strstr(path, "AntiCheat") || strstr(path, "Denuvo")) continue;
                 int n = patchModule(mods[i]);
-                if (n && dbg) {
-                    char mn[MAX_PATH]; GetModuleFileNameA(mods[i], mn, sizeof mn);
-                    fprintf(dbg, "hooked %d winhttp/ws2_32 imports in %s\n", n, mn); fflush(dbg);
-                }
+                if (n) logf_("hooked %d winhttp/ws2_32 imports in %s\n", n, path);
             }
         }
-        if (round == 0 && dbg) { fprintf(dbg, "logging to %s\n", name); fflush(dbg); }
-        Sleep(3000);
+        if (round == 0) logf_("logging to %s\n", name);
+        Sleep(RESCAN_MS);
     }
     return 0;
 }
 
 BOOL WINAPI DllMain(HINSTANCE h, DWORD why, LPVOID r) {
     (void)h; (void)r;
-    if (why == DLL_PROCESS_ATTACH) { InitializeCriticalSection(&lock); CreateThread(NULL, 0, start, NULL, 0, NULL); }
+    if (why == DLL_PROCESS_ATTACH) {
+        InitializeCriticalSection(&lock);
+        HANDLE t = CreateThread(NULL, 0, start, NULL, 0, NULL);
+        if (t) CloseHandle(t); /* the thread runs for the life of the process; nothing waits on it */
+    }
     return TRUE;
 }

@@ -9,6 +9,7 @@ in memory and checks the original bytes first, so a game update makes a patch sk
 | `pvenet.c` → `pvenet.dll` | yes | Redirects the game's Nakama traffic to `backend/nakama_standin.py` and blocks every other live host (see `backend/README.md`) |
 | `pvepatch.c` → `pvepatch.dll` | yes | Offline-only code patches: client-only branches the game skips when it's its own server, timers that never start |
 | `pvenative.c` | no | Research helper with a command file, for reading and calling things the Lua side can't |
+| `pvecommon.h` | (header) | Helpers the three DLLs above share: readable-memory check, project folder from the DLL path |
 | `pveeac.c`, `pveudp.c`, `pvetrace.c`, `pvestacks.c`, `tracelaunch.c`, `probe.c` | no | Diagnostics (co-op join handshake, a second copy quitting, hung-process stacks). Logs go to `capture/` |
 | `vtprobe.c` | no | Co-op research (#26): finds engine objects by vtable, samples a net connection on a shared clock, hardware write/execute breakpoints that log the call stack and any FStrings on it. Commands and build line at the top of the file |
 
