@@ -248,6 +248,12 @@ Why bots did nothing, and the fix for each (all automated in PvEDirector):
   has no DraggableItemWidget because "Equipment" is not a container widget. Next try: add the item into a LIVE container
   ("Lobby"/"LootCon"/"PocketLeft") so a draggable exists, then equip; also check whether pressing Tab crashes with the HUD.
 
+- 2026-11-22 (build/native-ci): build.sh now builds every shipped DLL: `build.sh pvepatch|pvenet|pvenative|all
+  [suffix] [outdir]` (`build.sh 2` still means pvenative2). pvepatch.dll and pvenet.dll had no recorded build line.
+  Verified: WinLibs x86_64-w64-mingw32-gcc builds all three; the rebuilt pvepatch.dll (16 exports) and pvenet.dll (no
+  exports, loaded with "*") have the same export and import-DLL lists as the committed ones (objdump -p); pvenet needs
+  only `-lws2_32` (WinHTTP goes through the import tables it patches). Not verified: byte-identical output, or the
+  rebuilt DLLs in game (the committed ones were not replaced). CI (check.yml) now cross-compiles all three on ubuntu.
 ## Offline inventory/equip findings — 2026-10-30 (session 3)
 - Tab did nothing because the HUD actor (MatchHUD_C, ASIGISHUD) has InGameOverlay == nil offline. Fix: `hud.InGameOverlay = _G.PVE_HUD`
   (our created SIGIS_HUDOverlay_C). Tab then only blurs + shows the cursor; the menu stays Collapsed until
