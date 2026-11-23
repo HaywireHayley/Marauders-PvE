@@ -291,6 +291,10 @@ local CFG = {
     PROVOKE_SECONDS = 4,            -- hit within this long of you firing (and within 1.5 x gun range of you)...
     PROVOKE_CONE = 20,              -- ...while within this many degrees of where you're aiming: they turn on you
     SKIRMISH_HULL = 1,              -- ambient ships' hull x this: their real hull, as when you fight them yourself
+    -- Station turrets' aim error (#364): the game's fire routine (exe 0x18aeb63) aims at the target's current spot and adds
+    -- a random +-MissRange DEGREES to pitch, yaw and roll. Stock 3 (about +-7 m at their 135 m reach): measured, four
+    -- flak nodes took ~4800 hull in 20 s; at 10 none of their shots hit in 20 s. Pods are small: more again.
+    STATION_TURRET_MISS = 7, STATION_TURRET_MISS_POD = 14, STATION_TURRET_EVERY = 0.5,
     PLAYER_BOARD_MAX = 6,           -- interiors spawned per raid (each is a level in memory)
     POD_ALONG = { -300, 1000 },     -- pods aim for the hull's side, this far ahead of the ship's centre: never the engines
     POD_SIDE = 3000,                -- from this far out to the side
@@ -1429,9 +1433,14 @@ local function damageFxStep()
     end
 end
 
+local easeNodeTurrets -- (below, with the station turrets)
 function R.update(pc, worldKey, worldName, foot, homeInside)
     local now = os.clock()
     R.femaleShare()
+    if S and S.key == worldKey and S.stations then
+        local ok, err = pcall(easeNodeTurrets, now)
+        if not ok and not S.turretEaseErr then S.turretEaseErr = true X.log("[rivals] station turret aim: " .. tostring(err)) end
+    end
     if not S or S.key ~= worldKey then
         S = { key = worldKey, building = {}, pods = {}, startedAt = now }
         shareState()
@@ -1745,6 +1754,23 @@ local function nodeTurrets(refresh)
         end
     end
     return S.nodeTurrets
+end
+
+-- Sets each station turret's MissRange for what it aims at (CFG.STATION_TURRET_MISS*): a pod gets the wider spread.
+easeNodeTurrets = function(now)
+    if now - (S.turretEaseAt or -1e9) < CFG.STATION_TURRET_EVERY then return end
+    S.turretEaseAt = now
+    for _, t in ipairs(nodeTurrets(false)) do
+        if valid(t) and not t.bIsDying then
+            local miss = CFG.STATION_TURRET_MISS
+            local a = t.CurrentAimingActor
+            if valid(a) then
+                local ok, pod = pcall(function() return a.bADropPod end)
+                if ok and pod == true then miss = CFG.STATION_TURRET_MISS_POD end
+            end
+            if t.MissRange ~= miss then t.MissRange = miss end
+        end
+    end
 end
 
 local function nodeTurretAlive(t)
