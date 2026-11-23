@@ -89,6 +89,26 @@ s.state.pop("dropped_twins", None)
 s.save_state(s.state)
 print(f"a 500-item write against 1000 items took {took:.2f} s; a copy inside one request is dropped")
 
+# #370: after a raid ends, the first write of new items refuses ones placed inside containers that stayed in the stash
+# (raid loot can only be in bags that went in); loot in a bag that went into the raid, and later writes, are stored.
+inv = s.state["storage"]["inventory"]
+h.route("PUT", "/v2/storage", {}, {"objects": [obj("800", "SmallContainer-1-1-0-0-0-Stash"),
+                                              obj("801", "Ration-1-1-0-0-0-800")]})
+s.mark_home_containers()
+out, _ = h.route("PUT", "/v2/storage", {}, {"objects": [obj("900", "Backpack-1-1-0-0-0-Bag"),  # a bag back from the raid
+                                                        obj("901", "Ration-1-1-0-0-0-900"),
+                                                        obj("902", "Ration-1-1-1-0-0-800")]})  # stash box: not loot
+assert len(out["acks"]) == 3, out
+assert "900" in inv and "901" in inv and "902" not in inv, sorted(k for k in inv if k.startswith("9"))
+assert "home_containers" not in s.state
+h.route("PUT", "/v2/storage", {}, {"objects": [obj("903", "Ration-1-1-2-0-0-800")]})  # later: a vendor buy
+assert "903" in inv
+for k in ("800", "801", "900", "901", "903"):
+    inv.pop(k)
+s.state.pop("dropped_twins", None)
+s.save_state(s.state)
+print("raid end: new items in containers that stayed home are not stored, once")
+
 # A state.json that doesn't parse falls back to the copy kept before the last write.
 s.save_state(s.state)
 open(s.STATE, "w", encoding="utf-8").write("{ broken")
