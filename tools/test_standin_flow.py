@@ -69,6 +69,35 @@ for k in ("100", "101", "103", "202"):
     inv.pop(k)
 print("duplicates: not stored on write, removed at login with their contents kept")
 
+# A big extraction stays fast (the duplicate check is one index per request, not a scan per item), and two copies of
+# one item in the same request keep only the first.
+import time
+inv = s.state["storage"]["inventory"]
+for i in range(1000):
+    inv[str(500000 + i)] = {"value": json.dumps({"value": f"{500000 + i}-Ration-1-1-{i % 10}-{i // 10}-0-Stash"}),
+                            "create_time": "2026", "update_time": "2026"}
+batch = [obj(str(600000 + i), f"9mmAmmo-60-1-{i % 10}-{i // 10}-0-Stash") for i in range(500)]
+batch.append(obj("700000", "9mmAmmo-60-1-0-0-0-Stash"))  # the same item and place as 600000
+t0 = time.time()
+out, _ = h.route("PUT", "/v2/storage", {}, {"objects": batch})
+took = time.time() - t0
+assert took < 5, f"500 writes against 1000 items took {took:.1f} s"
+assert "600000" in inv and "700000" not in inv, "the second copy in one request is not stored"
+for k in [k for k in inv if k.isdigit() and int(k) >= 500000]:
+    inv.pop(k)
+s.state.pop("dropped_twins", None)
+s.save_state(s.state)
+print(f"a 500-item write against 1000 items took {took:.2f} s; a copy inside one request is dropped")
+
+# A state.json that doesn't parse falls back to the copy kept before the last write.
+s.save_state(s.state)
+open(s.STATE, "w", encoding="utf-8").write("{ broken")
+back = s.load_state()
+assert back["storage"]["inventory"] == s.state["storage"]["inventory"], "loaded state.json.bak"
+assert any("previous copy" in m for m in logged), logged
+s.save_state(s.state)
+print("a broken state.json loads its previous copy")
+
 # An old save (no schema field) is brought up to date on load and written back; a newer one is left alone.
 old = dict(saved)
 old.pop("schema")

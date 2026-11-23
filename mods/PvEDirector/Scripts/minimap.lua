@@ -192,12 +192,12 @@ local function surveyShip(home)
     S.shipSurveyAt = now + CFG.SURVEY_RETRY
     local locks, helms = {}, {}
     for _, c in ipairs(FindAllOf("RaidUseableAirLockComponent") or {}) do
-        if valid(c) and not c.StationAirLock and c:GetOwner():GetAddress() == home:GetAddress() then
+        if valid(c) and not c.StationAirLock and valid(c:GetOwner()) and c:GetOwner():GetAddress() == home:GetAddress() then
             locks[#locks + 1] = copy(c:K2_GetComponentLocation())
         end
     end
     for _, c in ipairs(FindAllOf("RaidUseableFrigateHelmComponent") or {}) do
-        if valid(c) and c:GetOwner():GetAddress() == home:GetAddress() then
+        if valid(c) and valid(c:GetOwner()) and c:GetOwner():GetAddress() == home:GetAddress() then
             helms[#helms + 1] = copy(c:K2_GetComponentLocation())
         end
     end

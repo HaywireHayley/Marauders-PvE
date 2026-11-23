@@ -248,6 +248,12 @@ Why bots did nothing, and the fix for each (all automated in PvEDirector):
   has no DraggableItemWidget because "Equipment" is not a container widget. Next try: add the item into a LIVE container
   ("Lobby"/"LootCon"/"PocketLeft") so a draggable exists, then equip; also check whether pressing Tab crashes with the HUD.
 
+- 2026-11-22 (build/native-ci): build.sh now builds every shipped DLL: `build.sh pvepatch|pvenet|pvenative|all
+  [suffix] [outdir]` (`build.sh 2` still means pvenative2). pvepatch.dll and pvenet.dll had no recorded build line.
+  Verified: WinLibs x86_64-w64-mingw32-gcc builds all three; the rebuilt pvepatch.dll (16 exports) and pvenet.dll (no
+  exports, loaded with "*") have the same export and import-DLL lists as the committed ones (objdump -p); pvenet needs
+  only `-lws2_32` (WinHTTP goes through the import tables it patches). Not verified: byte-identical output, or the
+  rebuilt DLLs in game (the committed ones were not replaced). CI (check.yml) now cross-compiles all three on ubuntu.
 ## Offline inventory/equip findings — 2026-10-30 (session 3)
 - Tab did nothing because the HUD actor (MatchHUD_C, ASIGISHUD) has InGameOverlay == nil offline. Fix: `hud.InGameOverlay = _G.PVE_HUD`
   (our created SIGIS_HUDOverlay_C). Tab then only blurs + shows the cursor; the menu stays Collapsed until
@@ -5171,3 +5177,32 @@ From Taki's report (`MaraudersOffline-report-20261121-2335`, build 23: soldiers 
 - Not found: why the gate extraction's ExtractedLoot held the stash's container contents, and whether the lobby showed
   the containers empty because of the overlapping copies or for another reason (not checked in game). Test: a raid
   ending through the space gate with full bags in the stash, then compare the stash before and after.
+
+## Lua hot paths: lobby scans, owner checks, one AI-start scan (2026-11-22; luacheck only, NOT tested in game)
+- main.lua lobby stash grid: the `FindAllOf("InventoryContainerWidget")` (30-45 ms) ran every 2 s while the stash
+  menu wasn't built. Now a miss doubles the wait (2 s up to 10 s; `raid.stashGridAt`/`stashGridWait`), and
+  `GetFullName` is read once per candidate. No cheap "stash menu open" signal was used: the grid can be resized up to
+  10 s late after opening the stash for the first time in a lobby.
+- main.lua lobby stand: `FindAllOf("MM_PlayerChar_C")` every 3 s while `Female.playerDue()`; the stand is now kept in
+  `raid.lobbyStand` and looked for again only once `valid()` fails (it dressed every matching stand before; there is one).
+- invqol.lua `Q.tick`: `valid(ticker)` instead of `IsValid()`, and the class/world lookup is done once per ticker address.
+- minimap.lua (home airlocks/helms) and rivals.lua (station airlock owner name, docking node class): the component's
+  owner is checked with `valid()` before `GetAddress`/`GetFName`/`GetClass`.
+- rivals.lua: `FindAllOf("RaidAINodeStart")` ran once per interior in the station survey and in `pointsOfInterest`;
+  now one scan (`aiStarts()`) per call, filtered per interior.
+- gamesettings/guild/invqol/lobbylabel/invkeys path lookups use the director's `valid()` (lobbylabel's ctx now gets it).
+- Skipped: main.lua's `Default__GameplayStatics` at the time-dilation and controller lookups. `lib()` is not cached
+  (it is `StaticFindObject` itself) and is defined below those lines, so it would change nothing.
+- To check in game: the lobby `frames:` lines in last_game.log (no 30-45 ms spikes every 2 s), the stash grid's rows
+  after opening the stash, the lobby character's outfit, the minimap's home ship, rival crews on space maps.
+## Stand-in robustness (2026-11-22, review of the backend)
+- Saves: `save_state` writes compact JSON, fsyncs the temp file before the rename (a power cut or blue screen used to be
+  able to leave an empty state.json), and keeps the replaced copy as `state.json.bak`; `load_state` falls back to it when
+  state.json is missing or doesn't parse (logged). loadout.json and cosmetics.json are only rewritten when their text
+  changes (they were rewritten on every stash write).
+- The #370 duplicate check builds one {item place: key} index per PUT and updates it as items are stored (it scanned and
+  parsed the whole inventory once per item, under the lock). 500 items against a 1000-item stash: 0.02 s (CI test).
+- server.log over 1 MB becomes server.log.1 at start-up; the pre-clean-up backup is `state.before-twins-<time>.json`, never
+  overwritten; unparseable inventory/cosmetic rows and a failed coverage write are logged instead of skipped silently.
+- Tested: tools/test_standin_flow.py (CI), including the timing, a copy inside one request, and the .bak fallback. Not
+  tested in game (the stand-in's API is unchanged).

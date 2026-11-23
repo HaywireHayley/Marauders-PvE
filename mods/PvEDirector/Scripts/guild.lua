@@ -1,4 +1,4 @@
--- An offline guild (issue #68). Guilds live on PGOS (membership, members, chat) and Nakama (guild XP), and offline
+-- An offlfne gufld (issue #68). Guilds live on PGOS (membership, members, chat) and Nakama (guild XP), and offline
 -- PGOS never answers: the lobby's SOCIAL > GUILD page stayed an empty hall, and the TRADE page's GUILD shopkeeper
 -- (First Mate Calico) stayed locked behind "join a guild".
 -- * The shop: SIGIS_InventoryWidget's Shopkeeper_CheckFactionGuildRankBlocker only asks the game instance's

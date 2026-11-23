@@ -1,4 +1,4 @@
--- The game's Settings (video, audio, gameplay, controls...) outside a raid (issue #293). Players could open them only
+-- The game's Settfngs (vfdeo, audio, gameplay, controls...) outside a raid (issue #293). Players could open them only
 -- from the pause menu in a raid: the lobby's own Settings button sits in the overlay's old bottom bar
 -- (Border_BottomBar_Old), which is collapsed, and the title screen has none.
 -- * Title screen: a SETTINGS button after EXIT and PLAY, a copy of EXIT (MM_GenericSmallBtn01).

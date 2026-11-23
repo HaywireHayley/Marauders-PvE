@@ -13,3 +13,17 @@ in memory and checks the original bytes first, so a game update makes a patch sk
 | `vtprobe.c` | no | Co-op research (#26): finds engine objects by vtable, samples a net connection on a shared clock, hardware write/execute breakpoints that log the call stack and any FStrings on it. Commands and build line at the top of the file |
 
 Build with `build.sh` (MinGW-w64 GCC). The two DLLs needed to play are committed so players don't need a compiler.
+
+`build.sh [target] [suffix] [outdir]` builds one target (default `pvenative`) or `all` three, into `native/` unless
+`outdir` is given. It uses `$CC`, else `x86_64-w64-mingw32-gcc`, else `gcc` (WinLibs from winget on Windows; on
+Linux `apt install gcc-mingw-w64-x86-64`).
+
+| Target | Command line it runs | Links |
+|---|---|---|
+| `pvepatch` | `gcc -shared -O2 -Wall -Wextra -o pvepatch.dll pvepatch.c` | kernel32 + CRT only |
+| `pvenet` | `gcc -shared -O2 -Wall -Wextra -o pvenet.dll pvenet.c -lws2_32` | ws2_32 (WinHTTP is hooked through import tables, not linked) |
+| `pvenative` | `gcc -shared -O2 -Wall -Wextra -DPVE_ROOT=... -DPREFIX="native<suffix>" -o pvenative<suffix>.dll pvenative.c` | kernel32 + CRT |
+
+`sh native/build.sh pvepatch` overwrites the committed `pvepatch.dll`; commit it only together with the `.c` change.
+CI (`check.yml`) cross-compiles all three to a temp folder on every push, so a `.c` change that doesn't compile fails
+there; it never replaces the committed DLLs. The other `.c` files have their build line in their header comment.
