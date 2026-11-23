@@ -37,10 +37,30 @@ local function setLabel(btn, text)
     pcall(function() btn.Txt_Main:SetText(FText(text)) end)
 end
 
+local function quitNow(pc)
+    StaticFindObject("/Script/Engine.Default__KismetSystemLibrary"):QuitGame(pc, pc, 0, false) -- 0 = Quit
+end
+
+-- Quitting from a raid (#361): the raid's contract progress and XP are paid by the end-of-raid bookkeeping the menu
+-- runs after ClientReturnToMainMenuWithTextReason, which a bare QuitGame skipped. So the raid is first ended the game's
+-- way as a "DISCONNECT" (what the live server reported for a player who left; tested 2026-11-23: back at the menu the
+-- game wrote xp, contracts and its stats within 1 s), and the game quits once the menu has had LEAVE_SETTLE s. Gear is
+-- unchanged: what you brought goes back by the stand-in's unfinished-raid rule (#49), loot picked up is lost.
+local LEAVE_SETTLE, LEAVE_GIVE_UP = 6, 45
+local leaving -- { at = os.clock() of the click, menuAt = first frame seen in the lobby }
+
 local function quit(where)
     X.log("quit: Quit Game from the " .. where)
     local pc = X.pc()
-    StaticFindObject("/Script/Engine.Default__KismetSystemLibrary"):QuitGame(pc, pc, 0, false) -- 0 = Quit
+    if where == "pause menu" and X.inRaid() then
+        local ok = pcall(function() pc:ClientReturnToMainMenuWithTextReason(FText("DISCONNECT")) end)
+        if ok then
+            leaving = { at = os.clock() }
+            X.log("quit: ending the raid first (DISCONNECT), so the menu records its progress")
+            return
+        end
+    end
+    quitNow(pc)
 end
 
 -- A click is a release after a press (like a real button). Returns "ask", "quit" or nil.
@@ -151,6 +171,16 @@ end
 function Q.tick()
     local now = os.clock()
     local pc = X.pc()
+    if leaving then
+        local inMenu = X.valid(pc) and pc:GetClass():GetFName():ToString() == "MenuPlayerController_C"
+        if inMenu and not leaving.menuAt then leaving.menuAt = now end
+        if (leaving.menuAt and now - leaving.menuAt >= LEAVE_SETTLE) or now - leaving.at >= LEAVE_GIVE_UP then
+            X.log("quit: raid recorded, quitting")
+            leaving = nil
+            return quitNow(pc)
+        end
+        return
+    end
     if X.valid(pc) and pc:GetClass():GetFName():ToString() == "MenuPlayerController_C" then return lobbyTick(pc, now) end
     -- The menu's class loads with the first world that has it: hook its opening once it exists.
     if not hooked and now >= hookAt then

@@ -5268,4 +5268,15 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   turrets had stopped engaging), so this is one clean pair, not a curve. Turrets ignored a hull teleported next to them
   until the player flew it.
 - Fix: rivals.lua easeNodeTurrets sets MissRange every 0.5 s: CFG.STATION_TURRET_MISS 7, 14 when the turret aims at a
-  pod (bADropPod). NOT tested in game after the change (needs a relaunch); pod case not measured.
+  pod (bADropPod). Verified after a relaunch: all four Flak_NodeTurret_C read MissRange 7 on Space_Solo_01. Hit rate
+  after the change and the pod case not measured.
+
+## Quit from a raid keeps the raid's progress (#361, 2026-11-23)
+- Tested from the bridge in Space_Solo_01: pc:ClientReturnToMainMenuWithTextReason(FText("DISCONNECT")) travels to the
+  menu, which within 1 s calls rpc statChangeArray and PUTs playerstats xp, contractstarttime, contracts (then
+  cosequipped and ship rows): the same bookkeeping as "ESCAPED". No contract was finished in that raid, so whether a
+  finished contract's cash/XP is paid on DISCONNECT is NOT verified.
+- quit.lua: QUIT GAME in a raid's pause menu now ends the raid as DISCONNECT first, then quits 6 s after the lobby
+  appears (45 s at most). Gear: unchanged (#49 returns what you brought). The click path itself was NOT driven in game.
+- F9 "Extract now" already went through Client_GetOutWithLoot -> returnAfterExtract -> ESCAPED; Alt+F4 and crashes
+  still lose the raid's progress.
