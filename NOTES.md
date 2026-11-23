@@ -4409,15 +4409,24 @@ host), a joiner on another PC (the scripts assume both copies on one machine), N
   frigates are ARaidFrigate and have none.
 - Base: the Rustbucket gets MaxFlySpeed x1.25 and MaxAcceleration x1.5 while you fly it (shipspeed.lua, every director
   update). Measured after: top speed 1250, MaxAcceleration 384.
-- Boost: Space at the helm of any frigate (this UE4SS has no Shift key in `Key`, only `ModifierKey.SHIFT`; Space and X
-  did nothing at the helm, checked). 4 s at MaxFlySpeed x1.8, then a 12 s cooldown. Raising MaxFlySpeed alone was
+- Boost (first version): Space at the helm of any frigate (this UE4SS has no Shift key in `Key`, only `ModifierKey.SHIFT`; Space and X
+  did nothing at the helm, checked). 4 s at MaxFlySpeed x1.8, then a 12 s cooldown. Superseded on 2026-11-22, see below. Raising MaxFlySpeed alone was
   nearly useless (1250 -> 1440 cm/s over 4 s: the speed builds slowly, not by MaxAcceleration), so the boost also sets
   `CharacterMovement.Velocity` to the new top speed along the direction of travel. Measured: 1250 -> 2204 at once,
   ~2000 at the end of the 4 s, back to 1250 within ~4 s after. A second press during the cooldown does nothing (a
   "recharging" message).
 - Testing pitfall: the director's own 0.5 s update puts the speeds back, so hand-written values in a probe are undone.
-- Not checked: how it feels with a real pilot (by eye, turning at 2200), docking or breaching right after a boost, the
-  `ClientMessage` notices, co-op (a joiner's boost would be undone by the host's movement), crew AI flying.
+- Boost (2026-11-22, the current version, `shipspeed.lua`): the Rustbucket only, on the key bound to Run (Shift), held. Space is
+  the game's ship up (the MoveUp axis), so it could not be the boost key. `main.lua` polls `Keys.down(pc, "Run", "LeftShift")`
+  through `ShipSpeed.frame` (every raid tick on a space map, at most every 0.04 s, only at the Rustbucket's helm or while a
+  boost runs, not while the mouse cursor shows). Press starts it, letting go ends it, 4 s still ends it; the 12 s cooldown
+  counts from the end either way. Messages: BOOST, "Boost spent", "Boost off", "Boost recharging: N s". The drop pod's own sounds
+  play 2D: `EF_ShipPod_Boosting_OneShot` (start), `EF_ShipPod_Boosting_EngineLoop` (while it lasts, stopped by `Stop()` on the
+  component `SpawnSound2D` returns), `EF_ShipPod_BoostEnd_OneShot01` (end), all under `/Game/Sounds/Ships/`. Other frigates are
+  left as the game has them. Gate taps count Shift presses at the Rustbucket's helm now (below).
+- Result: Chandler flew it on 2026-11-22 and it worked (log: `ship boost: Ship_StarterFrigate01_Pawn_C, up to 4 s while the key is
+  held`, no errors from the boost hook). Co-op stays as it was: a joiner's boost would be undone by the host's movement.
+- Reference: [docs/internals/SHIP_BOOST.md](docs/internals/SHIP_BOOST.md).
 ## J and K in a raid (#209, 2026-11-19; invqol.lua raidHotkey)
 - The stash hotkeys returned at once outside the lobby (no stash bar, no stash panel), so in a raid they did nothing.
 - Found by probing a looted bag (Spaceport_01, `inv:Server_StartLooting(LootableCon_BagPlastic01_C)` opens the real
@@ -5106,8 +5115,8 @@ Inspired by SPT's SVM: every F3 setting before a raid, with presets to save, sha
   dropped by spared bots, security contractors.
 
 ## Gate superstitions: Tick's two taps (#332, 2026-11-21, space gate)
-- gatetaps.lua (lore: docs/lore/fragments/18_gate_superstitions.md rule 2). A tap is a Space press at a frigate's helm
-  (shipspeed.lua's M.boost calls gatetaps.tap, before the cooldown checks, so a recharging boost still counts). When
+- gatetaps.lua (lore: docs/lore/fragments/18_gate_superstitions.md rule 2). A tap is a boost press at the Rustbucket's helm
+  (Shift since 2026-11-22; it was Space; shipspeed.lua's M.boost calls gatetaps.tap, before the cooldown checks, so a recharging boost still counts). When
   your own controller runs EnterEvacRaidVolume / Server_EnterEvacRaidVolume (loadout.lua, the `mine(ctx)` filter), the
   presses in the last TAP_WINDOW s (6) are counted. Exactly 2: a GoldCoin row appended to backend/gifts_in.txt (the
   hand-off defuse.lua's nuclear material uses; the stand-in's watch_checkout puts it in the lobby's gift box) plus a HUD
@@ -5158,6 +5167,7 @@ From Taki's report (`MaraudersOffline-report-20261121-2335`, build 23: soldiers 
 
 ## Ship turrets: damage and helm aim, 2026-11-21 and 22 (measured in game, offline, install .23)
 Two fixes, each its own file: `turretdamage.lua` (damage) and `helmaim.lua` (where a helm shot goes). Both are class agnostic.
+The lookup version of all of this, with the turret table, is [docs/internals/SHIP_TURRETS.md](docs/internals/SHIP_TURRETS.md); this section is the log.
 
 ### Damage: the impact half of a shot never landed
 Target: a spawned Scout frigate (hull 650), 20 m ahead of the Rustbucket; a turret of each kind fired 5 projectiles one at a time, the
@@ -5201,7 +5211,7 @@ cares about (a ship in front of them) the shell passed under the point they aime
   3 km point on the ray when nothing is hit). So the shot passes through the crosshair at the distance of the target and the
   trail still leaves the turret. Moving the origin to the view line (v2) hit dead on but the trails then started at the reticle,
   which was rejected. The gun seat (`gunseat.lua` `shotDir`) asks `helmaim.aimDir` first and keeps its old 600 m convergence as
-  the fallback; the gun seat path is not yet checked in game.
+  the fallback; the gun seat path went through the same aim and was run in game (section below).
 - UE4SS notes: `originP:set({X,Y,Z})` and `dirP:set(...)` work in a pre hook. A hook on a game UFunction is safe. Hooks on engine sound
   functions, and probes that sweep every widget or property, crashed the game (the probe that read every Image brush did).
 
@@ -5213,8 +5223,84 @@ Rocket, Torpedo and Nuclear (the last two only to 200 m: they are slow). A shot 
 - 216 of 240 hit. Every one of the 24 misses is Flak at 200, 500 and 900 m (all 24 shots) or Dual Rocket at 900 m, and they are the
   same on every direction: the shell was seen and ended D minus about 183 m away for Flak (it self destructs near 183 m) and about 82 m
   short at 900 m for Dual Rocket (it runs out near 820 m). That is the weapons' own range, not the aim; both hit at every shorter range.
-  Not checked against the asset values.
 - Every other kind, helm click included, hit at every distance and direction.
 - Test pitfalls: the game unloads turret classes it is not using, so a spawn throws; the test loads them again and waits. The player's
   mouse moves the camera and slides the target off the ray, so the test holds the control rotation. A probe that wraps
   `Space.podFrame` must release it, or it keeps freezing the ship and locks the mouse. Probe files live in `bridge/dir_eval.lua`.
+
+### Every turret type fired from the helm, checked in game (2026-11-22)
+Done with a temporary test probe that is not part of the mod (nothing for it ships: no menu entry, no test code in the repo).
+The reticle check at the helm needed all ten turret kinds, and the Rustbucket has exactly one turret (a Singular,
+`InGame_Turret_SingleTurret01`). Swapping the hull of the ship you are flying mid raid is not supported (`rivals.lua`
+`R.ownHull` only fits a hull under the loading screen, and a failure at the helm can drop you out of the raid), and a bigger ship
+needs a relaunch (`?SHIP=<FrigData row>` from loadout.json's equipped `*_Ship` item, `launch.lua` `launchMatch`). So the probe
+mounted one test turret of each kind on the Rustbucket and fired each one through the reticle.
+- **Mounting**: `SpawnActor` of `/Game/Blueprints/Ships_Extras/Turrets/<class>.<class>_C` (`LoadAsset` first when the game has
+  unloaded the class), `K2_AttachToComponent(ship.Mesh, FName("Soc_Turret01"), 2, 2, 2, false)`, scaled 1.25, `MyFrigateOwner =
+  ship`, `SetOwner(ship)`: the recipe of `rivalships.lua` `fitTurrets`. Removed afterwards with `K2_DestroyActor`.
+- **Firing from the helm**: the helm click natively fires only `SpawnedTurretArray[0]`, and only when its `ControllerHere` is
+  null. For the test turret 1 was held with the player's controller (what `crew.lua` `holdTurrets` does for a gunner), and each
+  turret was fired with `turret:ServerFireProjectile(barrelSocket, helmaim.aimDir(...), socketIndex)` at its `FireRate`, cycling
+  `FiringSockets` on multi barrel turrets, 5 shots each with nothing spent. Nuclear (50 m blast) was aimed 100 m or more away.
+- **Result**: 11 turrets (the ship's own plus the ten kinds), 5 shots each from the helm through the reticle; every turret type
+  fired and worked (Chandler, 2026-11-22). Together with the 240 shot aim test above, the damage fix, the helm aim and the gun seat
+  aim are all checked in game. The gun seat was also run in game on the Rustbucket's turret: manned, 5 rounds, stood up.
+- Live loading without a restart: while `bridge/profile_on` exists the director runs `bridge/dir_eval.lua` once in its own Lua
+  state and writes `bridge/dir_eval.out`; a probe swaps new code into the live module table. Wait a few seconds after writing a
+  file before a device commit reads it, or the old copy is read.
+- Reference: [docs/internals/SHIP_TURRETS.md](docs/internals/SHIP_TURRETS.md).
+
+## Sky seams in interiors (probed 2026-11-20, played to 2026-11-22; skyhide.lua)
+- Symptom: a blue sliver of sky through seams in ship and station interiors while on foot, most visibly where the drop pod
+  hatch ring meets its wall hole in the Rustbucket (`CurvedWall_Hole_9`, `SM_PodShell_DropPod01` of `FrigateInside_Starter_C`).
+  The interiors are kits of wall and floor pieces, not sealed rooms, and the game never hides the sky for a player on foot.
+  A line trace through the seam hit nothing within 60 m, so the blue is the sky behind the gap, not geometry.
+- Measured (space map, `Node_Background_07_C` at -93028 929 -11846): 7 components, among them `SM_SkyDome` (material `MI_Sky_11`,
+  scale 400, radius about 16384 m), `ExponentialHeightFog`, a `Sun` sphere (`MI_DevLight_Weak_Blue`, scale 200), a post process
+  component and a directional light (intensity 5, not visible). The map has no SkyLight actor, no SkyAtmosphere and no
+  VolumetricCloud; one SkyLightComponent exists, in `/Engine/Transient`; 7 post process volumes, 30 post process components,
+  67 sphere reflection captures. Four height fog actors exist; the blue one has inscatter (0.64, 0.91, 1.00).
+- Narrowing it down, all live probes restored after 20 to 30 s: a bisect that hid the background actor, then the pod hatch
+  mesh, then the wall hole pieces, then a post process volume; a combined hide of 6 changes; hiding the sun alone and the post
+  process alone; the four fog actors set to black; the dome alone (`SetHiddenInGame` plus `SetVisibility`, read back as hidden
+  true, visible false). The dome alone leaves the fog's colour in the seam, the fog alone leaves the dome, so both are hidden.
+- Fix: while you are on foot the dome (`SetHiddenInGame(true)`) and the fog (`SetVisibility(false)`) of the first
+  `Node_Background*` actor are hidden, and shown again at a helm, in a pod, in a gun seat or when your view is any camera that
+  is not your own body, so windows still show space. A map without such an actor is left alone. Nothing else on the actor
+  (sun, light, post process, volume) is touched: another background actor, `Node_Background_06`, carries the world's only real light, and hiding
+  that light visibly darkens a map (see "Stutter, lighting, bot aim, kit looks"). `SkyHide.reset()` undoes everything when a
+  raid ends. A failed find is retried every 10 s.
+- Wiring: `main.lua` requires it, calls `SkyHide.init`, `SkyHide.update(pc, Gunseat.seated() ~= nil)` from the director update
+  and `SkyHide.reset()` where `ShipSpeed.reset()` runs.
+- Live runs: version 1 (dome only, "aboard a ship") ran 6 minutes walking in and out of ships and sitting at the helm; version
+  3 ran 30 minutes; the shipped rule is "on foot" and adds the fog.
+- Result: Chandler played it 2026-11-20 to 22. The log shows `sky hidden: on foot` and `sky shown again` at each change between
+  walking and the helm or a turret, no `sky change failed`, and the seams are black instead of blue.
+- Reference: [docs/internals/SKY_SEAMS.md](docs/internals/SKY_SEAMS.md).
+
+## Upstream ship fixes to overwrite after our work (2026-11-21)
+- Decision (Chandler): keep our version of the ship stuff. Upstream (HaywireHayley / dmchaledev, builds 17 and 18, issue #70)
+  shipped ship fixes that are invented or lazy and conflict with ours. Local master was moved up to upstream/master 205d883 on 2026-11-22 (the turret fix is on fix/ship-turrets);
+  our ship work still has to land. When we merge, overwrite the items below with fixes built on how the game works.
+  DO NOT FORGET: this list is the follow up.
+- 1. Torch ship repair (blowtorch.lua repair(), PR #282 and #284). Invented numbers (hull +25 a second, a part mended in 4 s, the
+  part nearest the aim within 3 m and 80 cm), and it writes MainHullHealth and the part's Health itself. The game's own data: the
+  cooked defaults of Base_BlowTorch have ShipPartRepairAmount 100.0 and Base_FireExtinguisher 2.0 with RepairGun true (read with
+  tools/offline-audit/ueprops.py), and they act on ship parts. No hull repair function name exists in the packed Blueprints
+  (native code not checked). Their own note says the native torch repair never lands offline (8 s of torch left the pipe at 0)
+  and they never found why: they replaced it. The real job is finding that gap (the torch's hit path to the part), then the
+  game's 100 and 2 apply on their own.
+- 2. A broken state on wrecks (rivalcombat.lua pairInterior). A hull already at 0 when its interior is made gets its life support
+  pipe set to Health 0 and LifeSupportDestroyed on hull and interior, so taking the wreck means repairing it. That keeps a broken
+  state alive. It belongs with our open bug "two ships already destroyed at raid start" (needs a fresh raid and a read only ship
+  state dump): find why a ship starts at 0, do not build a mechanic on it.
+- 3. Interceptor walls (their NOTES section "A taken ship's turrets for your gunner; the interceptor walls"). They call it "not
+  reproduced" and left the Light Interceptor on the Default Scout interior. Ours moves the interceptors to FrigateInside_Strike
+  (rivals.lua HULLS, backup/pre-interceptor-strike): untested in game, and the AI interceptor interior look/visit/back probes
+  (bridge/ai_interior_*.lua.ready) are still not run. Not fixed upstream, so still ours to fix.
+- 4. Your gunner on a taken ship (rivalcombat.lua checkStolen, rivals.lua shipTurrets, S.stolenTurrets). Works only in the raid
+  where you took the ship; a ship taken in a later raid is not covered (their own note), and a hired gunner firing was not seen.
+- Merge by hand when the time comes: main.lua, rivals.lua, rivalcombat.lua, debugactions.lua and interiors.lua changed upstream
+  and overlap ours (boost, sky hide, god mode last helm rule, Strike interiors). shipspeed.lua and skyhide.lua are ours alone.
+- Related and still open on our side: pod flash, extinguisher damage, why the native impact TakeDamage never lands (turret damage is
+  worked around on fix/ship-turrets, see NOTES there).

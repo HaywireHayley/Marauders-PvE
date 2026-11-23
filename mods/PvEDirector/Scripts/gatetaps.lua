@@ -1,5 +1,5 @@
 -- Gate superstitions, first pass (#332; docs/lore/fragments/18_gate_superstitions.md, rule 2): "Tap the JTA plate twice
--- on the way out. Once is rude, three's greedy." Taps are presses of Space (the helm boost key, shipspeed.lua calls
+-- on the way out. Once is rude, three's greedy." Taps are presses of the boost key (Run, Shift, at the Rustbucket's helm; shipspeed.lua calls
 -- M.tap on each press at the helm) in the TAP_WINDOW seconds before your ship enters the gate's evac volume (loadout.lua
 -- calls M.enter from the same hook that marks the ship as in a gate). Exactly two: a GoldCoin into the gift box
 -- (gifts_in.txt, the hand-off defuse.lua uses; claimed in the lobby). One, or three and more: a line on the HUD, no
@@ -9,7 +9,7 @@ local log, valid
 
 local CFG = {
     GATE_TAPS = 1,         -- 1 = on, 0 = off (F3 Effects)
-    TAP_WINDOW = 6,        -- seconds before the gate that a Space press counts as a tap
+    TAP_WINDOW = 6,        -- seconds before the gate that a boost press counts as a tap
     TAP_GIFT = "GoldCoin", -- item row for exactly two taps
 }
 M.CFG = CFG
