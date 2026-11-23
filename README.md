@@ -142,6 +142,11 @@ optional on Linux: it's there in Desktop Mode if your Python has Tk and Pillow.
 4. Press **PLAY** in Steam (Game Mode works). The first time, a save called "Save 1" is made for you. In the game's
    lobby, gear up, pick a map and press **START RAID**.
 
+**If PLAY fails:** send `backend/linux_launch.log` from the MaraudersOffline folder (in
+[#161](https://github.com/HaywireHayley/Marauders-PvE/issues/161) or on the Discord). It holds Steam's command, the one
+the mod ran instead, and everything Proton and the game printed. For more detail, put `PROTON_LOG=1 ` in front of the
+launch option: Proton then also writes `~/steam-1789480.log`.
+
 **The launcher window (Desktop Mode, optional):** if your Python has Tk and Pillow (most desktop Linux does; SteamOS
 doesn't: `python3-tk` and `python3-pil.imagetk` on Debian/Ubuntu), `install.sh` adds **Marauders Offline** to your app
 menu. It's the same launcher as on Windows: make, back up, import and pick saves, give items, settings, REPORT. Its

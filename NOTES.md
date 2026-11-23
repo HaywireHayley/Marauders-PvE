@@ -5291,3 +5291,14 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   the state. Export includes crew.lua (import doesn't read it yet).
 - Tested: tools/test_crew_undo.py (CI), test_pvemode.py, launcher/test_ui.py, test_standin_flow.py. NOT tested in game:
   that hire.lua re-reads crew.lua at each launch (it's loaded per launch, so a relaunch is needed after Undo anyway).
+
+## Linux launch log, first Proton reports (#161, 2026-11-23)
+- Report (Pöhlbert, CachyOS): `unable to load library steamclient64.dll` at PLAY with GE-Proton 10-34, 11-3, 11-7,
+  Proton Experimental, Proton Stable and CachyOS's Proton; the stock game starts. Install output was correct.
+- Ruled out here: pvenet.dll hooks only WinHTTP and name lookups (no LoadLibrary); steamclient64.dll, steam_api64.dll
+  and steam_appid.txt (1789480) beside the Shipping exe are stock game files. libsteam_api.so is irrelevant: the game
+  is a Windows exe under Proton, whose steamclient64 is Proton's lsteamclient bridge. The difference from a stock start
+  is our swap of RaidGame.exe (EAC bootstrapper) for RaidGame-Win64-Shipping.exe in Steam's command: NOT yet known why.
+- steam-run now writes backend/linux_launch.log every launch: Steam's command, Steam/Proton env (SteamAppId,
+  SteamGameId, STEAM_COMPAT_*, PROTON_*, pressure-vessel paths, WINEDLLOVERRIDES), the command run, the game's and
+  Proton's stdout/stderr, and the exit code. Tested by test_pvemode.py (Windows, WSL); not under real Proton.

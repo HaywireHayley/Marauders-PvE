@@ -47,6 +47,7 @@ def sandbox(tmp):
     pvemode.GAME_PATH = os.path.join(cfg, "game_path.txt")
     pvemode.STEAM_SETTING = os.path.join(cfg, "linux_offline.txt")
     pvemode.SAVE_SETTING = os.path.join(cfg, "linux_save.txt")
+    pvemode.LAUNCH_LOG = os.path.join(tmp, "linux_launch.log")
     s = pvemode.saves
     s.SAVES = os.path.join(tmp, "saves")
     s.LIVE = os.path.join(tmp, "state.json")
@@ -212,6 +213,11 @@ class SteamRun(unittest.TestCase):
         self.assertEqual(snapshot(self.game), self.before)           # and the folder is stock afterwards
         self.assertFalse(os.path.exists(pvemode.saves.ACTIVE))       # the save went back to its slot
         self.assertTrue(os.path.exists(os.path.join(pvemode.saves.SAVES, "deck-save", "state.json")))
+        with open(os.path.join(self.tmp, "linux_launch.log"), encoding="utf-8") as f:
+            launch = f.read()                                         # what a player sends when it fails (#161)
+        self.assertIn("Steam's command: ", launch)
+        self.assertIn("running: ", launch)
+        self.assertIn("the game exited with code 0", launch)
 
     def test_killed_from_the_steam_menu(self):
         p = self.run_steam(30)

@@ -48,8 +48,36 @@ ADDED = ["dwmapi.dll", "UE4SS.dll", "UE4SS-settings.ini", "Mods", "UE4SS.log", "
 MOD_DIRS_WITH_ROOT = ("PvEDirector", "PvEBridge")
 
 
+_launch_log = None  # steam-run: backend/linux_launch.log, where say() and the game's own output also go (#161)
+
+
 def say(text):
     print(text, flush=True)
+    if _launch_log:
+        _launch_log.write(time.strftime("%H:%M:%S ") + text + "\n")
+        _launch_log.flush()
+
+
+# What Steam and Proton were given, for a report: Steam runs the launch option with no terminal, so without this a
+# failed start leaves nothing to read (#161).
+LAUNCH_LOG_ENV = ("SteamAppId", "SteamGameId", "SteamClientLaunch", "STEAM_COMPAT_DATA_PATH", "STEAM_COMPAT_TOOL_PATHS",
+                  "STEAM_COMPAT_CLIENT_INSTALL_PATH", "STEAM_COMPAT_INSTALL_PATH", "STEAM_RUNTIME", "WINEDLLOVERRIDES",
+                  "PRESSURE_VESSEL_FILESYSTEMS_RO", "PRESSURE_VESSEL_FILESYSTEMS_RW")
+
+
+LAUNCH_LOG = os.path.join(ROOT, "backend", "linux_launch.log")
+
+
+def open_launch_log(argv):
+    global _launch_log
+    try:
+        _launch_log = open(LAUNCH_LOG, "w", encoding="utf-8")
+    except OSError:
+        return
+    say("steam-run, Python " + sys.version.split()[0] + ", Steam's command: " + " ".join(argv))
+    for k in LAUNCH_LOG_ENV + tuple(sorted(k for k in os.environ if k.startswith("PROTON_"))):
+        if k in os.environ:
+            say(f"  {k}={os.environ[k]}")
 
 
 # Paths ----------------------------------------------------------------------------------------------------------------
@@ -351,6 +379,7 @@ def steam_run(argv):
     """The Steam launch option: plays the chosen save offline, or runs Steam's command untouched when switched off."""
     if not argv:
         sys.exit("steam-run: nothing to run (the launch option needs %command% after the script)")
+    open_launch_log(argv)
     recover()
     if setting(STEAM_SETTING, "on") == "off":
         say("Marauders Offline is switched off ('pvemode.py steam on' switches it back on): starting the stock game.")
@@ -361,7 +390,8 @@ def steam_run(argv):
         os.execvp(argv[0], argv)
     for problem in (path_problem(ROOT), None if is_game(game) else f"no {EXE_REL} under {game}"):
         if problem:
-            sys.exit("Marauders Offline can't start: " + problem)
+            say("Marauders Offline can't start: " + problem)
+            sys.exit(1)
     if read_game() != game:
         with open(GAME_PATH, "w", encoding="utf-8") as f:
             f.write(game + "\n")
@@ -382,12 +412,17 @@ def steam_run(argv):
         if os.path.exists(os.path.join(ROOT, "bridge", "offline_backend")):
             standin, problem = start_standin()
             if problem:
-                sys.exit("Marauders Offline can't start: " + problem)
+                say("Marauders Offline can't start: " + problem)
+                sys.exit(1)
         folder.offline()
         say(f"Marauders Offline: playing save '{sid}'. The game folder goes back to stock when the game closes.")
         env = dict(os.environ, WINEDLLOVERRIDES=dll_overrides(os.environ.get("WINEDLLOVERRIDES")))
-        proc = subprocess.Popen(cmd, env=env)
+        say("running: " + " ".join(cmd))
+        # Proton's and the game's own output (the steamclient64 error of #161 is printed there) into the same log
+        out = _launch_log if _launch_log else None
+        proc = subprocess.Popen(cmd, env=env, stdout=out, stderr=subprocess.STDOUT if out else None)
         proc.wait()
+        say(f"the game exited with code {proc.returncode}")
     except Stop:
         say("Marauders Offline: stopped; tidying up.")
         if proc and proc.poll() is None:
