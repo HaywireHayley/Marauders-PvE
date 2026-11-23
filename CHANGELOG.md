@@ -2,6 +2,37 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 23 Nov 2026, build 25 (`public-test-20261123.25`)
+
+Station turrets no longer shred your ship and escape pods in seconds, quitting a raid keeps its XP and contract
+progress, and two more guards against the stash being copied after a space-gate extraction. Also a sturdier save
+file, smoother lobby and a tidier launcher SETTINGS page. On build 1 of 17 Nov or later, the launcher's orange **!**
+installs this one for you, keeping your saves.
+
+### Fixes
+
+- **Stash doubled after a space-gate extraction (#370, PRs #373 and #392, thanks KillSwitch for the save):** the game
+  wrote the stash's container contents again under new item ids, and bags showed empty in the lobby. Exact copies are
+  refused and cleaned up at start-up (nothing real is removed: the oldest copy stays), and the first save after a raid
+  no longer stores new items in bags that never left the stash. Why the game does it is still being looked into.
+- **Station turrets far too accurate (#364, PR #393):** flak nodes aimed with only 3 degrees of error. They now miss
+  by up to 7 degrees against ships and 14 against pods.
+- **Contract progress lost on quitting (#361, PR #394, thanks spacedork_ for the report):** QUIT GAME in a raid now
+  ends the raid the game's own way first, so XP and contract progress are recorded before the game closes. Gear works
+  as before. Alt+F4 and crashes still lose the raid's progress.
+- **Save file safety (PR #376):** the save is flushed to disk before it replaces the old one, a copy of the previous
+  save is kept and loaded if the save won't read, and the stand-in's log no longer grows forever.
+- **Native DLL audit (PRs #375, #380):** bounded strings and checked allocations in pvenet and pvepatch; an allocation
+  failure could have crashed the game.
+
+### Changes
+
+- **Smoother lobby (PRs #377, #381):** the lobby stopped searching for the stash grid and your character every few
+  seconds, and some unsafe checks in the minimap and rival crews were fixed. Internal clean-up of the mod's modules.
+- **Launcher SETTINGS page (PR #382):** options for every save and the app moved to SETTINGS, raid conditions is a
+  clear control, "Undo last raid" says why it's greyed out, and the panel fits at 150 % display scaling.
+- **For developers (PR #378):** Python lint (ruff) in CI.
+
 ## Public test, 22 Nov 2026, build 24 (`public-test-20261122.24`)
 
 Station guards fight again: in build 23 a fault in the mod left soldiers and guards standing still. Also smoother
