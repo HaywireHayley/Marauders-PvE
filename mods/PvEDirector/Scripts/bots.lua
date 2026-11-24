@@ -534,9 +534,23 @@ function M.botShot(w, owner)
     end
     local e = by[addr]
     if not (e and valid(e.ctrl)) then return end
-    if not e.mag then
+    -- The magazine is read per gun, not once per bot (a bot that changes guns kept the first gun's clip). A break-action
+    -- double (sawed-off, long double) holds 2 whatever AmmoPerClip reads: a failed read fell back to 30, so a prisoner's
+    -- double barrel fired 30 times between reloads (#413).
+    local waddr = w:GetAddress()
+    if not e.mag or e.magGun ~= waddr then
         local ok, m = pcall(function() return w.WeaponConfig.AmmoPerClip end)
-        e.mag = ok and m and m > 0 and m or 30
+        e.mag = ok and type(m) == "number" and m > 0 and m or 30
+        local okn, cls = pcall(function() return w:GetClass():GetFName():ToString() end)
+        if okn and type(cls) == "string" and cls:find("Double") then e.mag = math.min(e.mag, 2) end
+        if e.magGun and e.magGun ~= waddr then e.shots = 0 end
+        e.magGun = waddr
+        raid.magSeen = raid.magSeen or {}
+        local key = okn and cls or "?"
+        if not raid.magSeen[key] then
+            raid.magSeen[key] = true
+            log(("bots reload: %s magazine %d (AmmoPerClip read %s)"):format(key, e.mag, tostring(ok and m)))
+        end
     end
     e.shots = (e.shots or 0) + 1
     pcall(function() w.CurrentAmmoInClip = math.max(0, e.mag - e.shots) end)
