@@ -1098,6 +1098,8 @@ local function finishBuilding(now)
             -- the crew's bodies only (not the director's list), so it's left as a lootable corpse.
             table.remove(S.building, i)
             local c = job.crew
+            local okc, errc = pcall(Bodies.giveShipCard, c, entry.bot) -- (before the death copies its loot, #410)
+            if not okc then X.log("[rivals] key card: " .. tostring(errc)) end
             pcall(function()
                 StaticFindObject("/Script/Engine.Default__GameplayStatics"):ApplyDamage(entry.bot, 100000, nil, nil,
                     StaticFindObject("/Script/Engine.DamageType"))
@@ -1107,6 +1109,8 @@ local function finishBuilding(now)
             table.remove(S.building, i)
             local c = job.crew
             if c.bodies then
+                local okc, errc = pcall(Bodies.giveShipCard, c, entry.bot) -- their ship's card, to loot (#410)
+                if not okc then X.log("[rivals] key card: " .. tostring(errc)) end
                 table.insert(c.bodies, entry)
                 table.insert(X.raid().bots, entry)
                 if job.mode == "boarding" then

@@ -3083,6 +3083,15 @@ takes no Attachments, so a card can't go on the captain's body that way).
 - Not verified: that the station airlock accepts a card made this way for a rival interior (the UUID is read from
   `c.inside.KeyCardUUID`), and that removing the old card mid-raid has no side effects.
 
+- 2026-11-24 (#410, the user: cards should be on the bodies, so you can collect several ships'): every rival crew body
+  gets its ship's KEYCARD in its loot as it's built (rivalbodies giveShipCard, from rivals.lua finishBuilding; corpses
+  before they're killed, since death copies the loot). The native add-item takes a row only, so the Attachments
+  (space.lua shipCardAtt: you!ship!interior KeyCardUUID!hull row; UUID 0 when the interior isn't loaded) are written on
+  the new item and read back, logged once if they don't take. cardForShip (taking the helm) now does nothing when you
+  already carry that ship's card, so your other cards stay. Verified in game: UE4SS writes an FString property and reads
+  it back (PlayerState.PlayerNamePrivate in the lobby, restored after). NOT verified: a body's card in a raid, the card
+  being turned away by a full pocket, a station airlock accepting a looted card, UUID 0 cards.
+
 ## No captain's key card at raid start (2026-11-16, tested; main.lua guardKeyCard)
 Issue #33. Reproduced on Space_Beta with the test save's empty loadout: the player's inventory had no items and no
 KEYCARD 35 s after boarding, and guardKeyCard logged nothing, because it only puts back a card it has seen.
