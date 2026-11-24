@@ -2,6 +2,41 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 24 Nov 2026, build 29 (`public-test-20261124.29`)
+
+Traders sell far more, contracts feel less empty, the mod's keys move off the game's voice lines, and a long list of
+fixes from your reports. On build 1 of 17 Nov or later, the launcher's orange **!** installs this one for you, keeping
+your saves.
+
+### Keys changed
+- **F10 is AI settings (was F3), F11 is your crew (was F6). F1-F8 are the game's voice lines again (PR #433)**, so NPCs
+  hear them and a mod key no longer plays a line. Your body (woman or man, was F2) is a button in the **F9** menu, and
+  so is a new **Key list** of the mod's keys (#389, PR #427).
+
+### Traders and contracts
+- **Traders sell most guns, armour, helmets and bags (#384, PR #445):** each faction now adds 26-38 items by level 10
+  (it was 7-10), unlocked by faction level, with LMGs and battle rifles from level 7 and ammo with its first gun. Heavy
+  variants, Full Panzer/Sherman and boss gear stay loot. Features tab: "Traders sell more gear" and "Trader prices (%)".
+  Thanks Voodoo, spacedork_ and HeartCoded for the lists.
+- **A fresh contract board each time you start the game, and on new saves (#333, PR #442).**
+- **Destroy contracts and Zero to Hero steps now count** when you destroy their mine or turret; a "Hold F to inspect"
+  hint, and destroy targets on the minimap (#333, PR #443).
+- **Keep contract progress when you die (#361, PR #441):** a Features switch, off by default (untested).
+
+### Fixes
+- **Stutter after looting heavy armour or swapping bags (#369, PR #423):** an inventory check ran every second all
+  raid; it now runs only while a menu is open. Thanks Walmarx and spacedork_ for the reports.
+- **Bots:** more near misses on first sight and on the move, and Chads rush your reloads for 2 s, not 4 (PR #420);
+  no flamethrowers in bot kits and double barrels reload after 2 shots (#413, PRs #422, #436); a docked ship's watch
+  keeps it when its raiders die, so ships aren't left free to take (#429, PR #431).
+- **Stolen ships: their crew carry the key card,** so you can loot several (#410, PR #426).
+- **Crew missing on the first raid** if your cash couldn't be read yet (#411, PR #425).
+- **Death screen** shows the total damage taken, not just the last three hits (#412, PR #424).
+- **Blowtorch:** about 90 fuel for a whole vault, and more lock types burn (#374, PR #421).
+- **Recoil** scales with each gun's fire rate, so SMGs kick less (#371, PR #428).
+- **Sent back to your ship mid-breach** (#365, PR #432).
+- **Bags and containers showing empty on a big stash** (#370, PR #437).
+
 ## Public test, 23 Nov 2026, build 28 (`public-test-20261123.28`)
 
 A likely fix for Linux PLAY stopping on an error box, and launcher dialogs that wouldn't open on Linux. On build 1 of
