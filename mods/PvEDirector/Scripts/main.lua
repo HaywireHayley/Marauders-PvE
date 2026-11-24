@@ -1251,6 +1251,7 @@ update = function(pc)
         os.remove(DEBUG_FLAG)
         if line and line ~= "" then Debug.command(pc, line) else Debug.toggle(pc) end
     end
+    if Loadout.keepProgressAfterDeath(pc) then return end -- died, KEEP_PROGRESS_ON_DEATH (loadout.lua, #361)
     local pawn = pc.Pawn
     raid.pawn = pawn
     if not valid(pawn) then return end

@@ -332,6 +332,8 @@ function M.init(ctx)
     -- You died: the backend forgets the ship you took in.
     RegisterHook("/Script/SIGISPlugin.SIGISInventoryComponent:Client_DiedCloseInv", function()
         tellBackend(CFG.SHIP_LOST_FILE, "")
+        -- KEEP_PROGRESS_ON_DEATH (#361): end the raid as DISCONNECT a moment later (M.keepProgressAfterDeath).
+        if require("features").KEEP_PROGRESS_ON_DEATH == 1 and not raid.diedAt then raid.diedAt = os.clock() end
     end)
 
     -- In a space gate: only then does the next ship item the game saves count as the ship coming home (settle_ship). The
@@ -375,6 +377,25 @@ function M.returnAfterExtract(pc)
         lib("/Script/Engine.Default__KismetSystemLibrary"):ExecuteConsoleCommand(pc, "open /Game/Maps/MainMenu", pc)
     end
     return true
+end
+
+-- Keep a dead raid's contract/chapter progress (#361, features.lua KEEP_PROGRESS_ON_DEATH, default off). The game's
+-- own death return (RaidPlayerController DeathToMainMenu -> reason "DEATH") is not known to pay out contract or chapter
+-- progress (NOTES "Missions offline": death path not verified). "DISCONNECT" was seen to write xp, contracts and stats
+-- like "ESCAPED" (NOTES #361, Quit Game), so a death ends the raid that way DEATH_PROGRESS_SECONDS after
+-- Client_DiedCloseInv, ahead of the game's own return. Gear is unchanged: ship_lost.txt was already written at the
+-- death, which ends the raid's checkout (#49), so nothing you brought comes back. NOT tested in game. Called each
+-- update from main.lua before the pawn check (the pawn is gone after a death); returns true when it left.
+local DEATH_PROGRESS_SECONDS = 2
+function M.keepProgressAfterDeath(pc)
+    if not (raid.diedAt and os.clock() - raid.diedAt >= DEATH_PROGRESS_SECONDS) then return false end
+    raid.diedAt = nil
+    if require("features").KEEP_PROGRESS_ON_DEATH ~= 1 then return false end
+    log("KEEP_PROGRESS_ON_DEATH: you died; ending the raid as DISCONNECT (not DEATH) so the menu writes the raid's "
+        .. "contract/chapter progress and XP. Gear brought in stays lost (ship_lost written). Untested: check the log/menu")
+    local ok, err = pcall(function() pc:ClientReturnToMainMenuWithTextReason(FText("DISCONNECT")) end)
+    if not ok then log("KEEP_PROGRESS_ON_DEATH: ClientReturnToMainMenuWithTextReason failed: " .. tostring(err)) end
+    return ok
 end
 
 M.startGiveGun, M.finishGiveGun, M.keepGunLoaded = startGiveGun, finishGiveGun, keepGunLoaded
