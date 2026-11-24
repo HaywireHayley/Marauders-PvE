@@ -5354,6 +5354,12 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   appears (45 s at most). Gear: unchanged (#49 returns what you brought). The click path itself was NOT driven in game.
 - F9 "Extract now" already went through Client_GetOutWithLoot -> returnAfterExtract -> ESCAPED; Alt+F4 and crashes
   still lose the raid's progress.
+- KEEP_PROGRESS_ON_DEATH (2026-11-24, features.lua / F3 Features, default 0): a death (Client_DiedCloseInv) ends the raid
+  2 s later with ClientReturnToMainMenuWithTextReason(FText("DISCONNECT")) (loadout.keepProgressAfterDeath, called from
+  main.lua's update before the pawn check), ahead of the game's own DeathToMainMenu ("DEATH"). Gear: unchanged, since
+  ship_lost.txt is written at the death first. Default OFF: it is NOT known whether "DEATH" already pays contracts (no
+  death with a finished contract has been watched), nor whether DISCONNECT pays a finished contract's cash. It cuts the
+  death screen short. NOT tested in game: check the log line "KEEP_PROGRESS_ON_DEATH" and playerstats after a death.
 
 ## Crew kept per save, and Undo last raid restores it (2026-11-23, Discord report on build 24)
 - Report (spacedork_): crewmates stayed dead after the launcher's "Undo last raid". Cause: the mod's crew (hire.lua

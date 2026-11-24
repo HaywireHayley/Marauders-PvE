@@ -338,6 +338,7 @@ local function define()
         { "MAP_DROPS", "Minimap: where you dropped things", 0, 1, 1, "1 = on, 0 = off" },
         { "MAP_CREW", "Minimap: your crewmates", 0, 1, 1, "1 = on, 0 = off" },
         { "FRAME_LOG", "Frame times in the log", 0, 1, 1, "1 = on, 0 = off. Helps us find stutter: please leave it on if you report one" },
+        { "KEEP_PROGRESS_ON_DEATH", "Keep contract progress when you die", 0, 1, 0, "1 = on, 0 = off. A death ends the raid as a disconnect so contracts, campaign and XP count; your gear is still lost. Untested (#361)" },
     })
     tabs[#tabs + 1] = feats
     tabs[#tabs + 1] = { name = "Saved setups", rows = {}, mine = true }

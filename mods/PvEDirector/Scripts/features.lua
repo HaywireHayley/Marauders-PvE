@@ -10,4 +10,5 @@ return {
     MAP_DROPS = 1,      -- minimap.lua: a bag where you dropped something (#326)
     MAP_CREW = 1,       -- minimap.lua: your crewmates (#326)
     FRAME_LOG = 1,      -- main.lua: the "frames:" line in the log every 10 s (#336)
+    KEEP_PROGRESS_ON_DEATH = 0, -- loadout.lua: a death ends the raid as DISCONNECT so contract/chapter progress is kept (#361; untested, off)
 }
