@@ -1192,6 +1192,12 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
 - Result, default settings, Navy Outpost, ~85 s, bots fighting each other too: 214 of 249 shots moving (86%); shots across miss
   bands 0.2-1.0 (old first tuning: 60 of 99 at the cap); 37 walk-and-fire vs 10 sprint cover moves; no errors.
 
+- 2026-11-24 defaults softened (Discord: insta-kills through heavy armour, bots rush every reload). Base miss rates
+  left alone (damage per shot is flat below ~0.45, so a base change mostly hits guards and soldiers); instead more
+  near misses on first sight and on the move: AIM_SETTLE_SECONDS 1.5 -> 2.5, AIM_SETTLE_PENALTY 1.4 -> 1.8,
+  AIM_MOVING 1.2 -> 1.4, AIM_TARGET_MOVING 1.1 -> 1.3; Easy raised to stay above Normal. BOT_PUSH_SECONDS 4 -> 2.
+  Players who set these in F3 keep their values (ai_tuning.txt stores changed values only). NOT tested in game.
+
 ## Difficulty presets (2026-11-06)
 - tuning.lua PRESETS, a row of buttons in the F3 menu: Easy, Normal, Hard, Very Hard. They set competence only: every bot type's
   miss, reaction, spotTime, sight, hearing, dispersion (multipliers on the defaults) and part of the Aim tab (absolute values).

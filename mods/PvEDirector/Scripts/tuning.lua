@@ -31,7 +31,8 @@ local writeSchema -- (below presetValue, which it uses)
 -- and senses, not by pushing the base lower still.
 local PRESETS = {
     { name = "Easy", profile = { miss = 1.5, reaction = 1.6, spotTime = 1.5, sight = 0.75, hearing = 0.75, dispersion = 1.4 },
-      aim = { AIM_MISS_MAX = 1.0, AIM_SETTLE_SECONDS = 2.5, AIM_SETTLE_PENALTY = 1.6, AIM_MOVING = 1.35, AIM_UNDER_FIRE = 1.4 } },
+      aim = { AIM_MISS_MAX = 1.0, AIM_SETTLE_SECONDS = 3.5, AIM_SETTLE_PENALTY = 2.2, AIM_MOVING = 1.6, AIM_TARGET_MOVING = 1.45,
+              AIM_UNDER_FIRE = 1.4 } },
     { name = "Normal", profile = {}, aim = {} },
     { name = "Hard", profile = { miss = 0.75, reaction = 0.7, spotTime = 0.8, sight = 1.15, hearing = 1.15, dispersion = 0.8 },
       aim = { AIM_MISS_MAX = 0.8, AIM_SETTLE_SECONDS = 1.0, AIM_SETTLE_PENALTY = 1.25, AIM_MOVING = 1.1, AIM_UNDER_FIRE = 1.15 } },
