@@ -2663,6 +2663,14 @@ The female skin weight damage found 2026-11-20 ("Vertex explosions on women's ou
   now says "you: aboard the <ship name>" (S.aboard.shipName). Checked by running the expression in lupa for all five
   cases; not re-seen in game (needs a pod boarding of a rival).
 - TODO: "no breach point joins up with the inside: boarders come in nearer the middle" fired for the Long Odds.
+- 2026-11-24 (#365, #367, NOT tested in game): the void rescue (rivalcombat.lua rescueFromVoid) is the only mod code that
+  puts you back in your own ship, which matches #365 ("teleported back to my cockpit" on a second breach). It fired
+  after VOID_RESCUE 3 s on foot near 0,0,0, barely above the game's own ~2.5 s breach park there, and always when the
+  hit ship had no interior (wreck not boardable, PLAYER_BOARD_MAX reached, interior slower than VOID_BOARD_WAIT). Now
+  VOID_RESCUE 6, no rescue while pc.ShipBreachingTo is valid (property name from RVA 0x183da40 notes, not read live),
+  and a log line with why ("void rescue after ..."). #367 (stuck in the Merchant breach tube) is not explained:
+  podExitCheck only acts with no floor under you or a parked body; likely another offline-only Blueprint branch like
+  Fortress's shaft. Next report: check the log for "void rescue" / "out of the pod" lines.
 
 ## Station fights end too fast; AI legs too fast (2026-11-14; arrival stagger tested 2026-11-16)
 - Footage station_fight2.mkv, Moon Base: three rival crews (10) and 8 defenders appeared within 6 s of arriving; two

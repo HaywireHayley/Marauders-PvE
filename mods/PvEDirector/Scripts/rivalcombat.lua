@@ -902,6 +902,15 @@ local function rescueFromVoid(now)
         end
     end
     if waited < CFG.VOID_RESCUE or not valid(S.homeInside) then return end
+    -- The game's own breach parks your body at 0,0,0 while it plays (~2.5 s, longer at some ships): while the controller
+    -- still has a ship it is breaching into, that's not the void (#365: sent back to your cockpit mid-breach).
+    -- (a plain property read on the controller; nil if the game doesn't have it)
+    local breaching
+    pcall(function() breaching = S.pc.ShipBreachingTo end)
+    if breaching and valid(breaching) and waited < CFG.VOID_BOARD_WAIT then return end
+    X.log(("[rivals] void rescue after %.1f s: pod last at %s, its ship %s, interiors %d/%d"):format(waited,
+        S.podSeen and ("%.1f s before"):format(S.voidSince - S.podSeen) or "never", c and c.shipName or "none",
+        S.interiors or 0, CFG.PLAYER_BOARD_MAX))
     S.voidSince, S.podShip = nil, nil
     local ok, spot = pcall(breachLanding, S.homeInside)
     if not (ok and spot) then
