@@ -971,6 +971,7 @@ end
 raid = { world = nil }
 -- The modules keep their own reference to the per-raid table: each is handed the new one whenever it's replaced.
 local function shareRaid()
+    require("recoil").reset()
     for _, m in ipairs({ PlayAreas, Bots, Loadout, Launch, Space, DebugActions, RaidTime, LevelProps, Blowtorch, Civilians, DeathScreen, Lobby, Census }) do
         if m then m.setRaid(raid) end
     end
@@ -1338,6 +1339,7 @@ update = function(pc)
     -- callback nothing calls offline; call it once when the held gun's bBroke turns on.
     local held = valid(pawn) and pawn.CurrentWeapon
     if valid(held) then
+        pcall(require("recoil").apply, held, valid) -- per-gun recoil scale (#371)
         local broke = held.bBroke
         if broke and raid.brokeGun ~= held:GetAddress() then pcall(function() held:OnRep_WeaponHasBroken(false) end) end
         raid.brokeGun = broke and held:GetAddress() or nil
