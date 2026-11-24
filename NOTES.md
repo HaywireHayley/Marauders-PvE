@@ -5112,6 +5112,13 @@ classes) and the Lua heap / gc cycles. FindAllOf and FindFirstOf are wrapped onc
   the panel shows over the game's death UI and that the controller keeps ticking after death; attribution with several
   bots firing at once (could name a bot shooting at someone else).
 
+- 2026-11-24 (#412, "armour doesn't protect"): the report added up the three hits shown (11 + 36 + 17 = 64) against a death
+  from 100. The screen showed only the last 3 of up to 6 hits kept, and the killing hit reads only the health left.
+  Now: up to 16 hits kept, a line with the total taken in the last 15 s and over how long, and the same total in the
+  log's "death:" line. Bot hits on you go through the game's own damage function, which takes the armour rating off
+  flat before the zone multiplier (head x3.5), so pistol headshots still hurt through a heavy helmet. Whether bot hits
+  on the player get the full armour offline is NOT verified. Not tested in game.
+
 ## Launcher SETTINGS page and presets (2026-11-21, #324; launcher tested headless, NOT in game)
 Inspired by SPT's SVM: every F3 setting before a raid, with presets to save, share and load.
 - The mod stays the owner of the settings. `tuning.lua writeSchema` writes `config/settings_schema.json` at every start

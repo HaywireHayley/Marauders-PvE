@@ -14,7 +14,8 @@ local raid = {}
 
 local CFG = {
     SHOW_SECONDS = 10,
-    KEEP = 6,            -- hits remembered
+    KEEP = 16,           -- hits remembered (all of them count in the death screen's total, #412)
+    TOTAL_SECONDS = 15,  -- the total counts hits this long before the death
     SHOT_WINDOW = 0.6,   -- s between a bot's shot and your Health dropping for that shot to count as the hit
     SHOTS_KEPT = 12,
 }
@@ -177,12 +178,22 @@ local function died(pc)
     local d = dealt(k)
     local lines = { { text = top, size = 18, col = ACCENT } }
     local recent = {}
+    -- The whole picture, not only the last three hits: a report added up the three shown (11 + 36 + 17) and took armour
+    -- for broken at 64 of 100 (#412). The killing hit also reads only as much health as you had left.
+    local total, n, first = 0, 0, nil
+    for _, h in ipairs(hits) do
+        if hits[1].at - h.at <= CFG.TOTAL_SECONDS then total, n, first = total + h.dmg, n + 1, h.at end
+    end
+    if n > 1 then
+        lines[#lines + 1] = { text = ("Took %.0f in %d hits over %.1f s. Last %d (the final one: what health was left):")
+            :format(total, n, hits[1].at - first, math.min(3, #hits)), col = TEXT_MUTED }
+    end
     for i = 1, math.min(3, #hits) do
         recent[#recent + 1] = describe(hits[i])
         lines[#lines + 1] = { text = ("-%d  %s"):format(i, recent[#recent]), col = TEXT_MUTED }
     end
     if d then lines[#lines + 1] = { text = ("You did ~%.0f damage to %s"):format(d, k.who) } end
-    X.log("death: " .. top .. "; last hits: " .. (#recent > 0 and table.concat(recent, " | ") or "none")
+    X.log("death: " .. top .. (" (%.0f damage in %d hits over the last %d s)"):format(total, n, CFG.TOTAL_SECONDS) .. "; last hits: " .. (#recent > 0 and table.concat(recent, " | ") or "none")
         .. (d and ("; dealt ~%.0f to killer"):format(d) or ""))
     local ok, err = pcall(show, pc, lines)
     if not ok then X.log("death screen failed: " .. tostring(err)) end
