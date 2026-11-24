@@ -1481,8 +1481,8 @@ RegisterKeyBind(Key.F11, function() table.insert(pending, function()
     Hire.toggle(pc)
 end) end)
 RegisterKeyBind(Key.F9, function() table.insert(pending, toggleDebug) end)
--- F1: the list of these keys (keyhelp.lua, #389), drawn beside the other menus. Keep its KEYS in step with this block.
-RegisterKeyBind(Key.F1, function() table.insert(pending, function() KeyHelp.toggle(menuPc()) end) end)
+-- The list of these keys (keyhelp.lua, #389) opens from the F9 menu's "Key list" button: F1-F8 are the game's voice
+-- lines, so no mod key goes there. Keep its KEYS in step with this block.
 -- The minimap (minimap.lua): N shows or hides it, M switches to the full overview and back, B follows the next task.
 -- (not while typing in the stash search: "nickel" turned the minimap off)
 function Aux.unlessTyping(fn) return function() if not (InvQol and InvQol.typing()) then fn() end end end

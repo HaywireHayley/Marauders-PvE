@@ -1,5 +1,5 @@
--- F1: a key reference (#389, first pass). A small panel listing the mod's own keys, built like deathscreen.lua's panel
--- (a DebugInfo_Widget host emptied and refilled with a Border and TextBlocks). F1 again hides it; a new world drops it
+-- A key reference (#389, first pass), opened by the F9 menu's "Key list" button. A small panel listing the mod's own keys, built like deathscreen.lua's panel
+-- (a DebugInfo_Widget host emptied and refilled with a Border and TextBlocks). The button again hides it; a new world drops it
 -- (its widgets belong to the old world: never touched again, never rooted). Keep KEYS in step with main.lua's
 -- RegisterKeyBind block and README.md's key list.
 -- NOT tested in game (2026-11-24).
@@ -13,11 +13,10 @@ local ACCENT = { R = 0.95, G = 0.5, B = 0.12, A = 1 }
 local TEXT_LIGHT = { R = 0.92, G = 0.92, B = 0.9, A = 1 }
 
 M.KEYS = {
-    { "F1", "this key list (F1 again hides it)" },
-    { "F2", "play as a woman or a man" },
-    { "F3", "AI tuning menu (lobby and raids)" },
-    { "F6", "your crew: hire and manage" },
-    { "F9", "debug menu: god mode, unstuck, extract, spawn" },
+    { "F9", "debug menu: god mode, your body, this key list, unstuck, extract, spawn" },
+    { "F10", "AI tuning menu (lobby and raids)" },
+    { "F11", "your crew: hire and manage" },
+    { "F1-F8", "the game's own voice lines (NPCs hear them)" },
     { "N", "minimap on / off" },
     { "M", "minimap: full overview and back" },
     { "B", "minimap: follow the next task" },
