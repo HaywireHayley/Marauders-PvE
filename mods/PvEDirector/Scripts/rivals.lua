@@ -748,6 +748,17 @@ local function updateCrew(c, now, place, playerLoc)
     if c.state == "wreck" then return updateWreck(c, now, place) end
     if c.state == "derelict" then return end
     if c.bodies then Bodies.bodiesAlive(c) end
+    if not Crews.crewAlive(c) and c.watch then
+        -- The raiders died but the watch aboard lives (#429): it becomes the crew, so the hull isn't left a derelict
+        -- nobody guards. Boarding it then meets them (the docked branch below materializes the crew when no watch is left).
+        local alive = {}
+        for _, m in ipairs(c.watch) do if m.alive then m.watch = nil alive[#alive + 1] = m end end
+        if #alive > 0 then
+            Bodies.dematerialize(c)
+            c.members, c.watch = alive, nil
+            X.log(("[rivals] %s: raiders dead, %d of the watch keep the ship"):format(Crews.crewLabel(c), #alive))
+        end
+    end
     if not Crews.crewAlive(c) then
         Bodies.dematerialize(c)
         X.log("[rivals] " .. Crews.crewLabel(c) .. " wiped out")
@@ -765,7 +776,7 @@ local function updateCrew(c, now, place, playerLoc)
     end
     if place == "rival" and S.aboard == c then
         c.lastBoarded = now
-        if c.state == "docked" then
+        if c.state == "docked" and c.watch then
             -- The crew is off raiding the station; their watch is aboard. Bodies still standing in the station (you left
             -- it a moment ago) make way first. The watch appears away from where you cut in.
             if c.bodies and c.mode == "station" then Bodies.dematerialize(c) end
@@ -779,9 +790,12 @@ local function updateCrew(c, now, place, playerLoc)
                     X.log(("[rivals] %d of the %s's watch are aboard"):format(#alive, c.shipName))
                 end
             end
-        elseif not c.bodies then
-            local spots = Bodies.breachSpots(c.inside)
-            if #spots > 0 then Bodies.materialize(c, spots, "boarding") end
+        else
+            if c.bodies and c.mode == "station" then Bodies.dematerialize(c) end
+            if not c.bodies then
+                local spots = Bodies.breachSpots(c.inside)
+                if #spots > 0 then Bodies.materialize(c, spots, "boarding") end
+            end
         end
     elseif c.bodies and c.mode == "boarding" and now - (c.lastBoarded or 0) > CFG.DEMATERIALIZE_AFTER then
         Bodies.dematerialize(c)
