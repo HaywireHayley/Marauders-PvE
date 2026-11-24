@@ -140,6 +140,11 @@ def _fresh(name):
     for key in ("skillsunlocked", "cosmeticsunlocked"):
         if key in stats:
             _stat(state, key, "")
+    # The seed's board is the same for every save: the client rolls a new one against an old start time (#333; the
+    # ContractTable dump isn't in the repository, so the board itself can't be rolled here). Not verified in game.
+    if "contractstarttime" in stats:
+        sa = _standin()
+        _stat(state, "contractstarttime", sa.contract_time(time.time() - sa.CONTRACT_DUE))
     # What every new account is given: the base cosmetics and voice pack. Anything else in the seed was earned.
     inv = state["storage"]["inventory"]
     state["storage"]["inventory"] = {k: o for k, o in inv.items() if re.search(r"-(Body01|Head01|Twitchvoicepack01)-", o["value"])}
