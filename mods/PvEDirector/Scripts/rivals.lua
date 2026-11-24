@@ -263,7 +263,7 @@ local CFG = {
     -- once you're near, which fired the moment the user's pod launched beside a ship pulled alongside) is off.
     -- The void rescue below still catches a breach that leaves you at 0,0,0. false: the old proximity teleport.
     PLAYER_BOARD_GAME = true,       -- this close to the hull the breach can't wait for the interior's navmesh any longer
-    VOID_NEAR = 3000, VOID_RESCUE = 3, -- on foot this close to 0,0,0 for this long: rescued into your own ship
+    VOID_NEAR = 3000, VOID_RESCUE = 6, -- on foot this close to 0,0,0 for this long: rescued into your own ship
     -- The pod hit a hull before the breach was ready (interior still loading, or the hit came between two looks): the
     -- game then drops you at 0,0,0. The ship the pod was last seen at, this close and this recently, is boarded from there.
     VOID_BOARD_NEAR = 9000, VOID_BOARD_RECENT = 6, VOID_BOARD_WAIT = 12,
