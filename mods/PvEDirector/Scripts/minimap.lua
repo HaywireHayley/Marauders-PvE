@@ -1322,6 +1322,18 @@ local function think(pc, me)
         if os.clock() - (S.surveyedAt or -1e9) >= CFG.SURVEY_RETRY then
             S.surveyedAt = os.clock()
             if not survey() then S.places = nil end
+            S.missionsVer = X.missions.version()
+        end
+    elseif S.missionsVer ~= X.missions.version() then
+        -- Destroy targets (mines, turrets) found or destroyed since the survey (#333): only the task markers change.
+        S.missionsVer = X.missions.version()
+        S.targets = {}
+        for _, c in ipairs(X.missions.actors()) do
+            local lvl = c.level and placeFor(c.level)
+            for _, t in ipairs(c.tags) do
+                S.targets[t] = S.targets[t] or {}
+                table.insert(S.targets[t], { at = c.at, place = lvl, name = c.name })
+            end
         end
     end
     if not S.contracts then
