@@ -1,4 +1,5 @@
--- The blowtorch opens a vault door's three locks offline (the vault's metal pieces: top, middle, bottom).
+-- The blowtorch opens a locked door's locks offline: the Spaceport vault's three metal pieces (top, middle, bottom), and the one
+-- door bolt of the merchant ship and colony doors (Door_BlowTorchReq01).
 -- Decompiled 2026-11-18 (tools/offline-audit/kdis.py): the torch's Blueprint (Base_BlowTorch_C) only plays the flame, light and
 -- sound. Its damage is native (RaidWeapon_Tool), and the door (Door_BlowTorch_C, a RaidLockedDoor) has no damage code of its own:
 -- three RaidLockVolumeComponent boxes (RaidLockVolume_Top / _Middle / _Bottom, Health 300) and one event,
@@ -8,6 +9,10 @@
 -- near you, and burns it: its volume loses health (DPS a second of 300), and the door is told with its own LockDamaged event, so the
 -- glow, the falling latch (the door's own 10 s wait, then the animation) and the vault door opening are the game's. When all three of
 -- a door's locks are down it also sets bIsUnlocked, which "F requires blowtorch" checks. Soldiers already take the torch's own damage.
+-- Which locks a door has: every RaidLockVolumeComponent is named RaidLockVolume_<Part> and carries its own UniquePartName, the
+-- name the door's LockDamaged switches on. Door_BlowTorch (Spaceport vault) has Top/Middle/Bottom (TopLock, MiddleLock, BottomLock,
+-- Health 300 each); Door_BlowTorchReq01 (the two bolted doors on the merchant ship, the one inside the colony cruiser's vault) has
+-- one, RaidLockVolume_DoorBolt (UniquePartName DoorBolt, Health 500). Found by reading the cooked Blueprints (2026-11-23).
 -- Barrels and gas cans are left alone: their Blueprint only takes damage from a flamethrower or a fire grenade area (or an event the
 -- game's bullet hits call), and it is not known that the real torch sets them off.
 -- Ship repairs (#70, 2026-11-20): the same native torch code is meant to mend your ship, and offline it doesn't either (8 s of real
@@ -24,11 +29,12 @@ local raid -- the per-raid table (setRaid); the torch's state lives in raid.torc
 
 local RANGE = 300 -- cm: how far in front of you a lock can be burned
 local REACH = 30 -- cm: how far your aim line may pass from a lock's middle (the three locks are about 60 cm apart, in a column)
-local DPS = 50 -- damage a second to a lock (300 health: six seconds)
+local DPS = 50 -- damage a second to a lock (300 health: six seconds; a door bolt has 500: ten)
 local STEP = 0.1 -- seconds between burns
 local FIND_EVERY = 10 -- seconds between looks for the doors' lock volumes while firing (a FindAllOf walks every object)
 local NEAR = 1500 -- cm: lock volumes farther than this from you are not looked at
-local LOCKS = { Top = "TopLock", Middle = "MiddleLock", Bottom = "BottomLock" }
+-- Part names by the volume's name suffix, for when UniquePartName can't be read (the volume's own property is preferred).
+local LOCKS = { Top = "TopLock", Middle = "MiddleLock", Bottom = "BottomLock", DoorBolt = "DoorBolt" }
 local REPAIR_REACH = 80 -- cm: a ship part is bigger than a lock
 local PART_SECONDS = 4 -- seconds of torch to mend a broken part
 local HULL_PER_SECOND = 25 -- hull points a second once the parts are whole (575 for a starter frigate: about 23 s from 0)
@@ -42,6 +48,13 @@ local function nameOf(o)
     return n
 end
 
+-- The name the door's LockDamaged expects for this lock volume: its own UniquePartName ("TopLock", "DoorBolt"), else by suffix.
+local function partName(c, suffix)
+    local ok, n = pcall(function() return c.UniquePartName:ToString() end)
+    if ok and type(n) == "string" and n ~= "" and n ~= "None" then return n end
+    return LOCKS[suffix]
+end
+
 -- Every lock volume in the level that belongs to a door: { c = volume, door = owner, name = "TopLock", key = address }.
 -- All of them: burn() keeps only those within NEAR. It used to stop at 24 in FindAllOf's order, which on a map with
 -- more than 8 lock doors could leave out the door in front of you (#374).
@@ -51,16 +64,17 @@ local function findVolumes(s, now)
     s.vols = {}
     for _, c in ipairs(FindAllOf("RaidLockVolumeComponent") or {}) do
         if X.valid(c) then
-            local which = nameOf(c):match("RaidLockVolume_(%a+)")
-            local door = c:GetOwner()
-            if LOCKS[which] and X.valid(door) then
-                s.vols[#s.vols + 1] = { c = c, door = door, name = LOCKS[which], key = tostring(c:GetAddress()), doorKey = tostring(door:GetAddress()) }
+            local which = nameOf(c):match("^RaidLockVolume_(%a+)")
+            local door = which and c:GetOwner()
+            local part = which and partName(c, which)
+            if part and X.valid(door) then
+                s.vols[#s.vols + 1] = { c = c, door = door, name = part, key = tostring(c:GetAddress()), doorKey = tostring(door:GetAddress()) }
             end
         end
     end
 end
 
--- Burns one lock by dmg; tells its door; when the door's last lock goes, unlocks it.
+-- Burns one lock by dmg; tells its door; when the door's last lock goes, unlocks it (a door with one lock: that lock).
 local function burnLock(s, v, dmg)
     local left = s.hp[v.key]
     if not left then
@@ -79,7 +93,12 @@ local function burnLock(s, v, dmg)
         if o.doorKey == v.doorKey and (s.hp[o.key] or 1) > 0 then return end
     end
     v.door.bIsUnlocked = true
-    X.log(("blowtorch: all three locks of %s are burned through, door unlocked"):format(nameOf(v.door)))
+    -- A bolted door (Door_BlowTorchReq01) shows its broken pieces from its own OnUnlocked event, which the game runs from the
+    -- unlock's replication (never offline). The vault door has no such pieces and is left as it was verified.
+    pcall(function()
+        if v.door.SM_DoorBroken01 ~= nil and v.door.SM_DoorBroken01:IsValid() then v.door:OnUnlocked() end
+    end)
+    X.log(("blowtorch: every lock of %s is burned through, door unlocked"):format(nameOf(v.door)))
 end
 
 local function burn(s, now, pc, pawn)
