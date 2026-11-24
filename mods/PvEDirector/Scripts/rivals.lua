@@ -37,11 +37,11 @@ local CFG = {
     -- Population: a live raid filled the map's frigate interior slots (FrigInteriorSpawn): one player per ship on
     -- solo maps, crews of 2-4 on crew maps. You take one slot.
     -- Defaults are set to what a live solo raid usually had, not a full server: a handful of other ships, mostly solo
-    -- players up to full crews. The F3 "How many" tab (and CREWS = 0, every free slot filled) turns it up.
+    -- players up to full crews. The F10 "How many" tab (and CREWS = 0, every free slot filled) turns it up.
     CREW_SIZE = { 1, 4 },           -- people per rival crew (solo maps were one player per ship; live crew maps had 3-4)
     MAX_CREWS = 15,
     CREWS = 5,                      -- rival crews per raid; 0 = one per free player slot (up to MAX_CREWS: 11 on solo maps)
-    BARON = 0,                      -- event (#78): 1 = one crew in every raid is the Red Baron's (makeBaron; F3 Rival ships)
+    BARON = 0,                      -- event (#78): 1 = one crew in every raid is the Red Baron's (makeBaron; F10 Rival ships)
     BARON_RISE = 0,                 -- #322: chance added per raid without the Baron (0 = off; 0.05 suggested), reset when he flies
     BARON_MAX = 0.6,                -- #322: the most that rise can take his chance to (BARON 1 = always)
     IMPOSTOR_CHANCE = 0.25,         -- #319: chance per raid that one ordinary crew's captain dresses as the Red Baron (never with BARON on; 0 = off)
@@ -311,7 +311,7 @@ local CFG = {
     SHIP_FRAME_HZ_FOOT = 15,        -- while you're on foot, ships' glide, gunnery and turret swing run this often, not every
                                     -- frame (at the helm, in a turret seat or a pod: every frame). 0 = always every frame
     AWAKE_MAX = 16,                 -- bodies awake around you (guards, soldiers, rivals; parked ones don't count) before
-                                    -- another crew waits aboard and station top-ups stop; 0 = no cap (F3 How many)
+                                    -- another crew waits aboard and station top-ups stop; 0 = no cap (F10 How many)
     INSIDE_AREA_PER_CREW = 10000,   -- crews walking a station at once: one per this many m2 (at least INSIDE_MIN).
     INSIDE_MIN = 2,                 -- The rest wait aboard and come in through an airlock as a place frees up: 11 crews
                                     -- docked at Colony Cruiser (30k m2, the map's only station) all appeared inside at
@@ -339,7 +339,7 @@ local CFG = {
     RUSHERS = 0.4,                  -- crews that make straight for a station and dock, fighting only if shot at
     -- Loadouts follow your player level (gearscale.lua: centred on your level, mostly below it, a few far off either way).
     -- Off = the fixed TIERS odds below, whatever your level.
-    SCALE_GEAR = 1, -- 1 = gear follows your level (gearscale.lua), 0 = TIERS' fixed odds (a slider in F3: Gear)
+    SCALE_GEAR = 1, -- 1 = gear follows your level (gearscale.lua), 0 = TIERS' fixed odds (a slider in F10: Gear)
     -- Loadout tiers (like players' kits): price ranges into gear.lua (every row in the game is in at least one) and the
     -- chance of wearing each piece. With SCALE_GEAR they're only names (crew.lua looks a kit's name up here).
     TIERS = {

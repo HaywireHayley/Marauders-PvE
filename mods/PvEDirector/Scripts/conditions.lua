@@ -8,11 +8,11 @@
 --   ships = FrigateCapitalShip_Ship, ...  (rival crews guaranteed in these hulls: rivals.lua CFG.HULLS rows)
 --   loot  = 1.5                            (more and better loot on bodies: x items in a bag, x the value cap)
 --   mines = 20                             (x the map's space mines: minefield.lua copies each one near itself)
---   any F3 setting by its id in config/ai_tuning.txt, e.g. Crews:BARON = 1, Spawns:CREWS = 9, Crews:ATTACK_CHANCE = 1
+--   any F10 setting by its id in config/ai_tuning.txt, e.g. Crews:BARON = 1, Spawns:CREWS = 9, Crews:ATTACK_CHANCE = 1
 -- The pick is config/raid_condition.txt (a name; missing = Normal), set by the launcher or the lobby's REGION picker.
 --
 -- A condition only lasts the raid: its values are put in when a raid map loads and your own are back in the lobby.
--- The F3 menu saves your own values, never a condition's (tuning.lua asks M.base).
+-- The F10 menu saves your own values, never a condition's (tuning.lua asks M.base).
 local M = {}
 local X -- log, project, tuning (tuning.lua), tables = { Rivals = rivals CFG, ... }
 
@@ -114,7 +114,7 @@ function M.ships() return active and active.ships end
 -- How many times the map's space mines this raid has (minefield.lua), or nil.
 function M.mines() return active and active.mines end
 
--- Where a key points: an F3 setting id ("Crews:BARON", "Spawns:CREW_SIZE.2"), or Table.KEY[.index] for anything in
+-- Where a key points: an F10 setting id ("Crews:BARON", "Spawns:CREW_SIZE.2"), or Table.KEY[.index] for anything in
 -- X.tables (e.g. Rivals.CARRY_JACKPOT).
 local function resolve(key)
     local t, k, i = X.tuning.row(key)

@@ -10,7 +10,7 @@
 --   the inventory. And if the inventory is ever still drawn with the cursor gone (STUCK_SECONDS), it's closed.
 -- The game has no "inventory open" flag of its own: only the controller's mouse cursor and click events change. So the
 -- inventory counts as open when the cursor is shown in a raid with neither the pause menu nor one of the mod's menus
--- (F3 / F6 / F9) up. That's worked out every frame and the Esc hook reads the previous frame's answer: by the time
+-- (F10 / F11 / F9) up. That's worked out every frame and the Esc hook reads the previous frame's answer: by the time
 -- UE4SS runs the hook's callback, the event's Blueprint has already opened the pause menu.
 local K = {}
 local X -- log, valid, pc (function: the raid controller or nil), modMenuOpen (function)

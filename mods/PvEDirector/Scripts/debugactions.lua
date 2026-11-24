@@ -1,7 +1,7 @@
 -- The debug menu's buttons (debugmenu.lua, F9) and god mode (moved out of main.lua).
 local PROJECT = require("pveproject")
 local Debug = require("debugmenu")
-local Holes = require("bulletholes").CFG -- the bullet holes switch (bulletholes.lua, also F3 Effects)
+local Holes = require("bulletholes").CFG -- the bullet holes switch (bulletholes.lua, also F10 Effects)
 local Give = require("debuggive") -- the gun and ammo picker and bottomless mags
 local Unstuck = require("unstuck") -- unstuck and no collision (#198; main.lua runs its update)
 local Outfits = require("outfits") -- the two outfits the Appearance pages never list (#229)
@@ -61,6 +61,14 @@ function M.init(ctx)
         { id = "god", label = function() return "God mode: " .. (godMode() and "ON" or "off") end,
           help = "You can't be hurt. Stays on until you turn it off",
           run = function() toggleGodMode() return "God mode " .. (godMode() and "on" or "off") end },
+        -- (it was F2, one of the game's voice-line keys F1-F8: pressing it also played a line)
+        { id = "body", label = function() return "Your body: " .. (require("female").playerOn() and "woman" or "man") end,
+          help = "Play as a woman or a man (also a launcher setting)",
+          run = function()
+              local F = require("female")
+              F.togglePlayer()
+              return "Your body: " .. (F.playerOn() and "woman" or "man")
+          end },
         { id = "bulletholes", label = function() return "Bullet holes: " .. (Holes.BULLET_HOLES ~= 0 and "ON" or "off") end,
           help = "Holes where shots land. Old ones stay until they fade",
           run = function()

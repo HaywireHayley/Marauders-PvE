@@ -5323,3 +5323,14 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   launch option as typed, probably) and game_command swapped the first RaidGame.exe, so the game ran with Steam's chain
   as arguments: that's the error box. game_command now runs only the last whole command and says so in the log.
   Tested by test_pvemode.py; not under real Proton.
+
+## Mod keys off the game's voice lines (2026-11-24)
+- The game binds Voice01-08 to F1-F8 (Saved/Config/WindowsNoEditor/Input.ini ActionMappings); NPCs react to those lines
+  (#417 pity idea). Mod keys on F2, F3, F6 also played a line, and took the keys from players who use the voices.
+  F9-F12 are unbound in the game; Steam's screenshot default is F12.
+- Now: F10 AI tuning (was F3), F11 crew (was F6), F9 debug unchanged; your body (was F2) is a button in the F9 menu
+  ("Your body: woman/man"); bridge/female_toggle still works. Every player-facing mention (in-game labels, launcher
+  CONTROLS and settings text, README, release README.txt, raid_conditions.txt) says F10/F11; NOTES and CHANGELOG keep
+  the old keys as history. Tested: launcher test_ui (16 OK), luacheck, ruff. Not tested in game: that F10/F11 reach
+  UE4SS's RegisterKeyBind in the game window (F11 isn't a fullscreen toggle in a shipping build, per Input.ini; not seen
+  run).

@@ -115,7 +115,7 @@ Sandbag, Wall and Brick materials exist but no pool effect is named for them, so
 
 ### Settings
 
-F3, tab "Effects". Saved with the rest of the tuning. The F9 debug menu also has a "Bullet holes: ON / off" button that flips
+F10, tab "Effects". Saved with the rest of the tuning. The F9 debug menu also has a "Bullet holes: ON / off" button that flips
 `BULLET_HOLES`, so the effect can be switched off in play without opening the tuning menu (holes already placed fade on their own).
 
 | Setting | Default | What it does |

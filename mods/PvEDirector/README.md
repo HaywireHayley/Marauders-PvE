@@ -39,13 +39,13 @@ flowchart TD
 | Space maps | `space.lua` (pods, docking, sublevels), `interiors.lua`, `gunseat.lua` (manning a turret), `levelprops.lua` (fans and hum, #143) |
 | Missions and map | `missions.lua` (contracts count offline), `minimap.lua` |
 | Your gear and stash | `gear.lua`, `itemdata.lua`, `female.lua`, `headfit.lua`, `invqol.lua` (sort, search), `invkeys.lua`, `keys.lua` (your key bindings), `guild.lua` (offline guild, #68) |
-| Effects | `bulletholes.lua` (bullet holes in walls and floors, F3 Effects; see [BULLET_IMPACTS.md](../../docs/internals/BULLET_IMPACTS.md)) |
+| Effects | `bulletholes.lua` (bullet holes in walls and floors, F10 Effects; see [BULLET_IMPACTS.md](../../docs/internals/BULLET_IMPACTS.md)) |
 | Doors and tools | `blowtorch.lua` (the torch burns a vault door's three locks offline, with diagrams in [BLOWTORCH.md](BLOWTORCH.md)) |
-| Testing | `tuning.lua` (F3 sliders), `debugmenu.lua`, `debugactions.lua`, `debuggive.lua` (F9) |
+| Testing | `tuning.lua` (F10 sliders), `debugmenu.lua`, `debugactions.lua`, `debuggive.lua` (F9) |
 
 ## Keys
 
-F2 body female/male, F3 AI tuning, F9 debug menu, N / M / B minimap on-off / overview / next task, J / K stash
+F10 AI tuning, F11 crew, F9 debug menu (incl. your body), N / M / B minimap on-off / overview / next task, J / K stash
 quick discard / quick move.
 
 ## Testing a change

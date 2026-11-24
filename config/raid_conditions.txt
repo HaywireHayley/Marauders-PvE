@@ -1,5 +1,5 @@
 # Raid conditions (issue #78): set-ups for community events, or just a change. Pick one in the launcher ("Raid
-# conditions") or in the lobby's REGION picker. A condition lasts the raid; your own F3 settings come back after.
+# conditions") or in the lobby's REGION picker. A condition lasts the raid; your own F10 settings come back after.
 #
 # Each condition is a [Name] and then key = value lines:
 #   about = the line shown when you pick it
@@ -7,7 +7,7 @@
 #   ships = rival crews guaranteed in these hulls, as bosses (rows from rivals.lua CFG.HULLS, comma-separated)
 #   mines = how many times the map's space mines (20 = twenty mines for every one)
 #   loot  = more and better loot on bodies (1.5 = half as many items again, worth up to half as much again)
-#   any F3 setting, by its name in config/ai_tuning.txt (e.g. Crews:BARON = 1, Spawns:CREWS = 9)
+#   any F10 setting, by its name in config/ai_tuning.txt (e.g. Crews:BARON = 1, Spawns:CREWS = 9)
 #
 # Make your own in config/my_raid_conditions.txt (same layout; a condition with the same name replaces the one here),
 # and share the file with your friends.

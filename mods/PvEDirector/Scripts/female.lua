@@ -1,5 +1,5 @@
 -- Women's versions of outfits: every body, head, vest, rig and bag has a reshaped copy beside it (tools/female/make_female.py),
--- which any character can wear by swapping the meshes it already has on. Used by all bots, and by your own body (F2).
+-- which any character can wear by swapping the meshes it already has on. Used by all bots, and by your own body (the F9 menu's body button).
 local PROJECT = require("pveproject") -- the install folder (".../MaraudersPvE/"), written by scripts/mode.ps1
 local M = {}
 local X -- context from main.lua: valid, lib, log, loadLoose, root

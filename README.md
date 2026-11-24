@@ -21,7 +21,7 @@ salvage and docking. Along the way the mod has also added things the live game n
 **Raids built for PvE**
 - **Rival crews run by AI** instead of other players: they fly their own ships, dock at stations, fight each other in
   ship battles, attack your ship, board it, and extract when the raid runs out.
-- **Your own hired crew** (F6): hire and dismiss crewmates who come on raids with you, fight alongside you, and man a
+- **Your own hired crew** (F11): hire and dismiss crewmates who come on raids with you, fight alongside you, and man a
   turret as your gunner. Left click while flying picks the gunner's target.
 - **Civilians:** unarmed miners, prisoners and port workers at the mines, the Penal Colony and the ports.
 - **Defuse mines** with a ToolKit, in a Minesweeper-style minigame: station mines on foot, small space mines from the
@@ -39,13 +39,13 @@ salvage and docking. Along the way the mod has also added things the live game n
   from the shots just before, so it can be wrong when several bots fire at once.
 
 **Make the raid you want**
-- **F3 AI tuning:** every enemy, rival and crew setting as a slider: how many crews, guards and ship battles, how hard
+- **F10 AI tuning:** every enemy, rival and crew setting as a slider: how many crews, guards and ship battles, how hard
   they fight, and difficulty presets.
-- **Loot density:** F3's **Loot** tab sets how much floor loot spawns and how much is in each body, from 0 (none) to 3
+- **Loot density:** F10's **Loot** tab sets how much floor loot spawns and how much is in each body, from 0 (none) to 3
   times the usual. Ammo in bodies and loot in containers are not changed.
-- **Settings before a raid:** the launcher's **SETTINGS** button shows every F3 setting by tab, with the difficulty
+- **Settings before a raid:** the launcher's **SETTINGS** button shows every F10 setting by tab, with the difficulty
   levels and your own presets: save a setup, export it to a file to share, import a friend's. Changes save as you make
-  them. The game reads them when it starts, and F3 still works in a raid. (The list fills in after the game has started
+  them. The game reads them when it starts, and F10 still works in a raid. (The list fills in after the game has started
   once with this build.)
 - **Raid conditions:** one-raid set-ups such as Baron hunt, Hunted, Busy sky, Capital ships and Minefield. Make your own
   and share them.
@@ -58,7 +58,7 @@ salvage and docking. Along the way the mod has also added things the live game n
 - **Lore in raids:** a line from the lore on the raid loading screen, and a line when you first reach a station or ship
   (it shows above the minimap for a few seconds).
 - **A faster Rustbucket** and a **boost** (Space) at the helm of any ship.
-- **Play as a woman or a man** (F2): women's versions of every outfit, for you and for the soldiers, with voices.
+- **Play as a woman or a man** (the F9 menu, or the launcher): women's versions of every outfit, for you and for the soldiers, with voices.
 - **Hidden outfits** the menus never listed (two long coats and a bloodied Blood Raider suit): F9 in the lobby.
 
 **Inventory and lobby**
@@ -159,16 +159,16 @@ own controller support if it works for you) and add:
 
 | Deck control | Key | Mod action |
 |---|---|---|
-| **L4** (back grip, upper left) | F6 | Your crew menu |
-| **R4** (back grip, upper right) | F3 | AI tuning menu |
+| **L4** (back grip, upper left) | F11 | Your crew menu |
+| **R4** (back grip, upper right) | F10 | AI tuning menu |
 | **L5** (back grip, lower left) | N | Minimap on or off |
 | **R5** (back grip, lower right) | M | Minimap overview |
 | **D-pad down** | B | Minimap: follow the next task |
 | **View (⧉) + D-pad left** (or a radial menu) | K | Move item between stash and bags (in a raid: between you and what you loot) |
 | **View (⧉) + D-pad right** (or a radial menu) | J | Discard item (press twice; in a raid: drop it) |
-| **Right trackpad** | mouse, click = left click | The F3 / F6 menus and the stash are mouse-driven |
+| **Right trackpad** | mouse, click = left click | The F10 / F11 menus and the stash are mouse-driven |
 
-F9 (debug) and F2 fit on a radial menu on the left trackpad if you want them. Not tried on a Deck yet: if you set it
+F9 (debug) fits on a radial menu on the left trackpad if you want them. Not tried on a Deck yet: if you set it
 up, please share what worked in [#127](https://github.com/HaywireHayley/Marauders-PvE/issues/127) (Steam can also share
 a layout as a community layout).
 
@@ -200,19 +200,18 @@ attach `backend/last_game.log` and `backend/server.log` from the folder instead.
 
 ### Controls
 
-The game's own controls are unchanged. The mod adds (the launcher's CONTROLS button shows the same list):
+The game's own controls are unchanged, and F1-F8 stay the game's voice lines. The mod adds (the launcher's CONTROLS button shows the same list):
 
 | Key | What it does | Where |
 |---|---|---|
-| **F6** | Your crew: hire, dismiss, and choose who comes on raids | Lobby and raids |
-| **F3** | AI tuning: every enemy, rival and crew setting as a slider, including how many spawn | Lobby and raids |
-| **F9** | Debug menu: god mode, extract now, spawn a soldier, and more | Lobby and raids |
+| **F11** | Your crew: hire, dismiss, and choose who comes on raids | Lobby and raids |
+| **F10** | AI tuning: every enemy, rival and crew setting as a slider, including how many spawn | Lobby and raids |
+| **F9** | Debug menu: god mode, your body (woman or man), extract now, spawn a soldier, and more | Lobby and raids |
 | **N** | Minimap on or off | Raids |
 | **M** | Minimap full overview, and back | Raids |
 | **B** | Minimap: follow the next task | Raids |
 | **K** | Move the item under the mouse between your stash and your pockets or bags; in a raid, between your gear and the crate or body you're looting | Lobby (LOADOUT, TRADE), raid |
 | **J** | Discard the item under the mouse (press twice); in a raid, drop it on the floor | Lobby (LOADOUT, TRADE), raid |
-| **F2** | Play as a woman or a man (also a launcher setting) | Anywhere |
 | **Left click** | While flying with a crew gunner aboard: send them after the ship or space turret nearest the middle of your view. Click empty space to send them back to whoever is attacking you | Flying your ship |
 | **Space** | Boost: your ship jumps to nearly twice its top speed for 4 seconds, then needs 12 seconds to recharge (like the drop pod's). The Rustbucket is also a quarter faster than it was | Flying your ship |
 | **F** on a turret seat | Man the turret yourself: left click fires, F stands you up | Ships |
@@ -222,13 +221,13 @@ The game's own controls are unchanged. The mod adds (the launcher's CONTROLS but
 
 ### TOO DIFFICULT? Too busy or too quiet?
 
-Every raid's population and difficulty can be tuned to your liking. Press F3 and open the How many tab: rival crews per raid, people in each crew, guards at each station, and how many ship battles break out around you. Rival ships sets how often crews attack and board, and Difficulty at the top picks a preset. Changes save themselves. Crew numbers take effect from your next raid, and guard numbers from the next station you visit. Save setups you like under Saved setups.
+Every raid's population and difficulty can be tuned to your liking. Press F10 and open the How many tab: rival crews per raid, people in each crew, guards at each station, and how many ship battles break out around you. Rival ships sets how often crews attack and board, and Difficulty at the top picks a preset. Changes save themselves. Crew numbers take effect from your next raid, and guard numbers from the next station you visit. Save setups you like under Saved setups.
 
 ### Civilians
 
 Mines, prisons and ports have a few miners, prisoners or workers going about their business. They're unarmed: they
 run from you, cower and plead when cornered, and carry things of their trade. Kill one where the guards can see and
-they come for you. F3 > How many sets how many (0 turns them off).
+they come for you. F10 > How many sets how many (0 turns them off).
 
 ### Co-op (early)
 
@@ -247,7 +246,7 @@ The full guide, with troubleshooting, is [docs/COOP.md](docs/COOP.md). Early and
 
 Want a different raid for one run, or a community event? Pick **Raid conditions** in the launcher (click to cycle), or
 in the game's lobby: open the REGION box and click the conditions button under the maps (each click picks the next).
-They last the raid; your own F3 settings come back after it.
+They last the raid; your own F10 settings come back after it.
 
 - **Baron hunt:** the Red Baron is in the raid and goes for any ship he sees.
 - **Hunted:** every rival crew attacks any ship it sees and boards when it can.

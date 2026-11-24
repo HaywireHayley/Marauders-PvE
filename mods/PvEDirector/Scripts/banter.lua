@@ -1,6 +1,6 @@
 -- What bots say when it matters (#316): a badly hurt Rat, Coward or Timmy near you may beg, and a Chad or GigaChad
 -- taunts after a kill or a hit on you. Only lines the game ships (voicelines.lua rows, played by voice.lua).
--- bots.lua's updateBots calls beg() and taunt(); the settings are main.lua's CFG (BEG_*, TAUNT_*; F3 > Personalities).
+-- bots.lua's updateBots calls beg() and taunt(); the settings are main.lua's CFG (BEG_*, TAUNT_*; F10 > Personalities).
 local Voice = require("voice")
 
 local M = {}
