@@ -104,11 +104,19 @@ local function check(w, at)
     return n
 end
 
--- Every frame (main.lua onTick, lobby and raid).
-function S.tick()
+-- Every frame (main.lua onTick, lobby and raid), with the ticking player controller.
+-- Only while the mouse cursor is up (a menu open: the inventory, the lobby): shown() can't tell a closed inventory, as a
+-- grid's parent chain ends at its own widget's root and a copy that's off screen stays flagged visible. Without this,
+-- after a bag or armour swap the check ran on such a copy every second for the rest of the raid: ~175 ms each time,
+-- walking the whole inventory (#369, Walmarx's report: once-a-second stalls right after dragging a backpack on).
+function S.tick(pc)
     local now = os.clock()
     if now < nextRun then return end
     nextRun = now + EVERY
+    local cursor = true
+    -- (only a controller has the flag: anything else ticking, like a lobby widget, reads nil and doesn't stop it)
+    if pc and X.valid(pc) then pcall(function() cursor = pc.bShowMouseCursor ~= false end) end
+    if not cursor then return end
     local comp = live(inv)
     if not comp or not live(paths[1]) then
         if not find(now) then return end
