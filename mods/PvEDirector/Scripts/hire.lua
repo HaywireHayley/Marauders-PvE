@@ -298,9 +298,15 @@ function H.payWages(pc)
     for _, r in ipairs(D.crew) do
         if r.bring then
             local wage = CFG.WAGE[r.level]
-            if spend(pc, wage) then
+            local paid, cash = spend(pc, wage)
+            if paid then
                 D.raid[#D.raid + 1] = r.id
                 X.log(("crew: %s paid %s for this raid"):format(r.name, money(wage)))
+            elseif cash == nil then
+                -- Your cash couldn't be read (not loaded yet on the first raid after starting the game?): they come
+                -- along unpaid rather than silently staying home (#411: crew missing on the first raid only).
+                D.raid[#D.raid + 1] = r.id
+                X.log(("crew: %s comes along, wage %d not taken (your cash couldn't be read)"):format(r.name, wage))
             else
                 -- (a message here is never seen: the lobby is about to be replaced by the raid's loading screen)
                 unpaid = unpaid or { names = {}, owed = 0, cash = cashOf(pc) }

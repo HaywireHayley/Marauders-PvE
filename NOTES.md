@@ -2023,6 +2023,12 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
   on screen; lobby menu above the PGOS overlay (23:10). Test save restored and backend/crew.lua deleted afterwards. Not yet seen: a promotion or a death in game (simulated offline with lupa: scratchpad hire_sim.lua), clicking
   the menu's buttons with the real mouse.
 
+- 2026-11-24 (#411, crew missing on the first raid after starting the game, later raids fine): no start-up ordering
+  bug found (crew.lua is read in H.init; D.raid is built in payWages at launch). One way it could happen only on the
+  first raid: pc:GetCash() not readable yet, so spend() failed and everyone "stayed home" (no message is seen, the
+  lobby is going). Now an unreadable cash lets them come unpaid, logged "wage N not taken (your cash couldn't be
+  read)". Unconfirmed: needs the reporter's first-raid log (crew: ... paid / stays home / comes along). Not tested in game.
+
 ## Lobby crew hooks found (2026-11-07, 23:18; bridge/t_lobbychars.lua)
 - The hangar has 4 character stands, MM_PlayerChar_C: id 0 = you (isPlayer, at -328,-118,-13) and ids 1-3 inactive beside
   you (-438,-274 / -216,-399 / -172,-248). They're the live crew's stands: full rigs (SkelMesh_Head/Body/BodyArmour/Helmet/Bag,
