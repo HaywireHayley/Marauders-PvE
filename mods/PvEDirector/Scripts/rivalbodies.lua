@@ -75,7 +75,7 @@ local function rollKit(tier, helmet, chest, bag)
         if tier.g then return GearScale.pick(list, tier.g) end
         return inBand(list, band)
     end
-    return { gun = row(Gear.guns, tier.guns), helmet = helmet and row(Gear.helmets, tier.helmets)[1] or nil,
+    return { gun = row(Gear.botGuns, tier.guns), helmet = helmet and row(Gear.helmets, tier.helmets)[1] or nil,
         chest = chest and row(Gear.chests, tier.chests)[1] or nil, bag = bag and row(Gear.bags, tier.bags)[1] or nil,
         stacks = math.random(CFG.AMMO_STACKS[1], CFG.AMMO_STACKS[2]), meds = math.random(CFG.MEDS[1], CFG.MEDS[2]) }
 end

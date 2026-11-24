@@ -1478,6 +1478,11 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
 - bridge/t_kit.lua: placed raiders' looks match their loot. Mismatches were top-ups (template gear, donor loot) and takeKit missing Beret/Cap/Vest/Rig rows. wearKit now shows the donor's piece only for armour in its loot. Rival gear no longer uses the catalog pool, so it's less varied. Assumes donors wear their loot: check on the first run. Donors' ammo can mismatch the gun (M1Para or 1911 with 762Ammo; placed raiders carry 32Ammo): not fixed.
 
 ## Native bot kits, tested (2026-11-07, supersedes the donor notes above)
+- 2026-11-24 (#413): flamethrower bots fired without stopping. Our code never holds a bot's trigger (the game's tree
+  fires; bots.lua M.botShot only counts ServerMultiSimulateWeaponFire calls against AmmoPerClip to force a reload), so
+  no stuck release was found in the code. Likely the flame stream doesn't call that once per shot, so the count never
+  reaches the clip: unverified. Fix: rolled kits draw from Gear.botGuns (Gear.guns without LPOFlamethrower). The
+  prisoners' double barrel is the game's own prisoner kit, not our pool: not changed, still open. Not tested in game.
 - Rival and top-up bodies have no donors now. pve_roll_kit writes a bot's WeaponToSpawn/PistolToSpawn/HelmetToSpawn/ArmourToSpawn/BackPackToSpawn handles (table at +0, FName at +8; UE4SS can't write these) and calls the game's kit step 0x17cae70. That makes the items, sets the worn meshes and spawns the gun a moment later (GUN_WAIT 6 s). pve_add_item calls 0x17ee690(bot, row, stack, condition, 0xc) for ammo and meds. takeKit, wearKit and pve_take_loot are gone.
 - mods/PvEDirector/Scripts/gear.lua: rows of SIGIS_ExampleItemData by type and price, plus every head and body mesh (tools/offline-audit/gearrows.txt, itemrows.py, fnames.py). TIERS are price ranges over it. Defenders use the mid tier, on the station's own head and outfit.
 - bridge/t_allgear.lua: 57 of 57 guns arrived and 57 test bodies wore every helmet, rig and bag row with matching loot. 40 heads and 42 bodies loaded. Live: 5 kills, every body held everything the bot carried (4-7 items).

@@ -341,4 +341,11 @@ function G.helmetFor(helmet, head, plain)
     return near[math.random(math.min(NEAREST, #near))].row
 end
 
+-- Guns a rolled kit may carry (rivalbodies.lua rollKit). Not the flamethrower (#413): in a bot's hands it kept
+-- firing without stopping, and the main game took it off its bots too. Gear.guns stays whole for prices and loot.
+G.botGuns = {}
+for _, row in ipairs(G.guns) do
+    if row[1] ~= "LPOFlamethrower" then G.botGuns[#G.botGuns + 1] = row end
+end
+
 return G
