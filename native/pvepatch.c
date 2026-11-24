@@ -558,6 +558,109 @@ __declspec(dllexport) int pve_array_grow(void *L) {
     return 0;
 }
 
+/* Memory from the engine's own allocator (GMalloc, "binned2", checked as pvenative.c does), for arrays the engine
+   owns and may later free or grow itself. Old buffers replaced by arrayReserve are left alone: a few bytes leaked,
+   never freed under the engine's feet (#384). */
+#define GMALLOC_RVA 0x58aee70
+typedef void *(*EngineMallocFn)(void *, size_t, unsigned);
+
+static void *engineMalloc(size_t size) {
+    void **slot = (void **)(g_base + GMALLOC_RVA);
+    if (IsBadReadPtr(slot, 8) || !*slot) return NULL;
+    void **vt = *(void ***)*slot;
+    if (IsBadReadPtr(vt, 8 * 19)) return NULL;
+    unsigned char *f = (unsigned char *)vt[18]; /* GetDescriptiveName: lea rax,[rip+x]; ret -> L"binned2" */
+    if (IsBadReadPtr(f, 8) || f[0] != 0x48 || f[1] != 0x8d || f[2] != 0x05 || f[7] != 0xc3) return NULL;
+    const wchar_t *name = (const wchar_t *)(f + 7 + *(int *)(f + 3));
+    if (IsBadReadPtr(name, 16) || wcsncmp(name, L"binned2", 7) != 0) return NULL;
+    return ((EngineMallocFn)vt[2])(*slot, size, 0);
+}
+
+/* Gives a TArray room for `want` elements (copying the old ones). 1 on success. */
+static int arrayReserve(FArr *a, long long size, long long want) {
+    if (!a || size <= 0 || size > 256 || want <= 0 || want > 4096 || IsBadWritePtr(a, sizeof *a)) return 0;
+    if (a->num < 0 || a->max < a->num) return 0;
+    if (want <= a->max) return 1;
+    if (a->num > 0 && (!a->data || IsBadReadPtr(a->data, (UINT_PTR)(a->num * size)))) return 0;
+    void *n = engineMalloc((size_t)(want * size));
+    if (!n) return 0;
+    memset(n, 0, (size_t)(want * size));
+    if (a->num > 0) memcpy(n, a->data, (size_t)(a->num * size));
+    a->data = n;
+    a->max = (int)want;
+    return 1;
+}
+
+/* DT_FactionShops (#384): row struct FactionChangePerLevel { TArray<{float ShopDeduction @0; TArray<FName>
+   AdditionalItems @8}> @8 }, one row per faction (United, Republic, Kingdom, Pirate, Guild), one element per faction
+   level (41-42). UDataTable.RowMap @0x30 is a TMap<FName, uint8*>: sparse array of 24-byte elements (FName, row,
+   hash), allocation flags not read: an element whose row pointer isn't readable is skipped. */
+typedef struct { float deduction; int pad; FArr items; } ShopLevel;
+typedef struct { int index, number; } FNameRaw;
+
+static FArr *shopLevels(char *dt, int faction) {
+    if (!dt || IsBadReadPtr(dt + 0x30, 16)) return NULL;
+    FArr *map = (FArr *)(dt + 0x30);
+    if (!map->data || map->max <= 0 || map->max > 256 || IsBadReadPtr(map->data, (UINT_PTR)map->max * 24)) return NULL;
+    for (int i = 0; i < map->max; i++) {
+        char *e = (char *)map->data + i * 24;
+        char *row = *(char **)(e + 8);
+        if (*(int *)e != faction || !row || IsBadReadPtr(row, 0x18)) continue;
+        FArr *levels = (FArr *)(row + 8);
+        if (levels->num <= 0 || levels->num > 64 || IsBadReadPtr(levels->data, (UINT_PTR)levels->num * sizeof(ShopLevel)))
+            return NULL;
+        return levels;
+    }
+    return NULL;
+}
+
+/* Lua: pve_shop_add(DT_FactionShops, faction FName index, from level, item FName index): the item is sold at that
+   level and every one after it (each level's list is the whole extra stock at that level). Already listed: left. */
+__declspec(dllexport) int pve_shop_add(void *L) {
+    char *dt = (char *)intArg(L, 1, 4);
+    int faction = (int)intArg(L, 2, 4), from = (int)intArg(L, 3, 4), item = (int)intArg(L, 4, 4);
+    FArr *levels = shopLevels(dt, faction);
+    if (!levels || item <= 0 || from < 0) return 0;
+    for (int l = from; l < levels->num; l++) {
+        ShopLevel *lv = (ShopLevel *)levels->data + l;
+        FArr *a = &lv->items;
+        int have = 0;
+        if (a->num > 0 && (!a->data || IsBadReadPtr(a->data, (UINT_PTR)a->num * sizeof(FNameRaw)))) continue;
+        for (int k = 0; k < a->num; k++) if (((FNameRaw *)a->data)[k].index == item) { have = 1; break; }
+        if (have) continue;
+        if (a->num >= a->max && !arrayReserve(a, sizeof(FNameRaw), a->max + 16)) continue;
+        FNameRaw *slot = (FNameRaw *)a->data + a->num;
+        slot->index = item;
+        slot->number = 0;
+        a->num++;
+    }
+    return 0;
+}
+
+/* Lua: pve_shop_price(DT_FactionShops, faction FName index, percent): every level's ShopDeduction (its discount) set
+   so prices are `percent` % of the game's (100 = as shipped, 200 = double), the level's own discount kept on top:
+   price = base x (1 - d) x p  ->  d' = 1 - (1 - d) x p. Applied once per faction: the original deductions are kept. */
+static float g_shopDed[8][64];
+static int g_shopFaction[8], g_shopSaved;
+
+__declspec(dllexport) int pve_shop_price(void *L) {
+    char *dt = (char *)intArg(L, 1, 3);
+    int faction = (int)intArg(L, 2, 3), pct = (int)intArg(L, 3, 3);
+    FArr *levels = shopLevels(dt, faction);
+    if (!levels || pct < 10 || pct > 1000) return 0;
+    int slot = -1;
+    for (int i = 0; i < g_shopSaved; i++) if (g_shopFaction[i] == faction) slot = i;
+    if (slot < 0) {
+        if (g_shopSaved >= 8) return 0;
+        slot = g_shopSaved++;
+        g_shopFaction[slot] = faction;
+        for (int l = 0; l < levels->num; l++) g_shopDed[slot][l] = ((ShopLevel *)levels->data)[l].deduction;
+    }
+    for (int l = 0; l < levels->num; l++)
+        ((ShopLevel *)levels->data)[l].deduction = 1.0f - (1.0f - g_shopDed[slot][l]) * (float)pct / 100.0f;
+    return 0;
+}
+
 /* Lua: hit zones on the mod's bots (issue #123). The pawns the mod spawns (BotPawn_C, BotPawnGuard_C, BotPawnMilitary_C)
    have none of the 17 RaidHitCapsuleComponents the player and the map's node bots have, so the damage function found no
    zone (AreaHitType) and every player bullet did the gun's flat damage. Adding the capsules from Lua failed: UE4SS left

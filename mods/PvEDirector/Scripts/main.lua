@@ -227,6 +227,7 @@ local Gunseat = require("gunseat")
 local Unstuck = require("unstuck") -- F9 unstuck and no collision (#198)
 local Defuse = require("defuse") -- station mines: F and a Minesweeper board (#197)
 local DeathScreen = require("deathscreen") -- who killed you, on your death (#331)
+local Vendors = require("vendors") -- the traders' extra stock (#384)
 local KeyHelp = require("keyhelp") -- the mod's keys on screen, from the F9 menu (#389)
 -- main.lua's own parts, in modules: each takes main's helpers in init(ctx), and the per-raid table in setRaid (below)
 local PlayAreas = require("playareas") -- where bots may go on a station
@@ -704,6 +705,10 @@ local function onTick(ctx)
         if not oks and not tick.invSyncErr then tick.invSyncErr = true log("inventory sync: " .. tostring(errs)) end
     end
     if LobbyLabel then pcall(LobbyLabel.tick, ctx:get()) end -- START RAID label (lobbylabel.lua)
+    if tick.menu then
+        local okv, errv = pcall(Vendors.tick) -- the traders' extra stock (vendors.lua, #384)
+        if not okv and not tick.vendorsErr then tick.vendorsErr = true log("vendors: " .. tostring(errv)) end
+    end
     if InvQol then
         local okq, errq = pcall(InvQol.tick, ctx:get())
         if not okq and not tick.invQolErr then tick.invQolErr = true log("stash tools: " .. tostring(errq)) end
@@ -1506,6 +1511,8 @@ DebugActions.init({ log = log, valid = valid, lib = lib, CFG = CFG, RAID_OPTS = 
     bots = Bots, loadout = Loadout, menuClosed = menuClosed })
 Defuse.init({ log = log, valid = valid, lib = lib, menuClosed = menuClosed })
 DeathScreen.init({ log = log, valid = valid, lib = lib })
+Vendors.init({ log = log, valid = valid, shopAdd = package.loadlib(PATCH_DLL, "pve_shop_add"),
+    shopPrice = package.loadlib(PATCH_DLL, "pve_shop_price") })
 KeyHelp.init({ log = log, valid = valid, lib = lib })
 
 math.randomseed(os.time())
