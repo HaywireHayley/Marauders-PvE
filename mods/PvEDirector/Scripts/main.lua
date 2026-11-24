@@ -698,7 +698,8 @@ local function onTick(ctx)
     if GameSettings then pcall(GameSettings.tick) end -- SETTINGS on the title screen and in the lobby (gamesettings.lua)
     if InvKeys then pcall(InvKeys.tick) end -- Esc / lean with the inventory open (invkeys.lua)
     if InvSync then
-        local oks, errs = pcall(InvSync.tick) -- stale cells in the inventory grids cleared (invsync.lua)
+        -- stale cells in the inventory grids cleared (invsync.lua); timed, so its cost shows in the frames line (#369)
+        local oks, errs = ppcall("invsync", InvSync.tick, ctx:get())
         if not oks and not tick.invSyncErr then tick.invSyncErr = true log("inventory sync: " .. tostring(errs)) end
     end
     if LobbyLabel then pcall(LobbyLabel.tick, ctx:get()) end -- START RAID label (lobbylabel.lua)

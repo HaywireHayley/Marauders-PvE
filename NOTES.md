@@ -4809,6 +4809,13 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   "... on top of others or out of sight moved: ...").
 - Not reproduced: the real drag that leaves a stale cell (synthetic drags don't move items). Not verified: invsync on a
   stale cell the game made by itself in a raid (only the lobby's, and hand-made ones).
+- 2026-11-24 (#369, freezes after looting): Walmarx's report (build 28) has the director's worst frame jump from ~15 to
+  ~175 ms about once a second right after dragging a Light Backpack on, with no timed section accounting for it.
+  invsync ran in a plain pcall (untimed) once a second; shown() can't tell a closed inventory (a grid's parent chain
+  ends at its own widget's root, and an off-screen copy stays flagged visible, the trap invkeys.lua already notes), so
+  after a swap it likely walked the whole inventory every second all raid. Now: skipped unless the controller's
+  bShowMouseCursor is on (a menu open), and timed as section "invsync" in the frames line. Cause inferred from the log,
+  NOT reproduced; next report's frames line will show invsync's share.
 
 ## Places you board with a pod had no guards handling (#187, #42; 2026-11-20; rivals.lua pointsOfInterest)
 - A station (S.stations) needs a named interior AND docking nodes under its name, or an AI frigate. The Capital Ship on
