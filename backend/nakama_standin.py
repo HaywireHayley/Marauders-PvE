@@ -527,7 +527,7 @@ class Handler(BaseHTTPRequestHandler):
             return {"objects": objs}, f"read {len(objs)}"
         if path.startswith("/v2/storage/") and verb == "GET":  # list a collection
             col = path.split("/")[3]
-            items = sorted(st.get(col, {}).items())
+            items = parents_first(st.get(col, {})) if col == "inventory" else sorted(st.get(col, {}).items())
             limit, start = int(q.get("limit", 100)), int(q.get("cursor") or 0)
             page = [obj_out(col, k, o) for k, o in items[start:start + limit]]
             if not items:
@@ -628,6 +628,26 @@ def item_places(inv):
 # are remembered; the first write of new items after that (the lobby saving ExtractedLoot) refuses new items placed in
 # them. Later writes (vendors, moving things around) aren't checked. Expires after HOME_CONTAINERS_TTL seconds.
 HOME_CONTAINERS_TTL = 1800
+
+
+def parents_first(inv):
+    """#370: the inventory listed so a bag or container always comes before the items in it (by nesting depth, then
+    key). Sorted by key alone, a big stash (5 pages of 100) listed 122 items on an earlier page than their container,
+    and the lobby showed those containers empty. Same order on every page request, so the index cursor stays valid."""
+    parent = {}
+    for k, o in inv.items():
+        f = item_fields(o.get("value"))
+        if f and len(f) >= 8 and f[7] in inv and f[7] != k:
+            parent[k] = f[7]
+
+    def depth(k):
+        d, seen = 0, {k}
+        while k in parent and parent[k] not in seen:
+            k = parent[k]
+            seen.add(k)
+            d += 1
+        return d
+    return sorted(inv.items(), key=lambda kv: (depth(kv[0]), kv[0]))
 
 
 def mark_home_containers():

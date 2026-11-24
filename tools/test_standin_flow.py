@@ -109,6 +109,13 @@ s.state.pop("dropped_twins", None)
 s.save_state(s.state)
 print("raid end: new items in containers that stayed home are not stored, once")
 
+# #370: the inventory list puts a container before its contents, even when the contents' keys sort first.
+lst = s.parents_first({"1": {"value": json.dumps({"value": "1-Ration-1-1-0-0-0-5"})},
+                       "5": {"value": json.dumps({"value": "5-Backpack-1-1-0-0-0-9"})},
+                       "9": {"value": json.dumps({"value": "9-SmallContainer-1-1-0-0-0-Stash"})}})
+assert [k for k, _ in lst] == ["9", "5", "1"], lst
+print("inventory list: containers before their contents")
+
 # A state.json that doesn't parse falls back to the copy kept before the last write.
 s.save_state(s.state)
 open(s.STATE, "w", encoding="utf-8").write("{ broken")
