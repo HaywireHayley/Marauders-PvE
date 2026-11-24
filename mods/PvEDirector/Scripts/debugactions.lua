@@ -76,6 +76,8 @@ function M.init(ctx)
               log("bullet holes " .. (Holes.BULLET_HOLES ~= 0 and "ON" or "OFF") .. " (debug menu)")
               return "Bullet holes " .. (Holes.BULLET_HOLES ~= 0 and "on" or "off")
           end },
+        { id = "keys", label = "Key list", help = "The mod's keys on screen (press again to hide)", closes = true,
+          run = function(pc) require("keyhelp").toggle(pc) return "Key list" end },
         { id = "extract", label = "Extract now", help = "Leave with everything you carry",
           when = function() return raid.navReady or raid.space end, unusable = "Not available here", closes = true,
           run = function() Loadout.extractNow() return "Extracting" end },
