@@ -136,4 +136,35 @@ json.dump(newer, open(s.STATE, "w", encoding="utf-8"))
 s.state = s.load_state()
 assert s.state["schema"] == s.SCHEMA + 1 and any("newer than this stand-in" in m for m in logged), logged
 print("schema: old saves migrate, newer saves are left as they are")
+
+# #333: the contract board is made due once per stand-in run, never when it shows progress.
+stats = s.state["storage"]["playerstats"]
+def stat(k):
+    return json.loads(stats[k]["value"])["value"]
+s.CONTRACT_REFRESH_SETTING = os.path.join(tmp, "contract_refresh.txt")
+s.board_refreshed = False
+seed_time = "2026.10.30-07.37.36"  # the seed's
+stats["contractstarttime"]["value"] = json.dumps({"value": seed_time})
+assert s.refresh_board(s.state) and stat("contractstarttime") != seed_time
+due = stat("contractstarttime")
+assert time.mktime(time.strptime(due, "%Y.%m.%d-%H.%M.%S")) < time.time() - 7 * 86400, due
+stats["contractstarttime"]["value"] = json.dumps({"value": seed_time})
+assert not s.refresh_board(s.state) and stat("contractstarttime") == seed_time, "only once per run"
+s.board_refreshed = False
+stats["contracts"]["value"] = json.dumps({"value": "M25!M15!M23!M18!M1!M40-03-00"})
+assert not s.refresh_board(s.state) and stat("contractstarttime") == seed_time, "progress kept"
+s.board_refreshed = False
+open(s.CONTRACT_REFRESH_SETTING, "w").write("off")
+stats["contracts"]["value"] = json.dumps({"value": "M25!M15!M23!M18!M1!M40-00-00"})
+assert not s.refresh_board(s.state), "setting off"
+print("contracts: board made due once per run, kept with progress or when off")
+
+# #333: a new save's board is due at once (the client rolls its own), not the seed's board with the seed's start time.
+spec = importlib.util.spec_from_file_location("saves", os.path.join(HERE, "..", "launcher", "saves.py"))
+saves = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(saves)
+fresh = saves._fresh("Board test")["storage"]["playerstats"]
+start = json.loads(fresh["contractstarttime"]["value"])["value"]
+assert start != seed_time and time.mktime(time.strptime(start, "%Y.%m.%d-%H.%M.%S")) < time.time() - 7 * 86400, start
+print("new save: contract board due for a re-roll")
 print("ok")

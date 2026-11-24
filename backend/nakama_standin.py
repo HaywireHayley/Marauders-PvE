@@ -81,6 +81,56 @@ def unlock_all():
             return f.read().strip() == "on"
     except OSError:
         return False
+
+
+# A fresh contract board each session (#333). The client rolls its six-slot board (playerstats "contracts",
+# "M25!M15!M23!M18!M1!M40-00-00") itself against "contractstarttime" ("2026.10.30-07.37.36") and the servertime we
+# send, so once per stand-in run the start time is moved back a week to make the board due. Only a board whose
+# trailing fields are all zero is touched: what those fields hold isn't decoded (likely progress / payout), so a board
+# with anything there is left alone. config/contract_refresh.txt "off" turns it off. NOT verified in game that the
+# client re-rolls on an old start time.
+CONTRACT_REFRESH_SETTING = os.path.join(HERE, "..", "config", "contract_refresh.txt")
+CONTRACT_DUE = 8 * 86400
+board_refreshed = False
+
+
+def contract_refresh():
+    try:
+        with open(CONTRACT_REFRESH_SETTING, encoding="utf-8") as f:
+            return f.read().strip() != "off"
+    except OSError:
+        return True
+
+
+def board_untouched(board):
+    """True for a board with six contract rows and nothing but zeros after them."""
+    rows, _, rest = str(board).partition("-")
+    slots = rows.split("!")
+    return len(slots) == 6 and all(slots) and all(c in "0-" for c in rest)
+
+
+def contract_time(t):
+    return time.strftime("%Y.%m.%d-%H.%M.%S", time.gmtime(t))
+
+
+def refresh_board(s):
+    """Makes the stored board due for a re-roll, once per run; True if it changed the save."""
+    global board_refreshed
+    if board_refreshed or not contract_refresh():
+        return False
+    board_refreshed = True
+    stats = s["storage"].get("playerstats", {})
+    if "contracts" not in stats or "contractstarttime" not in stats:
+        return False
+    board = json.loads(stats["contracts"]["value"]).get("value", "")
+    if not board_untouched(board):
+        log(f"contracts: board {board} has progress, kept")
+        return False
+    stats["contractstarttime"]["value"] = json.dumps({"value": contract_time(time.time() - CONTRACT_DUE)})
+    log(f"contracts: board {board} made due for a re-roll")
+    return True
+
+
 lock = threading.Lock()
 
 
@@ -379,6 +429,8 @@ def user_record():
 
 def rpc(name, body):
     if name == "masterstartfunction":
+        if refresh_board(state):
+            save_state(state)
         m = dict(state["master"])
         m.update({"cosequip": collection_kv("cosequipped"), "gifts": collection_kv("gifts"),
                   "playerstats": with_free_cosmetics(collection_kv("playerstats")), "servertime": str(int(time.time()))})
