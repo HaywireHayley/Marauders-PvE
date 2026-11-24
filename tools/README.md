@@ -8,6 +8,7 @@ documentation: we read its Blueprint bytecode and machine code from the running 
 | `release/` | `build_release.py` makes the player zip; its install/uninstall scripts and README ship inside it |
 | `offline-audit/` | Blueprint bytecode tools. `kdis.py` decompiles a function from live memory; `bpbranch.py` and friends find code that only runs on clients or behind `OnRep_*` callbacks, which never run offline (see its README and OFFLINE_AUDIT.md) |
 | `profile/` | Machine-code side: disassembling around a crash address, sampling hot threads, finding string references |
+| `recoil_test/` | In-game recoil measurements: the view's climb shot by shot for the single shot guns and the pistols, aimed and at the hip, plus the weapon sound test (see NOTES.md, recoil and shotgun sound) |
 | `armour_test/` | In-game damage and armour measurements (see DAMAGE_REFERENCE.md) |
 | `space_test/` | F9 test tools for space maps: start a space raid, spawn turrets, mines, explosions and wrecks, kill them and log what appears, read the salvage chain (see docs/internals/SPACE_OBJECT_DEATH.md) |
 | `minimap/`, `make_minimap_art.py` | Minimap images, including aligning Ahtu's illustrated maps |
