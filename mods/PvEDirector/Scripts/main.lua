@@ -65,7 +65,7 @@ local CFG = {
     BOT_HEAL_TO = 0.7,       -- ...to get back to this share
     BOT_CARE_GIVEUP = 8,     -- no cover reached in this many seconds: it carries on (and waits BOT_CARE_COOLDOWN to try again)
     BOT_CARE_COOLDOWN = 12,
-    BOT_PUSH_SECONDS = 4,    -- Chads and GigaChads fighting you rush you this long while you reload or heal (0 = never)...
+    BOT_PUSH_SECONDS = 2,    -- Chads and GigaChads fighting you rush you this long while you reload or heal (0 = never)...
     BOT_PUSH_RANGE = 2500,   -- ...if within this range
     BOT_GUNSHOT_SCALE = 0.4, -- a bot's own shots carry this share of that: at 100 m every bot in a station heard every
                              -- firefight, went to look and died in the first two minutes (2026-11-14, Moon Base)
@@ -119,10 +119,10 @@ local CFG = {
     AIM_SKILL_SPREAD = 0.3,  -- a bot's lifelong skill: up to this share better or worse than the profile
     AIM_STREAK = 0.25,       -- hot and cold spells: up to this share either way...
     AIM_STREAK_SECONDS = { 1.5, 5 }, -- ...lasting this long
-    AIM_SETTLE_SECONDS = 1.5,-- a target just came into sight: aim settles over this long...
-    AIM_SETTLE_PENALTY = 1.4,-- ...starting this much worse
-    AIM_MOVING = 1.2,        -- the bot moving
-    AIM_TARGET_MOVING = 1.1, -- the target moving
+    AIM_SETTLE_SECONDS = 2.5,-- a target just came into sight: aim settles over this long...
+    AIM_SETTLE_PENALTY = 1.8,-- ...starting this much worse
+    AIM_MOVING = 1.4,        -- the bot moving
+    AIM_TARGET_MOVING = 1.3, -- the target moving
     AIM_UNDER_FIRE = 1.25,   -- just got hit...
     AIM_UNDER_FIRE_SECONDS = 1.5, -- ...for this long
     AIM_RANGE_PER_10M = 0.04,-- added to the multiplier per 10 m of range
