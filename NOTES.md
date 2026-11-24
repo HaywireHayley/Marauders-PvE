@@ -5144,7 +5144,12 @@ Inspired by SPT's SVM: every F3 setting before a raid, with presets to save, sha
 ## Bots reload and heal in cover, Chads push when you reload (2026-11-21, #314 first pass; luacheck only, NOT tested in game)
 - Magazines were already counted (#115): `bots.lua M.botShot` (from the `ServerMultiSimulateWeaponFire` hook) counts shots
   per bot against `WeaponConfig.AmmoPerClip` (fallback 30), keeps `CurrentAmmoInClip` in step, and on empty holds fire and
-  calls `ReloadAIWeapon`. New: `selfcare.lua` (`Care.step`, once per update for a fighting bot). When
+  calls `ReloadAIWeapon`. (2026-11-24, #413, luacheck only, NOT tested in game: prisoners' double barrels never
+  stopped. Suspected cause: the AmmoPerClip read failing to the 30 fallback, and `e.mag` cached once per bot so a gun
+  change kept the old clip. Now read per gun (`e.magGun`), any class with "Double" capped at 2, and the first read of
+  each class logged as "bots reload: <class> magazine N (AmmoPerClip read X)". Unverified: that bot pellet guns go
+  through `ServerMultiSimulateWeaponFire` at all (their pellets take the server path 0x1895dc0); if no such log line
+  appears for a shotgun class, they don't, and the count never runs.) New: `selfcare.lua` (`Care.step`, once per update for a fighting bot). When
   `mag - shots <= mag * BOT_LOW_MAG` (0.15) the bot sets `e.careWant`; `coverCycle` then skips its chance roll and open-fight
   timer and goes to cover. Hiding in cover it zeroes `e.shots`, sets `reloadUntil`/`holdUntil` (BOT_RELOAD_SECONDS) and pins
   the cover's `until` so it doesn't peek; the existing frame loop refills the clip. No cover in BOT_CARE_GIVEUP (8 s): it
