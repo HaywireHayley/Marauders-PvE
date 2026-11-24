@@ -3,7 +3,7 @@
 -- they survive; one who dies in a raid, or whom you dismiss, is gone for good. Crew and pool are saved in SAVE_FILE, so they last between
 -- sessions. The crew is optional: hire nobody, or switch "Crew comes on raids" off, and you raid alone.
 --
--- F6 opens the menu (built and polled like the debug menu: plain widgets in a DebugInfo_Widget). Hiring, dismissing and
+-- F11 opens the menu (built and polled like the debug menu: plain widgets in a DebugInfo_Widget). Hiring, dismissing and
 -- who comes along are changed in the lobby; in a raid the menu only shows the crew. crew.lua runs them in the raid.
 local PROJECT = require("pveproject") -- the install folder (".../MaraudersPvE/"), written by scripts/mode.ps1
 local H = {}

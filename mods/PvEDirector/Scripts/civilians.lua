@@ -2,7 +2,7 @@
 -- Cruiser. They don't fight. They go about their business near where they spawned, run from you when you come close
 -- with a gun or start shooting, cower and plead when cornered, and carry things of their trade in their pockets.
 -- Killing one is seen: station guards near it come for you ("rival marauders" don't care either way). Uncommon on
--- purpose (CFG.COUNT per matching station, F3 "How many": 0 turns them off).
+-- purpose (CFG.COUNT per matching station, F10 "How many": 0 turns them off).
 --
 -- They're kept out of raid.bots, so no soldier, rival or crewmate ever targets or protects them, and the per-bot
 -- fighting code never touches them. Their body is a raider body with an empty kit (rivalbodies.lua R.civilianBody) in
@@ -13,7 +13,7 @@ local X -- log, valid, lib, dist, navLib, navMesh, queryFilter, offLimits, arm, 
 local raid
 
 local CFG = {
-    COUNT = 3,             -- civilians per matching station (F3: How many). 0 = none
+    COUNT = 3,             -- civilians per matching station (F10: How many). 0 = none
     MIN_SPAWN_DIST = 2500, -- never spawned closer to you than this
     WANDER = 900,          -- how far they potter about from where they started
     WANDER_PAUSE = { 4, 14 },

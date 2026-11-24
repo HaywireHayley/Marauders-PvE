@@ -40,7 +40,7 @@ Small pull requests (one fix or feature each) get reviewed much faster than big 
 ## Testing tips
 
 - Test on a throwaway save (the launcher's "Debug start" makes one with a full stash).
-- In game: **F9** debug menu (god mode, extract now, spawn a soldier), **F3** AI tuning sliders.
+- In game: **F9** debug menu (god mode, extract now, spawn a soldier), **F10** AI tuning sliders.
 - Logs after a session: `backend\last_game.log` (the mod) and `backend\server.log` (the backend).
 - Lua changes: `pip install lupa` once (or run `scripts\setup-dev.ps1 -Research`), then `python scripts\luacheck.py mods\PvEDirector\Scripts\main.lua` (any
   files you changed) catches syntax errors before you launch the game.

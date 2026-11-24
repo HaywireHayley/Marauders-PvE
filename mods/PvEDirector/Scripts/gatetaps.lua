@@ -8,7 +8,7 @@ local M = {}
 local log, valid
 
 local CFG = {
-    GATE_TAPS = 1,         -- 1 = on, 0 = off (F3 Effects)
+    GATE_TAPS = 1,         -- 1 = on, 0 = off (F10 Effects)
     TAP_WINDOW = 6,        -- seconds before the gate that a Space press counts as a tap
     TAP_GIFT = "GoldCoin", -- item row for exactly two taps
 }

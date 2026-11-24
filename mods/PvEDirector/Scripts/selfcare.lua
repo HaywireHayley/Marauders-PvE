@@ -2,7 +2,7 @@
 -- that is hurt and hasn't been shot for a few seconds goes to cover and heals, and Chads and GigaChads push you while
 -- you reload or heal. The magazine count itself is bots.lua's M.botShot (e.mag, e.shots, e.reloadUntil, #115).
 -- bots.lua's updateBots calls watchPlayer() and step(); coverCycle takes e.careWant as "wants cover now".
--- Settings are main.lua's CFG (BOT_LOW_MAG, BOT_HEAL_*, BOT_PUSH_*; F3 > Fighting). Not tested in game.
+-- Settings are main.lua's CFG (BOT_LOW_MAG, BOT_HEAL_*, BOT_PUSH_*; F10 > Fighting). Not tested in game.
 local M = {}
 local X -- context from bots.lua: CFG, log, valid, dist
 

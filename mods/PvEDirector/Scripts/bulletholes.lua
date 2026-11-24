@@ -21,7 +21,7 @@ local M = {}
 local X -- log, valid
 
 local CFG = {
-    BULLET_HOLES = 1, -- 1 = on, 0 = off (F3 Effects)
+    BULLET_HOLES = 1, -- 1 = on, 0 = off (F10 Effects)
     HOLE_SECONDS = 60, -- a hole fades out after this long
     MAX_HOLES = 250,  -- most holes alive at once: the oldest go first (a shotgun fired in a firefight makes dozens)
     HOLE_SIZE = 5,    -- half the width of a hole, cm (5 = a 10 cm hole)

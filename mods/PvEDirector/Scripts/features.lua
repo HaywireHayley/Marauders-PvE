@@ -1,6 +1,6 @@
 -- Feature switches (#324): 1 = on, 0 = off, for parts of the mod a player may not want. Shown as the "Features" tab in
--- F3 and in the launcher's SETTINGS page (tuning.lua), saved with the other settings. Each feature reads its switch
--- where it runs, so a change in F3 applies at once. Features that already have a "0 turns it off" setting elsewhere
+-- F10 and in the launcher's SETTINGS page (tuning.lua), saved with the other settings. Each feature reads its switch
+-- where it runs, so a change in F10 applies at once. Features that already have a "0 turns it off" setting elsewhere
 -- (civilians, guards running, ship battles, bullet holes...) keep it there.
 return {
     DEATH_SCREEN = 1,   -- deathscreen.lua: who killed you, after a death (#331)

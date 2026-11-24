@@ -1,10 +1,10 @@
-"""The launcher's SETTINGS page (#324): every F3 setting, edited before a raid, plus presets you save, share and load.
+"""The launcher's SETTINGS page (#324): every F10 setting, edited before a raid, plus presets you save, share and load.
 
 The mod owns the settings. Each start it writes config/settings_schema.json (tuning.lua writeSchema): the tabs, each
 row's id, label, range, step, default and help, and the built-in difficulty presets. The values themselves live where
-the F3 menu keeps them, so the launcher and F3 always agree:
+the F10 menu keeps them, so the launcher and F10 always agree:
   config/ai_tuning.txt    id=value, only the settings changed from their defaults (read when the game starts)
-  config/ai_presets.txt   "[name]" then id=value lines: your own presets (F3's "Saved setups")
+  config/ai_presets.txt   "[name]" then id=value lines: your own presets (F10's "Saved setups")
 A shared preset is a small text file in the same form as one ai_presets.txt entry, with a header line.
 """
 import json
@@ -74,7 +74,7 @@ def same(row, a, b):
 
 
 def write_values(schema, values, path=None):
-    """Saves only what differs from the defaults, like the F3 menu does. Ids the schema doesn't know are kept as they
+    """Saves only what differs from the defaults, like the F10 menu does. Ids the schema doesn't know are kept as they
     were (a setting from a newer or older build)."""
     known = {r["id"]: r for r in rows(schema)}
     lines = []

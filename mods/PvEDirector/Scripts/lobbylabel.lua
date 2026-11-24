@@ -43,7 +43,7 @@ local GUIDE_TEXT = {
         .. "armour, a backpack and something to heal with. Anything you take into a raid is lost if you die, so bring "
         .. "what you can afford to lose. Buy more on the TRADE screen.",
     ["Ready To Launch"] = "Press START RAID in the lobby. Offline there's no matchmaking: the raid loads straight away, "
-        .. "on the map you picked. Your hired crew (F6) comes along if you can pay their wages; choose who comes there.",
+        .. "on the map you picked. Your hired crew (F11) comes along if you can pay their wages; choose who comes there.",
     ["First Flight"] = "You start aboard your ship. Walk to the helm and press F to take the controls (F again to "
         .. "leave). Crewmates can man the turret periscopes, or fire from the helm when you fly solo. The minimap shows "
         .. "the way to stations and to your task: N turns it on or off, M opens the full overview, B follows the next task.",

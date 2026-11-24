@@ -262,10 +262,9 @@ class Button(tk.Label):
 
 # The mod's keys, as the CONTROLS dialog lists them (keep in step with README.md's "Controls" table).
 CONTROLS = [
-    ("F6", "Your crew: hire, dismiss, and choose who comes on raids", "Lobby and raids"),
-    ("F3", "AI tuning: every enemy, rival and crew setting, including how many spawn", "Lobby and raids"),
-    ("F9", "Debug menu: god mode, extract now, spawn a soldier, and more", "Lobby and raids"),
-    ("F2", "Play as a woman or a man", "Anywhere"),
+    ("F11", "Your crew: hire, dismiss, and choose who comes on raids", "Lobby and raids"),
+    ("F10", "AI tuning: every enemy, rival and crew setting, including how many spawn", "Lobby and raids"),
+    ("F9", "Debug menu: god mode, your body (woman or man), extract now, spawn a soldier, and more", "Lobby and raids"),
     ("N", "Minimap on or off", "Raids"),
     ("M", "Minimap full overview, and back", "Raids"),
     ("B", "Minimap: follow the next task", "Raids"),
@@ -600,7 +599,7 @@ class App(tk.Tk):
         self.cheat_var = tk.BooleanVar()
         self.female_var = tk.BooleanVar(value=self.read_female())
         self.toggle("Infinite money", self.cheat_var, self.toggle_cheat)
-        self.toggle("Play as a woman  (F2 switches in game)", self.female_var, self.toggle_female)
+        self.toggle("Play as a woman  (the F9 menu switches in game)", self.female_var, self.toggle_female)
         # The save panel holds this save and the next raid; options for every save and the app are on the SETTINGS page
         # (app_options). Sliders are one row each (label, slider, value).
         self.share_var = tk.IntVar(value=self.read_share())
@@ -938,16 +937,16 @@ class App(tk.Tk):
         box.focus_set()
 
     def show_settings(self):
-        """Every F3 setting, before a raid (#324, inspired by SPT's SVM): tabs on the left, the tab's settings on the
+        """Every F10 setting, before a raid (#324, inspired by SPT's SVM): tabs on the left, the tab's settings on the
         right, difficulty and your own presets on top, which you can save, export to share, and import. Changes are
-        written at once to the file F3 uses (config/ai_tuning.txt), which the game reads when it starts; F3 in a raid
+        written at once to the file F10 uses (config/ai_tuning.txt), which the game reads when it starts; F10 in a raid
         still changes things live. The list of settings comes from the mod (config/settings_schema.json)."""
         d = Dialog(self, "Settings")
         self.app_options(d.body)
         schema = settings.load_schema()
         if not schema:
             tk.Label(d.body, text="Start the game once with this build (to the lobby is enough): it writes the list of "
-                     "settings this page shows. Until then, press F3 in a raid to change them.", bg=PANEL, fg=TEXT,
+                     "settings this page shows. Until then, press F10 in a raid to change them.", bg=PANEL, fg=TEXT,
                      font=font(11), justify="left", wraplength=wrap(460)).pack(anchor="w")
             r = d.row()
             Button(r, "Close", d.destroy, size=11, pad=(14, 6)).pack(side="left")
@@ -964,7 +963,7 @@ class App(tk.Tk):
 
         def status_text():
             n = settings.changed_count(schema, values)
-            run = "  The game is running: these apply next time it starts (F3 changes them now)." if game_running() else ""
+            run = "  The game is running: these apply next time it starts (F10 changes them now)." if game_running() else ""
             return (f"{n} setting(s) changed from the defaults." if n else "Everything at its default.") + run
 
         def save():
@@ -1052,7 +1051,7 @@ class App(tk.Tk):
                 pick.set(name)
                 rebuild_menu()
                 ask.destroy()
-                self.say(f"Saved the preset \"{name}\" (F3's Saved setups lists it too).")
+                self.say(f"Saved the preset \"{name}\" (F10's Saved setups lists it too).")
 
             r = ask.row()
             Button(r, "Cancel", ask.destroy, size=11, pad=(14, 6)).pack(side="left", padx=(0, 8))

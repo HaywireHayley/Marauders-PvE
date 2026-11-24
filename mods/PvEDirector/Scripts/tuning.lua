@@ -1,4 +1,4 @@
--- AI tuning: every setting of the bots' brain as a slider, in a menu built at runtime (F3 in a raid).
+-- AI tuning: every setting of the bots' brain as a slider, in a menu built at runtime (F10 in a raid).
 -- The rows point straight at the live tables (main.lua CFG, rivals.lua CFG, ai.lua's profiles and personalities), which
 -- the AI reads when it decides, so a change applies at once. Defaults are whatever those tables start with; only
 -- values you changed are saved, in SAVE_FILE, so a new default in the code still reaches an untouched setting.
@@ -405,7 +405,7 @@ function T.init(ctx)
     loadMine()
     local okS, errS = pcall(writeSchema)
     if not okS then X.log("tuning: settings list for the launcher not written: " .. tostring(errS)) end
-    X.log(("tuning: %d settings, %d changed from the defaults, %d saved presets (F3 in a raid)"):format(#rows, n, #mine))
+    X.log(("tuning: %d settings, %d changed from the defaults, %d saved presets (F10 in a raid)"):format(#rows, n, #mine))
 end
 
 -- A setting by its id (as in config/ai_tuning.txt, e.g. "Crews:BARON" or "Spawns:CREW_SIZE.2"): the table, key and
@@ -498,7 +498,7 @@ local function build(pc)
     local bg = make("Border")
     bg:SetBrushColor({ R = 0.03, G = 0.03, B = 0.04, A = 0.93 })
     place(bg, X0, Y0, W, H)
-    place(text("Enemy and crew settings   (F3 to close. Changes work at once and save themselves)", TEXT), X0 + 16, Y0 + 10, W - 32, 26)
+    place(text("Enemy and crew settings   (F10 to close. Changes work at once and save themselves)", TEXT), X0 + 16, Y0 + 10, W - 32, 26)
     -- two rows of tabs (the difficulty buttons sit below them)
     local perRow = math.max(6, math.ceil(#tabs / 2))
     local x, y, each = X0 + 16, Y0 + 42, (W - 32) / perRow

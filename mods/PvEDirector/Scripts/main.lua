@@ -5,7 +5,7 @@
 --   1. builds a navmesh at runtime, bounded by the map's CullDistanceVolume
 --   2. spawns soldiers at the map's AINodeStart nodes, away from the player
 --   3. keeps them awake, and gives them the player as enemy once they see/hear the player or get shot
--- Keys: F3 = AI tuning menu (tuning.lua), F9 = debug menu (debugmenu.lua: god mode, extract now, spawn a soldier, a
+-- Keys: F10 = AI tuning menu (tuning.lua), F9 = debug menu (debugmenu.lua: god mode, extract now, spawn a soldier, a
 --       crew attacks you, open the gates, give a gun, bottomless mags, test raid), F2 = your body female or male,
 --       N / M / B = minimap on or off / full overview / next task (minimap.lua).
 -- With the offline backend, the lobby's Start Matchmaking loads a space map, where you start in your ship
@@ -781,7 +781,7 @@ local function onTick(ctx)
         ok, err = ppcall("tags", Crew.tags, ticker)
         if not ok then log("crew nametags failed: " .. tostring(err)) end
     end
-    -- The crew menu (F6, hire.lua), the AI tuning menu (F3) and the debug menu (F9) work in the lobby too: they're polled
+    -- The crew menu (F11, hire.lua), the AI tuning menu (F10) and the debug menu (F9) work in the lobby too: they're polled
     -- with the controller hire.lua takes from this ticker (in the lobby the ticker is a menu widget).
     -- The 1 s friends refresh hitch (~150 ms, see patchFriendsRefresh) is in the lobby too, where it made the mouse stutter in
     -- the menu, loadout and market; it was only patched inside raids. Repeating is safe (the DLL checks the bytes).
@@ -1065,7 +1065,7 @@ Voice.init({ valid = valid, lib = lib, log = log, root = pveRoot })
 Female.init({ valid = valid, lib = lib, log = log, root = pveRoot, loadLoose = pveLoad })
 Rivals.init({ female = Female, offLimits = PlayAreas.offLimits, findAll = PlayAreas.findAll, rollKit = pveRollKit, addItem = pveAddItem, keepWorn = pveKeepWorn, voice = Voice, loadLoose = pveLoad, root = pveRoot, garrison = Bots.spawnGarrison, log = log, valid = valid, lib = lib, navLib = navLib, navMesh = navMesh, queryFilter = queryFilter,
     dist = dist, arm = Bots.arm, raid = function() return raid end, addInteriorNav = Space.addInteriorNav })
--- Your crew: hired in the lobby (hire.lua, F6), AI teammates in a raid who follow you and work your ship's turrets while
+-- Your crew: hired in the lobby (hire.lua, F11), AI teammates in a raid who follow you and work your ship's turrets while
 -- you fly (crew.lua).
 -- In the lobby they stand beside you on the hangar's crew stands and fill its crew slots (crewlobby.lua).
 CrewLobby = require("crewlobby")
@@ -1114,7 +1114,7 @@ Quit.init({ log = log, valid = valid, pc = function() return Hire.lastPc() end,
     inRaid = function() local pc = Hire.lastPc() return valid(pc) and pc:GetClass():GetFName():ToString() == "MainPlayerController_C" end })
 GameSettings = require("gamesettings") -- the game's Settings outside a raid (#293)
 GameSettings.init({ log = log, valid = valid, pc = function() return Hire.lastPc() end })
--- Closing the F3/F9 menus: a raid goes back to game-only input; the lobby is a mouse screen, so it gets its UI back
+-- Closing the F10/F9 menus: a raid goes back to game-only input; the lobby is a mouse screen, so it gets its UI back
 -- (as hire.lua does).
 local function menuClosed(pc)
     local wbl = lib("/Script/UMG.Default__WidgetBlueprintLibrary")
@@ -1440,10 +1440,11 @@ RegisterHook("/Script/RaidGame.RaidCharacter:Multi_Deathevent", function(ctx)
 end)
 
 -- Keys ----------------------------------------------------------------------------------------------
-RegisterKeyBind(Key.F2, function() table.insert(pending, Female.togglePlayer) end)
--- F3: the AI tuning menu (tuning.lua), F9: the debug menu (debugmenu.lua), F6: your crew (hire.lua), in the lobby and in
+-- No mod key on F1-F8: those are the game's voice lines (Input.ini Voice01-08), which NPCs react to; a mod key there
+-- also played a line. Your body (was F2) is a button in the F9 menu; F12 is left to Steam's screenshot.
+-- F10: the AI tuning menu (tuning.lua), F9: the debug menu (debugmenu.lua), F11: your crew (hire.lua), in the lobby and in
 -- raids. One open at a time. All take the controller the director ticks on: FindFirstOf("MainPlayerController_C") found
--- nothing in the lobby (MenuPlayerController_C there), so F3 and F9 did nothing, and in a raid it could be the last map's.
+-- nothing in the lobby (MenuPlayerController_C there), so F10 and F9 did nothing, and in a raid it could be the last map's.
 local function menuPc()
     local pc = Hire.lastPc()
     if not valid(pc) then return nil end
@@ -1467,8 +1468,8 @@ local function toggleDebug()
     Tuning.close(pc) Hire.close(pc)
     Debug.toggle(pc)
 end
-RegisterKeyBind(Key.F3, function() table.insert(pending, toggleTuning) end)
-RegisterKeyBind(Key.F6, function() table.insert(pending, function()
+RegisterKeyBind(Key.F10, function() table.insert(pending, toggleTuning) end)
+RegisterKeyBind(Key.F11, function() table.insert(pending, function()
     local pc = Hire.lastPc()
     if not valid(pc) then return end
     Tuning.close(pc) Debug.close(pc)
