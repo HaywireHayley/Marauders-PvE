@@ -179,25 +179,38 @@ end
 -- a station airlock won't let you back in once you've stepped out. Your old card (for the ship you left) is taken out
 -- of the KeyCard slot and this ship's goes in, made the way the game makes yours (same Attachments form, the interior's
 -- KeyCardUUID), and guardKeyCard guards it from then on.
-local function cardForShip(inside, shipName, row)
-    if not valid(inside) then return log("key card: the taken ship has no interior") end
-    if not (raid.cardInv and valid(raid.cardInv)) then raid.cardInv = playerInventory() end
-    local inv = raid.cardInv
-    if not inv then return log("key card: no inventory for the taken ship's card") end
-    local uuid = inside.KeyCardUUID
+-- A ship's card Attachments, the form the game uses: "<captain>!<ship>!<interior KeyCardUUID>!<hull row>". The captain is
+-- you (the card is made for you to carry). inside may be nil (a crew whose interior isn't loaded): UUID 0.
+local function shipCardAtt(inside, shipName, row)
+    local uuid = 0
+    if inside and valid(inside) then pcall(function() uuid = inside.KeyCardUUID end) end
     local captain = "Captain"
     pcall(function()
         local n = FindFirstOf("MainPlayerController_C").PlayerState.PlayerNamePrivate:ToString()
         if n ~= "" then captain = n end
     end)
-    local att = ("%s!%s!%s!%s"):format(captain, shipName or "Ship", tostring(uuid), row or "")
+    return ("%s!%s!%s!%s"):format(captain, shipName or "Ship", tostring(uuid), row or "")
+end
+
+local function cardForShip(inside, shipName, row)
+    if not valid(inside) then return log("key card: the taken ship has no interior") end
+    if not (raid.cardInv and valid(raid.cardInv)) then raid.cardInv = playerInventory() end
+    local inv = raid.cardInv
+    if not inv then return log("key card: no inventory for the taken ship's card") end
+    local att = shipCardAtt(inside, shipName, row)
+    -- Already carrying this ship's card (taken off one of its crew, #410): it's yours, and your other cards stay.
+    local tail, have = "!" .. att:gsub("^[^!]*!", ""), false
     local old = {}
     inv.StashedItems:ForEach(function(_, e)
         local it = e:get()
-        if valid(it) and it.ItemData:ToString() == "KEYCARD" and it.MotherItemGUID:ToString() == "KeyCard" then
-            old[#old + 1] = it.UniqueItemGUID:ToString()
+        if valid(it) and it.ItemData:ToString() == "KEYCARD" then
+            local a = ""
+            pcall(function() a = it.Attachments:ToString() end)
+            if a:sub(-#tail) == tail then have = true end
+            if it.MotherItemGUID:ToString() == "KeyCard" then old[#old + 1] = it.UniqueItemGUID:ToString() end
         end
     end)
+    if have then return log(("key card: you already carry the taken ship's (%s)"):format(att:gsub("^[^!]*!", ""))) end
     for _, g in ipairs(old) do inv:Server_RemoveItem(g) end
     local guid = ("pve-card-%d-%d"):format(os.time(), math.random(1000, 9999))
     inv:Server_AddItem(FName("KEYCARD"), 1, 100, "KeyCard", { X = 0, Y = 0 }, false, guid, 0, att, 0)
@@ -449,5 +462,6 @@ end
 
 M.hidePodGuns, M.updateLevelEffects, M.guardKeyCard, M.updateSun = hidePodGuns, updateLevelEffects, guardKeyCard, updateSun
 M.CARD, M.addInteriorNav, M.update, M.cardForShip = CARD, addInteriorNav, updateSpace, cardForShip
+M.shipCardAtt = shipCardAtt
 
 return M

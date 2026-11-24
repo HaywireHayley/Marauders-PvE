@@ -592,6 +592,38 @@ local function routGuards(st, now, playerLoc)
     X.log(("[rivals] guards at %s run: their leader %s is down (%d running)"):format(st.name, st.leaderName or "?", #group))
 end
 
+-- Their ship's key card in a crew body's loot (#410): taking a ship off its crew, you take its card off one of them, and
+-- can carry several ships' cards. The native helper adds the row only; the Attachments (which ship it opens) are then
+-- written on the new item and read back. Must run before a corpse is killed (death copies the loot to the body).
+local function giveShipCard(c, body)
+    if not (c and c.shipName and valid(body)) then return end
+    local at = math.tointeger(body:GetAddress())
+    local function cards()
+        local t = {}
+        body.BotLootItems:ForEach(function(_, e)
+            local it = e:get()
+            if valid(it) and it.ItemData:ToString() == "KEYCARD" then t[#t + 1] = it end
+        end)
+        return t
+    end
+    local before = #cards()
+    X.addItem(at, FName("KEYCARD"):GetComparisonIndex(), 1)
+    local list = cards()
+    if #list <= before then
+        if not S.cardTurnedAway then S.cardTurnedAway = true X.log("[rivals] key card: turned away by a crew body (no room)") end
+        return
+    end
+    local card = list[#list]
+    local att = require("space").shipCardAtt(c.inside, c.shipName, c.design and c.design.row)
+    pcall(function() card.Attachments = att end)
+    local got = ""
+    pcall(function() got = card.Attachments:ToString() end)
+    if got ~= att and not S.cardAttFailed then
+        S.cardAttFailed = true
+        X.log(("[rivals] key card: Attachments didn't take on a body's card (read %q)"):format(got))
+    end
+end
+
 -- Queue bodies for a crew's living members at the given spots (one spot per member, reused if fewer).
 -- corpses: those who went down with their ship (m.sankWith) are built too, and killed as soon as they're armed
 -- (rivals.lua finishBuilding): a wreck you board holds its dead, with their gear, as well as any survivors (#251).
@@ -1234,6 +1266,7 @@ M.finishBody, M.garrisonStation, M.gearCatalog = finishBody, garrisonStation, ge
 M.holdGun, M.insideAnchor, M.joined = holdGun, insideAnchor, joined
 M.keepDefendersArmed, M.keepShipMoving, M.lockExit = keepDefendersArmed, keepShipMoving, lockExit
 M.materialize, M.pickLock, M.projected, M.reachableNear = materialize, pickLock, projected, reachableNear
+M.giveShipCard = giveShipCard
 M.removeEntry, M.roamGuards, M.rollKit, M.setWatch = removeEntry, roamGuards, rollKit, setWatch
 M.spreadPoint, M.startBody, M.stationSpawnSpots = spreadPoint, startBody, stationSpawnSpots
 M.routGuards, M.sweepStrays, M.topUpStep = routGuards, sweepStrays, topUpStep
