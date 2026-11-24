@@ -3742,6 +3742,12 @@ reference with flowcharts: [docs/internals/SALVAGE_CHAIN.md](docs/internals/SALV
 - 2026-11-23 (#374, reported not burning on build 24): not traced to a cause from code (the repair code runs after
   burn() and can't stop it). One weak spot fixed: findVolumes kept only the first 24 lock volumes in FindAllOf order,
   before the 15 m check, so on a map with more than 8 lock doors yours could be missing. Now keeps all. NOT tested in game.
+- 2026-11-24 (#374, fuel and the storage crate): players measured over 100 fuel a lock; live, a whole vault was about 90.
+  Fuel rate from the #70 repair test (250 charge ran dry after 14.4 s): about 17.3 a second, which matches 6 s x 17.3 = 104
+  a lock at the old 50 DPS. DPS is now 175 (300 health: 1.7 s a lock, 5.1 s and about 89 fuel a vault). Storage crate door:
+  no cause found from code; lock boxes whose names are not Top/Middle/Bottom are now burned too (LockDamaged gets the box's
+  own name, guarded by pcall; bIsUnlocked when all of that door's boxes are down) and logged once as "lock box ... (not
+  Top/Middle/Bottom)", so a test shows the crate's names if that was it. NOT tested in game.
 
 ## Raid conditions (issue 78, 2026-11-18; conditions.lua, config/raid_conditions.txt)
 - A condition is a named set-up applied while a raid map is loaded: F3 settings by their ai_tuning.txt id
