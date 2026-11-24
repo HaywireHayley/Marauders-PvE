@@ -5200,6 +5200,11 @@ From Taki's report (`MaraudersOffline-report-20261121-2335`, build 23: soldiers 
   checked; the mark expires after 30 min. Covers copies that differ from the original (moved by #239's repair, other
   stack), which twin_of misses. The 84 copies onto the stash grid are still only caught when exact. Tested:
   tools/test_standin_flow.py. NOT tested in game, and the root cause (why ExtractedLoot held the stash) is still open.
+- Third change (2026-11-24): the stand-in lists the inventory parents first (`parents_first`: nesting depth, then key)
+  instead of by key alone; the report's save listed 122 items on an earlier page than their container, a likely
+  reason the lobby showed bags empty. Tested: tools/test_standin_flow.py. NOT tested in game: whether the lobby now
+  shows those bags filled. Still open: why the gate extraction wrote the stash again (needs server.log PUT lines and
+  last_game.log from a gate extraction with full bags in the stash).
 
 ## Lua hot paths: lobby scans, owner checks, one AI-start scan (2026-11-22; luacheck only, NOT tested in game)
 - main.lua lobby stash grid: the `FindAllOf("InventoryContainerWidget")` (30-45 ms) ran every 2 s while the stash
