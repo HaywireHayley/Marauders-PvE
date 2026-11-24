@@ -227,7 +227,7 @@ local Gunseat = require("gunseat")
 local Unstuck = require("unstuck") -- F9 unstuck and no collision (#198)
 local Defuse = require("defuse") -- station mines: F and a Minesweeper board (#197)
 local DeathScreen = require("deathscreen") -- who killed you, on your death (#331)
-local KeyHelp = require("keyhelp") -- F1: the mod's keys on screen (#389)
+local KeyHelp = require("keyhelp") -- the mod's keys on screen, from the F9 menu (#389)
 -- main.lua's own parts, in modules: each takes main's helpers in init(ctx), and the per-raid table in setRaid (below)
 local PlayAreas = require("playareas") -- where bots may go on a station
 local Bots = require("bots") -- soldiers: spawning, awareness, patrols, noises, cover, aim, animation, garrisons

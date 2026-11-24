@@ -75,7 +75,7 @@ local function show(pc)
     host = h
 end
 
--- F1, with the controller main.lua's menus use (nil when there is none yet).
+-- The F9 menu's Key list button, with the controller main.lua's menus use (nil when there is none yet).
 function M.toggle(pc)
     if host then
         local h = host
