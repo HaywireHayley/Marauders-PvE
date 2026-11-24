@@ -5139,6 +5139,12 @@ classes) and the Lua heap / gc cycles. FindAllOf and FindFirstOf are wrapped onc
 - Not verified: the cost of the light mode itself (expected well under 0.1 ms a frame), and the log line's format in game.
 
 
+## Key reference (#389)
+- 2026-11-24, #389 first pass: `keyhelp.lua`, F1 toggles a panel listing the mod's keys (F1 was unbound; checked every
+  `RegisterKeyBind` in the mod). Built like deathscreen.lua's panel (DebugInfo_Widget host, Border + TextBlocks),
+  dropped on world change, never rooted. Its KEYS table, README's Controls table and the launcher's CONTROLS list must
+  be kept in step by hand. First-use hints (from the issue) not done. NOT tested in game.
+
 ## Death screen (#331)
 - 2026-11-21, #331 first pass: `deathscreen.lua`. Nothing in the mod saw damage to the player (botdamage.lua and
   hitzones.lua are your shots at bots), so hits are inferred: main.lua's `ServerMultiSimulateWeaponFire` hook calls

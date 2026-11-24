@@ -227,6 +227,7 @@ local Gunseat = require("gunseat")
 local Unstuck = require("unstuck") -- F9 unstuck and no collision (#198)
 local Defuse = require("defuse") -- station mines: F and a Minesweeper board (#197)
 local DeathScreen = require("deathscreen") -- who killed you, on your death (#331)
+local KeyHelp = require("keyhelp") -- F1: the mod's keys on screen (#389)
 -- main.lua's own parts, in modules: each takes main's helpers in init(ctx), and the per-raid table in setRaid (below)
 local PlayAreas = require("playareas") -- where bots may go on a station
 local Bots = require("bots") -- soldiers: spawning, awareness, patrols, noises, cover, aim, animation, garrisons
@@ -993,6 +994,7 @@ function resetRaid(worldKey)
     Unstuck.reset()
     Defuse.reset()
     DeathScreen.reset()
+    KeyHelp.reset()
     ShipSpeed.reset()
     if Rivals then Rivals.reset() end
     if Crew then Crew.reset() end
@@ -1479,6 +1481,8 @@ RegisterKeyBind(Key.F11, function() table.insert(pending, function()
     Hire.toggle(pc)
 end) end)
 RegisterKeyBind(Key.F9, function() table.insert(pending, toggleDebug) end)
+-- F1: the list of these keys (keyhelp.lua, #389), drawn beside the other menus. Keep its KEYS in step with this block.
+RegisterKeyBind(Key.F1, function() table.insert(pending, function() KeyHelp.toggle(menuPc()) end) end)
 -- The minimap (minimap.lua): N shows or hides it, M switches to the full overview and back, B follows the next task.
 -- (not while typing in the stash search: "nickel" turned the minimap off)
 function Aux.unlessTyping(fn) return function() if not (InvQol and InvQol.typing()) then fn() end end end
@@ -1502,6 +1506,7 @@ DebugActions.init({ log = log, valid = valid, lib = lib, CFG = CFG, RAID_OPTS = 
     bots = Bots, loadout = Loadout, menuClosed = menuClosed })
 Defuse.init({ log = log, valid = valid, lib = lib, menuClosed = menuClosed })
 DeathScreen.init({ log = log, valid = valid, lib = lib })
+KeyHelp.init({ log = log, valid = valid, lib = lib })
 
 math.randomseed(os.time())
 log("loaded")
