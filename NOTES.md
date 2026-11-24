@@ -5430,3 +5430,22 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   the old keys as history. Tested: launcher test_ui (16 OK), luacheck, ruff. Not tested in game: that F10/F11 reach
   UE4SS's RegisterKeyBind in the game window (F11 isn't a fullscreen toggle in a shipping build, per Input.ini; not seen
   run).
+
+## Vendor stock (#384, 2026-11-24; vendors.lua, pvepatch.c pve_shop_add / pve_shop_price)
+- The faction traders' extra stock is /Game/Blueprints/Factions/DT_FactionShops: one row per faction (United, Republic,
+  Kingdom, Pirate, Guild), row struct FactionChangePerLevel { TArray<{float ShopDeduction @0; TArray<FName>
+  AdditionalItems @8}> @8 }, one element per faction level (41; Pirate 42, Guild 5). Each level's list is the whole
+  extra stock at that level; the base stock (Uzi, bandages...) comes from elsewhere. Shipped: 7-10 extras per faction
+  by level 6, levels 11-40 copies of level 10, discounts 3% a level to 27% (Pirate and Guild 40% flat). Read live with a
+  procmem dumper (RowMap @0x30: sparse array of 24-byte elements; FName pool as in tools/offline-audit/frigdata.py).
+- Related UFunctions seen (not used): SIGISInventoryComponent Server_AdjustShopInventory, Client_AddShopItem,
+  Client_RemoveShopItem, Client_StartShoppingMenu, Server_BuyItem; RaidPlayerController ClientShowShopInventory.
+  ForEachProperty on these UFunctions errored in UE4SS (opaque error), so their parameters weren't read.
+- vendors.lua adds 107 rows (guns, armour, helmets, bags from gear.lua, by faction; ammo with its first gun), level by
+  price: <2500 -> 1, <5000 -> 3, <8000 -> 5, <11000 -> 7, else 9. Left out: heavy variants, Full Panzer/Sherman, boss and
+  signature gear, radios, barrel bags, flamethrower. Arrays grow natively with GMalloc (never from Lua); old buffers
+  are leaked, not freed. VENDOR_PRICE (Features, %) rescales every level's ShopDeduction: d' = 1 - (1 - d) x p.
+- Verified in game (lobby, throwaway save): "vendors: 107 items added", the table read back with the new rows at
+  every level (e.g. United 38 extras by level 7, Republic MG42/DP28/SVU at 9), no crash. NOT verified: the trader screen
+  showing and selling them (couldn't open a trader from the bridge), and VENDOR_PRICE in the shop.
+
