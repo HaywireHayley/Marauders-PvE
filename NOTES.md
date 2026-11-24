@@ -905,6 +905,16 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
   Now each entry keeps its object path and missions.lua looks it up with StaticFindObject on every use. Not yet
   re-tested at the Mini Mine.
 
+- 2026-11-24 (#333, NOT tested in game): Destroy events (type 3). missions.lua reads the active Destroy rows' tags
+  (GetAllMissionsForRaid + the chapter step, ContractType == 3, as minimap.lua reads them), and on the native
+  RaidSubNodeActor_Turret:NetOnDeathEvent or Actor:K2_DestroyActor (NodeMine only with its mesh hidden, as spacefx.lua)
+  of an actor whose Tags hold one, sends Client_CheckMissionEvent(tag, 3) once per actor (full name in S.fired; no
+  native-event detection). Assumptions: mines/turrets carry the contract tag in Tags (unverified), candidates are
+  RaidSubNodeActor + MineStaticActor_C. Double-count risk if the native CheckMissionActor path also fires: look for
+  "[missions] destroyed" in the log and compare the contract progress. Also: a "Hold F to inspect" line (defuse.lua's
+  DebugInfo_Widget prompt) while an inspect object is targeted; Destroy targets join missions.actors() so the minimap
+  marks them (M.version() makes it rebuild its task markers; ones in a Space_* level get no place, so no marker).
+
 ## Rival ship combat (2026-10-31, rivals.lua)
 - Why ships never fired: every frigate's DefaultInventoryClasses = InGame_BowGun_50Cal_C, never spawned offline
   (CurrentWeapon nil, also YOUR ship). And ARaidAIShipController::ShootEnemy (thunk 0x18dabc0 -> 0x17ed260) only fires

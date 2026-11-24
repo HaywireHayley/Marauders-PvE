@@ -27,11 +27,17 @@ local CFG = {
     LOOK_GRACE = 1.5,    -- seconds of looking away before an inspect stops (it restarts from zero)
     USE_KEY = "F",       -- the "Use" action's default key, if it has no binding (keys.lua reads the player's own)
     RESEND = 1.0,        -- seconds between inspect events sent while Use is held (#20)
+    -- Destroy contracts (type 3, #333): classes looked through for actors whose Tags name an active Destroy target.
+    -- RaidSubNodeActor covers space mines (Small_/Nuclear_NodeMine) and station turrets; MineStaticActor_C station mines.
+    DESTROY_CLASSES = { "RaidSubNodeActor", "MineStaticActor_C" },
+    DESTROY_TRIES = 10,  -- ...looked for this many times, RESCAN apart, until some are found
+    HINT_STALE = 0.5,    -- seconds without M.interact before the "Hold F" hint is taken down (left the pawn, etc.)
 }
 
 local S -- per-raid state
 
-local valid -- main.lua's helpers, from ctx (init)
+local valid, lib -- main.lua's helpers, from ctx (init)
+local hint -- { host, text, slot, shown }: the "Hold F to inspect" line (per world, dropped by M.reset)
 
 -- The contract actors are found once a raid but never kept as objects: one kept from that scan was freed later (a
 -- station's actors replaced, or an old world's still listed), and the first IsValid on it, when you walked up to it,
@@ -90,14 +96,143 @@ local function leave(pc, c)
     X.log("[missions] left " .. c.name)
 end
 
+-- Destroy contracts (type 3, #333) ----------------------------------------------------------------------------------
+-- Live, the server's half of a mine or turret sends Client_CheckMissionEvent(tag, Destroy) when it dies; offline
+-- nothing does (NOTES: "Not verified: Destroy contracts"). The active Destroy targets' tags are read from the raid's
+-- contract rows and the campaign step (as minimap.lua reads them), and death is caught where spacefx.lua catches it:
+-- the native RaidSubNodeActor_Turret:NetOnDeathEvent (turrets) and Actor:K2_DestroyActor (mines destroy themselves
+-- after going off). An actor counts once (its full name in S.fired) whichever of the two sees it.
+local function destroyTags(pc)
+    local set, n = {}, 0
+    local function add(m)
+        if m.ContractType ~= 3 then return end
+        pcall(function() m.ContractRequiredActorTags:ForEach(function(_, t)
+            local k = t:get():ToString()
+            if not set[k] then set[k] = true n = n + 1 end
+        end) end)
+    end
+    for _, e in ipairs(pc:GetAllMissionsForRaid() or {}) do add(e:get()) end
+    pcall(function()
+        local gi = FindFirstOf("SIGIS_ExampleGameInstance_C") -- (pc:GetGameInstance() throws from Lua)
+        local c = gi.PrologueChapter
+        local rows = pc:GetAllMissionsForChapters(c.Chapter:ToString())
+        local e = rows and rows[c.ChapterStage + 1]
+        if e then add(e:get()) end
+    end)
+    return set, n
+end
+
+local function tagsOf(a)
+    local tags = {}
+    pcall(function() a.Tags:ForEach(function(_, e) tags[#tags + 1] = e:get():ToString() end) end)
+    return tags
+end
+
+-- Actors that are Destroy targets now, for the minimap (same entry shape as scan()'s, type 3).
+local function scanDestroy()
+    local list = {}
+    for _, cls in ipairs(CFG.DESTROY_CLASSES) do
+        for _, a in ipairs(FindAllOf(cls) or {}) do
+            if valid(a) then
+                local hit = {}
+                for _, t in ipairs(tagsOf(a)) do if S.destroyTags[t] then hit[#hit + 1] = t end end
+                local full = #hit > 0 and a:GetFullName()
+                local path = full and full:match("^%S+ (.+)$")
+                -- (one in the space map's own level gets no place: minimap.lua would make the whole space map a
+                -- "station" of it, as loose airlocks once did)
+                local level = full and full:match("([%w_]+):PersistentLevel")
+                if level and level:find("^Space_") then level = nil end
+                if path then
+                    local l = a:K2_GetActorLocation()
+                    list[#list + 1] = { path = path, full = full, tags = hit, type = 3,
+                        at = { X = l.X, Y = l.Y, Z = l.Z }, level = level,
+                        name = a:GetClass():GetFName():ToString():gsub("_C$", "") }
+                end
+            end
+        end
+    end
+    return list
+end
+
+-- A mine or turret died: if its Tags name an active Destroy target, count it once.
+local function destroyed(a, why)
+    if not S or not S.destroyTags or not valid(S.pc) or not valid(a) then return end
+    local hit = {}
+    for _, t in ipairs(tagsOf(a)) do if S.destroyTags[t] then hit[#hit + 1] = t end end
+    if #hit == 0 then return end
+    local key = a:GetFullName()
+    if S.fired[key] then return end
+    S.fired[key] = true
+    S.ver = (S.ver or 0) + 1
+    for _, t in ipairs(hit) do
+        local ok, err = pcall(function() S.pc:Client_CheckMissionEvent(FName(t), 3) end)
+        if not ok then X.log("[missions] destroy event failed: " .. tostring(err)) end
+    end
+    X.log(("[missions] destroyed %s (%s, %s): sent Destroy"):format(key, table.concat(hit, ","), why))
+end
+
+-- The "Hold F to inspect" line, bottom middle (defuse.lua's prompt pattern: a DebugInfo_Widget canvas with one text).
+local HOST = "/SIGISPlugin/Widgets/DebugInfo_Widget.DebugInfo_Widget_C"
+local function say(pc, s)
+    if hint and not valid(hint.host) then hint = nil end
+    if not hint then
+        if not s then return end
+        local cls = lib(HOST)
+        if not valid(cls) then pcall(LoadAsset, (HOST:match("^[^.]+"))) cls = lib(HOST) end
+        if not valid(cls) then return end
+        local h = lib("/Script/UMG.Default__WidgetBlueprintLibrary"):Create(pc, cls, pc)
+        if not valid(h) then return end
+        h.WidgetTree.RootWidget:ClearChildren()
+        local t = StaticConstructObject(lib("/Script/UMG.TextBlock"), h.WidgetTree)
+        t.Font.Size = 18
+        hint = { host = h, text = t }
+        hint.slot = h.WidgetTree.RootWidget:AddChildToCanvas(t)
+        hint.slot:SetAutoSize(true)
+        hint.slot:SetAlignment({ X = 0.5, Y = 0.5 })
+        h:AddToViewport(40)
+    end
+    if s and hint.shown ~= s then
+        local wll = lib("/Script/UMG.Default__WidgetLayoutLibrary")
+        local vp, scale = { X = 1600, Y = 900 }, 1
+        pcall(function() vp = wll:GetViewportSize(pc) end)
+        pcall(function() scale = wll:GetViewportScale(pc) end)
+        if not (scale and scale > 0) then scale = 1 end
+        hint.slot:SetPosition({ X = vp.X / scale / 2, Y = vp.Y / scale * 0.68 })
+    end
+    if hint.shown ~= s then
+        hint.shown = s
+        hint.text:SetText(FText(s or ""))
+        hint.host:SetVisibility(s and 4 or 1) -- HitTestInvisible / Collapsed
+    end
+end
+
 -- A new world: the last raid's contract actors were freed with it (M.interact runs before M.update rescans).
-function M.reset() S = nil end
+function M.reset() S = nil hint = nil end
 
 -- Called from the director's update in raids and space maps. key = the director's per-raid key; pawn = your
 -- on-foot character.
 function M.update(pc, key, pawn)
     local now = os.clock()
-    if not S or S.key ~= key then S = { key = key, list = {}, scannedAt = -1e9 } end
+    if not S or S.key ~= key then S = { key = key, list = {}, scannedAt = -1e9, destroy = {}, fired = {}, tries = 0 } end
+    S.pc = pc
+    if hint and hint.shown and now - (S.hintAt or 0) > CFG.HINT_STALE then pcall(say, pc, nil) end
+    -- Destroy targets: the tags once the contracts can be read, then the actors (stations stream in: a few tries).
+    if not S.destroyTags and now - (S.destroyAt or -1e9) >= CFG.RESCAN then
+        S.destroyAt = now
+        local ok, set, n = pcall(destroyTags, pc)
+        if ok and (n > 0 or S.tries >= CFG.DESTROY_TRIES) then
+            S.destroyTags = set
+            if n > 0 then X.log(("[missions] %d destroy target tag(s)"):format(n)) end
+        end
+        S.tries = S.tries + 1
+    end
+    if S.destroyTags and next(S.destroyTags) and #S.destroy == 0 and S.destroyTries ~= CFG.DESTROY_TRIES
+        and now - (S.destroyScanAt or -1e9) >= CFG.RESCAN then
+        S.destroyScanAt, S.destroyTries = now, (S.destroyTries or 0) + 1
+        S.destroy = scanDestroy()
+        if #S.destroy > 0 then S.ver = (S.ver or 0) + 1 end
+        if #S.destroy > 0 then X.log(("[missions] %d destroy target actor(s)"):format(#S.destroy)) end
+    end
     if not valid(pawn) then return end
     if #S.list == 0 and now - S.scannedAt >= CFG.RESCAN then
         S.scannedAt = now
@@ -131,7 +266,10 @@ end
 -- LastInteractionActor is the object (within 400) and the Use key is held. Called by the director right after each
 -- InteractionDetection: if you're close to one and looking at it, make it your interaction target.
 function M.interact(pc, pawn)
-    if not S or #S.list == 0 or not valid(pawn) then return end
+    if not S or #S.list == 0 or not valid(pawn) then
+        if hint and hint.shown then pcall(say, pc, nil) end
+        return
+    end
     local l = pawn:K2_GetActorLocation()
     local best, bd
     for _, c in ipairs(S.list) do
@@ -194,11 +332,62 @@ function M.interact(pc, pawn)
             end
         end
     end
+    -- The "F" prompt the game never shows for these offline (#333): while you look at one it would still take.
+    local line
+    if target and not (S.refused and S.refused[S.looking]) then
+        local idle = true
+        pcall(function() idle = pc.CurrentTimedMission:ToString() == "None" end)
+        local k = require("keys").name("Use", CFG.USE_KEY)
+        line = idle and ("Hold " .. k .. " to inspect") or ("Inspecting... keep holding " .. k)
+    end
+    if line then S.hintAt = now end
+    if line or (hint and hint.shown) then
+        local okh, errh = pcall(say, pc, line)
+        if not okh then X.log("[missions] hint: " .. tostring(errh)) end
+    end
 end
 
--- The contract actors found so far (minimap.lua).
-function M.actors() return S and S.list or {} end
+-- The contract actors found so far, and the Destroy targets not yet destroyed (minimap.lua: places and task markers
+-- by tag). A destroyed target is found by name (live(), never a kept pointer) and dropped.
+function M.actors()
+    if not S then return {} end
+    if #S.destroy == 0 then return S.list end
+    local r = {}
+    for _, c in ipairs(S.list) do r[#r + 1] = c end
+    for _, c in ipairs(S.destroy) do
+        if not S.fired[c.full] and live(c) then r[#r + 1] = c end
+    end
+    return r
+end
 
-function M.init(ctx) X = ctx valid = ctx.valid end
+-- Bumped when the Destroy targets change (found, or one destroyed): minimap.lua rebuilds its task markers then.
+function M.version() return S and S.ver or 0 end
+
+local TURRET_DEATH ="/Script/RaidGame.RaidSubNodeActor_Turret:NetOnDeathEvent"
+local DESTROY = "/Script/Engine.Actor:K2_DestroyActor"
+
+function M.init(ctx)
+    X = ctx valid = ctx.valid lib = ctx.lib
+    local okt, errt = pcall(RegisterHook, TURRET_DEATH, function(self)
+        local ok, err = pcall(function() destroyed(self:get(), "turret death") end)
+        if not ok then X.log("[missions] turret death: " .. tostring(err)) end
+    end)
+    if not okt then X.log("[missions] turret hook failed: " .. tostring(errt)) end
+    local okm, errm = pcall(RegisterHook, DESTROY, function(self)
+        if not S or not S.destroyTags or not next(S.destroyTags) then return end -- cheap: most raids have none
+        local ok, err = pcall(function()
+            local a = self:get()
+            if not valid(a) then return end
+            -- A space mine cleaned up with the level still shows its mesh; one that went off hid it first (spacefx.lua).
+            if a:GetClass():GetFName():ToString():find("NodeMine", 1, true) then
+                local mesh = a.StaticMesh
+                if not (valid(mesh) and not mesh:IsVisible()) then return end
+            end
+            destroyed(a, "destroyed")
+        end)
+        if not ok then X.log("[missions] destroy: " .. tostring(err)) end
+    end)
+    if not okm then X.log("[missions] destroy hook failed: " .. tostring(errm)) end
+end
 
 return M

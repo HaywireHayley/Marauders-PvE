@@ -1144,7 +1144,7 @@ Civilians.init({ log = log, valid = valid, lib = lib, dist = dist, navLib = navL
 Civilians.setRaid(raid)
 Rivals.onStation = Civilians.station
 Missions = require("missions")
-Missions.init({ log = log, valid = valid })
+Missions.init({ log = log, valid = valid, lib = lib })
 -- Manning a turret yourself (gunseat.lua): the seat's client half (turning, firing, getting up) that never runs offline.
 Gunseat.init({ log = log, valid = valid })
 Minimap.init({ log = log, valid = valid, lib = lib, missions = Missions, crew = Crew, raid = function() return raid end })
