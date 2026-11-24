@@ -758,6 +758,11 @@ Standing_LegsPlayrate 1.1/0.65) while watching the screen:
   bIsTargeting (pawn +0x9e8, ADS); hip fire only gets the control-rig arm shake (rc_FPS_AnimBP Recoil_*, which
   worked all along, camera wobble ~0.1 deg). The base FireWeapon (0x1884b80, all Weapon_Master guns) never touches
   currentRecoil/currentBulletSpread (+0x84c/+0x854): those are only used by subclass FireWeapons 0x1885ee0/0x18868b0.
+- **Per-gun recoil scale (2026-11-24, #371, NOT tested in game)**: recoil.lua scales the held gun's
+  WeaponConfig.VerticalRecoil (the per-burst climb cap, per spork) by fire rate: automatic Rifle_ classes faster than
+  REF_INTERVAL 0.12 s get interval/0.12 (min MIN_SCALE 0.55; PPSh/MAC-10 0.72, Klobb 0.63, Uzi/Mat-49/M16 0.83), x
+  RECOIL_MULT for all guns (settings tab "Recoil"). HorizontalRecoil and TimeBetweenShots are guessed property names;
+  not verified that a write to the instance's WeaponConfig struct changes the climb (look for "recoil:" lines in the log).
 - **Bullet impacts (fixed, pvepatch "Bullet impact effects")**: FireWeapon calls the client hit simulation
   0x18a1c70, which starts `GetNetMode() == 3 (NM_Client)` else return: impact FX, hit reacts (OnProxyHitReact
   event via 0x18d4900) and the pooled impacts (RaidPlayerController.PooledImpactActors, 150, taken by 0x1832420)

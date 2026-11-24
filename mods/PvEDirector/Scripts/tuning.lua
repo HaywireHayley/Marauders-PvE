@@ -283,6 +283,14 @@ local function define()
         { "TURRET_ON_AIM", "How close to on-target before firing (degrees)", 0.5, 10, 0.1, "Lower = gunners wait for a better shot" },
     })
     tabs[#tabs + 1] = guns
+    -- Your guns' recoil (recoil.lua, #371). Read when you next hold a gun, so a change shows at once.
+    local recoil = { name = "Recoil" }
+    add(recoil, require("recoil").CFG, {
+        { "RECOIL_MULT", "Recoil, all guns", 0, 2, 0.05, "1 = the game's own. Lower = less climb on every gun" },
+        { "REF_INTERVAL", "Full recoil up to this fire rate (seconds between shots)", 0.06, 0.2, 0.005, "0.12 = 500 RPM. Faster guns climb less, by how much faster" },
+        { "MIN_SCALE", "Least recoil for the fastest guns", 0.2, 1, 0.05, "1 = fire rate makes no difference" },
+    })
+    tabs[#tabs + 1] = recoil
     if X.CREWCFG and X.hire then
         local mates = { name = "Your crew" }
         add(mates, X.CREWCFG, {
