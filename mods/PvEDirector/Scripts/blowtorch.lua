@@ -24,7 +24,11 @@ local raid -- the per-raid table (setRaid); the torch's state lives in raid.torc
 
 local RANGE = 300 -- cm: how far in front of you a lock can be burned
 local REACH = 30 -- cm: how far your aim line may pass from a lock's middle (the three locks are about 60 cm apart, in a column)
-local DPS = 50 -- damage a second to a lock (300 health: six seconds)
+-- Damage a second to a lock. Fuel (#374): the torch spends about 17 charge a second of firing (2026-11-20, a repair from 0
+-- ran a 250-charge torch dry at 361 hull, 25 hull a second: 250 / 14.4 s = 17.3 a second; and at the old 50 DPS players
+-- measured "over 100 a bolt", 6 s x 17.3 = 104). The live game cost about 90 for a whole vault, so three locks should
+-- take about 90 / 17.3 = 5.2 s: 1.73 s a lock, 300 / 1.73 = 173. At 175: 1.71 s a lock, 5.1 s and about 89 charge a vault.
+local DPS = 175
 local STEP = 0.1 -- seconds between burns
 local FIND_EVERY = 10 -- seconds between looks for the doors' lock volumes while firing (a FindAllOf walks every object)
 local NEAR = 1500 -- cm: lock volumes farther than this from you are not looked at
@@ -51,10 +55,19 @@ local function findVolumes(s, now)
     s.vols = {}
     for _, c in ipairs(FindAllOf("RaidLockVolumeComponent") or {}) do
         if X.valid(c) then
-            local which = nameOf(c):match("RaidLockVolume_(%a+)")
+            local n = nameOf(c)
+            local which = n:match("RaidLockVolume_(%a+)")
             local door = c:GetOwner()
-            if LOCKS[which] and X.valid(door) then
-                s.vols[#s.vols + 1] = { c = c, door = door, name = LOCKS[which], key = tostring(c:GetAddress()), doorKey = tostring(door:GetAddress()) }
+            if X.valid(door) then
+                -- a lock box not named Top/Middle/Bottom (a storage crate door was reported not to burn, #374; its names are
+                -- not known) is still burned: its door gets LockDamaged with the box's own name, and bIsUnlocked when done
+                local name = LOCKS[which]
+                if not name then
+                    name = n
+                    s.odd = s.odd or {}
+                    if not s.odd[n] then s.odd[n] = true X.log(("blowtorch: lock box %s on %s (not Top/Middle/Bottom)"):format(n, nameOf(door))) end
+                end
+                s.vols[#s.vols + 1] = { c = c, door = door, name = name, key = tostring(c:GetAddress()), doorKey = tostring(door:GetAddress()) }
             end
         end
     end
@@ -73,13 +86,13 @@ local function burnLock(s, v, dmg)
     s.hp[v.key] = left
     v.c.Health = left
     -- the door's own event: the percent is 0 to 1 (the door stored 0.9667 for 290 of 300 in the 2026-11-18 test)
-    v.door:LockDamaged(FName(v.name), left / s.max[v.key])
+    pcall(function() v.door:LockDamaged(FName(v.name), left / s.max[v.key]) end)
     if left > 0 then return end
     for _, o in ipairs(s.vols) do
         if o.doorKey == v.doorKey and (s.hp[o.key] or 1) > 0 then return end
     end
-    v.door.bIsUnlocked = true
-    X.log(("blowtorch: all three locks of %s are burned through, door unlocked"):format(nameOf(v.door)))
+    pcall(function() v.door.bIsUnlocked = true end)
+    X.log(("blowtorch: all locks of %s are burned through, door unlocked"):format(nameOf(v.door)))
 end
 
 local function burn(s, now, pc, pawn)
