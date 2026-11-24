@@ -306,6 +306,16 @@ local function define()
         end
         tabs[#tabs + 1] = mates
     end
+    -- Recoil (recoil.lua): what the game leaves out of the weapon data's recoil. Read on every shot, so a change shows at once.
+    local rec = { name = "Recoil" }
+    add(rec, require("recoil").CFG, {
+        { "RECOIL_FIX", "Recoil follows the weapon data", 0, 1, 1, "1 = on, 0 = the game's own: only when aiming, every gun's hip number, VerticalRecoilADS ignored, nothing at the hip" },
+        { "ADS_VALUES", "Aimed shots use each gun's aim down sights value", 0, 1, 1, "1 = VerticalRecoilADS (the Jackhammer kicks 0.3, not 2.0), 0 = the hip number like the game" },
+        { "HIP_KICK", "Shots at the hip kick the view", 0, 1, 1, "1 = on (the gun's VerticalRecoil, crouch, moving and in air modifiers), 0 = no kick at the hip like the game" },
+        { "RECOIL_SCALE", "Recoil, every gun (x)", 0, 3, 0.05, "1 = as the weapon data says, 0.5 = half, 2 = double. Aimed and hip" },
+        { "HIP_SCALE", "Hip recoil on top of that (x)", 0, 3, 0.05, "1 = the gun's own hip number" },
+    })
+    tabs[#tabs + 1] = rec
     -- Effects: bullet holes the offline game never makes (bulletholes.lua). Read as shots land, so a change shows at once.
     local fx = { name = "Effects" }
     add(fx, require("bulletholes").CFG, {
@@ -313,6 +323,9 @@ local function define()
         { "HOLE_SECONDS", "How long a bullet hole lasts (seconds)", 10, 300, 5, "Then it fades out" },
         { "MAX_HOLES", "Most bullet holes at once", 0, 500, 10, "The oldest go first. Lower = better frame rate in long firefights" },
         { "HOLE_SIZE", "Bullet hole size (cm, half width)", 2, 12, 0.5, "5 = a 10 cm hole" },
+    })
+    add(fx, require("impactsound").CFG, {
+        { "IMPACT_VOICES", "Impact sounds playing at once", 0, 20, 1, "6 = a shotgun's pellet impacts no longer cut its boom. 0 = the game's own 20 (the boom clips from the second shot at a close wall)" },
     })
     add(fx, require("gatetaps").CFG, {
         { "GATE_TAPS", "Gate superstition: two taps", 0, 1, 1, "1 = tap Space exactly twice just before the space gate and a gold coin lands in your gift box (once or three times: only a remark). 0 = off" },

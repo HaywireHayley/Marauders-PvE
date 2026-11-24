@@ -239,7 +239,9 @@ local DebugActions = require("debugactions") -- the debug menu's buttons (F9) an
 local RaidTime = require("raidtime") -- the launcher's raid length (#159)
 local ShipSpeed = require("shipspeed") -- a faster Rustbucket and a boost at the helm (#207)
 local Blowtorch = require("blowtorch") -- the blowtorch burns a vault door's three locks offline
+local Recoil = require("recoil") -- recoil as the weapon data says (aimed values, the hip kick)
 local BulletHoles = require("bulletholes") -- bullet holes in walls and floors, which the offline game never makes
+local ImpactSound = require("impactsound") -- caps the impact sounds a shotgun makes, so they stop cutting its boom
 AI.init({ log = log, valid = valid, dist = dist })
 require("cache").init(valid) -- (lookups kept while valid: the menu's controller, the world)
 
@@ -741,6 +743,10 @@ local function onTick(ctx)
         if not ok and not raid.torchFailed then raid.torchFailed = true log("blowtorch failed: " .. tostring(err)) end
         ok, err = ppcall("bulletholes", BulletHoles.frame, ticker)
         if not ok and not raid.holesFailed then raid.holesFailed = true log("bullet holes failed: " .. tostring(err)) end
+        ok, err = ppcall("impactsound", ImpactSound.frame, ticker)
+        if not ok and not raid.impactSoundFailed then raid.impactSoundFailed = true log("impact sound cap failed: " .. tostring(err)) end
+        ok, err = ppcall("recoil", Recoil.frame, ticker)
+        if not ok and not raid.recoilFailed then raid.recoilFailed = true log("recoil failed: " .. tostring(err)) end
         ok, err = ppcall("unstuck", Unstuck.update, ticker)
         if not ok and not raid.unstuckFailed then raid.unstuckFailed = true log("unstuck failed: " .. tostring(err)) end
         ok, err = ppcall("defuse", Defuse.update, ticker)
@@ -1082,6 +1088,8 @@ ShipSpeed.init({ log = log, valid = valid })
 Unstuck.init({ log = log, valid = valid, navLib = navLib, navMesh = navMesh, queryFilter = queryFilter })
 Blowtorch.init({ log = log, valid = valid, lib = lib })
 BulletHoles.init({ log = log, valid = valid })
+ImpactSound.init({ log = log, valid = valid })
+Recoil.init({ log = log, valid = valid })
 Crew.init({ rivals = Rivals, hire = Hire, AI = AI, lib = lib, voice = Voice, log = log, valid = valid, dist = dist,
     gunseat = Gunseat,
     navLib = navLib, navMesh = navMesh,
