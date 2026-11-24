@@ -17,7 +17,7 @@ flowchart LR
 
     TORCH --- NATIVE
     NATIVE -. "meant to hit the lock boxes<br/>and call LockDamaged: nothing<br/>reaches them offline" .-x VOL
-    MOD -- "nearest to your aim line:<br/>50 damage a second" --> VOL
+    MOD -- "nearest to your aim line:<br/>100 damage a second" --> VOL
     MOD -- "LockDamaged(name, share 0 to 1)" --> DOOR
     MOD -- "all three at 0:<br/>bIsUnlocked = true" --> DOOR
 ```
@@ -42,9 +42,9 @@ sequenceDiagram
     participant Door as Door_BlowTorch_C
 
     You->>Mod: fire the torch (BurstCounter above 0)
-    loop every 0.1 s, about 6 s per lock
+    loop every 0.1 s, about 3 s per lock
         Mod->>Mod: find the lock nearest your aim line
-        Mod->>Vol: Health minus 5 (of 300)
+        Mod->>Vol: Health minus 10 (of 300)
         Mod->>Door: LockDamaged(TopLock, share left)
         Door->>Door: Health_TopLock follows the share
     end
@@ -55,12 +55,36 @@ sequenceDiagram
     Door->>Door: the vault door opens
 ```
 
-- **Timings from the 2026-11-18 test run.** A lock took about 6 s at 50 damage a second. The latch then started to fall
-  exactly 10 s after its lock reached 0 (Blueprint `Delay(10)`) and finished about 5 s later. The vault door finished opening
-  about 1 s after the last latch. That 10 s wait is the door's own, not the mod's, and it looks like lag after the lock stops
-  glowing.
+- **Timings.** At 100 damage a second a lock takes about 3 s of firing (the first test, on 2026-11-18, ran at 50 and took
+  about 6 s; see "How fast" below). After a lock reaches 0 the door's own Blueprint waits `Delay(10)` and then scales the
+  latch down over about 5 s; the vault door finished opening about 1 s after the last latch. That wait is the door's, not
+  the mod's, and it looks like lag once the lock stops glowing, so the whole door still takes about 15 s after the last
+  lock, however fast you burn.
 - **The share is 0 to 1.** The door stored 0.9667 for a lock at 290 of 300. A percent from 0 to 100 would be wrong.
 - **The mod sets `bIsUnlocked` itself** once all three locks are at 0. That is the flag "F requires blowtorch" checks.
+
+## When the torch counts as firing
+
+The torch fires in bursts: `BurstStartFireEvent` and `BurstStopedFireEvent` alternate about every 0.08 s (a new burst
+about every 0.16 s), and `BurstCounter` is 0 between them even with the trigger held. The mod looks every 0.1 s, and the
+first version burned nothing on a look that landed in a gap and reset its timer, so that time was thrown away: in the
+2026-11-18 log the locks lost 40 to 45 health a second at a set rate of 50.
+
+Now the torch counts as firing for 0.2 s after the last burst the mod saw (`GRACE`), and the whole time between looks is
+credited, so held fire burns the full rate. The credit never runs past that window, so a tap does not burn on after you
+let go.
+
+## How fast
+
+The rate comes from the torch's own data and from testers of the original game, not from the first guess:
+
+- The torch's `WeaponConfig` has Damage 15 and a shot every 0.075 s (about 13 a second), 200 a second raw. The bursts are
+  on about half the time, so about 100 a second lands. The earlier 50 came from guessing that its `DamageDivide` of 4 was
+  applied to locks; nothing showed that, and it is withdrawn.
+- Testers report about 3 s a lock in the original game, which is 100 a second on a 300 health lock.
+- Fuel agrees. It drains about 13 a second while the trigger is held (250 to 0 in about 19 s in the log), and a vault is
+  900 health, so 9 s and about 117 fuel held down. Testers who tap burn a whole vault use 90 to 100 fuel, because fuel
+  only runs while a burst is firing.
 
 ## Which lock burns
 
@@ -119,5 +143,6 @@ flowchart TD
 ## Trying it
 
 Give yourself the torch from the F9 gun list, stand at a blowtorch door and burn the top, middle and bottom locks one at a
-time: only the lock you aim at should glow and fall. When the last latch has fallen the vault door opens. It needs a raid
-with a blowtorch vault door in it.
+time: only the lock you aim at should glow and fall, each in about 3 s held down. When the last latch has fallen (about
+15 s after the last lock) the vault door opens. A whole vault takes about 117 fuel held down, 90 to 100 tapping. It needs a
+raid with a blowtorch vault door in it.
