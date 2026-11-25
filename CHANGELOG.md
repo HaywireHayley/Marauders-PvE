@@ -2,6 +2,21 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 25 Nov 2026, build 32 (`public-test-20261125.32`)
+
+Get to a station in one click, get past stuck Zero to Hero steps, and a tidier stash sort. On build 1 of 17 Nov or
+later, the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Changes
+- **Quick deploy (#459, PR #470):** F9 > "Quick deploy to the nearest station" puts you at a walkable entrance of the
+  station nearest your ship, after a short fade. Use it on foot aboard your ship, not at the helm; your ship stays
+  where you left it.
+- **Skip a stuck Zero to Hero step (#440, PR #471):** F9 > "Skip Zero to Hero step" completes the current step through
+  the game's own mission event, so its rewards pay as usual. Hold steps finish over a few seconds; Inspect steps can't
+  be skipped yet.
+- **Stash SORT fades to black (#468, PR #469)** with "Sorting..." while items move, instead of showing them jump around.
+  Features tab: "SORT_FADE". Thanks to the player who suggested it.
+
 ## Public test, 25 Nov 2026, build 31 (`public-test-20261125.31`)
 
 Buy a ready-made kit from the launcher, get into fights sooner, and the trader screen shows what it sells. On build 1 of
