@@ -2,6 +2,21 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 25 Nov 2026, build 36 (`public-test-20261125.36`)
+
+New raid conditions on foot, CE commandos in Capital Ships, and what you brought home in the raid summary. On build 1
+of 17 Nov or later, the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Changes
+- **Four on-foot raid conditions (#419, PR #490):** Lockdown (more, steadier guards, better body loot), Prison riot (a
+  crowd of poorly armed, aggressive guards and prisoners), Wandering squads (rival crews raiding the stations on
+  foot) and Scavenger's luck (few guards, double loot). Pick them in the lobby's REGION picker.
+- **Capital Ships condition: CE commandos (#398, PR #491):** most crews on capital ships are now Central Powers
+  commandos in full Panzer kit with StG 44s and MG42s, capital ships turn up four times as often, and the raid goes to
+  a map with the downed Capital Ship. Thanks spacedork_ and AcidBase.
+- **Raid summary: loot (#390, PR #489):** "Brought out: N items worth ~$X" with your three best new finds, or what you
+  lost on a death.
+
 ## Public test, 25 Nov 2026, build 35 (`public-test-20261125.35`)
 
 A PvE tab in the lobby and locked doors on the minimap. On build 1 of 17 Nov or later, the launcher's orange **!**
