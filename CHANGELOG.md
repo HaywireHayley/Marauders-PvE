@@ -2,6 +2,21 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 24 Nov 2026, build 30 (`public-test-20261124.30`)
+
+Fixes from playtesting build 29. On build 1 of 17 Nov or later, the launcher's orange **!** installs this one for you,
+keeping your saves.
+
+### Changes
+- **K and J work on worn gear (#451, #452, PR #456):** K equips a helmet, armour, bag or gun from your stash or bags
+  into its empty slot, and moves worn gear out again; J discards worn gear too.
+- **K in ammo crates and on ammo boxes (#447, #448, PR #456):** K now takes from crates the way Ctrl+click does and
+  finds hovered ammo boxes; each K is logged, so tell us if one still won't move.
+- **The key list closes with F9 or Esc (#450, PR #454);** before, it stayed on screen until a restart.
+- **"Keep contract progress when you die" can be turned on (#449, PR #454).**
+- **Recoil while aiming down sights has its own slider (#453, PR #455):** F10 > Recoil. Hip fire is unchanged; try
+  0.6-0.8 if aiming kicks too hard, and tell us how it feels.
+
 ## Public test, 24 Nov 2026, build 29 (`public-test-20261124.29`)
 
 Traders sell far more, contracts feel less empty, the mod's keys move off the game's voice lines, and a long list of
