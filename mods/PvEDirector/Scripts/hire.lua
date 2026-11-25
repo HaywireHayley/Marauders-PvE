@@ -347,6 +347,7 @@ function H.died(id)
     D.fallen = D.fallen or {}
     D.fallen[#D.fallen + 1] = { name = r.name, level = r.level, raids = r.raids, date = os.date("%Y-%m-%d") }
     save()
+    pcall(function() require("raidsummary").noteCrewDied(r.name) end) -- the raid summary's crew lost (#390)
     X.log(("crew: %s (level %d, %d raids) died"):format(r.name, r.level, r.raids))
 end
 
