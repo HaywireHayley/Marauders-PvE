@@ -257,9 +257,61 @@ def read_state_file():
     return None
 
 
+ROOT = os.path.dirname(HERE)  # the dev tree or the release folder: version.txt (release) and CHANGELOG.md
+NEWS_TIP = "F9 debug and key list, F10 settings, F11 crew"
+
+
+def plain(text):
+    """Markdown to the plain text the lobby news panel shows."""
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)  # links keep their text
+    return re.sub(r"\*\*|__|`", "", text).strip()
+
+
+def pve_news():
+    """The lobby news panel (public storage titleNews, "title!DEL!body"): this build and the newest changelog section
+    instead of the live game's Early Access welcome (#458). None if the changelog can't be read: the seed's text stays."""
+    try:
+        lines = open(os.path.join(ROOT, "CHANGELOG.md"), encoding="utf-8").read().splitlines()
+        start = next(i for i, ln in enumerate(lines) if ln.startswith("## "))
+    except (OSError, StopIteration):
+        return None
+    try:
+        version = open(os.path.join(ROOT, "version.txt"), encoding="utf-8").read().strip()
+    except OSError:  # the dev tree has none: the changelog heading names the build
+        version = ""
+    heading = plain(lines[start][3:])
+    found = re.search(r"public-test-[\w.]+", heading)
+    version = version or (found.group(0) if found else heading)
+    bullets = []
+    for ln in lines[start + 1:]:
+        if ln.startswith("## "):
+            break
+        if ln.startswith("- "):
+            bullets.append(ln[2:])
+        elif ln.startswith("  ") and bullets:
+            bullets[-1] += " " + ln.strip()
+    shown = []
+    for b in bullets[:4]:
+        b = plain(b)
+        shown.append("- " + (b if len(b) <= 160 else b[:157].rstrip() + "..."))
+    return "Marauders PvE!DEL!" + "\n".join([f"Build {version}"] + shown + ["", "Tip: " + NEWS_TIP])
+
+
+def set_news(s):
+    """Refreshed on every start, so old saves get the new build's news too."""
+    news = pve_news()
+    public = s.get("storage", {}).get("public")
+    if news is None or not isinstance(public, dict):
+        return
+    for key, value in (("titleNews", news), ("titleNewsImage", "!DEL!")):  # no YouTube embed; same "a!DEL!b" shape
+        if isinstance(public.get(key), dict):
+            public[key]["value"] = json.dumps({"value": value})
+
+
 def load_state():
     s = read_state_file()
     if s is not None:
+        set_news(s)
         if migrate(s):
             save_state(s)
             return s
@@ -267,6 +319,7 @@ def load_state():
         write_cosmetics(s)
         return s
     s = new_state()
+    set_news(s)
     save_state(s)
     log("built state.json from the capture seed")
     return s
