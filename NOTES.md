@@ -5503,3 +5503,15 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   ends (done, stopped, failed), after 8 s regardless, and dropped untouched on a world change; never rooted.
   `features.lua` SORT_FADE (F10 Features) turns it off. Only luacheck run: NOT tested in game (full-screen anchors via
   SetAnchors/SetOffsets are in a pcall with an 8000 px size as fallback; unverified which one takes).
+
+## Field of view (#328)
+- 2026-11-25, NOT tested in game. Features tab: FOV (0 = the game's own, 70-120) and ADS_ZOOM (1 = the game's aim zoom,
+  0 = none, between = blend); mods/PvEDirector/Scripts/fov.lua, ticked every raid frame from main.lua (no new main
+  local: `require("fov").tick`). ASSUMED: the view is the pawn's UCameraComponent (`FirstPersonCamera`, `Camera`, else
+  GetComponentByClass) and the game's aim zoom narrows that component's `FieldOfView`; aiming = pawn `bIsTargeting`
+  (+0x9e8, see Recoil). Values in FieldOfView that differ from the one we last wrote are taken as the game's; the hip
+  value is remembered while not aiming, zoom = game/hip, written FOV = (FOV or hip) * (1 - ADS_ZOOM * (1 - zoom)).
+  At defaults nothing is written (after a change back, the game's last value is restored once). Unverified: whether the
+  aim FOV lives on the camera component at all (could be PlayerCameraManager SetFOV / DefaultFOV, or a FovModifier from
+  VideoSettings.sav), and whether the helm/ship view uses another camera. Probe: `lua` read of pc.Pawn camera
+  FieldOfView while aiming vs PlayerCameraManager.CameraCachePrivate.POV.FOV. Earlier draft: PR #345 (launcher file).
