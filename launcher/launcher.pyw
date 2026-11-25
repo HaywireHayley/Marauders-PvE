@@ -263,7 +263,7 @@ class Button(tk.Label):
 # The mod's keys, as the CONTROLS dialog lists them (keep in step with README.md's "Controls" table).
 CONTROLS = [
     ("F11", "Your crew: hire, dismiss, and choose who comes on raids", "Lobby and raids"),
-    ("F10", "AI tuning: every enemy, rival and crew setting, including how many spawn", "Lobby and raids"),
+    ("F10", "PvE settings (also PVE > SETTINGS in the lobby): every enemy, rival and crew setting, features, raid length", "Lobby and raids"),
     ("F9", "Debug menu: god mode, your body (woman or man), extract now, spawn a soldier, and more", "Lobby and raids"),
     ("N", "Minimap on or off", "Raids"),
     ("M", "Minimap full overview, and back", "Raids"),
@@ -552,7 +552,7 @@ class App(tk.Tk):
         Button(head, "REPORT", self.report_problem, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
         Button(head, "IMPORT", self.import_saves, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
         Button(head, "CO-OP", self.show_coop, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
-        Button(head, "SETTINGS", self.show_settings, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
+        Button(head, "PVE SETTINGS", self.show_settings, size=11, pad=(14, 5)).pack(side="right", padx=(0, 8))
         tk.Frame(left, bg=ORANGE, height=2).pack(fill="x", pady=(7, 8))
         self.list_box = tk.Frame(left, bg=INK)
         self.list_box.pack(fill="both", expand=True)
@@ -672,7 +672,7 @@ class App(tk.Tk):
         self.update_button.pack(side="left")
         self.update_button.bind("<Enter>", lambda e: None if self.update_button.enabled else self.say(
             "Updates: the launcher installs new builds itself and keeps your saves. When one is out this button lights "
-            "up. " + ("Checking is off (SETTINGS)." if not self.update_check_var.get() else "")))
+            "up. " + ("Checking is off (PVE SETTINGS)." if not self.update_check_var.get() else "")))
         self.update_badge.place(relx=1.0, x=-36, y=40, anchor="ne")
 
         # width=1: the label asks for no room of its own and just fills its column (sticky ew). Sized to its text, a long
@@ -952,7 +952,7 @@ class App(tk.Tk):
         right, difficulty and your own presets on top, which you can save, export to share, and import. Changes are
         written at once to the file F10 uses (config/ai_tuning.txt), which the game reads when it starts; F10 in a raid
         still changes things live. The list of settings comes from the mod (config/settings_schema.json)."""
-        d = Dialog(self, "Settings")
+        d = Dialog(self, "PvE settings")
         self.app_options(d.body)
         schema = settings.load_schema()
         if not schema:
@@ -963,6 +963,9 @@ class App(tk.Tk):
             Button(r, "Close", d.destroy, size=11, pad=(14, 6)).pack(side="left")
             d.show()
             return
+        tk.Label(d.body, text="The same settings are in the game: F10, or PVE > SETTINGS in the lobby. Raid length, the "
+                 "space gate and the share of women are on the main page, and on the game's Raid tab.", bg=PANEL,
+                 fg=MUTED, font=font(10), justify="left", wraplength=wrap(620)).pack(anchor="w", pady=(0, 6))
         values = settings.read_values()
         mine = settings.read_presets()
         known = {r["id"]: r for r in settings.rows(schema)}

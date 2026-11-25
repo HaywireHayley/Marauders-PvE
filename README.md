@@ -43,7 +43,7 @@ salvage and docking. Along the way the mod has also added things the live game n
   they fight, and difficulty presets.
 - **Loot density:** F10's **Loot** tab sets how much floor loot spawns and how much is in each body, from 0 (none) to 3
   times the usual. Ammo in bodies and loot in containers are not changed.
-- **Settings before a raid:** the launcher's **SETTINGS** button shows every F10 setting by tab, with the difficulty
+- **Settings before a raid:** the launcher's **PVE SETTINGS** button (in game: F10, or PVE > SETTINGS in the lobby) shows every F10 setting by tab, with the difficulty
   levels and your own presets: save a setup, export it to a file to share, import a friend's. Changes save as you make
   them. The game reads them when it starts, and F10 still works in a raid. (The list fills in after the game has started
   once with this build.)
@@ -227,7 +227,7 @@ The game's own controls are unchanged, and F1-F8 stay the game's voice lines. Th
 
 ### TOO DIFFICULT? Too busy or too quiet?
 
-Every raid's population and difficulty can be tuned to your liking. Press F10 and open the How many tab: rival crews per raid, people in each crew, guards at each station, and how many ship battles break out around you. Rival ships sets how often crews attack and board, and Difficulty at the top picks a preset. Changes save themselves. Crew numbers take effect from your next raid, and guard numbers from the next station you visit. Save setups you like under Saved setups.
+Every raid's population and difficulty can be tuned to your liking. Press F10 and open the How many tab: rival crews per raid, people in each crew, guards at each station, and how many ship battles break out around you. Rival ships sets how often crews attack and board, and Difficulty at the top picks a preset. Changes save themselves. Crew numbers take effect from your next raid, and guard numbers from the next station you visit. Save setups you like under My presets.
 
 ### Civilians
 

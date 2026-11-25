@@ -8,7 +8,7 @@
 local M = {}
 local X -- log, valid (from quit.lua, which ticks this)
 
-local ENTRIES = { { key = "pve", label = "PVE" }, { key = "crew", label = "CREW" }, { key = "ai", label = "AI" },
+local ENTRIES = { { key = "pve", label = "PVE" }, { key = "crew", label = "CREW" }, { key = "ai", label = "SETTINGS" },
     { key = "debug", label = "DEBUG" } }
 local COLLAPSED, VISIBLE = 1, 0 -- ESlateVisibility
 local actions = {}  -- crew, ai, debug: functions (main.lua)
