@@ -763,6 +763,11 @@ Standing_LegsPlayrate 1.1/0.65) while watching the screen:
   REF_INTERVAL 0.12 s get interval/0.12 (min MIN_SCALE 0.55; PPSh/MAC-10 0.72, Klobb 0.63, Uzi/Mat-49/M16 0.83), x
   RECOIL_MULT for all guns (settings tab "Recoil"). HorizontalRecoil and TimeBetweenShots are guessed property names;
   not verified that a write to the instance's WeaponConfig struct changes the climb (look for "recoil:" lines in the log).
+- **ADS recoil setting (2026-11-24, #453, NOT tested in game)**: since the aim kick from VerticalRecoil/HorizontalRecoil
+  only applies while bIsTargeting (above), hip "recoil" is the arm shake and VerticalRecoil is effectively the ADS
+  recoil. Added RECOIL_ADS_MULT (Recoil tab) multiplied into the same scale, plus a one-time per-class log line
+  "recoil fields:" of guessed WeaponConfig names (VerticalRecoilADS, RecoilRecovery... property reads only). Not
+  determined: whether an ADS-only field is read, and whether the per-burst cap or the per-shot kick feels off.
 - **Bullet impacts (fixed, pvepatch "Bullet impact effects")**: FireWeapon calls the client hit simulation
   0x18a1c70, which starts `GetNetMode() == 3 (NM_Client)` else return: impact FX, hit reacts (OnProxyHitReact
   event via 0x18d4900) and the pooled impacts (RaidPlayerController.PooledImpactActors, 150, taken by 0x1832420)

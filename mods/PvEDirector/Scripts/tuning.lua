@@ -290,6 +290,7 @@ local function define()
         { "RECOIL_MULT", "Recoil, all guns", 0, 2, 0.05, "1 = the game's own. Lower = less climb on every gun" },
         { "REF_INTERVAL", "Full recoil up to this fire rate (seconds between shots)", 0.06, 0.2, 0.005, "0.12 = 500 RPM. Faster guns climb less, by how much faster" },
         { "MIN_SCALE", "Least recoil for the fastest guns", 0.2, 1, 0.05, "1 = fire rate makes no difference" },
+        { "RECOIL_ADS_MULT", "Recoil while aiming down sights", 0, 2, 0.05, "The aim kick only happens in ADS; hip fire is not changed" },
     })
     tabs[#tabs + 1] = recoil
     if X.CREWCFG and X.hire then

@@ -10,12 +10,19 @@
 -- WeaponConfig.HorizontalRecoil and WeaponConfig.TimeBetweenShots are guessed (the latter only a fallback for guns not
 -- in INTERVAL). The values are written on the held gun's own WeaponConfig struct, once per gun (the original is kept, so
 -- a change of MULT in the settings menu rescales from it).
+--
+-- ADS (#453, NOT TESTED IN GAME): the aim kick these fields drive only applies while bIsTargeting (pawn +0x9e8, NOTES
+-- "Recoil"); hip fire only gets the control-rig arm shake, which this file never touches. So VerticalRecoil is in
+-- effect the ADS recoil, and RECOIL_ADS_MULT scales it (and HorizontalRecoil) on top of the fire-rate scale without
+-- changing the hip feel. The first time each gun class is held its other recoil-looking WeaponConfig fields are logged
+-- ("recoil fields:"), property reads only, so a playtest can see whether an ADS-specific field exists and is non-zero.
 local M = {}
 
 local CFG = {
     RECOIL_MULT = 1.0,     -- every gun's recoil x this (1 = the game's own, 0 = none)
     REF_INTERVAL = 0.12,   -- seconds between shots (500 RPM) at and above which a gun keeps its full recoil
     MIN_SCALE = 0.55,      -- the fastest guns never drop below this share
+    RECOIL_ADS_MULT = 1.0, -- aim kick while aiming down sights x this (the kick only exists in ADS; hip is untouched)
 }
 M.CFG = CFG
 
@@ -40,7 +47,24 @@ local function scaleFor(gun, class)
     end
     local s = 1
     if iv and iv < CFG.REF_INTERVAL then s = math.max(CFG.MIN_SCALE, iv / CFG.REF_INTERVAL) end
-    return s * CFG.RECOIL_MULT
+    return s * CFG.RECOIL_MULT * CFG.RECOIL_ADS_MULT
+end
+
+-- Guessed names; a missing property reads as nil and is skipped.
+local FIELDS = { "VerticalRecoil", "HorizontalRecoil", "VerticalRecoilADS", "HorizontalRecoilADS", "RecoilADSMultiplier",
+    "ADSRecoilMultiplier", "RecoilRecovery", "RecoilRecoverySpeed", "RecoilSpeed", "RecoilInterpSpeed", "MaxRecoil",
+    "TimeBetweenShots", "ADSTime", "ADSSpread", "BulletSpread", "BulletSpreadADS" }
+local logged = {} -- class -> true
+
+local function logFields(cfg, class)
+    if logged[class] then return end
+    logged[class] = true
+    local parts = {}
+    for _, f in ipairs(FIELDS) do
+        local ok, val = pcall(function() return cfg[f] end)
+        if ok and type(val) == "number" then parts[#parts + 1] = ("%s=%.3f"):format(f, val) end
+    end
+    print(("[PvEDirector] recoil fields: %s %s\n"):format(class, table.concat(parts, " ")))
 end
 
 -- Called each update with the held gun. Property reads and writes only.
@@ -57,12 +81,14 @@ function M.apply(gun, valid)
         local okh, h = pcall(function() return cfg.HorizontalRecoil end)
         s = { v = v, h = (okh and type(h) == "number") and h or nil }
         seen[addr] = s
-    elseif s.mult == CFG.RECOIL_MULT and s.ref == CFG.REF_INTERVAL and s.min == CFG.MIN_SCALE then
+    elseif s.mult == CFG.RECOIL_MULT and s.ads == CFG.RECOIL_ADS_MULT and s.ref == CFG.REF_INTERVAL and s.min == CFG.MIN_SCALE then
         return
     end
     local okc, class = pcall(function() return gun:GetClass():GetFName():ToString() end)
     if not okc or type(class) ~= "string" then class = "" end
+    logFields(cfg, class)
     local k = scaleFor(gun, class)
+    s.ads = CFG.RECOIL_ADS_MULT
     s.wv, s.mult, s.ref, s.min = s.v * k, CFG.RECOIL_MULT, CFG.REF_INTERVAL, CFG.MIN_SCALE
     pcall(function() cfg.VerticalRecoil = s.wv end)
     if s.h then pcall(function() cfg.HorizontalRecoil = s.h * k end) end
@@ -73,6 +99,6 @@ function M.apply(gun, valid)
 end
 
 -- Drop remembered guns on world change.
-function M.reset() seen = {} end
+function M.reset() seen = {}; logged = {} end
 
 return M
