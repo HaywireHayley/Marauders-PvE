@@ -2,6 +2,20 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 25 Nov 2026, build 34 (`public-test-20261125.34`)
+
+Give your crew your own gear, see how a raid went, and a few hints for new players. On build 1 of 17 Nov or later, the
+launcher's orange **!** installs this one for you, keeping your saves.
+
+### Changes
+- **Crew gear (#418, PR #483):** the launcher's new **Crew gear** button gives a hired crewmate a gun, helmet, armour
+  and bag from your stash. They keep it across raids and lose it if they die; setting a slot back to "Their own kit"
+  returns the item to your stash. Thanks Voodoo, spacedork_, Skooma Dealer and Lilly for asking.
+- **Raid summary (#390, PR #482):** back in the lobby after a raid, a panel shows how it ended, the map and time, your
+  kills by kind, which crew came and who fell, and contract events. Features tab: "RAID_SUMMARY".
+- **First-use hints (#389, PR #481):** a short line the first time you reach the lobby, go on foot, take the helm, find
+  a station mine and bring crew; each shows once per save. Features tab: "HINTS".
+
 ## Public test, 25 Nov 2026, build 33 (`public-test-20261125.33`)
 
 Recoil that really goes to zero, boarders that don't land on your cockpit, a crew health readout and a field of view
