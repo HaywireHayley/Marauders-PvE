@@ -3210,6 +3210,11 @@ leaves the raid. Its REPORT BUG button is collapsed and opens a web page.
   hovered by Slate).
 - The lobby has no Esc menu: MenuPlayerController's InGameMenu action opens nothing. SIGIS_MainOverlay_C has an
   MM_SecondaryOptionsBtn_Exit, but it is inside Border_BottomBar_Old, which is collapsed. That's a possible follow-up.
+- 2026-11-25, #388 (pvemenu.lua, ticked from quit.lua's lobby tick; NOT tested in game): a PVE tab built the same way
+  as QUIT (a copy of the SOCIAL tab, Which_CoreMenuState 99), plus CREW, AI and DEBUG tabs after it, collapsed until
+  PVE is clicked. They run main.lua's F11/F10/F9 toggles, passed in with `require("pvemenu").setActions{}` (no new main
+  locals). Unverified: tab order against QUIT (both appended, PVE usually first), whether a collapsed tab's slot
+  leaves a gap, and whether the F10/F11 pages open over the lobby from a click as they do from the key.
 ## Settings on the title screen and in the lobby (2026-11-21, issue #293; mods/PvEDirector/Scripts/gamesettings.lua)
 Players could reach the game's Settings only from the pause menu in a raid.
 - The Settings widget already exists outside a raid: SIGIS_MainOverlay_C ("In Game Overlay Menu", on the game instance,

@@ -12,6 +12,7 @@
 -- lookup). A widget held across a map change is freed with its world, and checking a freed object reads freed memory.
 local Q = {}
 local X -- log, valid, pc (function: the controller the director ticks on), inRaid (function)
+local PveMenu = require("pvemenu") -- the lobby's PVE tab (#388), ticked from the lobby tick here
 
 local MENU_OPEN = "/SIGISPlugin/Widgets/HUD/SIGIS_Exit_Widget.SIGIS_Exit_Widget_C:ExitMenu_Open"
 local CONFIRM_SECONDS = 4
@@ -24,7 +25,7 @@ local ui = {}  -- the pause menu's: menuPath, btnPath, down, armedUntil
 local lob = {} -- the lobby's: btnPath, down, armedUntil
 local hooked, hookAt, nextTabFind, tabFindEvery = false, 0, 0, nil
 
-function Q.init(ctx) X = ctx end
+function Q.init(ctx) X = ctx PveMenu.init(ctx) end
 
 local function pathOf(o) return (o:GetFullName():gsub("^%S+ ", "")) end -- (the class name comes first)
 local function live(path)
@@ -150,6 +151,8 @@ local function buildTab(pc)
 end
 
 local function lobbyTick(pc, now)
+    local okMenu, errMenu = pcall(PveMenu.tick, pc, now)
+    if not okMenu and not lob.menuErr then lob.menuErr = true X.log("quit: PVE menu failed: " .. tostring(errMenu)) end
     local btn = live(lob.btnPath)
     if not btn then
         if now < nextTabFind then return end
@@ -182,6 +185,7 @@ function Q.tick()
         return
     end
     if X.valid(pc) and pc:GetClass():GetFName():ToString() == "MenuPlayerController_C" then return lobbyTick(pc, now) end
+    PveMenu.reset() -- (out of the lobby: its tabs died with it)
     -- The menu's class loads with the first world that has it: hook its opening once it exists.
     if not hooked and now >= hookAt then
         hookAt = now + 2
