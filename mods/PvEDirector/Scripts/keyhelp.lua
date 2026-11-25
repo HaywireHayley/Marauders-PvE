@@ -65,7 +65,7 @@ local function show(pc)
         local ts = root:AddChildToCanvas(t)
         ts:SetPosition({ X = x, Y = y }) ts:SetSize({ X = w, Y = ROW })
     end
-    text("Marauders PvE keys", x0 + 16, y0 + 10, W - 32, ACCENT, 16)
+    text("Marauders PvE keys   (F9 or Esc closes)", x0 + 16, y0 + 10, W - 32, ACCENT, 16)
     for i, k in ipairs(M.KEYS) do
         local y = y0 + 12 + ROW * i
         text(k[1], x0 + 16, y, KEYW, ACCENT)
@@ -75,14 +75,18 @@ local function show(pc)
     host = h
 end
 
+function M.isOpen() return host ~= nil end
+
+-- F9 and Esc close it (#450: it stayed on screen until a restart, the F9 menu having closed when it opened).
+function M.close()
+    local h = host
+    host = nil
+    if h and valid(h) then pcall(function() h:RemoveFromParent() end) end
+end
+
 -- The F9 menu's Key list button, with the controller main.lua's menus use (nil when there is none yet).
 function M.toggle(pc)
-    if host then
-        local h = host
-        host = nil
-        if valid(h) then pcall(function() h:RemoveFromParent() end) end
-        return
-    end
+    if host then return M.close() end
     if not valid(pc) then return end
     local ok, err = pcall(show, pc)
     if not ok then log("key list failed: " .. tostring(err)) end
