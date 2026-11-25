@@ -5457,7 +5457,14 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   its slider could never leave 0: step is now 1. The key list stayed on screen (the F9 menu closes as it opens): F9 and
   Esc now close it (main.lua toggleDebug / an Esc bind, keyhelp.lua close/isOpen), and its title says so. Not tested
   in game.
-
+- 2026-11-25 (#463): the trader screen is ONE fixed 10 x 11 grid (SHOPMainCon, InventoryGridSize Column 10 / Row 11,
+  ~50 px cells, parent chain Overlay_55 < VerticalBox_TraderWindow < ... < CanvasPanel SHOP, no ScrollBox) showing
+  every level's items at once (locked ones greyed). The first list needed 173-256 cells a faction, so most of it never
+  showed. vendors.lua now orders each list most wanted first and cuts it to BUDGET cells (110 - ~30 base stock - the
+  game's own extras - ~15% packing), logging "no room on the shop screen for ...": 27 rows instead of 107. Verified in
+  game: the Pirate shop at rank 0 shows the added rows with empty cells to spare (screenshot via PrintWindow, TRADE
+  opened with synthetic mouse clicks; computer-use key presses don't reach the game but SetCursorPos + mouse_event
+  clicks do). Scroll bar / bigger grid: #464.
 
 ## K and J: ammo, ammo crates, equipment slots (#447, #448, #451, #452, 2026-11-24; invqol.lua)
 - Written without the game (not run, not tested in game). What changed and what's assumed:
