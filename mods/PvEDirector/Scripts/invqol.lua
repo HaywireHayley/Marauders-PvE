@@ -394,7 +394,29 @@ end
 -- Hotkeys (main.lua binds them; they arrive here on the game thread): K moves the item under the mouse between the
 -- stash and your pockets and bags, J discards it (a second J within CONFIRM seconds: it can't be undone). Ignored while
 -- the search box is being typed in.
+-- Equipment slots (#451, #452): K on an equipped item takes it off (to the stash in the lobby, to your pockets or bags
+-- in a raid); K on a gear item in a grid puts it on when its slot is empty; J discards (lobby) or drops (raid) an
+-- equipped item like a grid one. A slot is a one-item container named by the item's MotherItemGUID (backend/seed.json:
+-- "Head", "Rig", "Bag", "Prim"...), moved into with Server_MoveItem(guid, "<slot>", {0, 0}, 0, from, 0) (into and out
+-- of "Sec" verified in the lobby, #233). Which slot a row goes in is by its items.json type (an assumption, not seen in
+-- game for every type: 0 gun Prim then Sec, 1 Pistol, 2 Melee, 4 Head, 5 Bag, 7 vests and rigs Rig, 9 Chest, 11 Legs).
 local CONFIRM = 2
+local SLOTS = { [0] = { "Prim", "Sec" }, [1] = { "Pistol" }, [2] = { "Melee" }, [4] = { "Head" }, [5] = { "Bag" },
+    [7] = { "Rig" }, [9] = { "Chest" }, [11] = { "Legs" } }
+local ONE_ITEM = { Head = true, Chest = true, Legs = true, Rig = true, Bag = true, Prim = true, Sec = true,
+    Pistol = true, Melee = true, KeyCard = true, Ship = true, GuildBadge = true }
+
+-- True when the widget and its whole parent chain are visible (raid widgets exist twice, one copy hidden by a parent).
+local function shown(w)
+    local p, depth = w, 0
+    while p and X.valid(p) and depth < 40 do
+        if not p:IsVisible() then return false end
+        p = p:GetParent()
+        depth = depth + 1
+    end
+    return true
+end
+
 local function freeSpot(con, f)
     local _, cells, cols, rows = scan(con)
     for _, dims in ipairs({ { f.w, f.h, f.rot }, { f.h, f.w, 1 - f.rot } }) do
@@ -404,6 +426,75 @@ local function freeSpot(con, f)
             end
         end
     end
+end
+
+-- An item's footprint: from the grid it lies in when it's found there, else from items.json (an equipped item, or a
+-- widget whose grid cells point elsewhere: #447, a guess at why ammo didn't move).
+local function footprint(it, from)
+    local guid = it.UniqueItemGUID:ToString()
+    local f = from and scan(from)[guid]
+    if f then return f end
+    local Pockets = require("pockets")
+    local rot = Pockets.rotated(it)
+    local w, h = Pockets.size(it.ItemData:ToString(), rot)
+    return { guid = guid, row = it.ItemData:ToString(), w = w, h = h, rot = rot and 1 or 0 }
+end
+
+-- What each one-item slot holds (slot -> guid) and every guid you own, from the inventory component.
+local function equipped(inv)
+    local slots, mine = {}, {}
+    pcall(function()
+        inv.StashedItems:ForEach(function(_, e)
+            local it = e:get()
+            if X.valid(it) then
+                local g, m = it.UniqueItemGUID:ToString(), it.MotherItemGUID:ToString()
+                mine[g] = true
+                if ONE_ITEM[m] then slots[m] = g end
+            end
+        end)
+    end)
+    return slots, mine
+end
+
+-- The first empty slot this row can go in, or nil (not gear, or its slots are taken).
+local function emptySlot(inv, row, iw)
+    local r = require("itemdata").get(row)
+    local t = r and r.type
+    if t == nil then pcall(function() t = iw:GetItemType() end) end
+    local want = SLOTS[t]
+    if not want then return nil end
+    local slots = equipped(inv)
+    for _, s in ipairs(want) do if not slots[s] then return s end end
+end
+
+-- Any item widget under the mouse that's really on screen, wherever it sits (equipment slots aren't grids).
+local function anyHovered()
+    for _, iw in ipairs(FindAllOf("DraggableItemWidget") or {}) do
+        if X.valid(iw) and iw:GetFullName():find("Transient", 1, true) and X.valid(iw.Item) and iw:IsHovered()
+            and shown(iw) then return iw end
+    end
+end
+
+-- The grid widget an item lies in (by its container's name), or nil.
+local function gridOf(it)
+    local con = it.MotherItemGUID:ToString()
+    for _, w in ipairs(FindAllOf("InventoryContainerWidget") or {}) do
+        if X.valid(w) and w:GetFullName():find("Transient", 1, true) and w.ContainerID:ToString() == con and w:IsVisible()
+            and shown(w) then return w end
+    end
+end
+
+-- Your pocket and bag grids on screen (not the stash, not the item itself if it's a bag).
+local function gearGrids(except)
+    local out = {}
+    for _, w in ipairs(FindAllOf("InventoryContainerWidget") or {}) do
+        if X.valid(w) and w:GetFullName():find("Transient", 1, true) and w:IsVisible() and w.SlotMasterType == 0
+            and not w.bARigCon and shown(w) then
+            local id = w.ContainerID:ToString()
+            if id ~= STASH and id ~= except and id ~= "PocketRight" then out[#out + 1] = w end
+        end
+    end
+    return out
 end
 
 local function hovered()
@@ -416,6 +507,8 @@ local function hovered()
             end
         end
     end
+    local iw = anyHovered()
+    if iw then return iw, gridOf(iw.Item) end
 end
 
 -- True while the stash search box has the keyboard (main.lua's letter hotkeys stand aside).
@@ -432,18 +525,9 @@ end
 -- (guid, "", its slot type), where the game picks the spot; a drop is Server_DropInHud(guid).
 -- Every container widget exists twice in a raid (the HUD overlay's copy is hidden by a parent), so only one whose
 -- whole parent chain is visible counts.
-local LOOT = { [3] = true, [4] = true }
-
-local function shown(w)
-    local p, depth = w, 0
-    while p and X.valid(p) and depth < 40 do
-        if not p:IsVisible() then return false end
-        p = p:GetParent()
-        depth = depth + 1
-    end
-    return true
-end
-
+-- Ammo box crates (#448): K did nothing there while Ctrl+click worked. Only SlotMasterType 3 and 4 counted as loot, so a
+-- container of another type was never searched. Now any shown container that isn't one of yours (SlotMasterType not
+-- 0) is loot, and an item you don't own (not in your inventory component) is taken with Ctrl+click's call.
 local function raidInventory()
     for _, pc in ipairs(FindAllOf("MainPlayerController_C") or {}) do
         if X.valid(pc) and pc:IsLocalController() then
@@ -458,8 +542,7 @@ end
 
 local function raidHovered()
     for _, w in ipairs(FindAllOf("InventoryContainerWidget") or {}) do
-        local t = w.SlotMasterType
-        if w:GetFullName():find("Transient", 1, true) and (t == 0 or LOOT[t]) and w:IsVisible() and shown(w) then
+        if w:GetFullName():find("Transient", 1, true) and w:IsVisible() and shown(w) then
             local canvas = w.DraggableItemsCanvas
             for k = 0, (X.valid(canvas) and canvas:GetChildrenCount() or 0) - 1 do
                 local iw = canvas:GetChildAt(k)
@@ -467,6 +550,8 @@ local function raidHovered()
             end
         end
     end
+    local iw = anyHovered()
+    if iw then return iw, gridOf(iw.Item) end
 end
 
 local function raidHotkey(what)
@@ -475,34 +560,57 @@ local function raidHotkey(what)
     local function tell(text) pcall(function() pc:ClientMessage(text, FName("Event"), 3.0) end) end
     local iw, from = raidHovered()
     if not iw then return end
-    local guid = iw.Item.UniqueItemGUID:ToString()
-    local name = iw.Item.ItemData:ToString()
+    local it = iw.Item
+    local guid = it.UniqueItemGUID:ToString()
+    local row = it.ItemData:ToString()
+    local mother = it.MotherItemGUID:ToString()
+    local name = row
     pcall(function() name = iw.ItemName:GetText():ToString() end)
-    local fromType = from.SlotMasterType
+    local slots, mine = equipped(inv)
+    local fromType = from and from.SlotMasterType or 0
+    local theirs = not mine[guid]
+    if theirs and fromType == 0 then fromType = 3 end
     if what == "discard" then
-        if LOOT[fromType] then return tell("Take it first (K), then J drops it") end
-        inv:Server_DropInHud(guid)
+        if theirs then return tell("Take it first (K), then J drops it") end
+        inv:Server_DropInHud(guid) -- (an equipped helmet leaves its slot this way too: #240's tests)
         -- the minimap's bag marker (#326): your feet, since the game picks the spot itself near them
         pcall(function() if X.minimap and X.valid(pc.Pawn) then X.minimap.noteDrop(pc.Pawn:K2_GetActorLocation()) end end)
-        X.log("raid: dropped " .. iw.Item.ItemData:ToString())
+        X.log(("raid: dropped %s (from %s)"):format(row, mother))
         return tell("Dropped " .. name)
     end
-    if LOOT[fromType] then
+    if theirs then
+        X.log(("raid: K takes %s from %s (type %s)"):format(row, from and from.ContainerID:ToString() or mother, fromType))
         inv:Server_CtrlClickItem(guid, "", fromType)
         return tell("Took " .. name)
     end
-    local f = scan(from)[guid]
-    if not f then return end
+    local f = footprint(it, from)
+    if ONE_ITEM[mother] and slots[mother] == guid then
+        -- Equipped: off into your pockets or bags (#451).
+        for _, w in ipairs(gearGrids(guid)) do
+            local c, r, rot = freeSpot(w, f)
+            if c then
+                X.log(("raid: K unequips %s from %s to %s"):format(row, mother, w.ContainerID:ToString()))
+                inv:Server_MoveItem(guid, w.ContainerID:ToString(), { Column = c, Row = r }, 0, 0, rot)
+                return tell("Took off " .. name)
+            end
+        end
+        return tell("No room in your pockets or bags for " .. name)
+    end
+    local slot = emptySlot(inv, row, iw)
+    if slot then
+        X.log(("raid: K equips %s into %s"):format(row, slot))
+        inv:Server_MoveItem(guid, slot, { Column = 0, Row = 0 }, 0, fromType, 0)
+        return tell("Equipped " .. name)
+    end
     local open = false
-    for _, want in ipairs({ 3, 4 }) do
-        for _, w in ipairs(FindAllOf("InventoryContainerWidget") or {}) do
-            if w.SlotMasterType == want and w:GetFullName():find("Transient", 1, true) and w:IsVisible() and shown(w) then
-                open = true
-                local c, r, rot = freeSpot(w, f)
-                if c then
-                    inv:Server_MoveItem(guid, w.ContainerID:ToString(), { Column = c, Row = r }, want, fromType, rot)
-                    return tell(("Put %s in the container"):format(name))
-                end
+    for _, w in ipairs(FindAllOf("InventoryContainerWidget") or {}) do
+        local want = X.valid(w) and w.SlotMasterType
+        if want and want ~= 0 and w:GetFullName():find("Transient", 1, true) and w:IsVisible() and shown(w) then
+            open = true
+            local c, r, rot = freeSpot(w, f)
+            if c then
+                inv:Server_MoveItem(guid, w.ContainerID:ToString(), { Column = c, Row = r }, want, fromType, rot)
+                return tell(("Put %s in the container"):format(name))
             end
         end
     end
@@ -523,10 +631,15 @@ function Q.hotkey(what)
     if not iw then return end
     local it = iw.Item
     local guid = it.UniqueItemGUID:ToString()
-    local items = scan(from)
-    local f = items[guid]
-    if not f then return end
-    local name = it.ItemData:ToString()
+    local row = it.ItemData:ToString()
+    local mother = it.MotherItemGUID:ToString()
+    local worn = ONE_ITEM[mother] == true
+    if not worn and not from then
+        X.log(("stash: K/J found %s under the mouse but not its grid (%s)"):format(row, mother))
+        return
+    end
+    local f = footprint(it, not worn and from or nil)
+    local name = row
     pcall(function() name = iw.ItemName:GetText():ToString() end)
     if what == "discard" then
         local now = os.clock()
@@ -534,26 +647,33 @@ function Q.hotkey(what)
             ui.discard = nil
             inv:Server_RemoveItem(guid)
             say("Discarded " .. name)
-            X.log("stash: discarded " .. f.row)
+            X.log(("stash: discarded %s (from %s)"):format(row, mother))
         else
             ui.discard, ui.discardAt = guid, now + CONFIRM
             say(("Press J again to discard %s"):format(name))
         end
         return
     end
-    -- K: from the stash to the first pocket or bag with room; from anywhere else to the stash.
+    -- K: worn -> the stash; gear whose slot is empty -> on; from the stash to the first pocket or bag with room; from
+    -- anywhere else to the stash.
     local targets = {}
-    if from.ContainerID:ToString() == STASH then
-        for _, w in ipairs(FindAllOf("InventoryContainerWidget") or {}) do
-            if w:GetFullName():find("Transient", 1, true) and w:IsVisible() and w.SlotMasterType == 0
-                and not w.bARigCon and w.ContainerID:ToString() ~= STASH then targets[#targets + 1] = w end
-        end
-    else
+    if worn then
         targets[1] = stash
+    else
+        local slot = emptySlot(inv, row, iw)
+        if slot then
+            X.log(("stash: K equips %s into %s"):format(row, slot))
+            inv:Server_MoveItem(guid, slot, { Column = 0, Row = 0 }, 0, 0, 0)
+            say(("Equipped %s"):format(name))
+            lastQuery = nil
+            return
+        end
+        if from.ContainerID:ToString() == STASH then targets = gearGrids(guid) else targets[1] = stash end
     end
     for _, w in ipairs(targets) do
         local c, r, rot = freeSpot(w, f)
         if c then
+            X.log(("stash: K moves %s %dx%d from %s to %s"):format(row, f.w, f.h, mother, w.ContainerID:ToString()))
             inv:Server_MoveItem(guid, w.ContainerID:ToString(), { Column = c, Row = r }, 0, 0, rot)
             say(("Moved %s to %s"):format(name, w.ContainerID:ToString() == STASH and "the stash" or "your gear"))
             lastQuery = nil

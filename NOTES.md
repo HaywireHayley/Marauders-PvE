@@ -5449,3 +5449,22 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   every level (e.g. United 38 extras by level 7, Republic MG42/DP28/SVU at 9), no crash. NOT verified: the trader screen
   showing and selling them (couldn't open a trader from the bridge), and VENDOR_PRICE in the shop.
 
+
+## K and J: ammo, ammo crates, equipment slots (#447, #448, #451, #452, 2026-11-24; invqol.lua)
+- Written without the game (not run, not tested in game). What changed and what's assumed:
+- #448 (K did nothing in ammo box crates, Ctrl+click worked): raidHovered only searched containers with SlotMasterType
+  3 or 4, and "put it in the container" only looked for those. Likely cause: the crate's widget has another type. Now
+  any shown container with SlotMasterType ~= 0 is loot, and an item that isn't in your inventory component
+  (StashedItems) is taken with Server_CtrlClickItem(guid, "", its type; 3 if it reads 0). Not verified: the crate's
+  real type or ContainerID (the K log line now names them: "raid: K takes <row> from <con> (type N)").
+- #447 (ammo boxes like .32 ACP, row 32Ammo, didn't move): cause not found. Guess: the hovered widget's guid wasn't in
+  the grid scan (scan() keys by the grid cells' Item), so K returned silently. The footprint now falls back to
+  items.json (pockets.size) and the item under the mouse is also searched over every DraggableItemWidget; each K logs
+  "stash: K moves <row> WxH from <con> to <con>" so the next report shows how far it got.
+- #451/#452: equipped items (MotherItemGUID in Head, Chest, Legs, Rig, Bag, Prim, Sec, Pistol, Melee, KeyCard, Ship,
+  GuildBadge: the stand-in's ONE_ITEM_SLOTS) are found through the generic DraggableItemWidget hover. K worn -> stash
+  (lobby) or first pocket/bag grid with room (raid, never the bag's own grid); K on a gear item in a grid -> its empty
+  slot via Server_MoveItem(guid, slot, {0,0}, 0, from, 0). Slot by items.json type (assumed from seed.json and row
+  names): 0 Prim then Sec, 1 Pistol, 2 Melee, 4 Head, 5 Bag, 7 Rig (vests and rigs: seed has M1FlakChest in "Rig"),
+  9 Chest, 11 Legs. Taken slot: K falls back to the old grid move. J on a worn item: Server_RemoveItem after two presses
+  (lobby), Server_DropInHud (raid; #240's tests saw it empty Head).
