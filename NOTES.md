@@ -1387,6 +1387,8 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
   game spawns interiors for AI frigates (AIFrigateInsideToSpawn), so the likely route is giving a rival's hull an interior. Stealing also needs
   pilot handover and what happens at extraction. Not attempted.
 
+- 2026-11-25 (#473): boarders came in on top of your cockpit. rivalbodies.lua breachSpots now skips spots within BREACH_HELM_CLEAR (600) of the interior's RaidUseableFrigateHelmComponent(s) and spots more than BREACH_FLOOR_Z (250) above/below the breach point (or anchor) they were searched around (up to 4 tries per breach point); if nothing qualifies it falls back to the old spots and logs "[rivals] no boarder spot clear of the helm". Luacheck only: NOT tested in game (helm component lookup via K2_GetComponentsByClass on the inside actor, BreachTransforms' height relative to the floor, and the thresholds are all unverified).
+
 ## Player boarding and stealing rival ships (2026-11-06, rivals.lua; first build)
 - Spawning FrigateInside_Starter_C at a free RaidFrigateIntSpawn slot with World:SpawnActor brings its own streamed level AND spawns + pairs its own hull
   (plain AIController, hull.MyShipInside set). Space_Solo_01 has 12 slots; yours takes one. RaidUseableFrigateHelmComponent:Interact(pawn) on that interior

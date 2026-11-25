@@ -895,23 +895,63 @@ local function insideAnchor(home, from)
     end
 end
 
+-- Where the helm is in an interior (its RaidUseableFrigateHelmComponent(s), as minimap.lua finds them), or {}.
+local function helmSpots(home)
+    local out = {}
+    pcall(function()
+        local cls = lib("/Script/RaidGame.RaidUseableFrigateHelmComponent")
+        if not valid(cls) then return end
+        local all = home:K2_GetComponentsByClass(cls)
+        for i = 1, #all do
+            local c = all[i]:get()
+            if valid(c) then
+                local l = c:K2_GetComponentLocation()
+                out[#out + 1] = { X = l.X, Y = l.Y, Z = l.Z }
+            end
+        end
+    end)
+    return out
+end
+
+-- A boarder's spot is fit if it's clear of the helm and on the floor at the height of what it was searched around
+-- (#473: boarders came in on top of the cockpit).
+local function fitSpot(p, around, helms)
+    if math.abs(p.Z - around.Z) > CFG.BREACH_FLOOR_Z then return false end
+    for _, h in ipairs(helms) do if dist(p, h) < CFG.BREACH_HELM_CLEAR then return false end end
+    return true
+end
+
 -- Floor by the breach points that joins up with the inside (`from`: a point known to be inside, e.g. you). With no
 -- breach point joined up, floor around the inside point itself, so nobody comes in through the outside of the walls.
+-- Spots by the helm or off the breach point's floor are skipped (#473); kept only when nothing else qualifies.
 local function breachSpots(inside, from)
-    local spots = {}
+    local spots, unfit = {}, {}
     local home = inside or S.homeInside
     if not valid(home) then return spots end
     local anchor = insideAnchor(home, from)
+    local helms = helmSpots(home)
     for _, at in ipairs(entryPoints(home)) do
-        local p = reachableNear(at, 600)
+        local p
+        for _ = 1, 4 do
+            p = reachableNear(at, 600)
+            if not p or fitSpot(p, at, helms) then break end
+            if not anchor or joined(anchor, p) then unfit[#unfit + 1] = p end
+            p = nil
+        end
         if p and (not anchor or joined(anchor, p)) then table.insert(spots, p) end
     end
     if #spots == 0 and anchor then
-        for _ = 1, 4 do
+        for _ = 1, 8 do
             local p = reachableNear(anchor, CFG.BREACH_FALLBACK)
-            if p then table.insert(spots, p) end
+            if p and fitSpot(p, anchor, helms) then table.insert(spots, p)
+            elseif p then unfit[#unfit + 1] = p end
+            if #spots >= 4 then break end
         end
         if #spots > 0 then X.log("[rivals] no breach point joins up with the inside: boarders come in nearer the middle") end
+    end
+    if #spots == 0 and #unfit > 0 then
+        X.log(("[rivals] no boarder spot clear of the helm (%d helm(s)) on the floor: using %d unfit"):format(#helms, #unfit))
+        return unfit
     end
     return spots
 end
