@@ -7,12 +7,13 @@
 -- main.lua's tick table rely on the same), only the world's objects go. M.frame (each raid frame) keeps it current,
 -- M.finish (the first lobby frame after a raid) closes it, and M.lobby (each lobby frame)
 -- shows it once for SHOW_SECONDS or until Esc. Nothing world-owned is kept past a world change: M.reset drops the panel.
--- Loot brought out is not counted yet. NOT tested in game (2026-11-25).
+-- Loot: one bounded snapshot of your inventory (StashedItems rows, stacks, GUIDs; property reads only) a few seconds
+-- in, and one when you extract or die; priced from itemdata.lua. NOT tested in game (2026-11-25).
 local M = {}
 local log, valid, lib
 local raid = {}
 
-local CFG = { SHOW_SECONDS = 12, READ_SECONDS = 2, LOBBY_DELAY = 3 }
+local CFG = { SHOW_SECONDS = 12, READ_SECONDS = 2, LOBBY_DELAY = 3, SNAP_AFTER = 5, SNAP_CAP = 300 }
 M.CFG = CFG
 local HOST = "/SIGISPlugin/Widgets/DebugInfo_Widget.DebugInfo_Widget_C"
 local INK = { R = 0.02, G = 0.022, B = 0.028, A = 0.9 }
@@ -51,6 +52,39 @@ local function readKills(pc)
     T.kills = k
 end
 
+-- The player's inventory as { [guid] = { row, n } }, at most SNAP_CAP items. Property reads only.
+local function snapshot(pc)
+    local out, n = {}, 0
+    local comps = pc:K2_GetComponentsByClass(lib("/Script/SIGISPlugin.SIGISInventoryComponent"))
+    local inv
+    for i = 1, #comps do
+        local c = comps[i]:get()
+        if valid(c) then inv = c break end
+    end
+    if not inv then return nil end
+    inv.StashedItems:ForEach(function(_, e)
+        if n >= CFG.SNAP_CAP then return true end
+        local it = e:get()
+        if valid(it) then
+            n = n + 1
+            local st = it.StackAmount
+            out[it.UniqueItemGUID:ToString()] = { row = it.ItemData:ToString(), n = type(st) == "number" and st > 0 and st or 1 }
+        end
+    end)
+    return out
+end
+
+local function value(e)
+    local r = require("itemdata").get(e.row)
+    return (r and r.price or 0) * ((r and r.stackable == 1) and e.n or 1)
+end
+
+local function take(pc)
+    local ok, s = pcall(snapshot, pc)
+    if not ok then log("raid summary: inventory snapshot failed: " .. tostring(s)) return nil end
+    return s
+end
+
 -- Each raid frame, with this raid's player controller.
 function M.frame(pc)
     if not on() then return end
@@ -63,6 +97,7 @@ function M.frame(pc)
         end)
     end
     if raid.extractedAt then T.extracted = true end
+    if not T.inSnap and now - T.startedAt >= CFG.SNAP_AFTER and valid(pc) then T.inSnap = take(pc) or {} end
     local mv = 0
     pcall(function() mv = require("missions").version() end)
     if mv > T.events then T.events = mv end
@@ -71,6 +106,8 @@ function M.frame(pc)
         local ok, n = pcall(function() return p:GetClass():GetFName():ToString() end)
         if ok and n == "PlayerPawn_C" and (p.Health or 1) <= 0 then T.died = true end
     end
+    -- Extracted (before the travel) or died: the one closing snapshot.
+    if T.inSnap and not T.outSnap and (T.extracted or T.died) and valid(pc) then T.outSnap = take(pc) or {} end
     if now < T.readAt then return end
     T.readAt = now + CFG.READ_SECONDS
     pcall(readKills, pc)
@@ -102,12 +139,30 @@ function M.finish()
         or ("Crew: %d came, %d back%s"):format(#t.crew, #back,
             #t.crewDied > 0 and ("; lost " .. table.concat(t.crewDied, ", ")) or "")
     local prog = ("Contract/chapter events: %d"):format(t.events)
-    log(("raid summary: %s; %s; %s; %s"):format(head, kills, crew, prog))
+    local loot
+    if t.outSnap then
+        local cnt, worth, new = 0, 0, {}
+        for g, e in pairs(t.outSnap) do
+            cnt, worth = cnt + 1, worth + value(e)
+            if t.inSnap and not t.inSnap[g] then new[#new + 1] = { row = e.row, v = value(e) } end
+        end
+        if t.outcome == "Died" then
+            loot = ("Lost: %d items worth ~$%d"):format(cnt, worth)
+        else
+            table.sort(new, function(a, b) return a.v > b.v end)
+            local top = {}
+            for i = 1, math.min(3, #new) do top[i] = new[i].row end
+            loot = ("Brought out: %d items worth ~$%d (+%d new%s)"):format(cnt, worth, #new,
+                #top > 0 and (": " .. table.concat(top, ", ")) or "")
+        end
+    end
+    log(("raid summary: %s; %s; %s; %s%s"):format(head, kills, crew, prog, loot and ("; " .. loot) or ""))
     ready = { lines = {
         { text = "Raid summary: " .. head, size = 18, col = ACCENT },
         { text = kills }, { text = crew }, { text = prog, col = TEXT_MUTED },
-        { text = "Esc to close", col = TEXT_MUTED, size = 11 },
     } }
+    if loot then table.insert(ready.lines, 3, { text = loot }) end
+    table.insert(ready.lines, { text = "Esc to close", col = TEXT_MUTED, size = 11 })
 end
 
 -- UMG as deathscreen.lua builds it.
