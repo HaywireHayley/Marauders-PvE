@@ -63,6 +63,7 @@ FILES = [  # (from, to), relative to the dev tree and the release
     ("tools/release/uninstall.ps1", "scripts/uninstall.ps1"),
     ("tools/release/README.txt", "README.txt"),
     ("CREDITS.md", "CREDITS.md"),
+    ("CHANGELOG.md", "CHANGELOG.md"),  # the stand-in shows its newest section as the lobby news (#458)
     ("tools/release/PvEBridge_main.lua", "mods/PvEBridge/Scripts/main.lua"),
     # Linux / Steam Deck (issue #127): the mode switch without PowerShell, the Steam launch option, the installer
     ("scripts/pvemode.py", "scripts/pvemode.py"),

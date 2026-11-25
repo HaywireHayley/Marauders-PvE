@@ -48,6 +48,18 @@ h.route("POST", "/v2/storage/delete", {}, {"object_ids": [{"collection": "invent
 assert "54321" not in json.load(open(s.STATE, encoding="utf-8"))["storage"]["inventory"]
 print("login, masterstartfunction and the stash round trip work from seed.json")
 
+# The lobby news is this build's changelog, not the live game's welcome and YouTube embed (#458).
+out, _ = h.route("GET", "/v2/storage/public", {}, None)
+pub = {o["key"]: json.loads(o["value"])["value"] for o in out["objects"]}
+news = s.pve_news()
+assert news and pub["titleNews"] == news and "!DEL!" in news, pub.get("titleNews")
+vfile = os.path.join(HERE, "..", "version.txt")  # release only; the dev tree's changelog heading names the build
+version = open(vfile).read().strip() if os.path.exists(vfile) else s.re.search(
+    r"public-test-[\w.]+", open(os.path.join(HERE, "..", "CHANGELOG.md"), encoding="utf-8").read()).group(0)
+assert version in pub["titleNews"], pub["titleNews"]
+assert all("youtube" not in v.lower() for v in pub.values()), pub
+print("lobby news:", pub["titleNews"].replace("\n", " | ")[:200])
+
 # #370: a new item that copies one already in the same place isn't stored, and later writes to it are ignored; a
 # container's copy and its contents are cleaned at login, the contents moving into the container that stays.
 def obj(key, rest):

@@ -357,6 +357,11 @@ Why bots did nothing, and the fix for each (all automated in PvEDirector):
   - moving an item in the stash: PUT inventory object with new col/row. Claiming gifts: delete "gifts" object +
     put "inventory". Cosmetics: PUT cosequipped head/body/voice (very chatty).
   - GET /v2/tournament (empty), GET /v2/account again, GET /v2/storage/public (regions, permMessage, titleNews...).
+  - 2026-11-24 (#458): the lobby news (public `titleNews`, "title!DEL!body") is rewritten at every stand-in start by
+    `set_news()` from version.txt (release only; dev falls back to the changelog heading) and the newest CHANGELOG.md
+    section's first 4 bullets, plain text, plus a key tip; `titleNewsImage` (was "youtube-embed-url!DEL!caption") becomes
+    "!DEL!". Seed text stays if CHANGELOG.md can't be read; the release now ships CHANGELOG.md. Tested by
+    tools/test_standin_flow.py only; NOT checked in game (does "\n" break lines? does an empty embed URL show blank?).
 - Stash item value decoded: `<guid>-<Row>-<Stack>-<Condition>-<Col>-<Row>-<Rotated>-<Container>[-a!a!a!a!a!a!a]`
   (7 attachment slots on guns). A gun's Stack = loaded rounds (Mat49Rifle-36-60 = 36 rounds, condition 60), the
   same rule the client's fire path uses. equip=true items are the loadout; their Container is the slot
