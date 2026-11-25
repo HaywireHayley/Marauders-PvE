@@ -9,13 +9,13 @@ settings under one name. On build 1 of 17 Nov or later, the launcher's orange **
 your saves.
 
 ### Changes
-- **Launchers (PR #508, thanks sp0rrk):** a China Lake round that bursts on a bot is a kill unless it's armoured (the
+- **Launchers (PRs #508, #511, thanks sp0rrk):** a China Lake round that bursts on a bot is a kill unless it's armoured (the
   Mini Thumper leaves it at about 10 %), and the round's fire patch is now a quick flash instead of 2 s of burning.
 - **Recoil as the weapon data says (#371, PR #503, thanks sp0rrk):** the game's own recoil at the defaults, with each
   fix a setting, and shotgun impact sounds no longer cut off the shot's boom.
-- **Blowtorch (PRs #407 and #444, thanks sp0rrk):** it now burns the bolted doors on the merchant ship and in the colony
+- **Blowtorch (PRs #407, #444, #512, thanks sp0rrk):** it now burns the bolted doors on the merchant ship and in the colony
   cruiser vault, and stops losing burn time between bursts.
-- **Ship turrets (PR #379, thanks sp0rrk):** turret shots land their full damage and hit where the reticle is.
+- **Ship turrets (PRs #379, #513, thanks sp0rrk):** turret shots land their full damage and hit where the reticle is.
   **The Rustbucket's boost is now held Shift** (Space is the game's ship-up key), and the sky no longer shows through
   seams in interiors.
 - **Settings under one name (PR #500):** the launcher's **PVE SETTINGS**, **PVE > SETTINGS** in the lobby and F10 are the
@@ -25,7 +25,7 @@ your saves.
 - **No freeze at the start of your first space raid (#336, PR #502):** the rivals' looks now load in the lobby.
 - **Fewer hitches (#336, PR #501):** in the lobby (the inventory check runs after you move items, not every second) and
   near mines.
-- **Under the hood (PRs #504, #505, #506, #515):** shared code for the mod's panels, the controller, inventory and
+- **Under the hood (PRs #504, #505, #506, #510, #515):** shared code for the mod's panels, the controller, inventory and
   config files; the minimap's floor plan files split out; the mine prompt made only when needed.
 
 ### Known issues
