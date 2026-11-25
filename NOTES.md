@@ -3872,6 +3872,13 @@ reference with flowcharts: [docs/internals/SALVAGE_CHAIN.md](docs/internals/SALV
 - The bridge mod has its own Lua state: probe the director's globals (Conditions...) with bridge/profile_on plus
   bridge/dir_eval.lua, not `send.sh "lua ..."`.
 - 2026-11-25 (#398): Capital ships condition: `Crews:COMMANDO_CREWS = 0.6` (share of crews on capital hulls dressed as Central Powers commandos: CFG.COMMANDO kit, Stahlhelm + full Panzer + StG 44/MG42, preset as m.kit in rivalcrews.lua makeCommando before rollKit), `Crews:CAPITAL_ODDS = 4` (x the HULLS weight of capital-pawn hulls in rivalships.lua spawnShip; those crews roll commando too), and a new conditions key `maps = Space_Solo_02, Space_Beta` (the maps with the downed Capital Ship POI; the lobby's own pick still wins). Defaults 0 / 1 / none: nothing changes outside the condition. luacheck only; NOT tested in game (kit rows equipping, look, the map pick).
+- On-foot conditions (#419, 2026-11-25): Lockdown, Prison riot, Wandering squads, Scavenger's luck use only existing
+  F10 ids (Spawns:MIN_DEFENDERS (default 6), Spawns:COUNT, Spawns:ROUT_SECONDS, Spawns:CREW_SIZE/STATIONS_PER_RAID/
+  STATION_AREA_PER_CREW, Guards:miss, Soldiers:miss, Gear:TARGET, Personalities:<name>:aggression,
+  Cover:COVER_SEEK_CHANCE, Crews:RUSHERS, Loot:FLOOR_LOOT/BODY_LOOT); every id checked against tuning.lua by script.
+  No melee/truncheon kit knob exists, so "Prison riot" is many low-geared, aggressive guards plus a full prisoner
+  crowd; personality changes hit everyone (rivals too). Not tested in game, incl. whether FLOOR_LOOT and the crew-spawn
+  ids are read after conditions apply on the raid world (Busy sky already relies on that for Spawns:CREWS).
 
 ## #143 leftovers: ship hum, pod hint, camera turrets, hold contracts (2026-11-18)
 - Ship interiors: FrigateInside_Starter BeginPlay `if not IsServer jump 3976`; the client side is only
