@@ -14,7 +14,9 @@
 local S = {}
 local X -- log, valid
 
-local EVERY = 1.0            -- seconds between checks
+local EVERY = 10.0           -- seconds between checks when nothing was dragged (was 1 s: a big stash cost ~100-800 ms
+                             -- a second in the lobby, where the stash is always on screen)
+local AFTER_DRAG = 0.3       -- a check this long after a mouse button comes up: when items move, so when cells go stale
 local FIND_MAX = 30          -- the widgets are looked for at most this often (seconds) while none are found
 local OWN = { PocketLeft = true, PocketRight = true, Stash = true }
 
@@ -76,7 +78,7 @@ local function check(w, at)
     local id = w.ContainerID:ToString()
     -- your own containers only: a bag's, rig's or box's grid is named after that item, which is in your inventory
     if not (OWN[id] or at[id]) then return 0 end
-    local n, rows = 0, {}
+    local n, rows, memo = 0, {}, {}
     w.InventorySlots:ForEach(function(_, e)
         local slot = e:get()
         local it = slot and X.valid(slot) and slot.Item
@@ -85,8 +87,15 @@ local function check(w, at)
             local stale = not X.valid(it)
             local row
             if not stale then
-                stale = at[it.UniqueItemGUID:ToString()] ~= id
-                row = it.ItemData:ToString()
+                -- an item covers several cells: its GUID and row are read once per check, by address
+                local a = it:GetAddress()
+                local m = memo[a]
+                if not m then
+                    m = { g = it.UniqueItemGUID:ToString(), row = it.ItemData:ToString() }
+                    memo[a] = m
+                end
+                stale = at[m.g] ~= id
+                row = m.row
             end
             if stale then
                 slot.Item = nil
@@ -109,9 +118,20 @@ end
 -- grid's parent chain ends at its own widget's root and a copy that's off screen stays flagged visible. Without this,
 -- after a bag or armour swap the check ran on such a copy every second for the rest of the raid: ~175 ms each time,
 -- walking the whole inventory (#369, Walmarx's report: once-a-second stalls right after dragging a backpack on).
+local LMB, wasDown, dueAt -- the left mouse button's key, its last state, a check asked for by a drag ending
+
 function S.tick(pc)
     local now = os.clock()
-    if now < nextRun then return end
+    if pc and X.valid(pc) then
+        LMB = LMB or { KeyName = FName("LeftMouseButton") }
+        local ok, down = pcall(function() return pc:IsInputKeyDown(LMB) end)
+        if ok then
+            if wasDown and not down then dueAt = now + AFTER_DRAG end
+            wasDown = down
+        end
+    end
+    if now < nextRun and not (dueAt and now >= dueAt) then return end
+    dueAt = nil
     nextRun = now + EVERY
     local cursor = true
     -- (only a controller has the flag: anything else ticking, like a lobby widget, reads nil and doesn't stop it)
