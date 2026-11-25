@@ -440,7 +440,13 @@ def steam_run(argv):
         say("running: " + " ".join(cmd))
         # Proton's and the game's own output (the steamclient64 error of #161 is printed there) into the same log
         out = _launch_log if _launch_log else None
-        proc = subprocess.Popen(cmd, env=env, stdout=out, stderr=subprocess.STDOUT if out else None)
+        # Started from the game folder, as the EAC bootstrapper starts the game for a stock launch (#161: offline the game
+        # said "unable to load library steamclient64.dll"; Binaries/Win64 holds the game's own Windows steamclient64.dll,
+        # a guess at the difference). Which steamclient files are there goes in the log.
+        for rel in ("steamclient64.dll", os.path.join(os.path.dirname(EXE_REL), "steamclient64.dll")):
+            say(f"  {rel}: {'present' if os.path.exists(os.path.join(game, rel)) else 'absent'}")
+        say("  working folder: " + game)
+        proc = subprocess.Popen(cmd, env=env, cwd=game, stdout=out, stderr=subprocess.STDOUT if out else None)
         proc.wait()
         say(f"the game exited with code {proc.returncode}")
     except Stop:
