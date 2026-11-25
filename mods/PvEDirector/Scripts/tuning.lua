@@ -355,6 +355,7 @@ local function define()
         { "SORT_FADE", "Stash SORT: black screen while sorting", 0, 1, 1, "1 = on, 0 = off. Hides the items jumping around while the stash sorts; gone after 8 s at most" },
         { "FOV", "Field of view (degrees)", 0, 120, 1, "0 = the game's own. 70-120 widens or narrows the view (values under 70 count as 70). Untested (#328)" },
         { "ADS_ZOOM", "Aim zoom", 0, 1, 0.05, "1 = the game's zoom when aiming, 0 = no FOV change when aiming, between = less zoom. Untested (#328)" },
+        { "HINTS", "First-time hints", 0, 1, 1, "1 = on, 0 = off. A short line on screen the first time you reach the lobby, a raid, the helm, a mine or hire crew; each once per save" },
         { "KEEP_PROGRESS_ON_DEATH", "Keep contract progress when you die", 0, 1, 1, "1 = on, 0 = off. A death ends the raid as a disconnect so contracts, campaign and XP count; your gear is still lost. Untested (#361)" },
     })
     tabs[#tabs + 1] = feats

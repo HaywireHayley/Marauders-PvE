@@ -17,5 +17,6 @@ return {
     SORT_FADE = 1,      -- invqol.lua: the screen goes black with "Sorting..." while the stash SORT runs (#468)
     FOV = 0,            -- fov.lua: field of view in degrees, 0 = the game's own (#328; untested)
     ADS_ZOOM = 1,       -- fov.lua: aim zoom, 1 = the game's, 0 = none, between = a blend (#328; untested)
+    HINTS = 1,          -- hints.lua: a short line the first time you reach a few moments (lobby, raid, helm, mine, crew), once per save (#389)
     KEEP_PROGRESS_ON_DEATH = 0, -- loadout.lua: a death ends the raid as DISCONNECT so contract/chapter progress is kept (#361; untested, off)
 }

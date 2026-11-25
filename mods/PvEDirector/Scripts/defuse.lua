@@ -591,6 +591,7 @@ end
 function M.isOpen() return board ~= nil end
 -- Tests (bridge/dir_eval.lua): the open board (charges, counts, where it is), and the mine you're next to.
 function M.peek() return board, near, held end
+function M.nearStation() return near ~= nil and nearKind == "station" end -- hints.lua (#389)
 
 -- A new world: its mines and widgets are gone.
 function M.reset()

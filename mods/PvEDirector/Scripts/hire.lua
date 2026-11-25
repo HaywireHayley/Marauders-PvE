@@ -700,6 +700,7 @@ local function command(pc, line)
 end
 
 local nextCmd, nextPics = 0, 0
+function H.crewCount() return D and D.crew and #D.crew or 0 end -- hired crew (hints.lua, #389)
 function H.lastPc() return tickPc end -- the controller the director's tick runs on (lobby or raid)
 
 local function preview()
