@@ -54,3 +54,41 @@ loot = 2
 about = Twenty times the space mines, scattered around every minefield. Fly carefully. Better loot.
 mines = 20
 loot = 1.25
+
+[Lockdown]
+about = Stations are on alert: twice the guards, they never run, sharper shots, and their bags are fuller.
+Spawns:MIN_DEFENDERS = 12
+Guards:miss = 0.5
+Soldiers:miss = 0.55
+Spawns:ROUT_SECONDS.1 = 0
+Spawns:ROUT_SECONDS.2 = 0
+Loot:BODY_LOOT = 1.5
+
+[Prison riot]
+about = The prisons are in uproar: crowds of prisoners, poorly armed guards everywhere, and every one of them rushes you.
+Spawns:MIN_DEFENDERS = 16
+Spawns:COUNT = 10
+Gear:TARGET.1 = 0.05
+Gear:TARGET.2 = 0.2
+Personalities:Normal:aggression = 2.5
+Personalities:SnappingTurtle:aggression = 2
+Personalities:Chad:aggression = 3.5
+Cover:COVER_SEEK_CHANCE = 0.15
+loot = 1.25
+
+[Wandering squads]
+about = More rival crews, bigger ones, and they make straight for the stations to raid them on foot.
+Spawns:CREWS = 9
+Spawns:CREW_SIZE.1 = 3
+Spawns:CREW_SIZE.2 = 5
+Spawns:STATIONS_PER_RAID.1 = 3
+Spawns:STATIONS_PER_RAID.2 = 5
+Spawns:STATION_AREA_PER_CREW = 10000
+Crews:RUSHERS = 0.7
+loot = 1.25
+
+[Scavenger's luck]
+about = Thin guard, rich pickings: half the guards at every station and twice the loot on the floor and on bodies.
+Spawns:MIN_DEFENDERS = 3
+Loot:FLOOR_LOOT = 2
+Loot:BODY_LOOT = 2
