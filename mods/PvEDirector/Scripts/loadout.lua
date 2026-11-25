@@ -36,7 +36,7 @@ local AMMO_ROWS = { [0] = "12GaugeAmmo", "300Ammo", "32Ammo", "45Ammo", "9mmAmmo
     "556Ammo", "40mmAmmo", "FlareAmmo", "FlameFuel", "DartAmmo" }
 local AMMO_STACK = 60        -- rounds per pocket stack (the 2x2 pocket takes four)
 
-local function inventory() return FindFirstOf("SIGISInventoryComponent") end
+local function inventory() return require("player").inventory() end -- kept between calls (player.lua)
 
 local function itemById(guid)
     if guid == "" then return nil end
@@ -185,7 +185,7 @@ end
 -- and back in the lobby (after Play on the splash screen) saves those as new stash items. Then the server ends
 -- the player's session. Offline this hook does that last part: back to the main menu after EXTRACT_SECONDS.
 local function extractNow()
-    local inv = FindFirstOf("SIGISInventoryComponent")
+    local inv = inventory()
     if valid(inv) then inv:Client_GetOutWithLoot() end
 end
 

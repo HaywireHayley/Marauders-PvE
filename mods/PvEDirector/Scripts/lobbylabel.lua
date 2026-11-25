@@ -75,7 +75,7 @@ local function findGear()
         local name = w:GetFullName():gsub("^%S+ ", "")
         if name:find("Transient", 1, true) then gear.invWidget = name end
     end
-    local inv = FindFirstOf("SIGISInventoryComponent")
+    local inv = require("player").inventory()
     if inv and inv:IsValid() then gear.inv = (inv:GetFullName():gsub("^%S+ ", "")) end
 end
 

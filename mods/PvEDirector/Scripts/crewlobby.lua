@@ -365,14 +365,13 @@ end
 
 -- Every frame in the lobby. crew = hired crewmates (slot order), preview = a recruit to show on a free stand (or nil).
 -- Returns the slot clicked ({ index, crewmate or nil }) or nil.
-local OFF = PROJECT .. "config/crewlobby_off" -- debugging: "all", "stands" or "slots"
+local OFF_NAME = "crewlobby_off" -- (config/) debugging: "all", "stands" or "slots"
 local off, offChecked = nil, -1
 function L.tick(pc, crew, preview)
     if os.clock() - offChecked > 2 then
         offChecked = os.clock()
-        local f = io.open(OFF, "r")
-        off = f and (f:read("l") or "all") or nil
-        if f then f:close() end
+        local v = require("config").line(OFF_NAME)
+        off = v and (v ~= "" and v or "all") or nil
     end
     if off == "all" then return nil end
     local world = pc:GetWorld()
