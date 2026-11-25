@@ -73,6 +73,41 @@ local function findVolumes(s, now)
     end
 end
 
+-- Locked doors for the minimap (#326): every RaidLockedDoor in the level (vault doors that take the torch, key card and hack
+-- doors), still locked. One FindAllOf per DOORS_EVERY seconds (40-50 ms each on big maps), kept in raid.doors so a new world
+-- starts clean; between looks each kept door is checked through valid() and dropped once bIsUnlocked (or bIsOpen) is set.
+-- Returns { { at = copied vector, key = address }, ... }; positions are copies, the door itself never leaves this module.
+local DOORS_EVERY = 30
+local function flag(o, name)
+    local v = false
+    pcall(function() v = o[name] == true end)
+    return v
+end
+
+function P.lockedDoors(now)
+    if not raid then return {} end
+    local d = raid.doors
+    if not d or now >= d.findAt then
+        d = { findAt = now + DOORS_EVERY, list = {} }
+        raid.doors = d
+        for _, door in ipairs(FindAllOf("RaidLockedDoor") or {}) do
+            if X.valid(door) and not flag(door, "bIsUnlocked") then
+                local ok, at = pcall(function() local l = door:K2_GetActorLocation() return { X = l.X, Y = l.Y, Z = l.Z } end)
+                if ok and at then d.list[#d.list + 1] = { door = door, at = at, key = tostring(door:GetAddress()) } end
+            end
+        end
+    end
+    local out, keep = {}, {}
+    for _, e in ipairs(d.list) do
+        if X.valid(e.door) and not flag(e.door, "bIsUnlocked") and not flag(e.door, "bIsOpen") then
+            keep[#keep + 1] = e
+            out[#out + 1] = { at = e.at, key = e.key }
+        end
+    end
+    d.list = keep
+    return out
+end
+
 -- Burns one lock by dmg; tells its door; when the door's last lock goes, unlocks it.
 local function burnLock(s, v, dmg)
     local left = s.hp[v.key]

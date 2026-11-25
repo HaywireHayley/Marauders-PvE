@@ -1499,6 +1499,15 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
   of each living roster bot, the same read its nametags already do every frame). New art assets/minimap/cross.png and
   bag.png (written with stdlib zlib; the same shapes added to tools/make_minimap_art.py); missing art falls back to
   the dot instead of failing build().
+- Locked doors (2026-11-25, #326; luacheck only, NOT tested in game): a red lock (assets/minimap/lock.png, shape in
+  tools/make_minimap_art.py) on every RaidLockedDoor still locked, on foot, in the place you're in. blowtorch.lua
+  P.lockedDoors(now) does one FindAllOf("RaidLockedDoor") per 30 s into raid.doors (new each raid) and drops a kept door
+  once valid() fails or bIsUnlocked / bIsOpen reads true (pcall'd: bIsOpen is a guess, its name not checked); returns
+  copied vectors + address only. minimap.lua reads it every DOORS_EVERY (2) s, places each door by the same rects/ship
+  radius that place you (cached per world by address once placed), MAX_DOORS 16. Feature switch MAP_DOORS (F10 Features).
+  Not verified: that key card and hack doors are RaidLockedDoor subclasses (only Door_BlowTorch_C is known to be), that a
+  key card/hack door sets bIsUnlocked offline, and the cost of the 30 s FindAllOf (40-50 ms on big maps). Floors as layers
+  (the rest of #326) not done.
 - **Blank panel watchdog (2026-11-21, #334; NOT tested in game, not reproduced).** Reported: the small map a solid dark
   rectangle for a whole clip, no plan, marker or text. Found in the code: the backdrop (panel + map Border) went on
   screen at build(), while every piece of text and the plan is only written once `think` returns ready, so anything

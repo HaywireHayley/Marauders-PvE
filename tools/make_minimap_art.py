@@ -31,3 +31,8 @@ icon("cross", lambda d, n: (  # a kill (#326)
 icon("bag", lambda d, n: (  # a dropped item (#326)
     d.rounded_rectangle((n * .12, n * .3, n * .88, n * .92), radius=int(n * .12), fill="white"),
     d.arc((n * .3, n * .06, n * .7, n * .5), 180, 360, fill="white", width=int(n * .1))))
+icon("lock", lambda d, n: (  # a locked door: key card, blowtorch or hack (#326)
+    d.rounded_rectangle((n * .16, n * .44, n * .84, n * .94), radius=int(n * .08), fill="white"),
+    d.arc((n * .28, n * .08, n * .72, n * .64), 180, 360, fill="white", width=int(n * .12)),
+    d.line((n * .28, n * .36, n * .28, n * .48), fill="white", width=int(n * .12)),
+    d.line((n * .72, n * .36, n * .72, n * .48), fill="white", width=int(n * .12))))
