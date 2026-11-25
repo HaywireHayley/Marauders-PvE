@@ -456,6 +456,13 @@ Why bots did nothing, and the fix for each (all automated in PvEDirector):
   its remaining 25 rounds); death -> menu, gear gone, stats written. The stash was restored from a backup
   (backend/state.before-death-test.json) after the death test.
 
+- 2026-11-25 (#390): raid summary in the lobby after a raid (raidsummary.lua, feature RAID_SUMMARY): outcome (extracted:
+  `raid.extractedAt` was set; died: on-foot pawn Health <= 0), map, time, kills by kind from InMatchStats K_* (read every
+  2 s), crew that came (hire.raidCrew at raid start) and died (hire.died), and missions.version() as "contract/chapter
+  events". The tally is plain Lua module state carried over the travel (the director's Lua state survives it, as
+  hire.lua's D.raid does) and closed on the first lobby frame; panel = deathscreen.lua's layout, 12 s or Esc, plus a
+  "raid summary:" log line. Not counted: loot out vs in, ship deaths in space. NOT tested in game.
+
 ## Stability fixes (2026-10-30)
 - Raid -> same raid crashed: the director keyed its per-raid state on the world NAME, which is the same when the
   map loads again, so it validated the previous raid's freed soldiers (IsValid reads the object: access violation in
