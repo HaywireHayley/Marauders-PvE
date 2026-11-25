@@ -518,6 +518,34 @@ local function holdFire(e)
     e.ctrl.MyEnemy = nil
 end
 
+-- Pity (#417): when you call out on F7 or F8 (the game's voice lines), a soldier fighting you nearby now and then holds
+-- fire for a few seconds: PITY_CHANCE each, twice that while you're hurt below half health, at most one roll per
+-- PITY_COOLDOWN each. The hold is the reaction-time one (holdUntil), so the fight resumes on its own. Soldiers only;
+-- rival crews (rivalbodies.lua) ignore it. Untested in game.
+local PITY_CHANCE, PITY_RANGE, PITY_SECONDS, PITY_COOLDOWN = 0.08, 2500, { 3, 6 }, 30
+function M.pity()
+    local pawn = raid and raid.pawn
+    if not (pawn and valid(pawn)) then return end
+    local at = pawn:K2_GetActorLocation()
+    local chance = PITY_CHANCE
+    pcall(function()
+        local hp, max = pawn.Health, pawn.MaxHealth
+        if type(hp) == "number" and type(max) == "number" and max > 0 and hp < max / 2 then chance = chance * 2 end
+    end)
+    local now = os.clock()
+    for _, e in ipairs(raid.bots or {}) do
+        if e.inCombat and e.foeEntry == PLAYER and valid(e.bot) and valid(e.ctrl) and now >= (e.pityAt or 0)
+            and dist(e.bot:K2_GetActorLocation(), at) < PITY_RANGE then
+            e.pityAt = now + PITY_COOLDOWN
+            if math.random() < chance then
+                holdFire(e)
+                e.holdUntil = now + math.random(PITY_SECONDS[1], PITY_SECONDS[2])
+                log(("%s takes pity and holds fire"):format(e.bot:GetFName():ToString()))
+            end
+        end
+    end
+end
+
 -- Bots reload (issue #115). A bot's shot never touches its gun's clip (only ServerMultiSimulateWeaponFire runs, see
 -- the gunfire hook), so its 30 rounds never ran out. Shots are counted here against the gun's magazine
 -- (WeaponConfig.AmmoPerClip) and the clip kept in step; on empty the bot holds fire for the reload (its controller's

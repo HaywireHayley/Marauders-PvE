@@ -28,6 +28,11 @@ static const Patch PATCHES[] = {
     { "FireWeapon trace RPC", 0x1885c1a, { 0x0f, 0x83, 0x6d, 0x01, 0x00, 0x00 }, { 0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00 }, 6 },
     /* cmp byte [rdi+0xF0],3 ; jae +0x28   (projectile guns: ServerFireProjectile) */
     { "FireWeapon projectile RPC", 0x1885d63, { 0x73, 0x28 }, { 0x66, 0x90 }, 2 },
+    /* cmp byte [rdi+0x728],r15b ; jne +0x28  skips the local (client-predicted) projectile spawn, call 0x1880200. With the
+       RPC above running locally the server half spawns the real round too, so every projectile gun fired TWO rounds at the
+       same muzzle point, and a 40mm round detonated on its twin at once: in your hands (#360; seen 2026-11-25, a Proj40mm_C
+       at the muzzle before ServerFireProjectile ran and two after). Always skipping the local one leaves the server's. */
+    { "FireWeapon no local projectile", 0x1885d32, { 0x75, 0x28 }, { 0xeb, 0x28 }, 2 },
     /* cmp byte [rcx+0xF0],3 ; jae return  at the top of the multi-pellet client trace (0x18a1990). FireWeapon
        (pellet count +0x460 > 0, i.e. shotguns) traces each pellet on the server only when MyPawn is a RaidBot or
        RaidNodeBot (0x188f3a0); every other pawn, the player included, goes to 0x18a1990, which traces the pellets,

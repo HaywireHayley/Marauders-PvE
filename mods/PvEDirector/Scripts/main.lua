@@ -1101,6 +1101,7 @@ RaidTime.init({ log = log, valid = valid })
 ShipSpeed.init({ log = log, valid = valid })
 Unstuck.init({ log = log, valid = valid, navLib = navLib, navMesh = navMesh, queryFilter = queryFilter })
 Blowtorch.init({ log = log, valid = valid, lib = lib })
+require("launchers").init({ log = log, valid = valid }) -- 40mm rounds ignore their gun and shooter (#360)
 BulletHoles.init({ log = log, valid = valid })
 Crew.init({ rivals = Rivals, hire = Hire, AI = AI, lib = lib, voice = Voice, log = log, valid = valid, dist = dist,
     gunseat = Gunseat,
@@ -1503,6 +1504,10 @@ require("pvemenu").setActions({ ai = toggleTuning, debug = toggleDebug, crew = f
 end })
 RegisterKeyBind(Key.F11, function() table.insert(pending, require("pvemenu").action("crew")) end)
 RegisterKeyBind(Key.F9, function() table.insert(pending, toggleDebug) end)
+-- F7/F8 still play the game's voice line (the bind doesn't take the key); soldiers may take pity (#417).
+for _, k in ipairs({ Key.F7, Key.F8 }) do
+    RegisterKeyBind(k, function() table.insert(pending, function() pcall(Bots.pity) end) end)
+end
 -- The list of these keys (keyhelp.lua, #389) opens from the F9 menu's "Key list" button: F1-F8 are the game's voice
 -- lines, so no mod key goes there. Keep its KEYS in step with this block.
 -- The minimap (minimap.lua): N shows or hides it, M switches to the full overview and back, B follows the next task.
