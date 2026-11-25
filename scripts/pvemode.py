@@ -36,6 +36,10 @@ GAME_EXE = "RaidGame-Win64-Shipping.exe"
 BOOTSTRAP = "raidgame.exe"  # what Steam starts: the EAC bootstrapper
 GAME_PATH = os.path.join(ROOT, "config", "game_path.txt")
 BACKUP = os.path.join(ROOT, "backup")
+# #161: under Proton the game's own Windows steamclient64.dll (Binaries/Win64, beside tier0_s64 / vstdlib_s64) is swapped
+# for Proton's bridge while offline; config/linux_steamclient.txt "off" stops it.
+STEAMCLIENT_BACKUP = os.path.join(BACKUP, "steamclient64.dll.original")
+STEAMCLIENT_SETTING = os.path.join(ROOT, "config", "linux_steamclient.txt")
 DIRTY = os.path.join(BACKUP, "offline_applied")  # written once the folder is offline, removed once it's stock again
 STEAM_SETTING = os.path.join(ROOT, "config", "linux_offline.txt")  # "off": the launch option starts the stock game
 SAVE_SETTING = os.path.join(ROOT, "config", "linux_save.txt")  # the save steam-run plays (else the last played)
@@ -273,6 +277,9 @@ class Folder:
                 shutil.rmtree(p)
             elif os.path.lexists(p):
                 os.remove(p)
+        if os.path.exists(STEAMCLIENT_BACKUP):  # (#161: Proton's bridge put in for the offline start)
+            shutil.copy2(STEAMCLIENT_BACKUP, os.path.join(self.bin, "steamclient64.dll"))
+            os.remove(STEAMCLIENT_BACKUP)
         if os.path.exists(self.ini_backup):
             shutil.copy2(self.ini_backup, self.ini)
         if os.path.exists(self.intro_backup):
@@ -395,6 +402,45 @@ class Stop(Exception):
     pass
 
 
+def proton_steamclient():
+    """Proton's steamclient64.dll in the game's Wine prefix (its lsteamclient bridge to the Linux Steam client), and the
+    prefix's registry value that tells the game where Steam's client DLL is. Either can be None."""
+    pfx = os.environ.get("STEAM_COMPAT_DATA_PATH")
+    if not pfx:
+        return None, None
+    dll = os.path.join(pfx, "pfx", "drive_c", "Program Files (x86)", "Steam", "steamclient64.dll")
+    reg = None
+    try:
+        with open(os.path.join(pfx, "pfx", "user.reg"), encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if line.startswith('"SteamClientDll64"='):
+                    reg = line.split("=", 1)[1].strip()
+                    break
+    except OSError:
+        pass
+    return (dll if os.path.isfile(dll) else None), reg
+
+
+def use_proton_steamclient(folder):
+    """#161: the modded start stopped on "unable to load library steamclient64.dll" (the text and that file name are in
+    the exe's protected startup code), while the stock start works. The Windows steamclient64.dll the game ships in
+    Binaries/Win64 can't reach a Linux Steam; Proton's bridge can. So it stands in for the offline start, and
+    Folder.online() puts the game's own back. A guess, logged either way."""
+    dll, reg = proton_steamclient()
+    say(f"  Proton's steamclient64.dll: {dll or 'not found'}; registry SteamClientDll64: {reg or 'not set'}")
+    if not dll or setting(STEAMCLIENT_SETTING, "on") == "off":
+        return
+    mine = os.path.join(folder.bin, "steamclient64.dll")
+    try:
+        if os.path.exists(mine) and not os.path.exists(STEAMCLIENT_BACKUP):
+            os.makedirs(BACKUP, exist_ok=True)
+            shutil.copy2(mine, STEAMCLIENT_BACKUP)
+        shutil.copy2(dll, mine)
+        say("  Binaries/Win64/steamclient64.dll: Proton's for this start (the game's own goes back when it closes)")
+    except OSError as e:
+        say(f"  couldn't put Proton's steamclient64.dll in place: {e}")
+
+
 def steam_run(argv):
     """The Steam launch option: plays the chosen save offline, or runs Steam's command untouched when switched off."""
     if not argv:
@@ -440,6 +486,7 @@ def steam_run(argv):
         say("running: " + " ".join(cmd))
         # Proton's and the game's own output (the steamclient64 error of #161 is printed there) into the same log
         out = _launch_log if _launch_log else None
+        use_proton_steamclient(folder)
         # Started from the game folder, as the EAC bootstrapper starts the game for a stock launch (#161: offline the game
         # said "unable to load library steamclient64.dll"; Binaries/Win64 holds the game's own Windows steamclient64.dll,
         # a guess at the difference). Which steamclient files are there goes in the log.
