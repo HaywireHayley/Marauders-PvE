@@ -33,8 +33,9 @@ local REACH = 30 -- cm: how far your aim line may pass from a lock's middle (the
 -- ran a 250-charge torch dry at 361 hull, 25 hull a second: 250 / 14.4 s = 17.3 a second; and at the old 50 DPS players
 -- measured "over 100 a bolt", 6 s x 17.3 = 104). The live game cost about 90 for a whole vault, so three locks should
 -- take about 90 / 17.3 = 5.2 s: 1.73 s a lock, 300 / 1.73 = 173. At 175: 1.71 s a lock, 5.1 s and about 89 charge a vault.
-local DPS = 175
+local DPS = 175 -- (#444 proposed 100, the vanilla rate; 175 is #374's fuel-based figure, and #444's burst fix now delivers it)
 local STEP = 0.1 -- seconds between burns
+local GRACE = 0.2 -- seconds the torch counts as firing after BurstCounter was last seen above 0 (it fires in bursts about 0.16 s apart, so a 0.1 s look often lands between two)
 local FIND_EVERY = 10 -- seconds between looks for the doors' lock volumes while firing (a FindAllOf walks every object)
 local NEAR = 1500 -- cm: lock volumes farther than this from you are not looked at
 -- Part names by the volume's name suffix, for when UniquePartName can't be read (the volume's own property is preferred).
@@ -157,15 +158,13 @@ local function burnLock(s, v, dmg)
     X.log(("blowtorch: every lock of %s is burned through, door unlocked"):format(nameOf(v.door)))
 end
 
-local function burn(s, now, pc, pawn)
+local function burn(s, now, dt, pc, pawn)
     findVolumes(s, now)
     local cam = pc.PlayerCameraManager
     local loc, rot = cam:GetCameraLocation(), cam:GetCameraRotation()
     local p, y = math.rad(rot.Pitch), math.rad(rot.Yaw)
     local dx, dy, dz = math.cos(p) * math.cos(y), math.cos(p) * math.sin(y), math.sin(p)
     local here = pawn:K2_GetActorLocation()
-    local dt = math.min(now - s.lastBurn, 0.25)
-    s.lastBurn = now
     local best = {} -- per door: the lock whose middle is nearest your aim line
     for _, v in ipairs(s.vols) do
         if X.valid(v.c) and X.valid(v.door) and (s.hp[v.key] or 1) > 0 then
@@ -331,12 +330,18 @@ function P.frame(pc)
         return
     end
     local firing = gun.BurstCounter
-    if type(firing) ~= "number" or firing <= 0 then
+    if type(firing) == "number" and firing > 0 then s.fireAt = now end
+    -- The torch fires in bursts with gaps between them, so BurstCounter is 0 on some looks even while the trigger is held.
+    -- It counts as firing for GRACE seconds after the last burst seen, and the time between looks is credited in full,
+    -- but never past that window (a tap does not burn on after you let go).
+    if not s.fireAt or now - s.fireAt > GRACE then
         s.lastBurn = now
         return
     end
-    local dt = math.min(now - s.lastBurn, 0.25)
-    burn(s, now, pc, pawn)
+    local upto = math.min(now, s.fireAt + GRACE)
+    local dt = math.max(0, math.min(upto - s.lastBurn, 0.25))
+    s.lastBurn = upto
+    burn(s, now, dt, pc, pawn)
     pcall(repair, s, now, pc, dt)
 end
 

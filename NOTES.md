@@ -5699,3 +5699,24 @@ Checked in game on 2026-11-25 against the raw baseline: defaults equal raw on al
 - Not done: a lower cap for other pooled sounds (bullet whizz, blood), the pool never handing actors back offline (also eats particle systems; 511 actors, the live count reached 250 in 9 s).
 - Confirmed in game by the tester: no clip with the cap at 6, the impacts still audible. Reference with the whole chain and the table of experiments: [docs/internals/IMPACT_SOUNDS.md](docs/internals/IMPACT_SOUNDS.md).
 
+## Blowtorch: hits lost between bursts, and half the vanilla rate (2026-11-24)
+
+- Report: the torch takes too long to break locks. Two causes, both in blowtorch.lua; the door's own timings (10 s Delay,
+  about 5 s latch) are not ours and are unchanged.
+- Lost hits: in the 2026-11-18 log (bridge/blowtorch.txt) the locks burned at 40 to 45 health a second while the trigger
+  was held, at a set 50. Aim was fine (8 to 10 cm off a lock's middle, 30 allowed). The torch fires in bursts about 0.16 s
+  apart with BurstCounter at 0 between them; P.frame looked every 0.1 s, burned nothing on a look in a gap and reset
+  lastBurn, so the time was lost. The native torch's own hits never reach the volumes offline (its impact effects spawn at
+  0 0 0), which is why the mod burns from the aim line at all. Fix: s.fireAt is the last time BurstCounter was above 0; the
+  torch counts as firing for GRACE (0.2 s) after it, and burn gets dt up to fireAt + GRACE, so held fire burns the full rate
+  and a tap stops with the burst.
+- The rate was half of vanilla. A tester measured about 3 s a lock in the original game and 90 to 100 fuel for a whole
+  vault (fuel drains about 13 a second, and only while a burst fires). The torch's data: Damage 15, TimeBetweenShots 0.075
+  (200 a second raw) and bursts on about half the time, so about 100 a second lands. DPS is now 100: a lock 3 s, a vault
+  about 9 s and 117 fuel held down. The earlier "50 matches the game via DamageDivide 4" was a guess and is withdrawn.
+  A server side multiplier is not needed to explain the numbers.
+- Tested: syntax check, then live in the game on 2026-11-24 through a hot swap of the module (bridge/dir_eval.lua): the vault
+  door unlocked twice (last_game.log: "every lock of Door_BlowTorch2 is burned through, door unlocked"), and the locks and
+  latches were put back on the door between runs by resetting Health and rewinding the latch timelines. Per lock time and
+  fuel were not measured; worth a run with bridge/blowtorch.txt on.
+- Not done: the single bolt doors on the merchant ship and colony cruiser (fix/blowtorch-door-bolts, unmerged, untested).
