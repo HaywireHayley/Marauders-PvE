@@ -443,6 +443,60 @@ def give(sid, row, count):
     return given
 
 
+KITS = os.path.join(ROOT, "config", "kits.json")
+GEAR = os.path.join(ROOT, "mods", "PvEDirector", "Scripts", "gear.lua")
+KIT_MARKUP = 1.15  # convenience costs a bit: looting stays the cheaper way to gear up (#385)
+
+
+def gear_prices():
+    """Item row -> price, read from the mod's gear.lua (its { "Row", price } entries): the one price list vendors use."""
+    with open(GEAR, encoding="utf-8") as f:
+        return {row: int(p) for row, p in re.findall(r'\{\s*"([A-Za-z0-9_]+)"\s*,\s*(\d+)', f.read())}
+
+
+def kits():
+    """The preset kits from config/kits.json, each with its price: gear.lua's prices (ammo, which gear.lua doesn't list,
+    at the game's own item price) times KIT_MARKUP."""
+    prices, items = gear_prices(), _read(ITEMS)
+    out = []
+    for k in _read(KITS)["kits"]:
+        rows = [(row, int(n)) for row, n in k["items"]]
+        total = sum(prices.get(row, items.get(row, {}).get("price", 0)) * n for row, n in rows)
+        out.append({"name": k["name"], "items": rows, "price": int(round(total * KIT_MARKUP))})
+    return out
+
+
+def buy_kit(sid, kit):
+    """Buys a kit (one entry of kits()) into a save's stash, all or nothing: every item is placed first, and only then is
+    the cash taken and the save written once. Returns None when bought, or why not. A cheat save doesn't pay."""
+    if active() == sid:
+        return "That save is in play: close the game first."
+    items = _read(ITEMS)
+    missing = [row for row, _ in kit["items"] if row not in items]
+    if missing:
+        return f"Unknown item rows in the kit: {', '.join(missing)}"
+    path = os.path.join(SAVES, sid, "state.json")
+    state = _read(path)
+    cash = _summary(state)["cash"]
+    cheat = state.get("cheat")
+    if not cheat and cash < kit["price"]:
+        return f"Not enough cash: the kit costs {kit['price']:,} and the save has {cash:,}."
+    grid = Grid(state, items, stash_rows(_meta(sid)))
+    for row, count in kit["items"]:
+        it = items[row]
+        per = max(int(it["max"] or 1), 1) if it["type"] == 18 or it["stackable"] else 1
+        left = count
+        while left > 0:
+            n = min(per, left)
+            if not _put(state, grid, items, row, n if per > 1 else None):
+                return "Not enough room in the stash for the whole kit: nothing was bought."  # state isn't written
+            left -= n
+    if not cheat:
+        _stat(state, "cash", cash - kit["price"])
+    _write(path, state)
+    return None
+
+
 def set_cash(sid, amount):
     """Sets a save's cash. A cheat save keeps its infinite money (the stand-in puts it back after every purchase)."""
     path = os.path.join(SAVES, sid, "state.json")

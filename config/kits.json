@@ -1,0 +1,10 @@
+{
+ "_about": "Preset kits the launcher's KITS button sells into a save between sessions (#385). Rows are the game's item rows from mods/PvEDirector/Scripts/gear.lua; prices come from gear.lua (ammo from the game's item data) times the launcher's markup.",
+ "kits": [
+  {"name": "Budget SMG", "items": [["StenSMG", 1], ["9mmAmmo", 120], ["ClothCap", 1], ["PouchRig", 1], ["SackBag", 1], ["BandageAid", 3]]},
+  {"name": "Rifleman", "items": [["Mas44Rifle", 1], ["762Ammo", 120], ["BAHelmet", 1], ["M1FlakRig", 1], ["LightBag", 1], ["BandageAid", 3], ["Aspirin", 1]]},
+  {"name": "Shotgunner", "items": [["TrenchShotgun", 1], ["12GaugeAmmo", 60], ["StahlhelmHelmet", 1], ["HalfPlateChest", 1], ["LightBag", 1], ["BandageAid", 3]]},
+  {"name": "Heavy / LMG", "items": [["BrenMk2Rifle", 1], ["762Ammo", 240], ["M1Helmet", 1], ["FullPlateChest", 1], ["CommandoBag", 1], ["BandageAid", 3], ["Morphine", 1]]},
+  {"name": "Medic", "items": [["Mat49Rifle", 1], ["32Ammo", 120], ["CivilianHelmet", 1], ["PouchRig", 1], ["MedicBag", 1], ["BandageAid", 6], ["Aspirin", 2], ["Morphine", 2]]}
+ ]
+}

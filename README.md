@@ -69,6 +69,9 @@ salvage and docking. Along the way the mod has also added things the live game n
 
 **Launcher and tools**
 - Several saves, **back up and import**, and give items or credits to a save.
+- **KITS:** buy a preset kit (Budget SMG, Rifleman, Shotgunner, Heavy / LMG, Medic: gun, ammo, helmet, armour, bag,
+  meds) into a save's stash between sessions, for its cash at vendor prices + 15 %. It lands in the stash on your next
+  login; equip it from there. Presets live in `config/kits.json`.
 - **REPORT** bundles your logs and crash report into one zip for a bug report, with your names and IDs taken out.
 - **One small download:** the installer zip fetches the rest, and the launcher **updates itself** when a new build is
   out (only the parts that changed).
