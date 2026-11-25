@@ -1977,4 +1977,46 @@ function R.playerShip() return S and valid(S.playerShip) and S.playerShip or nil
 -- Its full hull as the damage effects count it (your own at raid start; a taken one's from when it launched).
 function R.playerShipMaxHull() return S and S.playerShipMaxHull or nil end
 
+-- Quick deploy (#459, NOT tested in game): from your own ship, on foot, straight to the nearest station. The game's own
+-- pod launch can't be fired from Lua (hatch:OnUsed starts the pod at 0,0,0 or garbage, NOTES "Pods"), so this is the
+-- pod landing's placement instead: a walkable entry of the station, a fade from black, and the same podExitCheck a pod
+-- exit gets (S.podSeen) to put you on the floor and give your body back its movement. Far from 0,0,0, so the void
+-- rescue doesn't send you home; S.podShip is cleared so it can't take you into a rival's ship either.
+function R.quickDeployReady()
+    return S ~= nil and S.stations ~= nil and #S.stations > 0 and S.onFoot == true and playerPlace() == "ship"
+end
+function R.quickDeploy()
+    if not R.quickDeployReady() then return nil, "Stand aboard your ship, not at the helm" end
+    local pc, foot = S.pc, S.foot
+    if not (valid(pc) and valid(foot)) then return nil, "No body to deploy" end
+    local from = valid(S.playerShip) and S.playerShip:K2_GetActorLocation() or foot:K2_GetActorLocation()
+    local best, bd
+    for _, st in ipairs(S.stations) do
+        local c = st.box and st.box.c
+        if c and st.entries and #st.entries > 0 then
+            local d = math.sqrt((from.X - c.X) ^ 2 + (from.Y - c.Y) ^ 2 + (from.Z - c.Z) ^ 2)
+            if not bd or d < bd then best, bd = st, d end
+        end
+    end
+    if not best then return nil, "No station to deploy to" end
+    local spot
+    for _, e in ipairs(best.entries) do
+        if not X.offLimits(e) then
+            local ok, p = pcall(Bodies.projected, e)
+            if ok and p then spot = p break end
+        end
+    end
+    spot = spot or best.entries[1]
+    pcall(function()
+        pc.PlayerCameraManager:StartCameraFade(1, 0, 1.5, { R = 0, G = 0, B = 0, A = 1 }, false, false)
+    end)
+    Out.call(foot, "K2_SetActorLocation", { X = spot.X, Y = spot.Y, Z = spot.Z + 100 }, false, {}, true)
+    pcall(function() foot.CharacterMovement.Velocity = { X = 0, Y = 0, Z = 0 } end)
+    S.podSeen, S.podAt, S.podShip, S.voidSince = os.clock(), nil, nil, nil
+    say(pc, ("Your pod drops you at %s"):format(best.name))
+    X.log(("[rivals] quick deploy: %s, %.0f m from your ship, at %.0f,%.0f,%.0f"):format(best.name, bd / 100,
+        spot.X, spot.Y, spot.Z))
+    return best.name
+end
+
 return R
