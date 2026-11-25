@@ -348,6 +348,7 @@ local function define()
         { "MAP_KILLS", "Minimap: where your kills fell", 0, 1, 1, "1 = on, 0 = off" },
         { "MAP_DROPS", "Minimap: where you dropped things", 0, 1, 1, "1 = on, 0 = off" },
         { "MAP_CREW", "Minimap: your crewmates", 0, 1, 1, "1 = on, 0 = off" },
+        { "MAP_DOORS", "Minimap: locked doors", 0, 1, 1, "1 = on, 0 = off. A lock on doors that need a key card, a blowtorch or a hack, gone once open" },
         { "FRAME_LOG", "Frame times in the log", 0, 1, 1, "1 = on, 0 = off. Helps us find stutter: please leave it on if you report one" },
         { "VENDOR_STOCK", "Traders sell more gear", 0, 1, 1, "1 = on, 0 = off. Most guns, armour, helmets and bags, unlocked by faction level (boss gear stays loot). Turning it off needs a restart" },
         { "VENDOR_PRICE", "Trader prices (%)", 50, 400, 25, "100 = the game's prices. Higher makes buying a pricier route than looting; your faction discount still applies" },

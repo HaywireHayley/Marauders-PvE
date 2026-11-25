@@ -10,6 +10,7 @@ return {
     MAP_KILLS = 1,      -- minimap.lua: an X where enemies you killed fell (#326)
     MAP_DROPS = 1,      -- minimap.lua: a bag where you dropped something (#326)
     MAP_CREW = 1,       -- minimap.lua: your crewmates (#326)
+    MAP_DOORS = 1,      -- minimap.lua: a lock on doors still locked (key card, blowtorch, hack) (#326; untested)
     FRAME_LOG = 1,      -- main.lua: the "frames:" line in the log every 10 s (#336)
     VENDOR_STOCK = 1,   -- vendors.lua: the four traders sell most guns, armour, helmets and bags by faction level (#384)
     VENDOR_PRICE = 100, -- vendors.lua: trader prices, % of the game's (the faction discount still applies) (#384)

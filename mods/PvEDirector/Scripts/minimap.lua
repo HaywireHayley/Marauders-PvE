@@ -55,6 +55,9 @@ local CFG = {
     SHOW_KILLS = true,      -- grey X where each enemy you killed fell (this raid, this place; #326)
     SHOW_DROPS = true,      -- bag where you dropped an item with J (#326)
     SHOW_CREW = true,       -- your crewmates (#326)
+    SHOW_DOORS = true,      -- a lock on doors still locked (key card, blowtorch, hack; #326)
+    DOORS_EVERY = 2,        -- seconds between re-reads of which doors are still locked (blowtorch.lua finds them)
+    MAX_DOORS = 16,
     MAX_KILLS = 40,         -- oldest dropped beyond this
     MAX_DROPS = 20,
     STALL = 20,             -- watchdog (#334): seconds with nothing updated before the panel is rebuilt
@@ -78,6 +81,7 @@ local COLOR = {
     kill = { R = 0.35, G = 0.35, B = 0.35, A = 0.95 },
     drop = { R = 0.95, G = 0.8, B = 0.3, A = 1 },
     crew = { R = 0.25, G = 0.65, B = 1, A = 1 },
+    door = { R = 0.95, G = 0.3, B = 0.25, A = 1 },
 }
 
 -- Levels whose file name doesn't read well.
@@ -873,7 +877,7 @@ local function build(pc)
     ui = { host = host, tree = host.WidgetTree, root = host.WidgetTree.RootWidget, art = {}, dots = {}, labels = {}, rings = {},
         gates = {}, planTex = {} }
     ui.root:ClearChildren()
-    for _, f in ipairs({ "cross", "bag" }) do -- #326, optional: older art folders fall back to the dot
+    for _, f in ipairs({ "cross", "bag", "lock" }) do -- #326, optional: older art folders fall back to the dot
         ui.art[f] = texture(pc, DIR .. f .. ".png")
     end
     for _, f in ipairs({ "dot", "arrow", "target", "station", "gate" }) do
@@ -902,7 +906,8 @@ local function build(pc)
     for i = 1, CFG.ROUTE_DOTS do ui.dots[i] = icon("dot", 7, COLOR.route) end
     for i = 1, 8 do ui.rings[i] = icon("station", 20, COLOR.place) end
     for i = 1, 2 do ui.gates[i] = icon("gate", 22, COLOR.gate) end
-    ui.kills, ui.drops, ui.crew = {}, {}, {}
+    ui.kills, ui.drops, ui.crew, ui.doors = {}, {}, {}, {}
+    for i = 1, CFG.MAX_DOORS do ui.doors[i] = icon("lock", 12, COLOR.door) end
     for i = 1, CFG.MAX_KILLS do ui.kills[i] = icon("cross", 10, COLOR.kill) end
     for i = 1, CFG.MAX_DROPS do ui.drops[i] = icon("bag", 13, COLOR.drop) end
     for i = 1, 4 do ui.crew[i] = icon("dot", 10, COLOR.crew) end
@@ -1218,6 +1223,33 @@ local function drawList(v, list, widgets, at)
     hideRest(widgets, n + 1, hideIcon)
 end
 
+-- Locked doors (#326): blowtorch.lua keeps the list (one FindAllOf every 30 s); read every DOORS_EVERY seconds. Each door's
+-- place is worked out once, by the same rectangles that place you, and kept per world by the door's address.
+local doors = {}
+local function lockedDoors()
+    local now, w = os.clock(), X.raid().world
+    if doors.world ~= w then doors = { world = w, at = 0, list = {}, place = {} } end
+    if now < doors.at then return doors.list end
+    doors.at = now + CFG.DOORS_EVERY
+    local ok, list = pcall(require("blowtorch").lockedDoors, now)
+    doors.list = {}
+    if not (ok and list) then return doors.list end
+    for _, d in ipairs(list) do
+        local p = doors.place[d.key]
+        if not p then -- not kept while unplaced: the places may not be surveyed yet
+            if S and S.ship and dist(d.at, S.ship.lock) < CFG.SHIP_NEAR then p = S.ship
+            else
+                for _, pl in pairs(S and S.places or {}) do
+                    if pl.rect and inRect(pl.rect, d.at) then p = pl break end
+                end
+            end
+            doors.place[d.key] = p
+        end
+        doors.list[#doors.list + 1] = { at = d.at, place = p }
+    end
+    return doors.list
+end
+
 local NONE = {}
 local function drawExtras(v, me)
     local foot = not v.space
@@ -1236,6 +1268,8 @@ local function drawExtras(v, me)
         if ok and list then crew = list end
     end
     drawList(v, crew, ui.crew, function(p) return p end)
+    drawList(v, foot and CFG.SHOW_DOORS and require("features").MAP_DOORS == 1 and mine and here(lockedDoors()) or NONE,
+        ui.doors, function(m) return m.at end)
 end
 
 local function draw(me)
