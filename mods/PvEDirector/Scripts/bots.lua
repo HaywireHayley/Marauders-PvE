@@ -1165,6 +1165,60 @@ end
 -- 0.65 aiming) and overwrites anything we write (post-hooks on BlueprintUpdateAnimation don't fire). Legs
 -- slid whenever the bot moved faster than that. So match the speed to the legs instead: 1.1 → 220, 0.65 → 130.
 local SPEED_PER_LEG_RATE, CROUCH_ANIM_SPEED = 200, 132
+-- Native reads for animate (#336, pvepatch.c pve_bot_read): velocity, location and the anim instance's address as plain
+-- numbers, so the per-bot, ~30-a-second reads make no UE4SS wrappers or tables (their garbage froze the game for
+-- 100-230 ms about once a second in fights, through the collector's finalizer walk). The property offsets come from the
+-- engine's reflection, once. Without the DLL or an offset, animate reads through UE4SS as before.
+local native = { tried = false }
+local function propOffset(classPath, name)
+    local cls = StaticFindObject(classPath)
+    if not (cls and cls:IsValid()) then return nil end
+    local at
+    cls:ForEachProperty(function(p)
+        if not at and p:GetFName():ToString() == name then at = p:GetOffset_Internal() end
+    end)
+    return at
+end
+local function nativeReady()
+    if native.tried then return native.read ~= nil end
+    native.tried = true
+    local ok = pcall(function()
+        local o = {
+            propOffset("/Script/Engine.Actor", "RootComponent"),
+            propOffset("/Script/Engine.SceneComponent", "ComponentVelocity"),
+            propOffset("/Script/Engine.SceneComponent", "RelativeLocation"),
+            propOffset("/Script/Engine.SkeletalMeshComponent", "AnimScriptInstance"),
+        }
+        for i = 1, 4 do if type(o[i]) ~= "number" or o[i] <= 0 then error("offset " .. i) end end
+        local fn = package.loadlib(PROJECT .. "native/pvepatch.dll", "pve_bot_read")
+        if fn then native.read, native.o = fn, o end
+    end)
+    log(("aim: native bot reads %s"):format((ok and native.read) and "on" or "off (reading through UE4SS)"))
+    return native.read ~= nil
+end
+
+-- Speed, location (x, y) and the anim instance for animate: natively when it can, else through UE4SS.
+local function botState(e)
+    local bot, mesh = e.bot, e.mesh
+    if nativeReady() then
+        local o = native.o
+        local vx, vy, x, y, animAddr = native.read(bot:GetAddress(), mesh:GetAddress(), o[1], o[2], o[3], o[4])
+        if vx then
+            if animAddr == 0 then return nil end
+            if e.animAddr ~= animAddr or not e.anim then
+                e.anim, e.animAddr = mesh:GetAnimInstance(), animAddr -- a wrapper only when the instance changes
+            end
+            vx, vy = vx / 100, vy / 100
+            return math.sqrt(vx * vx + vy * vy), x / 100, y / 100, e.anim
+        end
+    end
+    local anim = mesh:GetAnimInstance()
+    if not valid(anim) then return nil end
+    local v = bot:GetVelocity()
+    local l = bot:K2_GetActorLocation()
+    return math.sqrt(v.X * v.X + v.Y * v.Y), l.X, l.Y, anim
+end
+
 local function animate(e, now)
     local bot = e.bot
     -- Posture, every frame: the tree crouches between updates. In cover only low cover crouches (to hide);
@@ -1186,10 +1240,8 @@ local function animate(e, now)
         mesh, move = bot.Mesh, bot.CharacterMovement
         e.mesh, e.move = mesh, move
     end
-    local anim = mesh:GetAnimInstance()
-    if not valid(anim) then return end
-    local v = bot:GetVelocity()
-    local speed = math.sqrt(v.X * v.X + v.Y * v.Y)
+    local speed, bx, by, anim = botState(e)
+    if not anim then return end
     -- The blueprint's leg rates make for a slow 220 walk / 130 aiming walk. Play the whole body faster while
     -- moving and scale the speed to match, so soldiers move briskly without their feet sliding.
     -- The tree's own shuffle input creeps a standing soldier along at a few units/s with its legs walking.
@@ -1228,7 +1280,11 @@ local function animate(e, now)
     mesh.GlobalAnimRateScale = e.animScale
     -- That scale is for the legs. The gun's own montage (bolt, pump, recoil) plays at 1.0 on its mesh, so the arms'
     -- matching montage is held at 1.0 too or the two drift apart while the bot moves.
-    if not e.sprintAnim and math.abs(e.animScale - 1) > 0.02 then
+    -- (GetCurrentActiveMontage makes a wrapper: asked only when the rate to hold has moved, or every MONTAGE_EVERY s
+    -- for a montage that started since)
+    if not e.sprintAnim and math.abs(e.animScale - 1) > 0.02
+        and (math.abs(e.animScale - (e.montageScale or 0)) > 0.02 or now >= (e.montageAt or 0)) then
+        e.montageScale, e.montageAt = e.animScale, now + 0.25
         local m = anim:GetCurrentActiveMontage()
         if valid(m) then anim:Montage_SetPlayRate(m, 1 / e.animScale) end
     end
@@ -1247,7 +1303,7 @@ local function animate(e, now)
     -- Stepping between the cover spot and its firing point: fast, with no sideways speed cap (AI.tuneBody's
     -- strafe factor would hold the 60 unit side-step to ~110/s).
     local step = c and c.peekPos and ((c.state == "peeking" and c.peekPos) or (c.state == "hiding" and c.pos))
-    local quick = step and dist2d(bot:K2_GetActorLocation(), step) > 12
+    local quick = step and dist2d({ X = bx, Y = by }, step) > 12
     if quick ~= e.quickStep then
         e.quickStep = quick
         e.baseAccel = e.baseAccel or move.MaxAcceleration

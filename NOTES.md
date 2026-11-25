@@ -5591,3 +5591,17 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   aim FOV lives on the camera component at all (could be PlayerCameraManager SetFOV / DefaultFOV, or a FovModifier from
   VideoSettings.sav), and whether the helm/ship view uses another camera. Probe: `lua` read of pc.Pawn camera
   FieldOfView while aiming vs PlayerCameraManager.CameraCachePrivate.POV.FOV. Earlier draft: PR #345 (launcher file).
+
+## Once-a-second fight freeze: Lua garbage from the aim section (#336, 2026-11-25; NOT tested in game)
+- Player report 2026-11-24: 47 of 145 ten-second windows in raids had a 100-230 ms frame gap about once a second
+  ("over 50/100/200 ms: 10/10/0"), with "director worst" matching it and no timed section over 12 ms. The gc cycle count
+  in those windows (7-9 per 10 s, heap 14-18 MB) matches the freezes: the collector's atomic phase walks every
+  finalizable UE4SS wrapper (see the GC notes above). Calm windows (lobby, 5 MB) had none.
+- The aim section (bots.lua animate, ~30 times a second per bot) made most of it: GetVelocity and K2_GetActorLocation
+  tables and a GetAnimInstance wrapper every call, and GetCurrentActiveMontage while moving.
+- Now pvepatch.c pve_bot_read(bot, mesh, offsets) returns velocity, location and the anim instance address as
+  integers. Offsets come from reflection once (ForEachProperty + GetOffset_Internal: Actor.RootComponent,
+  SceneComponent.ComponentVelocity / RelativeLocation, SkeletalMeshComponent.AnimScriptInstance). The anim wrapper is
+  kept per bot until its address changes; the montage is asked for only when the rate moved or every 0.25 s. Log:
+  "aim: native bot reads on" (off: the old UE4SS reads). To check in game: the frames line's gc count and 100 ms gaps in
+  a fight with 10+ bots, before and after.
