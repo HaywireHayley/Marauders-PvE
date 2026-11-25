@@ -3850,6 +3850,22 @@ reference with flowcharts: [docs/internals/SALVAGE_CHAIN.md](docs/internals/SALV
   own name, guarded by pcall; bIsUnlocked when all of that door's boxes are down) and logged once as "lock box ... (not
   Top/Middle/Bottom)", so a test shows the crate's names if that was it. NOT tested in game.
 
+## Blowtorch: single bolt doors on the merchant ship and colony cruiser (2026-11-23; blowtorch.lua, BLOWTORCH.md)
+- Report: other torch locks exist (merchant ship, under the CE and at the full panzer rig crate; colony cruiser, inside the vault)
+  and the torch did nothing to them.
+- Cause: they are `Door_BlowTorchReq01_C` (parent `Base_LockedDoor_C`), not `Door_BlowTorch_C`. One lock volume,
+  `RaidLockVolume_DoorBolt` (`UniquePartName` DoorBolt, Health 500, no TopLock/MiddleLock/BottomLock), and a `LockDamaged` that
+  only switches on `'DoorBolt'`. `blowtorch.lua` matched volume names against Top/Middle/Bottom only, so it never saw them.
+- Placed (cooked maps): Spaceport_01 one `Door_BlowTorch_C`; MerchantShip_01 two `Door_BlowTorchReq01_C` (one 38 cm from a
+  `SIGIS_Container_Crate2`, one beside `SIGIS_Container_Vault5`, about 5 m below the `Door_LockedCE_C` passcode door);
+  Colony_Cruiser_01 one `Door_BlowTorchReq01_C` among the vault containers, plus `Door_CruiserVault_C` (an unlocked `Base_Door_C`).
+- Fix: the part name comes from each volume's `UniquePartName` (suffix table as fallback); the "all locks at 0" unlock already
+  worked for one lock; a door with `SM_DoorBroken01` also gets its own `OnUnlocked` (shows the broken pieces; the game runs it
+  from replication, never offline). Vault behaviour unchanged.
+- Read statically from the cooked Blueprints and maps in the pak (a bytecode reader, not in the repo) because the game was
+  not running. Not verified in game: that `c.UniquePartName` reads in Lua, the 10 s burn, the bolt falling and the door
+  opening, the broken pieces. Probe: `bridge/t_locks.lua`.
+
 ## Raid conditions (issue 78, 2026-11-18; conditions.lua, config/raid_conditions.txt)
 - A condition is a named set-up applied while a raid map is loaded: F3 settings by their ai_tuning.txt id
   (`Crews:BARON`, `Spawns:CREWS`...), `ships` (rival crews guaranteed in those hulls, boss-like: diehard, aggression 1,

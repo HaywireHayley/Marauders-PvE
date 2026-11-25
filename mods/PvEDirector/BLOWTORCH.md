@@ -81,6 +81,41 @@ flowchart TD
 - **State is per raid** (`raid.torch`), so a new map starts with all locks at full health. The boxes are looked for every
   10 s while firing, and only while firing (a `FindAllOf` walks every object).
 
+## The other blowtorch doors: one bolt instead of three locks
+
+The Spaceport vault is not the only door the torch opens. Reading the cooked Blueprints and the raid maps (2026-11-23) found
+a second door class, and the lock code had to learn it.
+
+| Door class | Where | Lock volumes (`UniquePartName`, Health) | Needs the torch |
+|---|---|---|---|
+| `Door_BlowTorch_C` | Spaceport vault (1 door) | `RaidLockVolume_Top / _Middle / _Bottom` (`TopLock`, `MiddleLock`, `BottomLock`, 300 each) | yes |
+| `Door_BlowTorchReq01_C` | Merchant ship (2 doors: one beside a crate, one under the Chief Engineer's passcode door), Colony Cruiser (1 door, inside the vault) | `RaidLockVolume_DoorBolt` (`DoorBolt`, 500) | yes |
+| `Door_CruiserVault_C` | Colony Cruiser vault entrance | none: an ordinary door (`Base_Door_C`) | no |
+| `Door_LockedCE_C` and the other `Door_Locked*` | Merchant ship, Colony Cruiser, Spaceport | none: opened with an item (`CEPasscode` for the CE door) | no |
+
+```mermaid
+flowchart TD
+    V["A RaidLockVolumeComponent in the level"] --> N{"Name starts with<br/>RaidLockVolume_ ?"}
+    N -- no --> X["Ignored"]
+    N -- yes --> P["Part name: the volume's own UniquePartName<br/>(TopLock, DoorBolt), else by the name's end"]
+    P --> B["Burn: Health down, then the door's<br/>LockDamaged(part name, share 0 to 1)"]
+    B --> L{"Every lock of that door at 0?"}
+    L -- yes --> U["bIsUnlocked = true<br/>(and OnUnlocked for a bolted door)"]
+```
+
+- **What was wrong.** The first version only knew the three vault names. A bolted door's volume is `RaidLockVolume_DoorBolt`,
+  so it was skipped, nothing was burned, and the door kept saying "F requires blowtorch".
+- **The "tag" is `UniquePartName`.** Each lock volume carries it, and it is exactly the name the door's `LockDamaged` switches
+  on (`'TopLock'`, `'MiddleLock'`, `'BottomLock'` on the vault, `'DoorBolt'` on the bolted door). Anything else is ignored by
+  the door, so the lock now takes the name from the volume instead of a fixed table.
+- **A bolted door's own flow** (decompiled): `LockDamaged('DoorBolt', share)` stores the share, the bolt's material glows by it,
+  at 0 the bolt breaks (sound, physics on), 10 s later it shrinks away, and the door swings open. `OnUnlocked` then reveals two
+  broken pieces (`SM_DoorBroken01 / 02`). That event normally runs from the unlock's replication, which never happens offline,
+  so the torch code calls it itself for a door that has those pieces. The vault door is left exactly as it was verified.
+- **Health 500, so 10 s of torch.** At 50 damage a second the bolt takes ten seconds, the vault locks six.
+- Not verified in game yet. `bridge/t_locks.lua` (copy it to `bridge/dir_eval.lua` in a raid) lists every lock volume with its
+  `UniquePartName`, Health and door, to check the Lua side reads the same values as the pak.
+
 ## What it leaves alone: barrels and gas cans
 
 The torch doesn't hurt explosive barrels or gas cans offline either. That is not fixed here, because it isn't known that the
