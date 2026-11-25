@@ -399,41 +399,46 @@ function L.tick(pc, crew, preview)
         hookSlots()
     end
     if not valid(W.stands[1]) then return nil end
-    -- who stands where: the crew in slot order; the preview on a free stand, the right-hand one first (the hiring
-    -- page covers the left of the screen)
-    local want = {}
-    for i = 1, 3 do want[i] = crew[i] end
-    if preview then
-        for _, i in ipairs({ 3, 2, 1 }) do if not want[i] then want[i] = preview break end end
-    end
-    -- the lobby's own crew refresh (after Play) hides the stands and puts the "+" back in the slots: noticed and undone
-    if now >= (W.nextCheck or 0) then
-        W.nextCheck = now + 0.5
-        for i = 1, 3 do
-            local st = W.stands[i]
-            if want[i] and valid(st) and (st.bHidden or (known(want[i]) and not wearing(st, want[i]))) then
-                W.standSig[i] = nil
-            end
-            local w = W.slots and W.slots[i]
-            if crew[i] and valid(w) and w.Border_InviteToCrew:IsVisible() then W.slotSig[i] = nil end
+    -- Stands and slots are synced ten times a second, not every frame: their signatures are string building, and
+    -- nothing here changes faster than a menu click (the hire section was ~12 ms a second in the lobby).
+    if now >= (W.nextSync or 0) then
+        W.nextSync = now + 0.1
+        -- who stands where: the crew in slot order; the preview on a free stand, the right-hand one first (the hiring
+        -- page covers the left of the screen)
+        local want = {}
+        for i = 1, 3 do want[i] = crew[i] end
+        if preview then
+            for _, i in ipairs({ 3, 2, 1 }) do if not want[i] then want[i] = preview break end end
         end
-    end
-    for i = 1, 3 do
-        local s, r = W.stands[i], want[i]
-        if valid(s) and off ~= "stands" then
-            local sig = r and (r.id .. "|" .. sigOf(r) .. "|" .. tostring(known(r))) or "none"
-            if W.standSig[i] ~= sig then
-                W.standSig[i] = sig
-                if r then
-                    if not known(r) then needMeshes(r) end
-                    dress(s, r)
-                else
-                    s:SetActorHiddenInGame(true)
+        -- the lobby's own crew refresh (after Play) hides the stands and puts the "+" back in the slots: noticed and undone
+        if now >= (W.nextCheck or 0) then
+            W.nextCheck = now + 0.5
+            for i = 1, 3 do
+                local st = W.stands[i]
+                if want[i] and valid(st) and (st.bHidden or (known(want[i]) and not wearing(st, want[i]))) then
+                    W.standSig[i] = nil
+                end
+                local w = W.slots and W.slots[i]
+                if crew[i] and valid(w) and w.Border_InviteToCrew:IsVisible() then W.slotSig[i] = nil end
+            end
+        end
+        for i = 1, 3 do
+            local s, r = W.stands[i], want[i]
+            if valid(s) and off ~= "stands" then
+                local sig = r and (r.id .. "|" .. sigOf(r) .. "|" .. tostring(known(r))) or "none"
+                if W.standSig[i] ~= sig then
+                    W.standSig[i] = sig
+                    if r then
+                        if not known(r) then needMeshes(r) end
+                        dress(s, r)
+                    else
+                        s:SetActorHiddenInGame(true)
+                    end
                 end
             end
         end
+        if off ~= "slots" then for i = 1, 3 do setSlot(i, crew[i]) end end
     end
-    if off ~= "slots" then for i = 1, 3 do setSlot(i, crew[i]) end end
     local ok, err = pcall(donorStep, now)
     if not ok then X.log("crew lobby donor: " .. tostring(err)) W.donor = nil end
     if not W.donor then

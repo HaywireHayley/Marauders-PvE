@@ -175,6 +175,15 @@ local function carried()
     return out
 end
 
+-- For the on-screen prompt only: carried() walks the whole inventory after a FindFirstOf (an object scan), so the prompt
+-- asks at most once a second. The key itself (M.key) still asks carried() fresh.
+local toolSeen, toolAt = false, -100
+local function hasTool()
+    local now = os.clock()
+    if now - toolAt >= 1 then toolAt, toolSeen = now, carried().tool end
+    return toolSeen
+end
+
 -- Into free pocket space, the way the F9 ammo button gives (debuggive.lua). Nothing goes on top of another item.
 local function giveLoot(pc, loot)
     local cells, given = carried().cells, {}
@@ -521,8 +530,14 @@ local function tow(pc, ship, mine)
 end
 
 -- Every frame in a raid (main.lua).
+local nextLook = 0
 function M.update(pc)
     if board then return tick(pc) end
+    -- Looking for a mine near you (every armed mine's location) five times a second, not every frame: the section cost
+    -- ~16 ms a second in a raid with mines, and a prompt 0.2 s late isn't noticed.
+    local t = os.clock()
+    if t < nextLook then return end
+    nextLook = t + 0.2
     local kind, pawn = context(pc)
     if not kind then near, nearKind = nil, nil return say(pc, nil) end
     -- on foot by the mine in your hold
@@ -531,7 +546,7 @@ function M.update(pc)
         local a, b = pawn:K2_GetActorLocation(), held.mine:K2_GetActorLocation()
         if math.sqrt((a.X - b.X) ^ 2 + (a.Y - b.Y) ^ 2 + (a.Z - b.Z) ^ 2) < CFG.HOLD_REACH then
             near, nearKind = held.mine, "hold"
-            return say(pc, carried().tool and "F   Defuse the nuclear mine"
+            return say(pc, hasTool() and "F   Defuse the nuclear mine"
                 or "A nuclear mine. You need a ToolKit to defuse it")
         end
     end
@@ -573,7 +588,7 @@ function M.update(pc)
     nearKind = kind
     local key = kind == "space" and "R" or "F"
     if kind == "space" and isNuclear(near) then return say(pc, "R   Take the nuclear mine aboard") end
-    say(pc, carried().tool and (key .. "   Defuse the mine") or "A mine. You need a ToolKit to defuse it")
+    say(pc, hasTool() and (key .. "   Defuse the mine") or "A mine. You need a ToolKit to defuse it")
 end
 
 -- F on foot, R at the helm (main.lua's key binds, on the game thread): opens the board by an armed mine.
@@ -596,6 +611,7 @@ function M.nearStation() return near ~= nil and nearKind == "station" end -- hin
 -- A new world: its mines and widgets are gone.
 function M.reset()
     mines, scanAt, near, nearKind, scanKind, hint, board, scans, held = {}, 0, nil, nil, nil, nil, nil, {}, nil
+    nextLook, toolAt = 0, -100
 end
 
 return M
