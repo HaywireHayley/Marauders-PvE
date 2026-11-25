@@ -755,6 +755,8 @@ local function onTick(ctx)
         if pveBodies then pveBodies() end
         ok, err = ppcall("deathscreen", DeathScreen.frame, ticker)
         if not ok and not raid.deathFailed then raid.deathFailed = true log("death screen failed: " .. tostring(err)) end
+        ok, err = ppcall("fov", require("fov").tick, ticker, valid) -- field of view and aim zoom (#328)
+        if not ok and not raid.fovFailed then raid.fovFailed = true log("fov failed: " .. tostring(err)) end
         ok, err = ppcall("gatetext", RaidTime.frame)
         if not ok and not raid.gateTextFailed then raid.gateTextFailed = true log("space gate countdown failed: " .. tostring(err)) end
         ok, err = ppcall("minimap", Minimap.tick, ticker)

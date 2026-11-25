@@ -15,5 +15,7 @@ return {
     BUSY_START = 1,     -- rivals.lua: crews launch within 15 s, first ship fight in 5-15 s, one crew attacks you after 15 s of flying (#459; on: players asked for faster action)
     CREW_HUD = 1,       -- crew.lua: your crewmates' names and health % at the left of the screen in a raid (#391)
     SORT_FADE = 1,      -- invqol.lua: the screen goes black with "Sorting..." while the stash SORT runs (#468)
+    FOV = 0,            -- fov.lua: field of view in degrees, 0 = the game's own (#328; untested)
+    ADS_ZOOM = 1,       -- fov.lua: aim zoom, 1 = the game's, 0 = none, between = a blend (#328; untested)
     KEEP_PROGRESS_ON_DEATH = 0, -- loadout.lua: a death ends the raid as DISCONNECT so contract/chapter progress is kept (#361; untested, off)
 }
