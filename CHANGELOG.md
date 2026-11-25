@@ -2,6 +2,20 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 25 Nov 2026, build 33 (`public-test-20261125.33`)
+
+Recoil that really goes to zero, boarders that don't land on your cockpit, a crew health readout and a field of view
+setting. On build 1 of 17 Nov or later, the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Changes
+- **Recoil settings now cover the whole kick (#453, PR #479):** the game adds the muzzle's and stock's recoil on top of
+  the gun's own, and the mod only scaled the gun's part; horizontal recoil wasn't scaled at all. Both are fixed, so
+  "Recoil while aiming" at 0 is really none. Thanks Voodoo for testing it at 0.
+- **The game console is on ` again, not F10 (PR #478):** F10 opened the console as well as the AI settings.
+- **Boarders no longer land on your cockpit (#473, PR #475).** Thanks Skooma Dealer.
+- **Crew health readout (#391, PR #476):** your crewmates' health on screen in a raid. Features tab: "CREW_HUD".
+- **Field of view (#328, PR #477):** Features tab: a field of view (0 = the game's) and how much aiming zooms in.
+
 ## Public test, 25 Nov 2026, build 32 (`public-test-20261125.32`)
 
 Get to a station in one click, get past stuck Zero to Hero steps, and a tidier stash sort. On build 1 of 17 Nov or
