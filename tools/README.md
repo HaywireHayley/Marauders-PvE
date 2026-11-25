@@ -10,6 +10,7 @@ documentation: we read its Blueprint bytecode and machine code from the running 
 | `profile/` | Machine-code side: disassembling around a crash address, sampling hot threads, finding string references |
 | `recoil_test/` | In-game recoil measurements: the view's climb shot by shot for the automatic guns, single shot guns and pistols, aimed and at the hip, plus the weapon sound test (see NOTES.md, recoil and shotgun sound) |
 | `armour_test/` | In-game damage and armour measurements (see DAMAGE_REFERENCE.md) |
+| `launcher_test/` | Fires the China Lake and the Mini Thumper by itself and logs whether a round goes off in your hands (see docs/internals/LAUNCHERS.md) |
 | `space_test/` | F9 test tools for space maps: start a space raid, spawn turrets, mines, explosions and wrecks, kill them and log what appears, read the salvage chain (see docs/internals/SPACE_OBJECT_DEATH.md) |
 | `minimap/`, `make_minimap_art.py` | Minimap images, including aligning Ahtu's illustrated maps |
 | `female/`, `headfit/` | Build the optional female outfits from your own copy of the game |
