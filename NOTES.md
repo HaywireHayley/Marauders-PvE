@@ -4507,6 +4507,7 @@ host), a joiner on another PC (the scripts assume both copies on one machine), N
 - Testing pitfall: the director's own 0.5 s update puts the speeds back, so hand-written values in a probe are undone.
 - Not checked: how it feels with a real pilot (by eye, turning at 2200), docking or breaching right after a boost, the
   `ClientMessage` notices, co-op (a joiner's boost would be undone by the host's movement), crew AI flying.
+- 2026-11-24 (#459): the CFG values here are F10 rows now (Rival ships tab: RUSTBUCKET_SPEED/ACCEL, BOOST_SPEED/ACCEL/SECONDS/COOLDOWN, read live by apply()). New Features switch BUSY_START (default 1): rivalcrews.lua uses rivals CFG.BUSY_ARRIVAL {0,15} instead of ARRIVAL_SPREAD, skirmishStep BUSY_SKIRMISH_FIRST {5,15} instead of SKIRMISH_FIRST, and R.busyStep calls R.provoke() (the F9 "Send a rival crew at me" path) once after BUSY_HUNT_AFTER 15 s of flying your ship. luacheck only: NOT tested in game.
 ## J and K in a raid (#209, 2026-11-19; invqol.lua raidHotkey)
 - The stash hotkeys returned at once outside the lobby (no stash bar, no stash panel), so in a raid they did nothing.
 - Found by probing a looted bag (Spaceport_01, `inv:Server_StartLooting(LootableCon_BagPlastic01_C)` opens the real

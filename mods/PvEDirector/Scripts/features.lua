@@ -12,5 +12,6 @@ return {
     FRAME_LOG = 1,      -- main.lua: the "frames:" line in the log every 10 s (#336)
     VENDOR_STOCK = 1,   -- vendors.lua: the four traders sell most guns, armour, helmets and bags by faction level (#384)
     VENDOR_PRICE = 100, -- vendors.lua: trader prices, % of the game's (the faction discount still applies) (#384)
+    BUSY_START = 1,     -- rivals.lua: crews launch within 15 s, first ship fight in 5-15 s, one crew attacks you after 15 s of flying (#459; on: players asked for faster action)
     KEEP_PROGRESS_ON_DEATH = 0, -- loadout.lua: a death ends the raid as DISCONNECT so contract/chapter progress is kept (#361; untested, off)
 }
