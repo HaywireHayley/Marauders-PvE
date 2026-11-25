@@ -1101,6 +1101,7 @@ RaidTime.init({ log = log, valid = valid })
 ShipSpeed.init({ log = log, valid = valid })
 Unstuck.init({ log = log, valid = valid, navLib = navLib, navMesh = navMesh, queryFilter = queryFilter })
 Blowtorch.init({ log = log, valid = valid, lib = lib })
+require("launchers").init({ log = log, valid = valid }) -- 40mm rounds ignore their shooter (#360)
 BulletHoles.init({ log = log, valid = valid })
 Crew.init({ rivals = Rivals, hire = Hire, AI = AI, lib = lib, voice = Voice, log = log, valid = valid, dist = dist,
     gunseat = Gunseat,
