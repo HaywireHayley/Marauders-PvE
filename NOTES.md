@@ -773,6 +773,16 @@ Standing_LegsPlayrate 1.1/0.65) while watching the screen:
   recoil. Added RECOIL_ADS_MULT (Recoil tab) multiplied into the same scale, plus a one-time per-class log line
   "recoil fields:" of guessed WeaponConfig names (VerticalRecoilADS, RecoilRecovery... property reads only). Not
   determined: whether an ADS-only field is read, and whether the per-burst cap or the per-shot kick feels off.
+- **Why recoil 0 still kicked (2026-11-25, #453, read from the game in the lobby):** the vertical recoil getter 0x188a260
+  = WeaponConfig.VerticalRecoil (weapon +0x4c0) + MuzzleSlot (+0x8f8) and StockSlot (+0x920) attachments'
+  VerticalRecoilAdjustment (RaidWeaponAttachment +0x234; HorizontalRecoilAdjustmentMin/Max +0x238/+0x23c). WeaponConfig
+  @0x410: RecoilBlendSpeed +0xac, VerticalRecoil +0xb0, VerticalRecoilADS +0xb4, HorizontalRecoilMin/Max +0xb8/+0xbc,
+  RecoilRecoveryDelay/Rate +0xcc/+0xd0; the per-tick 0x189f890 reads +0x4bc (blend) and +0x4e0 (recovery). recoil.lua
+  scaled only VerticalRecoil, and wrote "HorizontalRecoil", which doesn't exist. Also checked: `local cfg =
+  gun.WeaponConfig` is a live reference in UE4SS (a write through it reads back from a fresh gun.WeaponConfig; tested on
+  Default__RaidWeapon, restored). Now the total (own + attachments) is scaled, horizontal through Min/Max. The hip
+  arm-shake animation is still untouched. NOT tested on a held gun (no raid this session).
+
 - **Bullet impacts (fixed, pvepatch "Bullet impact effects")**: FireWeapon calls the client hit simulation
   0x18a1c70, which starts `GetNetMode() == 3 (NM_Client)` else return: impact FX, hit reacts (OnProxyHitReact
   event via 0x18d4900) and the pooled impacts (RaidPlayerController.PooledImpactActors, 150, taken by 0x1832420)

@@ -6,9 +6,8 @@
 -- property exists) is scaled down by its fire rate: a gun firing faster than REF_INTERVAL gets interval / REF_INTERVAL,
 -- never below MIN_SCALE. Slower guns, semi-autos, pistols and shotguns keep the game's value. Then x MULT for every gun.
 --
--- Assumptions (property names): WeaponConfig.VerticalRecoil is confirmed by NOTES ("Bren VerticalRecoil 2.25");
--- WeaponConfig.HorizontalRecoil and WeaponConfig.TimeBetweenShots are guessed (the latter only a fallback for guns not
--- in INTERVAL). The values are written on the held gun's own WeaponConfig struct, once per gun (the original is kept, so
+-- Property names (read from the game 25 Nov): WeaponConfig.VerticalRecoil (+0xb0), HorizontalRecoilMin/Max (+0xb8/+0xbc);
+-- TimeBetweenShots is still a guess (only a fallback for guns not in INTERVAL). The values are written on the held gun's own WeaponConfig struct, once per gun (the original is kept, so
 -- a change of MULT in the settings menu rescales from it).
 --
 -- ADS (#453, NOT TESTED IN GAME): the aim kick these fields drive only applies while bIsTargeting (pawn +0x9e8, NOTES
@@ -37,7 +36,29 @@ local INTERVAL = {
     Rifle_Bren_MKII_Child_C = 0.111, Rifle_ViperMK1_Child_C = 0.115,
 }
 
-local seen = {} -- weapon address -> { v = original vertical, h = original horizontal, wv = written vertical, mult }
+-- weapon address -> { base = original { v, hmin, hmax }, wrote = written vertical, key = attachments, settings... }
+local seen = {}
+
+-- What the game adds to WeaponConfig's recoil (#453, read from the game 25 Nov): the vertical recoil getter 0x188a260
+-- returns WeaponConfig.VerticalRecoil (+0x4c0) + MuzzleSlot.VerticalRecoilAdjustment + StockSlot.VerticalRecoilAdjustment
+-- (RaidWeaponAttachment +0x234); horizontal has HorizontalRecoilAdjustmentMin/Max beside it. So scaling only the
+-- weapon's own value left the attachments' share (a player set recoil to 0 and the M16 still kicked).
+local ATTACH = { "MuzzleSlot", "StockSlot" }
+local function adjustments(gun, valid)
+    local adj, key = { v = 0, hmin = 0, hmax = 0 }, ""
+    for _, slot in ipairs(ATTACH) do
+        local ok, a = pcall(function() return gun[slot] end)
+        if ok and a and valid(a) then
+            key = key .. tostring(a:GetAddress()) .. ";"
+            pcall(function()
+                adj.v = adj.v + (a.VerticalRecoilAdjustment or 0)
+                adj.hmin = adj.hmin + (a.HorizontalRecoilAdjustmentMin or 0)
+                adj.hmax = adj.hmax + (a.HorizontalRecoilAdjustmentMax or 0)
+            end)
+        end
+    end
+    return adj, key
+end
 
 local function scaleFor(gun, class)
     local iv = INTERVAL[class]
@@ -51,7 +72,8 @@ local function scaleFor(gun, class)
 end
 
 -- Guessed names; a missing property reads as nil and is skipped.
-local FIELDS = { "VerticalRecoil", "HorizontalRecoil", "VerticalRecoilADS", "HorizontalRecoilADS", "RecoilADSMultiplier",
+local FIELDS = { "VerticalRecoil", "HorizontalRecoilMin", "HorizontalRecoilMax", "VerticalRecoilADS", "RecoilBlendSpeed",
+    "RecoilRecoveryRate", "RecoilRecoveryDelay", "HorizontalRecoilADS", "RecoilADSMultiplier",
     "ADSRecoilMultiplier", "RecoilRecovery", "RecoilRecoverySpeed", "RecoilSpeed", "RecoilInterpSpeed", "MaxRecoil",
     "TimeBetweenShots", "ADSTime", "ADSSpread", "BulletSpread", "BulletSpreadADS" }
 local logged = {} -- class -> true
@@ -67,7 +89,10 @@ local function logFields(cfg, class)
     print(("[PvEDirector] recoil fields: %s %s\n"):format(class, table.concat(parts, " ")))
 end
 
--- Called each update with the held gun. Property reads and writes only.
+-- Called each update with the held gun. Property reads and writes only. The gun's TOTAL recoil (its own value plus
+-- its attachments') is scaled: WeaponConfig gets total x k - attachments, so k = 0 really is no recoil. Horizontal
+-- uses the real fields HorizontalRecoilMin/Max (#453: "HorizontalRecoil" was a guess and never existed). The arm-shake
+-- animation in hip fire (control rig) is not touched.
 function M.apply(gun, valid)
     if not valid(gun) then return end
     local addr = gun:GetAddress()
@@ -75,27 +100,37 @@ function M.apply(gun, valid)
     if not cfgOk or cfg == nil then return end
     local okv, v = pcall(function() return cfg.VerticalRecoil end)
     if not okv or type(v) ~= "number" then return end
+    local adj, key = adjustments(gun, valid)
     local s = seen[addr]
     -- A new gun, or another gun reusing a freed one's address (its value is not the one we wrote).
-    if not s or math.abs(v - s.wv) > 1e-4 then
-        local okh, h = pcall(function() return cfg.HorizontalRecoil end)
-        s = { v = v, h = (okh and type(h) == "number") and h or nil }
+    if not s or math.abs(v - s.wrote) > 1e-4 then
+        local base = { v = v }
+        pcall(function() base.hmin, base.hmax = cfg.HorizontalRecoilMin, cfg.HorizontalRecoilMax end)
+        s = { base = base }
         seen[addr] = s
-    elseif s.mult == CFG.RECOIL_MULT and s.ads == CFG.RECOIL_ADS_MULT and s.ref == CFG.REF_INTERVAL and s.min == CFG.MIN_SCALE then
+    elseif s.key == key and s.mult == CFG.RECOIL_MULT and s.ads == CFG.RECOIL_ADS_MULT and s.ref == CFG.REF_INTERVAL
+        and s.min == CFG.MIN_SCALE then
         return
     end
     local okc, class = pcall(function() return gun:GetClass():GetFName():ToString() end)
     if not okc or type(class) ~= "string" then class = "" end
     logFields(cfg, class)
     local k = scaleFor(gun, class)
-    s.ads = CFG.RECOIL_ADS_MULT
-    s.wv, s.mult, s.ref, s.min = s.v * k, CFG.RECOIL_MULT, CFG.REF_INTERVAL, CFG.MIN_SCALE
-    pcall(function() cfg.VerticalRecoil = s.wv end)
-    if s.h then pcall(function() cfg.HorizontalRecoil = s.h * k end) end
+    s.key, s.mult, s.ads, s.ref, s.min = key, CFG.RECOIL_MULT, CFG.RECOIL_ADS_MULT, CFG.REF_INTERVAL, CFG.MIN_SCALE
+    local b = s.base
+    s.wrote = (b.v + adj.v) * k - adj.v
+    pcall(function() cfg.VerticalRecoil = s.wrote end)
+    if type(b.hmin) == "number" and type(b.hmax) == "number" then
+        pcall(function()
+            cfg.HorizontalRecoilMin = (b.hmin + adj.hmin) * k - adj.hmin
+            cfg.HorizontalRecoilMax = (b.hmax + adj.hmax) * k - adj.hmax
+        end)
+    end
     -- Read back: if the write did not stick, remember what is there so it is not retried every frame.
     local okr, now = pcall(function() return cfg.VerticalRecoil end)
-    if okr and type(now) == "number" then s.wv = now end
-    print(("[PvEDirector] recoil: %s vertical %.2f -> %.2f (x%.2f)\n"):format(class, s.v, s.wv, k))
+    if okr and type(now) == "number" then s.wrote = now end
+    print(("[PvEDirector] recoil: %s vertical %.2f (+%.2f attachments) -> total %.2f (x%.2f)\n"):format(class, b.v, adj.v,
+        s.wrote + adj.v, k))
 end
 
 -- Drop remembered guns on world change.
