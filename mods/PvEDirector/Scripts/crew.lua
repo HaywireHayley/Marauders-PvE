@@ -138,10 +138,28 @@ local function slotFor(e, foot)
 end
 
 -- Called by the director's soldier AI instead of patrolling, whenever this crewmate isn't fighting.
+-- H (#391): "hold here" keeps each crewmate where they stood (they still fight, then walk back to that spot); H again
+-- and they follow, running to catch up.
+local function hold(e)
+    if not e.holdAt then e.holdAt = e.bot:K2_GetActorLocation() end
+    e.followRun = false
+    if dist(e.holdAt, e.bot:K2_GetActorLocation()) > 150 then
+        local now = os.clock()
+        if now >= (e.nextFollow or 0) and e.ctrl:GetMoveStatus() ~= 3 then
+            e.nextFollow = now + 1
+            e.ctrl:MoveToLocation(e.holdAt, 60, false, true, false, true, X.queryFilter(), true)
+        end
+    elseif e.ctrl:GetMoveStatus() == 3 then
+        e.ctrl:StopMovement()
+    end
+end
+
 local function follow(e)
     local foot = onFoot()
     if not foot then e.followRun = false return end
     if e.ctrl.BrainComponent:IsRunning() then e.ctrl.BrainComponent:StopLogic("follow") end
+    if S and S.holding then return hold(e) end
+    e.holdAt = nil
     local l, here = foot:K2_GetActorLocation(), e.bot:K2_GetActorLocation()
     local d = dist(l, here)
     local near = CFG.FOLLOW_NEAR + CFG.SPACING * e.crewmate.place
@@ -761,7 +779,7 @@ function C.status()
     for _, m in ipairs(roster) do
         local e = m.entry
         local state = not m.alive and "down" or (m.gunner and S and flying()) and "on the guns"
-            or e and (e.inCombat and "fighting" or "following") or "not here"
+            or e and (e.inCombat and "fighting" or (S and S.holding and "holding" or "following")) or "not here"
         parts[#parts + 1] = ("%s: %s"):format(m.name, state)
     end
     return #parts > 0 and table.concat(parts, ", ") or "no crew"
@@ -786,5 +804,15 @@ function C.positions()
 end
 
 function C.init(ctx) X = ctx valid, dist = ctx.valid, ctx.dist end
+
+-- H on foot in a raid (main.lua): your crew holds where they are, or follows you again.
+function C.toggleHold()
+    if not S or not S.pc then return end
+    S.holding = not S.holding
+    say(S.holding and "Crew: hold here" or "Crew: on me")
+end
+
+-- For the crew HUD: holding or following.
+function C.holding() return S ~= nil and S.holding == true end
 
 return C

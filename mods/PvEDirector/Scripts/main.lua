@@ -1537,6 +1537,8 @@ end })
 RegisterKeyBind(Key.F11, function() table.insert(pending, require("pvemenu").action("crew")) end)
 RegisterKeyBind(Key.F9, function() table.insert(pending, toggleDebug) end)
 -- F7/F8 still play the game's voice line (the bind doesn't take the key); soldiers may take pity (#417).
+-- H: your crew holds where they are / follows you again (crew.lua, #391)
+RegisterKeyBind(Key.H, function() table.insert(pending, function() if Crew then pcall(Crew.toggleHold) end end) end)
 for _, k in ipairs({ Key.F7, Key.F8 }) do
     RegisterKeyBind(k, function() table.insert(pending, function() pcall(Bots.pity) end) end)
 end

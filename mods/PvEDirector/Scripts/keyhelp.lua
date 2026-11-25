@@ -20,6 +20,7 @@ M.KEYS = {
     { "M", "minimap: full overview and back" },
     { "B", "minimap: follow the next task" },
     { "K", "stash: quick-move the item under the mouse" },
+    { "H", "raid: your crew holds where they are / follows you again" },
     { "J", "stash: discard the item under the mouse (press twice)" },
     { "Shift", "held, at the Rustbucket's helm: boost" },
     { "F", "by an armed station mine, with a ToolKit: defuse" },
