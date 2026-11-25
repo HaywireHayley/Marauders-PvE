@@ -363,6 +363,73 @@ end
 -- Bumped when the Destroy targets change (found, or one destroyed): minimap.lua rebuilds its task markers then.
 function M.version() return S and S.ver or 0 end
 
+-- Skip the current Zero to Hero step (#440, F9 menu): some chapter steps wait on events that never happen offline.
+-- The chapter state is never written from Lua: the step's own event goes through Client_CheckMissionEvent, so its
+-- progress, the next step and the rewards take the game's own path. Kill / Destroy / Raid and the rest count +1 per
+-- event (sent need - progress times); Guard (6) counts 1 a second while bInChapterVolume is set, so the flag is set and
+-- one event starts its timer; Inspect (5) only counts while Use is held at the object, so it isn't skipped here.
+local function chapterStep(pc)
+    local gi = FindFirstOf("SIGIS_ExampleGameInstance_C") -- (pc:GetGameInstance() throws from Lua)
+    if not valid(gi) then return nil end
+    local c = gi.PrologueChapter
+    local chapter, stage, progress = c.Chapter:ToString(), c.ChapterStage, c.Progress
+    local rows = pc:GetAllMissionsForChapters(chapter)
+    local e = rows and rows[stage + 1]
+    if not e then return nil end
+    local m = e:get()
+    local tags = {}
+    pcall(function() m.ContractRequiredActorTags:ForEach(function(_, t) tags[#tags + 1] = t:get():ToString() end) end)
+    return { chapter = chapter, stage = stage, progress = progress, type = m.ContractType,
+        need = m.ContractMaxAmountNeeded, tags = tags }
+end
+
+-- (the menu asks every time it draws: the answer is kept 2 s, a FindFirstOf each draw would hitch)
+local readable = { at = -10, ok = false }
+function M.chapterReadable()
+    if os.clock() - readable.at < 2 then return readable.ok end
+    readable.at = os.clock()
+    local pc = FindFirstOf("PlayerController")
+    local ok, st = false, nil
+    if valid(pc) then ok, st = pcall(chapterStep, pc) end
+    readable.ok = ok and st ~= nil
+    return readable.ok
+end
+
+function M.skipChapterStep()
+    local pc = FindFirstOf("PlayerController")
+    if not valid(pc) then return "No player" end
+    local ok, st = pcall(chapterStep, pc)
+    if not ok or not st then return "No chapter step to skip" end
+    local what = ("chapter %s step %d (type %s, %s/%s, tags %s)"):format(st.chapter, st.stage + 1, tostring(st.type),
+        tostring(st.progress), tostring(st.need), table.concat(st.tags, ","))
+    local tag = st.tags[1]
+    if not tag or tag == "" or tag == "None" then
+        X.log("[missions] skip: no tag on " .. what)
+        return "This step has no tag: can't skip"
+    end
+    if st.type == 5 then
+        X.log("[missions] skip: inspect step, not skipped: " .. what)
+        return "Inspect step: hold Use at it instead"
+    end
+    if st.type == 6 then
+        pcall(function() pc.bInChapterVolume = true end)
+        local okE, err = pcall(function() pc:Client_CheckMissionEvent(FName(tag), 6) end)
+        X.log(("[missions] skip: Guard %s sent for %s (%s)"):format(tag, what, okE and "ok" or tostring(err)))
+        if not okE then return "Event failed (see log)" end
+        return ("Holding: done in about %d s"):format(math.max(0, (st.need or 0) - (st.progress or 0)))
+    end
+    local n = math.max(1, math.min(100, (st.need or 1) - (st.progress or 0)))
+    for _ = 1, n do
+        local okE, err = pcall(function() pc:Client_CheckMissionEvent(FName(tag), st.type) end)
+        if not okE then
+            X.log("[missions] skip: event failed: " .. tostring(err))
+            return "Event failed (see log)"
+        end
+    end
+    X.log(("[missions] skip: sent %s x%d for %s"):format(tag, n, what))
+    return ("Step %d: sent %d event(s)"):format(st.stage + 1, n)
+end
+
 local TURRET_DEATH ="/Script/RaidGame.RaidSubNodeActor_Turret:NetOnDeathEvent"
 local DESTROY = "/Script/Engine.Actor:K2_DestroyActor"
 

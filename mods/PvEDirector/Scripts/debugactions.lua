@@ -111,6 +111,9 @@ function M.init(ctx)
         { id = "gun", label = "Give me a gun", help = "A soldier's gun, with ammo",
           when = function() return onFootIn("land") and not raid.donor end, unusable = "Not available here",
           run = function() Loadout.startGiveGun(FindFirstOf("PlayerController")) return "Gun on its way" end },
+        { id = "zthskip", label = "Skip Zero to Hero step", help = "Completes the current chapter step the game's way (#440)",
+          when = function() return require("missions").chapterReadable() end, unusable = "No chapter step here",
+          run = function() return require("missions").skipChapterStep() end },
         { id = "testraid", label = "Start a test raid on " .. CFG.MAP, help = "A land raid, without your stash gear",
           closes = true,
           run = function()

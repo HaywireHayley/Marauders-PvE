@@ -891,6 +891,10 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
   Guard: 1 s repeating timer (chapter 0x9da150) that counts while bInChapterVolume (+0x980) / bInMissionVolume (+0x964).
   Inspect: sets CurrentTimedMission (+0x968) and a timer (contract 0x9da340) that counts while the "Use" key (F) is
   held, pawn.LastInteractionActor (+0x508) is set and within 400; the first tick without Use stops it.
+- 2026-11-24 (#440): F9 "Skip Zero to Hero step" (missions.skipChapterStep) reads the current chapter row (type, need,
+  tags) and sends Client_CheckMissionEvent(tags[1], type) need - progress times (Guard: sets bInChapterVolume and sends
+  once, the game's 1 s timer counts it up; Inspect and tagless steps are refused). Never writes +0x1160. NOT tested in
+  game: unverified whether the chapter half counts these outside a raid (lobby) or whether the step advances at once.
 - Offline gaps and fixes:
   * Contract actors' server half (overlap -> flags + event) is skipped: missions.lua does it. Hold areas: entering the
     GuardArea (IsOverlappingActor) sets both volume flags and sends the actor's Tags[1] (e.g. C2_WeaponIntel; NOT the
