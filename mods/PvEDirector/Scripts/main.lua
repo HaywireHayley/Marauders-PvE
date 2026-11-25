@@ -1473,11 +1473,13 @@ local function toggleTuning()
     Tuning.toggle(pc)
 end
 local function toggleDebug()
+    if KeyHelp.isOpen() then return KeyHelp.close() end -- F9 closes the key list first (#450)
     local pc = menuPc()
     if not pc then return end
     Tuning.close(pc) Hire.close(pc)
     Debug.toggle(pc)
 end
+RegisterKeyBind(Key.ESCAPE, function() table.insert(pending, function() if KeyHelp.isOpen() then KeyHelp.close() end end) end)
 RegisterKeyBind(Key.F10, function() table.insert(pending, toggleTuning) end)
 RegisterKeyBind(Key.F11, function() table.insert(pending, function()
     local pc = Hire.lastPc()

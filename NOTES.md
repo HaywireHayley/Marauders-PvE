@@ -5448,4 +5448,8 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
 - Verified in game (lobby, throwaway save): "vendors: 107 items added", the table read back with the new rows at
   every level (e.g. United 38 extras by level 7, Republic MG42/DP28/SVU at 9), no crash. NOT verified: the trader screen
   showing and selling them (couldn't open a trader from the bridge), and VENDOR_PRICE in the shop.
+- 2026-11-24 (#449, #450, playtest): the Features row KEEP_PROGRESS_ON_DEATH had step 0 (meant as its default), so
+  its slider could never leave 0: step is now 1. The key list stayed on screen (the F9 menu closes as it opens): F9 and
+  Esc now close it (main.lua toggleDebug / an Esc bind, keyhelp.lua close/isOpen), and its title says so. Not tested
+  in game.
 
