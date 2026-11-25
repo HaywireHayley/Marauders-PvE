@@ -2,6 +2,17 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 25 Nov 2026, build 35 (`public-test-20261125.35`)
+
+A PvE tab in the lobby and locked doors on the minimap. On build 1 of 17 Nov or later, the launcher's orange **!**
+installs this one for you, keeping your saves.
+
+### Changes
+- **PVE tab in the lobby's top bar (#388, PR #487):** click PVE, then CREW, AI or DEBUG, to open the same menus as
+  F11, F10 and F9 without the function keys.
+- **Locked doors on the minimap (#326, PR #486):** a red lock at each locked door where you are, gone once it's
+  unlocked or open. Features tab: "MAP_DOORS".
+
 ## Public test, 25 Nov 2026, build 34 (`public-test-20261125.34`)
 
 Give your crew your own gear, see how a raid went, and a few hints for new players. On build 1 of 17 Nov or later, the
