@@ -37,6 +37,15 @@ local REPAIR_REACH = 80 -- cm: a ship part is bigger than a lock
 local PART_SECONDS = 4 -- seconds of torch to mend a broken part
 local HULL_PER_SECOND = 25 -- hull points a second once the parts are whole (575 for a starter frigate: about 23 s from 0)
 
+-- Tool charge (#438): the blowtorch and the fire extinguisher last TOOL_CHARGE times as long offline (a PvE ask: the
+-- live game's tool modifiers are missing here, and a vault or a ship fire shouldn't take a whole torch). Each tick, what
+-- the tool spent since the last one is partly put back, the way Bottomless mags (debuggive.lua) puts back a shot: on the
+-- gun's own SIGIS item's StackAmount (what the player's charge really is) and on CurrentAmmoInClip, which follows it.
+-- Fractions carry over, so the rate is exact. Untested in game for the extinguisher (its class name is a guess: anything
+-- with "Extinguish" in it).
+local TOOL_CHARGE = 3
+local TOOLS = { "BlowTorch", "Extinguish" }
+
 function P.init(ctx) X = ctx end
 function P.setRaid(r) raid = r end
 
@@ -246,6 +255,44 @@ local function repair(s, now, pc, dt)
 end
 
 -- From the director's frame, with the player controller. Cheap while the torch is not in your hands.
+local function isTool(gun)
+    local n = gun:GetClass():GetFName():ToString()
+    for _, t in ipairs(TOOLS) do if n:find(t, 1, true) then return t end end
+end
+
+local function toolItem(gun)
+    local guid = gun.UUIDSIGIS:ToString()
+    for _, it in ipairs(FindAllOf("SIGISInventoryItem") or {}) do
+        if X.valid(it) and it.UniqueItemGUID:ToString() == guid then return it end
+    end
+end
+
+-- Puts back (1 - 1/TOOL_CHARGE) of what the tool in your hands spent since the last call.
+local function stretch(s, gun)
+    local addr = gun:GetAddress()
+    local t = s.tool
+    if not t or t.addr ~= addr then
+        t = { addr = addr, item = toolItem(gun), carry = 0 }
+        s.tool = t
+    end
+    local keep = 1 - 1 / TOOL_CHARGE
+    local item = t.item
+    local stack = X.valid(item) and item.StackAmount or nil
+    if type(stack) == "number" and type(t.stack) == "number" and stack < t.stack then
+        t.carry = t.carry + (t.stack - stack) * keep
+        local back = math.floor(t.carry)
+        t.carry = t.carry - back
+        stack = stack + back
+        item.StackAmount = stack
+    end
+    local clip = gun.CurrentAmmoInClip
+    if type(clip) == "number" and type(stack) == "number" and clip ~= stack then
+        gun.CurrentAmmoInClip = stack
+        clip = stack
+    end
+    t.stack = stack
+end
+
 function P.frame(pc)
     if not raid then return end
     local now = os.clock()
@@ -259,7 +306,9 @@ function P.frame(pc)
     local pawn = pc.Pawn
     if not X.valid(pawn) then return end
     local gun = pawn.CurrentWeapon
-    if not X.valid(gun) or not gun:GetClass():GetFName():ToString():find("BlowTorch", 1, true) then
+    local tool = X.valid(gun) and isTool(gun)
+    if tool then pcall(stretch, s, gun) end
+    if tool ~= "BlowTorch" then
         s.lastBurn = now
         return
     end
