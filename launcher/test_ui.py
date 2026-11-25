@@ -144,6 +144,115 @@ class Kits(unittest.TestCase):
         self.assertEqual(self.cash(), self.kit["price"])
 
 
+# A crew file as hire.lua's ser() writes it (a hired crewmate with a rolled kit, a recruit in the pool).
+CREW_FILE = '''-- Your crew and the recruit pool (hire.lua). Delete this file for a fresh pool and no crew.
+return {
+  enabled = true,
+  nextId = 7,
+  crew = {
+    [1] = {
+      id = 3,
+      name = "Noor \\"Ace\\"",
+      level = 2,
+      aimRoll = -0.125,
+      bring = true,
+      kit = {
+        gun = {
+          [1] = "StenSMG",
+          [2] = 1400,
+          [3] = "9mmAmmo"
+        },
+        chest = "PouchRig"
+      }
+    }
+  },
+  pool = {
+    [1] = {
+      id = 7,
+      name = "Kip",
+      level = 1
+    }
+  }
+}
+'''
+
+
+class CrewGear(unittest.TestCase):
+    """saves.crew_gear / set_crew_gear (#418): stash items moved onto a hired crewmate and back, all or nothing."""
+
+    def setUp(self):
+        self.sid = saves.create(f"Crew {time.time()}", False)
+        with open(saves._crew_path(self.sid), "w", encoding="utf-8") as f:
+            f.write(CREW_FILE)
+        for row in ("Mat49Rifle", "BABeret", "SackBag"):
+            self.assertEqual(saves.give(self.sid, row, 1), 1)
+
+    def stash(self):
+        return sorted(saves._stash_entries(saves._read(os.path.join(saves.SAVES, self.sid, "state.json"))).values())
+
+    def pick(self, slot, row):
+        return next(k for k, r in saves.crew_gear(self.sid)["stash"][slot] if r == row)
+
+    def test_reader_round_trips_what_hire_lua_writes(self):
+        data = saves._lua_load(CREW_FILE)
+        self.assertEqual(data["crew"][1]["name"], 'Noor "Ace"')
+        self.assertEqual(data["crew"][1]["kit"]["gun"], {1: "StenSMG", 2: 1400, 3: "9mmAmmo"})
+        self.assertEqual(data["crew"][1]["aimRoll"], -0.125)
+        self.assertEqual(saves._lua_load("return " + saves._lua_dump(data)), data)
+
+    def test_listing_filters_by_slot(self):
+        g = saves.crew_gear(self.sid)
+        self.assertEqual([c["name"] for c in g["crew"]], ['Noor "Ace"'])
+        self.assertIn("Mat49Rifle", [r for _, r in g["stash"]["gun"]])
+        self.assertIn("BABeret", [r for _, r in g["stash"]["helmet"]])
+        self.assertNotIn("BABeret", [r for _, r in g["stash"]["gun"]])
+        self.assertIn("SackBag", [r for _, r in g["stash"]["bag"]])
+
+    def test_equip_takes_from_the_stash_and_back_returns(self):
+        before = self.stash()
+        self.assertIsNone(saves.set_crew_gear(self.sid, 3, {"gun": self.pick("gun", "Mat49Rifle"),
+                                                             "helmet": self.pick("helmet", "BABeret")}))
+        self.assertNotIn("Mat49Rifle", self.stash())
+        self.assertNotIn("BABeret", self.stash())
+        r = saves._read_crew(self.sid)["crew"][1]
+        self.assertEqual(r["gear"], {"gun": "Mat49Rifle", "helmet": "BABeret"})
+        self.assertEqual(r["kit"]["chest"], "PouchRig", "the rest of the record is kept")
+        self.assertEqual(saves._read_crew(self.sid)["pool"][1]["name"], "Kip")
+        self.assertIsNone(saves.set_crew_gear(self.sid, 3, {"gun": None, "helmet": None}))
+        self.assertEqual(self.stash(), before)
+        self.assertNotIn("gear", saves._read_crew(self.sid)["crew"][1])
+
+    def test_swapping_returns_the_old_piece(self):
+        saves.give(self.sid, "Mat49Rifle", 1)
+        guns = saves.crew_gear(self.sid)["stash"]["gun"]
+        self.assertIsNone(saves.set_crew_gear(self.sid, 3, {"gun": guns[0][0]}))
+        self.assertIsNone(saves.set_crew_gear(self.sid, 3, {"gun": self.pick("gun", "Mat49Rifle")}))
+        self.assertEqual(self.stash().count("Mat49Rifle"), 1)
+
+    def test_refusals_change_nothing(self):
+        key = self.pick("gun", "Mat49Rifle")
+        with open(saves.ACTIVE, "w") as f:
+            f.write(self.sid)
+        try:
+            self.assertIn("in play", saves.set_crew_gear(self.sid, 3, {"gun": key}))
+        finally:
+            os.remove(saves.ACTIVE)
+        self.assertIn("isn't in", saves.set_crew_gear(self.sid, 99, {"gun": key}))
+        self.assertIn("isn't in the stash", saves.set_crew_gear(self.sid, 3, {"gun": self.pick("helmet", "BABeret")}))
+        self.assertIn("Mat49Rifle", self.stash())
+        self.assertNotIn("gear", saves._read_crew(self.sid)["crew"][1])
+
+    def test_no_room_to_return_changes_nothing(self):
+        self.assertIsNone(saves.set_crew_gear(self.sid, 3, {"gun": self.pick("gun", "Mat49Rifle")}))
+        while saves.give(self.sid, "9mmAmmo", 600):
+            pass
+        self.assertIn("room", saves.set_crew_gear(self.sid, 3, {"gun": None}))
+        self.assertEqual(saves._read_crew(self.sid)["crew"][1]["gear"], {"gun": "Mat49Rifle"})
+
+    def test_no_crew_file(self):
+        self.assertIsNone(saves.crew_gear(saves.create(f"Nobody {time.time()}", False)))
+
+
 @unittest.skipUnless(os.name == "nt", "the launcher window is Windows-only")
 class Window(unittest.TestCase):
     def setUp(self):
@@ -155,6 +264,28 @@ class Window(unittest.TestCase):
         for d in dialogs(self.app):
             d.destroy()
         self.app.destroy()
+
+    def test_crew_gear_dialog_moves_a_stash_item_onto_a_crewmate(self):
+        sid = saves.create(f"Crew dialog {time.time()}", False)
+        with open(saves._crew_path(sid), "w", encoding="utf-8") as f:
+            f.write(CREW_FILE)
+        saves.give(sid, "BABeret", 1)
+        self.app.refresh()
+        self.app.select(sid)
+        settle(self.app)
+        self.app.show_crew_gear()
+        settle(self.app)
+        d = dialogs(self.app)[0]
+        grab(d, "ui_crew_gear_hired.png")
+        menus = [w for w in self._all(d) if isinstance(w, L.tk.OptionMenu)]
+        self.assertEqual(len(menus), len(saves.CREW_SLOTS))
+        helmet = menus[saves.CREW_SLOTS.index("helmet")]
+        helmet["menu"].invoke("BABeret")
+        apply = next(w for w in self._all(d) if isinstance(w, L.Button) and "APPLY" in str(w.cget("text")))
+        apply.press()
+        settle(self.app)
+        self.assertEqual(saves._read_crew(sid)["crew"][1]["gear"], {"helmet": "BABeret"})
+        d.destroy()
 
     def test_font_is_installed(self):
         family = L.font(12)[0].replace(" SemiBold", "").replace(" Bold", "")
@@ -221,7 +352,7 @@ class Window(unittest.TestCase):
         grab(self.app, "ui_main.png")
         opens = {
             "new_save": self.app.new_save, "controls": self.app.show_controls, "rename": self.app.rename,
-            "give_items": self.app.give_items, "kits": self.app.show_kits, "import": self.app.import_saves, "report": self.app.report_problem,
+            "give_items": self.app.give_items, "kits": self.app.show_kits, "crew_gear": self.app.show_crew_gear, "import": self.app.import_saves, "report": self.app.report_problem,
             "delete": self.app.delete, "coop": self.app.show_coop, "settings": self.app.show_settings,
         }
         for name, open_it in opens.items():

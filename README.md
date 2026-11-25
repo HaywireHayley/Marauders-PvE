@@ -72,6 +72,9 @@ salvage and docking. Along the way the mod has also added things the live game n
 - **KITS:** buy a preset kit (Budget SMG, Rifleman, Shotgunner, Heavy / LMG, Medic: gun, ammo, helmet, armour, bag,
   meds) into a save's stash between sessions, for its cash at vendor prices + 15 %. It lands in the stash on your next
   login; equip it from there. Presets live in `config/kits.json`.
+- **CREW GEAR:** give a hired crewmate a gun, helmet, chest piece and bag from a save's stash between sessions (#418).
+  The items leave the stash and the crewmate wears them every raid instead of their rolled kit; the gear is lost if they
+  die or you dismiss them (set a slot back to "Their own kit" to return it to the stash first).
 - **REPORT** bundles your logs and crash report into one zip for a bug report, with your names and IDs taken out.
 - **One small download:** the installer zip fetches the rest, and the launcher **updates itself** when a new build is
   out (only the parts that changed).
