@@ -77,6 +77,23 @@ end
 
 function M.isOpen() return host ~= nil end
 
+-- The stock UE4SS ConsoleEnablerMod puts the game console on F10, the mod's AI settings key (F1-F8 being the game's
+-- voice lines), so F10 opened both. Every few seconds (it re-applies F10 whenever it makes or remaps the console) the
+-- console key is put back on Tilde (`), the engine's usual one.
+local consoleAt = 0
+function M.consoleKey()
+    local now = os.clock()
+    if now < consoleAt then return end
+    consoleAt = now + 5
+    local s = StaticFindObject("/Script/Engine.Default__InputSettings")
+    if not (s and valid(s)) then return end
+    local keys = s.ConsoleKeys
+    if keys[1].KeyName:ToString() == "F10" then
+        keys[1].KeyName = FName("Tilde")
+        log("console key: F10 -> Tilde (F10 is the AI settings key)")
+    end
+end
+
 -- F9 and Esc close it (#450: it stayed on screen until a restart, the F9 menu having closed when it opened).
 function M.close()
     local h = host
