@@ -45,6 +45,12 @@ local CFG = {
     BARON_RISE = 0,                 -- #322: chance added per raid without the Baron (0 = off; 0.05 suggested), reset when he flies
     BARON_MAX = 0.6,                -- #322: the most that rise can take his chance to (BARON 1 = always)
     IMPOSTOR_CHANCE = 0.25,         -- #319: chance per raid that one ordinary crew's captain dresses as the Red Baron (never with BARON on; 0 = off)
+    CAPITAL_ODDS = 1,               -- #398: x the HULLS weight of capital hulls (Capital Ship, Dreadnoughts) for ordinary crews
+    COMMANDO_CREWS = 0,             -- #398: share of crews on capital hulls that are Central Powers commandos (COMMANDO kit)
+    -- A commando's kit (#398, rivalcrews.lua makeCommando): CE helmet, full Panzer armour, StG 44 or MG42 (gear.lua rows).
+    COMMANDO = { guns = { "STG44Rifle", "STG44Rifle", "MG42Rifle", "HeavyMG42Rifle" },
+        helmets = { "HeavyStahlhelmHelmet", "StahlhelmHelmet" }, chests = { "FullPanzerChest", "FullPanzerRig" },
+        bags = { "CommandoBag" } },
     ARRIVAL_SPREAD = { 5, 60 },     -- crews launch from their spawn points this many seconds after you are aboard
     -- Busy start (#459, features.lua BUSY_START): rivals come sooner and one crew comes straight for you.
     BUSY_ARRIVAL = { 0, 15 },       -- ARRIVAL_SPREAD with a busy start

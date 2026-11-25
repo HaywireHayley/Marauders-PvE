@@ -5,6 +5,7 @@
 -- wins). Each is a [Name] then key = value lines:
 --   about = one line shown in the lobby and the launcher
 --   map   = Space_Charlie                  (a fixed map: it wins over the map picked in the lobby)
+--   maps  = Space_Solo_02, Space_Beta      (one of these, unless the lobby picked a map; #398)
 --   ships = FrigateCapitalShip_Ship, ...  (rival crews guaranteed in these hulls: rivals.lua CFG.HULLS rows)
 --   loot  = 1.5                            (more and better loot on bodies: x items in a bag, x the value cap)
 --   mines = 20                             (x the map's space mines: minefield.lua copies each one near itself)
@@ -39,11 +40,15 @@ local function readFile(path, byName)
                 list[#list + 1] = cur
                 byName[name] = cur
             end
-            cur.values, cur.about, cur.map, cur.ships, cur.loot, cur.mines = {}, nil, nil, nil, nil, nil -- yours replaces the shipped one
+            cur.values, cur.about, cur.map, cur.maps, cur.ships, cur.loot, cur.mines = {}, nil, nil, nil, nil, nil, nil -- yours replaces the shipped one
         elseif cur and k then
             k = trim(k)
             if k == "about" then cur.about = v
             elseif k == "map" then cur.map = v ~= "" and v or nil
+            elseif k == "maps" then
+                cur.maps = {}
+                for m in v:gmatch("[^,%s]+") do cur.maps[#cur.maps + 1] = m end
+                if #cur.maps == 0 then cur.maps = nil end
             elseif k == "ships" then
                 cur.ships = {}
                 for row in v:gmatch("[^,%s]+") do cur.ships[#cur.ships + 1] = row end
@@ -109,6 +114,9 @@ end
 
 -- The map the picked condition fixes, or nil.
 function M.map() local c = byName(picked) return c and c.map end
+-- Maps the picked condition favours (#398: the ones with the downed Capital Ship), or nil: launch.lua picks one of
+-- them when neither the condition's map nor the lobby fixes one.
+function M.maps() local c = byName(picked) return c and c.maps end
 -- Hull rows guaranteed among the rival crews (rivalcrews.lua makeCrews), or nil.
 function M.ships() return active and active.ships end
 -- How many times the map's space mines this raid has (minefield.lua), or nil.
