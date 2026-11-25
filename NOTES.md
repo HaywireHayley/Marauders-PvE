@@ -462,6 +462,7 @@ Why bots did nothing, and the fix for each (all automated in PvEDirector):
   events". The tally is plain Lua module state carried over the travel (the director's Lua state survives it, as
   hire.lua's D.raid does) and closed on the first lobby frame; panel = deathscreen.lua's layout, 12 s or Esc, plus a
   "raid summary:" log line. Not counted: loot out vs in, ship deaths in space. NOT tested in game.
+- 2026-11-25 (#390): raid summary loot line. raidsummary.lua snapshots the player's inventory (pc's SIGISInventoryComponent, StashedItems: ItemData row, StackAmount, UniqueItemGUID; property reads, capped at 300 items) once 5 s into the raid and once when extracted (raid.extractedAt, before travel) or dead. Shows "Brought out: N items worth ~$X (+M new: top 3 rows)" or "Lost: N items worth ~$X"; price from itemdata.lua (times stack for stackables). "New" = GUID not in the first snapshot, so gear bought mid-raid or re-GUIDed items would count as new. Whether UE4SS ForEach stops on `return true` and whether GUIDs survive moves between containers: not verified. NOT tested in game.
 
 ## Stability fixes (2026-10-30)
 - Raid -> same raid crashed: the director keyed its per-raid state on the world NAME, which is the same when the
