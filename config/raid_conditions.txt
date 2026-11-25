@@ -4,6 +4,7 @@
 # Each condition is a [Name] and then key = value lines:
 #   about = the line shown when you pick it
 #   map   = a fixed map (Space_Solo_01, Space_Solo_02, Space_Alpha, Space_Beta, Space_Charlie, Space_Delta)
+#   maps  = one of these maps, unless you picked one in the lobby (comma-separated)
 #   ships = rival crews guaranteed in these hulls, as bosses (rows from rivals.lua CFG.HULLS, comma-separated)
 #   mines = how many times the map's space mines (20 = twenty mines for every one)
 #   loot  = more and better loot on bodies (1.5 = half as many items again, worth up to half as much again)
@@ -33,8 +34,11 @@ Spawns:SKIRMISH_SHIPS.2 = 4
 loot = 1.25
 
 [Capital ships]
-about = A Capital Ship and a Dreadnought are in the raid, crewed to fight to the end. Much better loot.
+about = A Capital Ship and a Dreadnought are in the raid, crewed by Central Powers commandos who fight to the end, more crews fly capital ships, and the downed Capital Ship is on the map. Much better loot.
 ships = FrigateCapitalShip_Ship, CapitalDreadnought_Ship
+maps = Space_Solo_02, Space_Beta
+Crews:CAPITAL_ODDS = 4
+Crews:COMMANDO_CREWS = 0.6
 loot = 1.5
 
 [Baron's last stand]

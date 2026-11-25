@@ -35,6 +35,30 @@ local function newMember(usedNames)
     return m
 end
 
+-- Capital hulls (#398): the Capital Ship and the Dreadnoughts, all on the capital pawn.
+local function isCapital(design) return design and design.pawn == "Ship_CapitalShipFrigate01_Pawn" end
+
+-- A crew of Central Powers commandos (#398): every member in CFG.COMMANDO's kit (Panzer armour, StG 44 / MG42). Sets
+-- m.kit before the body is built (rivalbodies.lua keeps a kit already there). Rolled once per crew, at CFG.COMMANDO_CREWS.
+local function makeCommando(c)
+    if c.commandoRolled then return end
+    c.commandoRolled = true
+    if math.random() >= (tonumber(CFG.COMMANDO_CREWS) or 0) or c.baron then return end
+    local Gear, K = require("gear"), CFG.COMMANDO
+    local guns = {}
+    for _, r in ipairs(Gear.botGuns) do guns[r[1]] = r end
+    for _, m in ipairs(c.members) do
+        if not m.kit then
+            local gun = guns[pick(K.guns)] or guns.STG44Rifle
+            m.helmet, m.chest, m.backpack = true, true, true
+            m.kit = { gun = gun, helmet = pick(K.helmets), chest = pick(K.chests), bag = pick(K.bags),
+                stacks = math.random(CFG.AMMO_STACKS[1], CFG.AMMO_STACKS[2]), meds = math.random(CFG.MEDS[1], CFG.MEDS[2]) }
+        end
+    end
+    c.commando = true
+    X.log(("[rivals] crew %d: Central Powers commandos"):format(c.id))
+end
+
 local function mapKind(worldName)
     if worldName:find("Raider", 1, true) then return "raider" end
     if worldName:find("Solo", 1, true) then return "solo" end
@@ -184,6 +208,7 @@ local function makeCrews(slots, kind)
     for j, row in ipairs(ships) do
         local c = crews[first - 1 + j]
         c.hullRow, c.diehard, c.rusher, c.aggression = row, true, false, 1
+        for _, d in ipairs(CFG.HULLS) do if d.row == row and isCapital(d) then makeCommando(c) end end
     end
     -- (never with the real Baron in the raid, nor on a condition's guaranteed boss hulls)
     if not baron and (tonumber(CFG.BARON) or 0) < 1 and math.random() < (tonumber(CFG.IMPOSTOR_CHANCE) or 0) then
@@ -210,6 +235,7 @@ end
 
 -- What rivals.lua and the later modules call
 M.between, M.crewAlive, M.crewLabel, M.makeCrews = between, crewAlive, crewLabel, makeCrews
+M.isCapital, M.makeCommando = isCapital, makeCommando
 M.mapKind, M.newCrew, M.newMember = mapKind, newCrew, newMember
 
 return M

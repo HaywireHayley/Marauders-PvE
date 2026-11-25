@@ -3870,6 +3870,7 @@ reference with flowcharts: [docs/internals/SALVAGE_CHAIN.md](docs/internals/SALV
   collapsed), including the ActiveMMRegion reset; loot on a killed body by eye; Linux launcher.
 - The bridge mod has its own Lua state: probe the director's globals (Conditions...) with bridge/profile_on plus
   bridge/dir_eval.lua, not `send.sh "lua ..."`.
+- 2026-11-25 (#398): Capital ships condition: `Crews:COMMANDO_CREWS = 0.6` (share of crews on capital hulls dressed as Central Powers commandos: CFG.COMMANDO kit, Stahlhelm + full Panzer + StG 44/MG42, preset as m.kit in rivalcrews.lua makeCommando before rollKit), `Crews:CAPITAL_ODDS = 4` (x the HULLS weight of capital-pawn hulls in rivalships.lua spawnShip; those crews roll commando too), and a new conditions key `maps = Space_Solo_02, Space_Beta` (the maps with the downed Capital Ship POI; the lobby's own pick still wins). Defaults 0 / 1 / none: nothing changes outside the condition. luacheck only; NOT tested in game (kit rows equipping, look, the map pick).
 
 ## #143 leftovers: ship hum, pod hint, camera turrets, hold contracts (2026-11-18)
 - Ship interiors: FrigateInside_Starter BeginPlay `if not IsServer jump 3976`; the client side is only

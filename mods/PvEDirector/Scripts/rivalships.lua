@@ -228,7 +228,20 @@ local function spawnShip(pc, c, at)
     if not design and c.hullRow then -- a raid condition's guaranteed hull (#78, rivalcrews.lua makeCrews)
         for _, d in ipairs(CFG.HULLS) do if d.row == c.hullRow then design = d end end
     end
-    design = design or weighted(CFG.HULLS)
+    if not design then
+        -- #398: CAPITAL_ODDS scales the capital hulls' weight (a raid condition turns it up)
+        local odds, Crews = tonumber(CFG.CAPITAL_ODDS) or 1, require("rivalcrews")
+        local list = CFG.HULLS
+        if odds ~= 1 then
+            list = {}
+            for _, d in ipairs(CFG.HULLS) do
+                list[#list + 1] = Crews.isCapital(d) and setmetatable({ weight = d.weight * odds }, { __index = d }) or d
+            end
+        end
+        design = weighted(list)
+        if Crews.isCapital(design) then Crews.makeCommando(c) end
+        design = getmetatable(design) and getmetatable(design).__index or design
+    end
     local cls = loadClass("/Game/Blueprints/Ships/" .. design.pawn)
     local tree = lib(CFG.SHIP_TREE)
     if not (cls and valid(tree)) then return false end

@@ -43,6 +43,8 @@ local function onStartMatchmaking(kind)
             or (kind ~= "solo" and (l:find("crew") or l:find("squad") or l:find("team"))) and CFG.SPACE_MAPS.crew
             or CFG.MAP_POOL
         local map = pool[math.random(#pool)]
+        local favoured = Conditions and Conditions.maps() -- a raid condition's favoured maps (#398)
+        if favoured then map = favoured[math.random(#favoured)] end
         if PveMapPick and PveMapPick.map() then map = PveMapPick.map() end -- picked in the REGION box (mappick.lua)
         if Conditions and Conditions.map() then map = Conditions.map() end -- a raid condition's fixed map (#78)
         local pin = io.open(MAP_PIN, "r")
