@@ -776,3 +776,28 @@ static int pushInt(void *L, long long v) {
 __declspec(dllexport) int pve_alive(void *L) {
     return pushInt(L, objectAlive((char *)intArg(L, 1, 1)));
 }
+
+/* Lua: pve_bot_read(bot, mesh, oRoot, oVelocity, oLocation, oAnim) -> vx, vy, x, y, anim address (velocity and location
+   in cm x 100, integers), or nothing when the bot or its parts aren't live. The aim section (bots.lua animate) read these
+   through UE4SS every call: GetVelocity and K2_GetActorLocation each make a table, GetAnimInstance an object wrapper with
+   a finalizer, a dozen bots ~30 times a second. That garbage made Lua's collector freeze the game for 100-230 ms about
+   once a second in fights (player report 2026-11-24). Offsets come from the engine's reflection (Lua, once): Actor
+   RootComponent, SceneComponent ComponentVelocity and RelativeLocation, SkeletalMeshComponent AnimScriptInstance. */
+__declspec(dllexport) int pve_bot_read(void *L) {
+    enum { N = 6 };
+    char *bot = (char *)intArg(L, 1, N), *mesh = (char *)intArg(L, 2, N);
+    long long oRoot = intArg(L, 3, N), oVel = intArg(L, 4, N), oLoc = intArg(L, 5, N), oAnim = intArg(L, 6, N);
+    if (!oRoot || !oVel || !oLoc || !oAnim || !objectAlive(bot) || !objectAlive(mesh)) return 0;
+    if (!pve_readable(bot + oRoot, 8)) return 0;
+    char *root = *(char **)(bot + oRoot);
+    if (!objectAlive(root) || !pve_readable(root + oVel, 12) || !pve_readable(root + oLoc, 12)) return 0;
+    if (!pve_readable(mesh + oAnim, 8)) return 0;
+    float *v = (float *)(root + oVel), *at = (float *)(root + oLoc);
+    char *anim = *(char **)(mesh + oAnim);
+    pushInt(L, (long long)(v[0] * 100.0f));
+    pushInt(L, (long long)(v[1] * 100.0f));
+    pushInt(L, (long long)(at[0] * 100.0f));
+    pushInt(L, (long long)(at[1] * 100.0f));
+    pushInt(L, objectAlive(anim) ? (long long)anim : 0);
+    return 5;
+}
