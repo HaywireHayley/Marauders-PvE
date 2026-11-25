@@ -392,6 +392,8 @@ local function fitTurrets(c)
                 t:SetActorRelativeScale3D({ X = 1.25, Y = 1.25, Z = 1.25 })
                 t.MyFrigateOwner = c.ship
                 t:SetOwner(c.ship)
+                -- impact + explosion damage of this kind (the class used may stand in for it): turretdamage.lua
+                if tt.damage and require("turretdamage").CFG.FULL_DAMAGE ~= 0 then pcall(function() t.ProjectileConfig.ExplosionDamage = tt.damage end) end
                 local socks = {}
                 t.FiringSockets:ForEach(function(_, e) socks[#socks + 1] = e:get():ToString() end)
                 local e = { actor = t, kind = kind, socks = socks, si = 1, speed = tt.speed,

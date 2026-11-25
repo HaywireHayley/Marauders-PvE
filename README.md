@@ -57,7 +57,7 @@ salvage and docking. Along the way the mod has also added things the live game n
   your living crewmates.
 - **Lore in raids:** a line from the lore on the raid loading screen, and a line when you first reach a station or ship
   (it shows above the minimap for a few seconds).
-- **A faster Rustbucket** and a **boost** (Space) at the helm of any ship.
+- **A faster Rustbucket** and a **boost** (hold Shift) at its helm.
 - **Play as a woman or a man** (the F9 menu, or the launcher): women's versions of every outfit, for you and for the soldiers, with voices.
 - **Hidden outfits** the menus never listed (two long coats and a bloodied Blood Raider suit): F9 in the lobby.
 
@@ -219,7 +219,7 @@ The game's own controls are unchanged, and F1-F8 stay the game's voice lines. Th
 | **K** | Move the item under the mouse between your stash and your pockets or bags; in a raid, between your gear and the crate or body you're looting | Lobby (LOADOUT, TRADE), raid |
 | **J** | Discard the item under the mouse (press twice); in a raid, drop it on the floor | Lobby (LOADOUT, TRADE), raid |
 | **Left click** | While flying with a crew gunner aboard: send them after the ship or space turret nearest the middle of your view. Click empty space to send them back to whoever is attacking you | Flying your ship |
-| **Space** | Boost: your ship jumps to nearly twice its top speed for 4 seconds, then needs 12 seconds to recharge (like the drop pod's). The Rustbucket is also a quarter faster than it was | Flying your ship |
+| **Shift** (held; whatever Run is bound to) | Boost: the Rustbucket jumps to nearly twice its top speed for up to 4 seconds while you hold it, then needs 12 seconds to recharge (like the drop pod's). The Rustbucket is also a quarter faster than it was | Flying the Rustbucket |
 | **F** on a turret seat | Man the turret yourself: left click fires, F stands you up | Ships |
 | **F** by a mine, with a **ToolKit** | Defuse a station mine, or the nuclear mine in your hold (a Minesweeper board) | On foot |
 | **R** by a space mine | Small mine (with a ToolKit): defuse it in place. Nuclear mine: take it aboard into your hold | At the helm |

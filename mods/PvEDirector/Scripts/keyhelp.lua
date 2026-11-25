@@ -22,7 +22,7 @@ M.KEYS = {
     { "B", "minimap: follow the next task" },
     { "K", "stash: quick-move the item under the mouse" },
     { "J", "stash: discard the item under the mouse (press twice)" },
-    { "Space", "at a ship's helm: boost" },
+    { "Shift", "held, at the Rustbucket's helm: boost" },
     { "F", "by an armed station mine, with a ToolKit: defuse" },
     { "R", "at the helm by a space mine: defuse" },
 }

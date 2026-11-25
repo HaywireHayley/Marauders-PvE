@@ -106,10 +106,13 @@ local function view(pc, t)
     return { X = math.cos(p) * math.cos(y), Y = math.cos(p) * math.sin(y), Z = math.sin(p) }
 end
 
--- Along your view: from the barrel to the point under the crosshair (far off, so the barrel/camera offset washes out).
+-- Along your view: from the barrel to the point under the crosshair (a line trace along the view finds it, so the shell passes through
+-- the crosshair at that distance; helmaim.lua), else a point AIM_RANGE out.
 local function shotDir(t, sock, look)
     local c = t.Camera:K2_GetComponentLocation()
     local o = t.TurretBarrelMesh:GetSocketLocation(FName(sock))
+    local okT, dir = pcall(function() return require("helmaim").aimDir(t.MyFrigateOwner or t, o, c, look) end)
+    if okT and dir then return o, dir end
     local a = { X = c.X + look.X * CFG.AIM_RANGE, Y = c.Y + look.Y * CFG.AIM_RANGE, Z = c.Z + look.Z * CFG.AIM_RANGE }
     local dx, dy, dz = a.X - o.X, a.Y - o.Y, a.Z - o.Z
     local n = math.sqrt(dx * dx + dy * dy + dz * dz)
