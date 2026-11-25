@@ -2,6 +2,24 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 25 Nov 2026, build 37 (`public-test-20261125.37`)
+
+Launchers that no longer blow up in your hands, longer-lasting tools, smoother fights, and another Linux fix. On build 1
+of 17 Nov or later, the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Changes
+- **40mm rounds no longer explode in your hands (#360, PR #494, thanks Skooma Dealer):** offline, every projectile gun
+  fired a hidden second round from the same spot and the two blew each other up, and the real round could hit the gun
+  or you on the way out. Now one round leaves the barrel and ignores whoever fired it.
+- **Blowtorch and extinguisher last three times as long (#438, PR #493).**
+- **Pity (#417, PR #495):** now and then a soldier who has you dead to rights holds fire for a few seconds, more often
+  when you're below half health. F7/F8 in the debug keys.
+- **Smoother fights (#336, PR #497):** bots' aim tracking reads their movement natively instead of through Lua, which
+  was behind most of the once-a-second hitches in big fights.
+- **Linux (#161, PR #496, thanks Pöhlbert):** the game now starts from its own folder under Proton, and if Proton has
+  its own `steamclient64.dll` the launcher uses it for the session (and puts the game's back afterwards). Write `off` in
+  `config/linux_steamclient.txt` to skip that. Launch logs now say which Steam DLLs were found.
+
 ## Public test, 25 Nov 2026, build 36 (`public-test-20261125.36`)
 
 New raid conditions on foot, CE commandos in Capital Ships, and what you brought home in the raid summary. On build 1
