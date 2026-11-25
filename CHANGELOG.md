@@ -2,6 +2,37 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 25 Nov 2026, build 38 (`public-test-20261125.38`)
+
+sp0rrk's launcher, recoil, blowtorch and ship turret work, smoother lobbies and space raids, and the launcher and game
+settings under one name. On build 1 of 17 Nov or later, the launcher's orange **!** installs this one for you, keeping
+your saves.
+
+### Changes
+- **Launchers (PR #508, thanks sp0rrk):** a China Lake round that bursts on a bot is a kill unless it's armoured (the
+  Mini Thumper leaves it at about 10 %), and the round's fire patch is now a quick flash instead of 2 s of burning.
+- **Recoil as the weapon data says (#371, PR #503, thanks sp0rrk):** the game's own recoil at the defaults, with each
+  fix a setting, and shotgun impact sounds no longer cut off the shot's boom.
+- **Blowtorch (PRs #407 and #444, thanks sp0rrk):** it now burns the bolted doors on the merchant ship and in the colony
+  cruiser vault, and stops losing burn time between bursts.
+- **Ship turrets (PR #379, thanks sp0rrk):** turret shots land their full damage and hit where the reticle is.
+  **The Rustbucket's boost is now held Shift** (Space is the game's ship-up key), and the sky no longer shows through
+  seams in interiors.
+- **Settings under one name (PR #500):** the launcher's **PVE SETTINGS**, **PVE > SETTINGS** in the lobby and F10 are the
+  same settings. F10 has a new **Raid** tab (raid length, space gate, share of women), and Raid and Features are the
+  first tabs.
+- **Crew orders (#391, PR #507):** **H** in a raid tells your crew to hold where they are; H again and they follow.
+- **No freeze at the start of your first space raid (#336, PR #502):** the rivals' looks now load in the lobby.
+- **Fewer hitches (#336, PR #501):** in the lobby (the inventory check runs after you move items, not every second) and
+  near mines.
+- **Under the hood (PRs #504, #505, #506, #515):** shared code for the mod's panels, the controller, inventory and
+  config files; the minimap's floor plan files split out; the mine prompt made only when needed.
+
+### Known issues
+- **Crash in the lobby after a raid (#499):** 10 to 75 s after landing back in the lobby, after a death or an
+  extraction, the game can crash; an extraction can then count as a death. The cause is narrowed to a panel the mod
+  makes; not fixed yet.
+
 ## Public test, 25 Nov 2026, build 37 (`public-test-20261125.37`)
 
 Launchers that no longer blow up in your hands, longer-lasting tools, smoother fights, and another Linux fix. On build 1
