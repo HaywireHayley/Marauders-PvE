@@ -1494,12 +1494,14 @@ local function toggleDebug()
 end
 RegisterKeyBind(Key.ESCAPE, function() table.insert(pending, function() if KeyHelp.isOpen() then KeyHelp.close() end end) end)
 RegisterKeyBind(Key.F10, function() table.insert(pending, toggleTuning) end)
-RegisterKeyBind(Key.F11, function() table.insert(pending, function()
+-- (the menus' toggles, shared with the lobby's PVE tab, pvemenu.lua #388: kept in its table, not as more locals)
+require("pvemenu").setActions({ ai = toggleTuning, debug = toggleDebug, crew = function()
     local pc = Hire.lastPc()
     if not valid(pc) then return end
     Tuning.close(pc) Debug.close(pc)
     Hire.toggle(pc)
-end) end)
+end })
+RegisterKeyBind(Key.F11, function() table.insert(pending, require("pvemenu").action("crew")) end)
 RegisterKeyBind(Key.F9, function() table.insert(pending, toggleDebug) end)
 -- The list of these keys (keyhelp.lua, #389) opens from the F9 menu's "Key list" button: F1-F8 are the game's voice
 -- lines, so no mod key goes there. Keep its KEYS in step with this block.
