@@ -169,7 +169,7 @@ end
 -- in some sessions, "ToolKit" in others), and which cells are taken (pockets.lua: every cell an item covers).
 local function carried()
     local out = { tool = false }
-    out.cells = Pockets.cells(FindFirstOf("SIGISInventoryComponent"), function(_, con, row)
+    out.cells = Pockets.cells(require("player").inventory(), function(_, con, row)
         if not NOT_CARRIED[con] and row:lower() == CFG.TOOL:lower() then out.tool = true end
     end)
     return out

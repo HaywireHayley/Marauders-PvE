@@ -54,7 +54,7 @@ end
 -- cell an item covers (pockets.lua), not just its corner.
 local function taken()
     local out = {}
-    out.cells = Pockets.cells(FindFirstOf("SIGISInventoryComponent"), function(_, con) out[con] = true end)
+    out.cells = Pockets.cells(require("player").inventory(), function(_, con) out[con] = true end)
     return out
 end
 

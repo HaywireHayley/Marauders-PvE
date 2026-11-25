@@ -11,11 +11,8 @@
 -- RoundTime, before the round starts; the log line says what the game then did. Measured after that (60 minute raid, gate
 -- 10 minutes): EvacSpawned flipped between 585 and 600 s, so the warmup write moves the real arrival. Details, and the
 -- countdown text (M.frame, below): docs/internals/SPACE_GATE.md.
-local PROJECT = require("pveproject")
 local M = {}
 
-local SETTING = PROJECT .. "config/raid_length.txt"
-local GATE_SETTING = PROJECT .. "config/gate_time.txt"
 local INSTANT_SECONDS = 1 -- "instant": the gate comes as the round starts
 local MIN_MINUTES, MAX_MINUTES = 5, 240
 
@@ -27,10 +24,8 @@ function M.setRaid(r) raid = r end
 
 -- nil (the game's own length), "none", or a length in seconds.
 local function wanted()
-    local f = io.open(SETTING, "r")
-    if not f then return nil end
-    local v = (f:read("l") or ""):lower():gsub("%s", "")
-    f:close()
+    local v = require("config").line("raid_length.txt")
+    if not v then return nil end
     if v == "none" then return "none" end
     local minutes = tonumber(v)
     if not minutes then return nil end
@@ -39,10 +34,8 @@ end
 
 -- nil (the game's own, 300 s), or the gate's arrival in seconds from the start of the raid.
 local function gateWanted()
-    local f = io.open(GATE_SETTING, "r")
-    if not f then return nil end
-    local v = (f:read("l") or ""):lower():gsub("%s", "")
-    f:close()
+    local v = require("config").line("gate_time.txt")
+    if not v then return nil end
     if v == "instant" then return INSTANT_SECONDS end
     local minutes = tonumber(v)
     if not minutes or minutes <= 0 then return nil end

@@ -1166,17 +1166,12 @@ local function playerFired() if S then S.playerFiredAt = os.clock() end end
 
 -- The launcher's "Women among others" setting (config/female_share.txt, a percent) into CFG.FEMALE; looked at every 5 s
 -- at most, so a change while the game runs applies to the next people made. No file: the default above.
-local FEMALE_FILE = PROJECT .. "config/female_share.txt"
 local femaleReadAt = -100
 function R.femaleShare()
     if os.clock() - femaleReadAt >= 5 then
         femaleReadAt = os.clock()
-        local f = io.open(FEMALE_FILE, "r")
-        if f then
-            local pct = tonumber((f:read("l") or ""):match("[%d%.]+"))
-            f:close()
-            if pct then CFG.FEMALE = math.max(0, math.min(100, pct)) / 100 end
-        end
+        local pct = tonumber((require("config").line("female_share.txt", 5) or ""):match("[%d%.]+") or "")
+        if pct then CFG.FEMALE = math.max(0, math.min(100, pct)) / 100 end
     end
     return CFG.FEMALE
 end
