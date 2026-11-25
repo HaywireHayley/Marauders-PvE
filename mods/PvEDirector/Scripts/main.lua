@@ -240,6 +240,9 @@ local Space = require("space") -- space maps: pod guns, docking, level effects, 
 local DebugActions = require("debugactions") -- the debug menu's buttons (F9) and god mode
 local RaidTime = require("raidtime") -- the launcher's raid length (#159)
 local ShipSpeed = require("shipspeed") -- a faster Rustbucket and a boost at the helm (#207)
+local SkyHide = require("skyhide") -- the map's sky hidden while you are on foot (blue seams in interiors)
+local HelmAim = require("helmaim") -- helm shots aim at your view line, so they land on the reticle at any range (helmaim.lua)
+local TurretDamage = require("turretdamage") -- ship turrets land impact + explosion damage, not just the explosion (turretdamage.lua)
 local Blowtorch = require("blowtorch") -- the blowtorch burns a vault door's three locks offline
 local Recoil = require("recoil") -- recoil as the weapon data says (aimed values, the hip kick)
 local BulletHoles = require("bulletholes") -- bullet holes in walls and floors, which the offline game never makes
@@ -762,6 +765,10 @@ local function onTick(ctx)
         ok, err = ppcall("defuse", Defuse.update, ticker)
         if not ok and not raid.defuseFailed then raid.defuseFailed = true log("defuse failed: " .. tostring(err)) end
         if pveBodies then pveBodies() end
+        if raid.space then
+            ok, err = ppcall("shipboost", ShipSpeed.frame, ticker)
+            if not ok and not raid.shipBoostFailed then raid.shipBoostFailed = true log("ship boost key failed: " .. tostring(err)) end
+        end
         ok, err = ppcall("deathscreen", DeathScreen.frame, ticker)
         if not ok and not raid.deathFailed then raid.deathFailed = true log("death screen failed: " .. tostring(err)) end
         if not tick.menu then
@@ -1018,6 +1025,8 @@ function resetRaid(worldKey)
     KeyHelp.reset()
     require("hints").reset()
     ShipSpeed.reset()
+    SkyHide.reset()
+    TurretDamage.reset()
     if Rivals then Rivals.reset() end
     if Crew then Crew.reset() end
     if Missions then Missions.reset() end
@@ -1105,6 +1114,9 @@ Interiors.init({ log = log, valid = valid })
 LevelProps.init({ log = log, valid = valid, lib = lib })
 RaidTime.init({ log = log, valid = valid })
 ShipSpeed.init({ log = log, valid = valid })
+TurretDamage.init({ log = log, valid = valid })
+SkyHide.init({ log = log, valid = valid })
+HelmAim.init({ log = log, valid = valid, lib = lib })
 Unstuck.init({ log = log, valid = valid, navLib = navLib, navMesh = navMesh, queryFilter = queryFilter })
 Blowtorch.init({ log = log, valid = valid, lib = lib })
 require("launchers").init({ log = log, valid = valid }) -- 40mm rounds ignore their gun and shooter (#360)
@@ -1231,6 +1243,10 @@ update = function(pc)
     raid.space = space
     RaidTime.update() -- the launcher's raid length, once per raid (raidtime.lua, #159)
     if space then ShipSpeed.update(pc) end -- the Rustbucket's speed and the helm boost (shipspeed.lua, #207)
+    do -- black behind the interiors: the sky hidden while you are on foot, in ships, stations and ground maps (skyhide.lua)
+        local okSky, errSky = pcall(function() SkyHide.update(pc, Gunseat.seated() ~= nil) end)
+        if not okSky and not raid.skyHideFailed then raid.skyHideFailed = true log("sky dome hide failed: " .. tostring(errSky)) end
+    end
     if space and not raid.revealed then Launch.veilUntilAboard(pc, world) end
     -- Arriving, the mouse didn't turn the camera until you'd opened and closed the inventory (Tab): the lobby's
     -- mouse-screen input (cursor, game and UI) carried into the raid, and the loading screen sat over the viewport while
@@ -1525,9 +1541,9 @@ RegisterKeyBind(Key.N, function() table.insert(pending, Aux.unlessTyping(Minimap
 RegisterKeyBind(Key.M, function() table.insert(pending, Aux.unlessTyping(Minimap.expand)) end)
 RegisterKeyBind(Key.B, function() table.insert(pending, Aux.unlessTyping(Minimap.next)) end)
 -- Stash hotkeys (invqol.lua): K quick move, J discard (twice) for the item under the mouse. Neither key is bound by the game.
--- Space at the helm: a boost, like the drop pod's (shipspeed.lua, #207). On foot Space stays the game's jump. (This
--- UE4SS has no Shift key, only Shift as a modifier; Space does nothing at a frigate's helm, checked.)
-RegisterKeyBind(Key.SPACE, function() table.insert(pending, ShipSpeed.boost) end)
+-- The helm boost, like the drop pod's (shipspeed.lua, #207), is on the key bound to Run (Shift), polled every frame in
+-- the raid tick below. It was Space, but Space is the game's ship up (MoveUp), and this UE4SS has no Shift key for
+-- RegisterKeyBind.
 RegisterKeyBind(Key.K, function() table.insert(pending, function() if InvQol then InvQol.hotkey("move") end end) end)
 RegisterKeyBind(Key.J, function() table.insert(pending, function() if InvQol then InvQol.hotkey("discard") end end) end)
 -- F by an armed station mine with a ToolKit: the defusal board (defuse.lua, #197). The game's own F (use) carries on;

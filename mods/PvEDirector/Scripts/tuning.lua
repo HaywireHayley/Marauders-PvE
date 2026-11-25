@@ -269,7 +269,7 @@ local function define()
     add(ships, require("shipspeed").CFG, {
         { "RUSTBUCKET_SPEED", "Your Rustbucket's top speed (x)", 0.5, 3, 0.05, "1 = the game's 1000 cm/s. Very fast ships outrun rival AI and ram hard" },
         { "RUSTBUCKET_ACCEL", "Your Rustbucket's acceleration (x)", 0.5, 4, 0.1, "1 = the game's" },
-        { "BOOST_SPEED", "Helm boost: top speed (x)", 1, 4, 0.1, "Space at the helm of any frigate" },
+        { "BOOST_SPEED", "Helm boost: top speed (x)", 1, 4, 0.1, "Hold Shift (Run) at the Rustbucket's helm" },
         { "BOOST_ACCEL", "Helm boost: acceleration (x)", 1, 8, 0.5, "" },
         { "BOOST_SECONDS", "Helm boost: how long (seconds)", 1, 15, 1, "" },
         { "BOOST_COOLDOWN", "Helm boost: cooldown (seconds)", 0, 60, 1, "Counted from the end of the boost" },
@@ -346,7 +346,7 @@ local function define()
     })
     add(fx, require("gatetaps").CFG, {
         { "GATE_TAPS", "Gate superstition: two taps", 0, 1, 1, "1 = tap Space exactly twice just before the space gate and a gold coin lands in your gift box (once or three times: only a remark). 0 = off" },
-        { "TAP_WINDOW", "Gate taps count this far back (seconds)", 2, 15, 1, "How long before entering the gate a Space press still counts" },
+        { "TAP_WINDOW", "Gate taps count this far back (seconds)", 2, 15, 1, "How long before entering the gate a boost (Shift) press still counts" },
     })
     tabs[#tabs + 1] = fx
     -- Features (#324): whole parts of the mod on or off (features.lua). Each reads its switch as it runs.

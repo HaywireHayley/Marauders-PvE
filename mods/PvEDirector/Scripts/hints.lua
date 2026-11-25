@@ -17,7 +17,7 @@ local ACCENT = { R = 0.95, G = 0.5, B = 0.12, A = 1 }
 M.TEXT = {
     lobby = "F9 debug and key list, F10 settings, F11 crew",
     raid = "N minimap, M overview, B next task",
-    helm = "Space: boost",
+    helm = "Hold Shift (Run) at the Rustbucket's helm: boost",
     mine = "F with a ToolKit defuses",
     crew = "Your crew follows you; F11 manages them",
 }
