@@ -4,11 +4,10 @@
 -- RegisterKeyBind block and README.md's key list.
 -- NOT tested in game (2026-11-24).
 local M = {}
+local UI = require("ui")
 local valid, lib, log -- main.lua's helpers (init)
 local host
 
-local HOST = "/SIGISPlugin/Widgets/DebugInfo_Widget.DebugInfo_Widget_C"
-local INK = { R = 0.02, G = 0.022, B = 0.028, A = 0.9 }
 local ACCENT = { R = 0.95, G = 0.5, B = 0.12, A = 1 }
 local TEXT_LIGHT = { R = 0.92, G = 0.92, B = 0.9, A = 1 }
 
@@ -32,47 +31,15 @@ function M.init(ctx) valid, lib, log = ctx.valid, ctx.lib, ctx.log end
 -- New world: the old panel's widgets went with it. Dropped, never touched again.
 function M.reset() host = nil end
 
-local function make(tree, cls) return StaticConstructObject(lib("/Script/UMG." .. cls), tree) end
-local function tint(t, col)
-    pcall(function()
-        local c = t.ColorAndOpacity
-        c.SpecifiedColor.R, c.SpecifiedColor.G, c.SpecifiedColor.B, c.SpecifiedColor.A = col.R, col.G, col.B, col.A
-        c.ColorUseRule = 0
-    end)
-end
 
 local function show(pc)
-    local cls = lib(HOST)
-    if not valid(cls) then pcall(LoadAsset, (HOST:match("^[^.]+"))) cls = lib(HOST) end
-    if not valid(cls) then return end
-    local h = lib("/Script/UMG.Default__WidgetBlueprintLibrary"):Create(pc, cls, pc)
-    if not valid(h) then return end
-    local tree = h.WidgetTree
-    local root = tree.RootWidget
-    if not valid(root) then return end
-    root:ClearChildren()
-    local W, ROW, KEYW = 560, 24, 90
-    local x0, y0 = 40, 120
-    local bg = make(tree, "Border")
-    pcall(function() bg:SetBrushColor(INK) end)
-    local s = root:AddChildToCanvas(bg)
-    s:SetPosition({ X = x0, Y = y0 }) s:SetSize({ X = W, Y = 24 + ROW * (#M.KEYS + 1) })
-    local function text(str, x, y, w, col, size)
-        local t = make(tree, "TextBlock")
-        t.Font.Size = size or 13
-        t:SetText(FText(str))
-        tint(t, col)
-        local ts = root:AddChildToCanvas(t)
-        ts:SetPosition({ X = x, Y = y }) ts:SetSize({ X = w, Y = ROW })
+    local KEYW = 90
+    local lines = { { text = "Marauders PvE keys   (F9 or Esc closes)", col = ACCENT, size = 16 } }
+    for _, k in ipairs(M.KEYS) do
+        lines[#lines + 1] = { text = k[1], col = ACCENT, w = KEYW }
+        lines[#lines + 1] = { text = k[2], x = KEYW, sameRow = true }
     end
-    text("Marauders PvE keys   (F9 or Esc closes)", x0 + 16, y0 + 10, W - 32, ACCENT, 16)
-    for i, k in ipairs(M.KEYS) do
-        local y = y0 + 12 + ROW * i
-        text(k[1], x0 + 16, y, KEYW, ACCENT)
-        text(k[2], x0 + 16 + KEYW, y, W - 32 - KEYW, TEXT_LIGHT)
-    end
-    h:AddToViewport(5011)
-    host = h
+    host = UI.card(pc, { x = 40, y = 120, w = 560, row = 24, col = TEXT_LIGHT, z = 5011, lines = lines })
 end
 
 function M.isOpen() return host ~= nil end

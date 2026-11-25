@@ -5,13 +5,13 @@
 -- a new world drops it (its widgets belong to the old world: never touched again, never rooted). Switch: features.HINTS.
 -- NOT tested in game (2026-11-25).
 local M = {}
+local UI = require("ui")
 local valid, lib, log -- main.lua's helpers (init)
 local host, hideAt, seen, seenPath
 local queue = {}
 
 local SHOW_SECONDS = 8
-local HOST = "/SIGISPlugin/Widgets/DebugInfo_Widget.DebugInfo_Widget_C"
-local INK = { R = 0.02, G = 0.022, B = 0.028, A = 0.85 }
+local INK = { R = 0.02, G = 0.022, B = 0.028, A = 0.85 } -- a little lighter than ui.lua's
 local ACCENT = { R = 0.95, G = 0.5, B = 0.12, A = 1 }
 
 M.TEXT = {
@@ -63,39 +63,14 @@ end
 local function hide()
     local h = host
     host = nil
-    if h and valid(h) then pcall(function() h:RemoveFromParent() end) end
+    UI.remove(h)
 end
 
-local function make(tree, cls) return StaticConstructObject(lib("/Script/UMG." .. cls), tree) end
 
 local function show(pc, str)
-    local cls = lib(HOST)
-    if not valid(cls) then pcall(LoadAsset, (HOST:match("^[^.]+"))) cls = lib(HOST) end
-    if not valid(cls) then return false end
-    local h = lib("/Script/UMG.Default__WidgetBlueprintLibrary"):Create(pc, cls, pc)
-    if not valid(h) then return false end
-    local tree = h.WidgetTree
-    local root = tree.RootWidget
-    if not valid(root) then return false end
-    root:ClearChildren()
-    local W, H, x0, y0 = 520, 36, 40, 80
-    local bg = make(tree, "Border")
-    pcall(function() bg:SetBrushColor(INK) end)
-    local s = root:AddChildToCanvas(bg)
-    s:SetPosition({ X = x0, Y = y0 }) s:SetSize({ X = W, Y = H })
-    local t = make(tree, "TextBlock")
-    t.Font.Size = 15
-    t:SetText(FText("Tip: " .. str))
-    pcall(function()
-        local c = t.ColorAndOpacity
-        c.SpecifiedColor.R, c.SpecifiedColor.G, c.SpecifiedColor.B, c.SpecifiedColor.A = ACCENT.R, ACCENT.G, ACCENT.B, 1
-        c.ColorUseRule = 0
-    end)
-    local ts = root:AddChildToCanvas(t)
-    ts:SetPosition({ X = x0 + 14, Y = y0 + 7 }) ts:SetSize({ X = W - 28, Y = H - 10 })
-    h:AddToViewport(5010)
-    host = h
-    return true
+    host = UI.card(pc, { x = 40, y = 80, w = 520, row = 26, pad = 5, size = 15, bg = INK,
+        lines = { { text = "Tip: " .. str, col = ACCENT, x = 5 } } })
+    return host ~= nil
 end
 
 -- New world: the panel's widgets went with it. Dropped, never touched again; the queue starts over.
