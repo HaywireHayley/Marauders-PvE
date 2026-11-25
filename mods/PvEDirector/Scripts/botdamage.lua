@@ -268,12 +268,14 @@ local function pushStep(now)
                 local okS, sim = pcall(function() return mesh:IsSimulatingPhysics(FName("None")) end)
                 local hp = bot.Health
                 if okS and sim then
-                    local ok = pcall(function() mesh:AddImpulseToAllBodiesBelow(q.v, FName("pelvis"), true, false) end)
-                    if not ok then pcall(function() mesh:AddImpulse(q.v, FName("None"), true) end) end
+                    local v = q.dead or q.v
+                    local ok = pcall(function() mesh:AddImpulseToAllBodiesBelow(v, FName("pelvis"), true, false) end)
+                    if not ok then pcall(function() mesh:AddImpulse(v, FName("None"), true) end) end
                     table.remove(pushQ, i)
                 elseif type(hp) == "number" and hp > 0 and not q.nudged then
                     q.nudged = true
-                    pcall(function() bot:LaunchCharacter({ X = q.v.X * 0.3, Y = q.v.Y * 0.3, Z = 120 }, true, true) end)
+                    local live = q.live
+                    if live ~= 0 then pcall(function() bot:LaunchCharacter(live and { X = q.v.X * live, Y = q.v.Y * live, Z = q.v.Z * live } or { X = q.v.X * 0.3, Y = q.v.Y * 0.3, Z = 120 }, true, true) end) end -- (live = 0: a bot still standing is left alone; the throw waits for its ragdoll)
                 end
                 q.left = q.left - 1
                 q.at = now + 0.12
@@ -363,6 +365,16 @@ function B.frame(pc)
         end
     end
     if now >= nextMeshes then meshes(now, bots) end
+    local okL, err = pcall(function() require("launchers").frame(pc, bots, now) end)
+    if not okL then warn("launchers", "the launcher blast failed: " .. tostring(err)) end
+end
+
+-- For launchers.lua: a bot's armour ratings ({ head, body }) and a throw (cm/s) queued like a shotgun volley's.
+B.armour = armour
+-- live: the share of v a bot still standing is launched with (nil: a shotgun volley's nudge; 0: none). dead: the velocity a bot that
+-- is dead or ragdolled gets in place of v.
+function B.throw(bot, v, live, dead)
+    pushQ[#pushQ + 1] = { bot = bot, at = 0, left = 14, v = v, live = live, dead = dead }
 end
 
 -- ctx: log(text), valid(object), bots() -> the raid's bot entries (each with .bot), or nil outside a raid.

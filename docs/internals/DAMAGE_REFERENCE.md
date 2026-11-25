@@ -277,7 +277,7 @@ So these come from logged hits (health lost per hit with the zone and armour wor
 | BlowTorch | BlowTorch | Base_BlowTorch_C | none | tool, not handled | 0.075 |
 | Bren | BrenMk2Rifle | Rifle_Bren_MKII_Child_C | 36 | logged hits | 0.111 |
 | Carl Gustav m/45 | M45CarlSMG | Rifle_M45_Child_C | 23 | logged hits | 0.12 |
-| China Lake | ChinaLake | Launcher_ChinaLake_Child_C | none | launcher, not handled | 2.0 |
+| China Lake | ChinaLake | Launcher_ChinaLake_Child_C | none | launcher: direct hit 150 percent of health (see LAUNCHERS.md) | 2.0 |
 | Custom Mat 49 | CustomMat49 | Rifle_CustomMat49_Child_C | 24 | logged hits | 0.1 |
 | Daewoo K1 | DaewooK1Rifle | Rifle_DaewooK1_Child_C | 32 | logged hits | 0.125 |
 | De Lisle | DeLisleRifle | Rifle_DeLisle_Child_C | 38 | patch notes match | 2.0 |
@@ -309,7 +309,7 @@ So these come from logged hits (health lost per hit with the zone and armour wor
 | MAS 44 | Mas44Rifle | Rifle_Mas44_Child_C | 39 | logged hits | 0.2 |
 | Mat 49 | Mat49Rifle | Rifle_Mat49_Child_C | 22 | logged hits | 0.1 |
 | MG42 | MG42Rifle | Rifle_MG42_Child_C | 38 | logged hits | 0.12 |
-| Mini Thumper | MiniThumper | Launcher_Thumper_Child_C | none | launcher, not handled | 1.493 |
+| Mini Thumper | MiniThumper | Launcher_Thumper_Child_C | none | launcher: direct hit 90 percent of health (see LAUNCHERS.md) | 1.493 |
 | MP40 | MP40Rifle | Rifle_MP40_Child_C | 25 | logged hits | 0.133 |
 | Obrez | MosinObrezPistol | Pistol_Mosin_Child_C | 40 | patch notes match | 1.724 |
 | PPSh | PPSHSmg | Rifle_PPSH_Child_C | 23 | logged hits | 0.086 |

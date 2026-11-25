@@ -5622,3 +5622,32 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   crashed the game ~25-60 s later, 5 times out of 5, also on master: PCallStackHash 03C1C3FF2A7E3D766A2301A764F7B5DE7EA33533,
   EXCEPTION_ACCESS_VIOLATION reading 0, only game frames. Not seen in any player report: maybe the standalone `open`
   raid only. To check: die in a raid started from START RAID.
+
+## 40mm launcher blast: direct hit, armour, fire (2026-11-25; tested in game, walking burst NOT understood)
+Reference with the diagrams and numbers: docs/internals/LAUNCHERS.md. Asked for: a China Lake direct hit should kill an unarmoured
+bot, the blast should nudge a dying bot a little, the Mini Thumper stays near vanilla, and the fire should be a quick flash with no
+damage.
+- Fire patch (`00_UA_GrenadeFire_DamageArea`): its defaults are 25 s of burning at 6 damage a check (every 0.3 s); Proj40mm's bytecode
+  sets 2.0 s and 5.0 on the spawned patch (EX_Let on HowLongFireLasts and DamagePerCheck after BeginDeferredActorSpawn). `TotalTimeFireActive`
+  counts up 0.3 a check; at HowLongFireLasts it calls putOut, which plays the `FireTurnOff` timeline. The patch's timelines read in game:
+  FireTurnOff 1.00, DecalSizeScale 1.49, Timeline_0 0.69, Timeline_1 5.00. launchers.lua zeroes DamagePerCheck, sets HowLongFireLasts
+  0.3 and sets each timeline's play rate to length / 0.3 (FireTurnOff / 0.3 too): about 0.6 s start to finish. Patches are found with
+  FindAllOf within 500 cm of a blast, once the frame after it and once 0.15 s later (a NotifyOnNewObject on the patch class never fired
+  in a fresh session, the class is not loaded when the mod starts).
+- Direct hit: a share of the bot's health before the blast (health sampled one and two frames back, so the game's own splash is
+  not added on top); China Lake 1.5, Mini Thumper 0.9, less 5 percent a point of body armour. First version took a flat 5 off per point
+  and a China Lake went through a vest of 13 in one shot; armour as a share fixed that. First version also used MaxHealth, which on a
+  bot reads as an object, not a number; guards have 200 health, soldiers 80 or 200.
+- Throw: a bot on its feet is not moved; a dead or ragdolled one (within 1.7 s) gets a flat 513 cm/s push on all its bodies. A first
+  version launched live bots at 14 to 18 m/s and was too much. botdamage.lua: `B.throw(bot, v, live, dead)` and `B.armour`, called from
+  its frame (`launchers.frame`).
+- Hot reloading launchers.lua into a running raid (bridge/dir_eval.lua, `package.loaded` swap) works, but every reload leaves the old
+  copy's post hook running (RegisterHook cannot be undone), with nothing left to tick or undo what it did. Two experiments left rounds
+  with no collision for the rest of the session that way. Restart the game after any experiment that changes round collision.
+- The China Lake going off at the muzzle while walking: seen only in sessions with hot reloaded copies, within 0.01 s at about 87 cm ahead,
+  never with the Mini Thumper, never standing still. Traces found nothing in its way. Collision off for 0.03 s fixed it but let rounds
+  through walls closer than 2 m; overlap events off for 0.15 s stopped walls working (walls are hit through overlap). Both removed. A clean
+  session did not show it again. If it comes back in a clean session the first thing to read is the round's collision (method calls only:
+  reading every property of a live round, `ForEachProperty`, crashed the game).
+- Not tested: Mini Thumper against armour, rival crews' launchers, flare and dart guns, overlapping blasts.
+- Test tool: tools/launcher_test/ (fires both launchers by itself and logs what each shot did; written and syntax checked, NOT run in game yet).
