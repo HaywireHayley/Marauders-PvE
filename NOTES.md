@@ -5591,3 +5591,20 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   aim FOV lives on the camera component at all (could be PlayerCameraManager SetFOV / DefaultFOV, or a FovModifier from
   VideoSettings.sav), and whether the helm/ship view uses another camera. Probe: `lua` read of pc.Pawn camera
   FieldOfView while aiming vs PlayerCameraManager.CameraCachePrivate.POV.FOV. Earlier draft: PR #345 (launcher file).
+
+## 40mm round explodes in your hands (#360, 2026-11-25; tested in game)
+- Mini Thumper on Spaceport_01 (bridge `raid`, throwaway cheat save). A post-hook on RaidWeapon:ServerFireProjectile
+  sampling every Proj40mm_C showed a round at the muzzle BEFORE the RPC ran and two after, both with the same position
+  and velocity: FireWeapon spawns the client-predicted round (call 0x1880200, behind `cmp [rdi+0x728],r15b; jne` at
+  0x1885d32), then the RPC pvepatch runs locally spawns the server's. They detonated on each other (89 damage to you).
+- pvepatch "FireWeapon no local projectile" (jne -> jmp at 0x1885d32): one round. It still burst in your hands (45).
+- launchers.lua: after ServerFireProjectile, the new round's CollisionComp ignores the gun and the pawn
+  (IgnoreActorWhenMoving). Tested: the round flies down the corridor and bursts on the far wall (hp 100 -> 95).
+  Ignoring the pawn alone: not settled (the shot that tried it didn't go out). Rounds are pooled (PooledProjectile,
+  MyPoolOwner), so they're collected by NotifyOnNewObject on RaidProjectile, not searched for per shot.
+- Not tested: bots firing launchers (Skooma Dealer saw it too; they go through the same FireWeapon), other projectile
+  guns (flare, darts), whether the hidden twin used to add to damage at the target.
+- Seen on the way, NOT caused by this: dying in a bridge-opened raid (`raid Spaceport_01`) and landing in the lobby
+  crashed the game ~25-60 s later, 5 times out of 5, also on master: PCallStackHash 03C1C3FF2A7E3D766A2301A764F7B5DE7EA33533,
+  EXCEPTION_ACCESS_VIOLATION reading 0, only game frames. Not seen in any player report: maybe the standalone `open`
+  raid only. To check: die in a raid started from START RAID.
