@@ -55,6 +55,7 @@ FILES = [  # (from, to), relative to the dev tree and the release
     ("native/pvepatch.dll", "native/pvepatch.dll"),
     ("config/UE4SS-settings.ini", "config/UE4SS-settings.ini"),
     ("config/raid_conditions.txt", "config/raid_conditions.txt"),  # the raid conditions (#78, conditions.lua)
+    ("config/kits.json", "config/kits.json"),  # the launcher's Kits presets (#385, saves.py kits)
     ("tools/ue4ss/dwmapi.dll", "tools/ue4ss/dwmapi.dll"),
     ("tools/ue4ss/UE4SS.dll", "tools/ue4ss/UE4SS.dll"),
     ("tools/release/install.ps1", "scripts/install.ps1"),
