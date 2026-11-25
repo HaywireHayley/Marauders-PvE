@@ -102,6 +102,16 @@ local function giveKit(r)
     r.kitG = tier.g
 end
 
+-- What they carry into a raid: their rolled kit, with the gear you gave them from your stash (the launcher's Crew gear,
+-- #418: r.gear = { gun, helmet, chest, bag } item rows) in its place. That gear is theirs until they die or leave. A gun
+-- row gear.lua doesn't list (no ammo row to load it with) keeps the rolled gun.
+function H.kitOf(r)
+    local k, g = r.kit or {}, type(r.gear) == "table" and r.gear or {}
+    local gun = k.gun
+    if g.gun then for _, row in ipairs(Gear.guns) do if row[1] == g.gun and row[3] then gun = row end end end
+    return { gun = gun, helmet = g.helmet or k.helmet, chest = g.chest or k.chest, bag = g.bag or k.bag }
+end
+
 local function newRecruit()
     local used = {}
     for _, list in ipairs({ D.pool, D.crew }) do for _, r in ipairs(list) do used[r.name] = true end end
@@ -445,7 +455,7 @@ local function showB(b, on) b.b:SetVisibility(on and 0 or 1) end
 local function pretty(row) return row and (row:gsub("(%l)(%u)", "%1 %2"):gsub("(%a)(%d)", "%1 %2")) or nil end
 local function accent(r) return (r.voice:gsub("Female%d*$", ""):gsub("Male%d*$", ""):gsub("V%d+$", "")) end
 local function kitLine(r)
-    local k, parts = r.kit or {}, {}
+    local k, parts = H.kitOf(r), {}
     if k.gun then parts[#parts + 1] = pretty(k.gun[1]) end
     for _, slot in ipairs({ "helmet", "chest", "bag" }) do -- (not ipairs over the rows: a missing helmet ended the list)
         if k[slot] then parts[#parts + 1] = pretty(k[slot]) end

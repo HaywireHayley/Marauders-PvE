@@ -514,3 +514,208 @@ def undo_last_raid(sid):
     if os.path.exists(undo_crew):  # crewmates lost in that raid come back
         _copy(undo_crew, os.path.join(folder, SLOT_CREW))
         os.remove(undo_crew)
+
+
+# Crew gear (#418) -----------------------------------------------------------------------------------------------------
+# A hired crewmate's record in the save's crew.lua (hire.lua) can carry gear = { gun = row, helmet = row, chest = row,
+# bag = row }: stash items the launcher moved onto them. crew.lua dresses them in it instead of their rolled kit every
+# raid, for as long as they live; a crewmate who dies or is dismissed takes it with them. The launcher reads and writes
+# crew.lua with the small reader below, which handles what hire.lua's ser() writes (tables, strings, numbers, booleans).
+CREW_SLOTS = ("gun", "helmet", "chest", "bag")
+_GEAR_LISTS = {"gun": "guns", "helmet": "helmets", "chest": "chests", "bag": "bags"}
+_NO_BOT_GUNS = {"LPOFlamethrower"}  # gear.lua botGuns: in a bot's hands it never stopped firing (#413)
+_LUA_ESC = {"n": "\n", "t": "\t", "r": "\r", "a": "\a", "b": "\b", "f": "\f", "v": "\v", "\n": "\n"}
+_LUA_SPACE = re.compile(r"(?:\s+|--[^\n]*)*")
+_LUA_NAME = re.compile(r"([A-Za-z_]\w*)\s*=")
+_LUA_ATOM = re.compile(r"true|false|nil|-?(?:0x[0-9a-fA-F]+|inf|nan|\d+(?:\.\d*)?(?:[eE][-+]?\d+)?)")
+
+
+def _lua_load(text):
+    """The value after `return` in a file hire.lua wrote."""
+    def skip(i):
+        return _LUA_SPACE.match(text, i).end()
+
+    def expect(i, ch):
+        i = skip(i)
+        if text[i] != ch:
+            raise ValueError(f"crew.lua: expected {ch!r} at {i}")
+        return i + 1
+
+    def value(i):
+        i = skip(i)
+        c = text[i]
+        if c == "{":
+            out, n, i = {}, 1, i + 1
+            while True:
+                i = skip(i)
+                if text[i] == "}":
+                    return out, i + 1
+                if text[i] == "[":
+                    k, i = value(i + 1)
+                    i = expect(expect(i, "]"), "=")
+                elif _LUA_NAME.match(text, i):
+                    m = _LUA_NAME.match(text, i)
+                    k, i = m.group(1), m.end()
+                else:
+                    k, n = n, n + 1
+                out[k], i = value(i)
+                i = skip(i)
+                if text[i] in ",;":
+                    i += 1
+        if c == '"':
+            s, i = [], i + 1
+            while text[i] != '"':
+                if text[i] == "\\":
+                    m = re.compile(r"\d{1,3}").match(text, i + 1)
+                    if m:
+                        s.append(chr(int(m.group())))
+                        i = m.end()
+                        continue
+                    s.append(_LUA_ESC.get(text[i + 1], text[i + 1]))
+                    i += 2
+                else:
+                    s.append(text[i])
+                    i += 1
+            return "".join(s), i + 1
+        m = _LUA_ATOM.match(text, i)
+        if not m:
+            raise ValueError(f"crew.lua: can't read the value at {i}")
+        w = m.group()
+        if w in ("true", "false", "nil"):
+            return {"true": True, "false": False, "nil": None}[w], m.end()
+        if "x" in w:
+            return int(w, 16), m.end()
+        return (float(w) if any(ch in w for ch in ".eEn") else int(w)), m.end()
+
+    return value(text.index("return") + len("return"))[0]
+
+
+def _lua_str(s):
+    return '"' + "".join("\\" + c if c in '"\\' else "\\n" if c == "\n" else c if c >= " " else f"\\{ord(c)}"
+                         for c in s) + '"'
+
+
+def _lua_dump(v, ind=""):
+    """As hire.lua's ser() writes it."""
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, str):
+        return _lua_str(v)
+    if isinstance(v, (int, float)):
+        return repr(v)
+    pad = ind + "  "
+    parts = []
+    for k, x in v.items():
+        key = f"[{k}]" if isinstance(k, int) else k if re.fullmatch(r"[A-Za-z_]\w*", k) else f"[{_lua_str(k)}]"
+        parts.append(f"{pad}{key} = {_lua_dump(x, pad)}")
+    return "{\n" + ",\n".join(parts) + "\n" + ind + "}"
+
+
+def _lua_list(t):
+    return [t[k] for k in sorted(k for k in t if isinstance(k, int))] if isinstance(t, dict) else []
+
+
+def _crew_path(sid):
+    return os.path.join(SAVES, sid, SLOT_CREW)
+
+
+def _read_crew(sid):
+    if not os.path.exists(_crew_path(sid)):
+        return None
+    with open(_crew_path(sid), encoding="utf-8") as f:
+        return _lua_load(f.read())
+
+
+def _write_crew(sid, data):
+    tmp = _crew_path(sid) + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+        f.write("-- Your crew and the recruit pool (hire.lua). Delete this file for a fresh pool and no crew.\nreturn "
+                + _lua_dump(data) + "\n")
+    os.replace(tmp, _crew_path(sid))
+
+
+def crew_gear_rows():
+    """Slot -> the item rows a crewmate can carry there: gear.lua's lists, the ones rolled kits come from (guns with an
+    ammo row, so the mod can give them magazines)."""
+    with open(GEAR, encoding="utf-8") as f:
+        text = f.read()
+    out = {}
+    for slot, name in _GEAR_LISTS.items():
+        m = re.search(r"\n    " + name + r" = \{(.*?)\n    \}", text, re.S)
+        rows = re.findall(r'\{\s*"([A-Za-z0-9_]+)"\s*,\s*\d+\s*(,\s*"[A-Za-z0-9_]+")?', m.group(1)) if m else []
+        out[slot] = {r for r, ammo in rows if slot != "gun" or (ammo and r not in _NO_BOT_GUNS)}
+    return out
+
+
+def _stash_entries(state):
+    """Inventory key -> item row, for every item lying in the stash itself (not worn, not inside a bag)."""
+    out = {}
+    for key, o in state["storage"]["inventory"].items():
+        try:
+            text = json.loads(o["value"]).get("value", "")
+        except (ValueError, AttributeError, KeyError, TypeError):
+            continue
+        m = re.match(r"\d+-([A-Za-z0-9_]+)-\d+-\d+-\d+-\d+-\d+-Stash(?:-|$)", text)
+        if m:
+            out[key] = m.group(1)
+    return out
+
+
+def crew_gear(sid):
+    """For the Crew gear dialog: {"crew": [{id, name, level, gear: {slot: row}}], "stash": {slot: [(key, row)]}}, or
+    None when the save has no crew file (nobody hired with it yet)."""
+    data = _read_crew(sid)
+    if data is None:
+        return None
+    crew = []
+    for r in _lua_list(data.get("crew")):
+        g = r.get("gear") if isinstance(r.get("gear"), dict) else {}
+        crew.append({"id": r.get("id"), "name": r.get("name", "?"), "level": r.get("level", 1),
+                     "gear": {s: g[s] for s in CREW_SLOTS if g.get(s)}})
+    rows = crew_gear_rows()
+    stash = {s: [] for s in CREW_SLOTS}
+    entries = _stash_entries(_read(os.path.join(SAVES, sid, "state.json")))
+    for key, row in sorted(entries.items(), key=lambda kv: (kv[1].lower(), kv[0])):
+        for s in CREW_SLOTS:
+            if row in rows[s]:
+                stash[s].append((key, row))
+    return {"crew": crew, "stash": stash}
+
+
+def set_crew_gear(sid, crew_id, picks):
+    """Changes what a hired crewmate carries. picks: slot -> a stash item key (moved from the stash onto them; what they
+    had in that slot goes back to the stash), or None (back to the stash: the slot is their own rolled kit again). Slots
+    left out stay as they are. All or nothing; returns None when done, or why not."""
+    if active() == sid:
+        return "That save is in play: close the game first."
+    data = _read_crew(sid)
+    r = next((c for c in _lua_list(data and data.get("crew")) if c.get("id") == crew_id), None)
+    if r is None:
+        return "That crewmate isn't in this save's crew any more."
+    items, rows = _read(ITEMS), crew_gear_rows()
+    path = os.path.join(SAVES, sid, "state.json")
+    state = _read(path)
+    stash = _stash_entries(state)
+    gear = dict(r["gear"]) if isinstance(r.get("gear"), dict) else {}
+    back = []
+    for slot, key in picks.items():
+        if slot not in CREW_SLOTS:
+            return f"No slot called {slot}."
+        if key is not None and stash.get(key) not in rows[slot]:
+            return f"That {slot} isn't in the stash any more."
+        if gear.get(slot):
+            back.append(gear.pop(slot))
+        if key is not None:
+            gear[slot] = stash.pop(key)
+            del state["storage"]["inventory"][key]
+    grid = Grid(state, items, stash_rows(_meta(sid)))  # (cells of the items just taken are free again)
+    for row in back:  # at the item's full condition: the stash string isn't kept on the crewmate
+        if row in items and not _put(state, grid, items, row):
+            return "Not enough room in the stash for the gear coming back: nothing was changed."
+    if gear:
+        r["gear"] = gear
+    else:
+        r.pop("gear", None)
+    _write(path, state)
+    _write_crew(sid, data)
+    return None

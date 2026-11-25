@@ -596,10 +596,13 @@ class App(tk.Tk):
         row3.pack(fill="x", pady=(6, 0))
         self.b_give = Button(row3, "Give items or cash", self.give_items, size=11, pad=(10, 6))
         self.b_kits = Button(row3, "Kits", self.show_kits, size=11, pad=(10, 6))
+        self.b_crew_gear = Button(row3, "Crew gear", self.show_crew_gear, size=11, pad=(10, 6))
         self.b_give.grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        self.b_kits.grid(row=0, column=1, sticky="ew")
+        self.b_kits.grid(row=0, column=1, sticky="ew", padx=(0, 6))
+        self.b_crew_gear.grid(row=0, column=2, sticky="ew")
         row3.columnconfigure(0, weight=2)
         row3.columnconfigure(1, weight=1)
+        row3.columnconfigure(2, weight=1)
 
         tk.Frame(self.right, bg=LINE, height=1).pack(fill="x", pady=(10, 6))
         self.cheat_var = tk.BooleanVar()
@@ -789,6 +792,7 @@ class App(tk.Tk):
         self.b_backup.enable(ok)
         self.b_give.enable(ok)
         self.b_kits.enable(ok)
+        self.b_crew_gear.enable(ok)
         if not s:
             self.d_name.config(text="No saves yet")
             self.d_mode.config(text="")
@@ -1511,6 +1515,121 @@ class App(tk.Tk):
         show()
         d.show()
         pick.focus_set()
+
+    def show_crew_gear(self):
+        """Gives a hired crewmate gear from the selected save's stash: gun, helmet, chest, bag (#418). The items leave the
+        stash and go onto the crewmate's record in the save's crew.lua; the mod dresses them in it every raid instead of
+        their rolled kit. Theirs until they die or are dismissed. Only while the game is closed."""
+        s = self.current()
+        if not s or s.get("damaged") or self.running:
+            return
+        sid = s["id"]
+        d = Dialog(self, "Crew gear")
+        tk.Label(d.body, text="Kit out a hired crewmate from this save's stash. The items leave the stash and they wear "
+                              "them every raid. Gear goes with them if they die or you dismiss them: set a slot back to "
+                              "\"their own kit\" to return it to the stash first.",
+                 bg=PANEL, fg=MUTED, font=font(11), justify="left", wraplength=wrap(480)).pack(anchor="w")
+        box = tk.Frame(d.body, bg=PANEL)
+        box.pack(fill="x", pady=(8, 0))
+        note = tk.Label(d.body, text="", bg=PANEL, fg=ORANGE, font=font(11), justify="left", wraplength=wrap(480))
+        OWN = "Their own kit"
+        state = {"data": None, "options": {}}
+        picks = {slot: tk.StringVar() for slot in saves.CREW_SLOTS}
+        try:
+            state["data"] = saves.crew_gear(sid)
+        except (OSError, ValueError, KeyError, IndexError) as e:
+            note.config(text=f"Couldn't read this save's crew: {e}")
+        crew = (state["data"] or {}).get("crew", [])
+        if not crew:
+            if state["data"] is not None or not note.cget("text"):
+                note.config(text="Nobody hired with this save yet: hire crew in game (F11 in the lobby), then come back.")
+            note.pack(anchor="w", pady=(4, 0))
+            Button(d.row(), "Close", d.destroy, size=11, pad=(14, 6)).pack(side="left")
+            d.show()
+            return
+        who = tk.Listbox(box, bg=INK, fg=TEXT, selectbackground=ORANGE, selectforeground=INK, relief="flat", font=font(12),
+                         height=max(4, len(crew)), width=18, activestyle="none", highlightthickness=0,
+                         exportselection=False)
+        who.pack(side="left", fill="y")
+        slots = tk.Frame(box, bg=PANEL)
+        slots.pack(side="left", fill="both", expand=True, padx=(12, 0))
+        holders = {}
+        for i, slot in enumerate(saves.CREW_SLOTS):
+            tk.Label(slots, text=slot.capitalize(), bg=PANEL, fg=MUTED, font=font(11)).grid(row=i, column=0, sticky="w",
+                                                                                           pady=2)
+            holders[slot] = tk.Frame(slots, bg=PANEL)
+            holders[slot].grid(row=i, column=1, sticky="w", padx=(8, 0), pady=2)
+        note.pack(anchor="w", pady=(8, 0))
+        r = d.row()
+
+        def chosen():
+            sel = who.curselection()
+            return crew[sel[0]] if sel else None
+
+        def show(_=None):
+            c = chosen()
+            if not c:
+                return
+            for slot in saves.CREW_SLOTS:
+                for w in holders[slot].winfo_children():
+                    w.destroy()
+                opts = {OWN: None}
+                if c["gear"].get(slot):
+                    opts[f"Keep: {c['gear'][slot]}"] = "keep"
+                seen = {}
+                for key, row in state["data"]["stash"][slot]:
+                    seen[row] = seen.get(row, 0) + 1
+                    opts[row if seen[row] == 1 else f"{row} ({seen[row]})"] = key
+                state["options"][slot] = opts
+                picks[slot].set(next(iter(opts)) if not c["gear"].get(slot) else f"Keep: {c['gear'][slot]}")
+                om = tk.OptionMenu(holders[slot], picks[slot], *opts)
+                om.config(bg=PANEL_HI, fg=TEXT, activebackground=LINE, activeforeground=TEXT, highlightthickness=0, bd=0,
+                          font=font(10), width=24)
+                om["menu"].config(bg=PANEL_HI, fg=TEXT, activebackground=ORANGE, font=font(10))
+                om.pack(side="left")
+
+        def apply():
+            c = chosen()
+            if not c:
+                note.config(text="Pick a crewmate first.")
+                return
+            if self.running:
+                note.config(text="Close the game first.")
+                return
+            change = {}
+            for slot in saves.CREW_SLOTS:
+                key = state["options"].get(slot, {}).get(picks[slot].get(), "keep")
+                if key == "keep" or (key is None and not c["gear"].get(slot)):
+                    continue
+                change[slot] = key
+            if not change:
+                note.config(text="Nothing to change.")
+                return
+            try:
+                why = saves.set_crew_gear(sid, c["id"], change)
+            except (OSError, ValueError, KeyError, IndexError) as e:
+                why = f"Couldn't change it: {e}"
+            if why:
+                note.config(text=why)
+                return
+            at = who.curselection()[0]
+            state["data"] = saves.crew_gear(sid)
+            crew[:] = state["data"]["crew"]
+            who.selection_clear(0, "end")
+            who.selection_set(min(at, len(crew) - 1))
+            show()
+            self.refresh()
+            note.config(text=f"{c['name']} is kitted out: it's on them next raid.")
+
+        for c in crew:
+            who.insert("end", f"{c['name']}  (Lv {c['level']})")
+        Button(r, "APPLY", apply, "main", 11, (14, 6)).pack(side="left", padx=(0, 8))
+        Button(r, "Close", d.destroy, size=11, pad=(14, 6)).pack(side="left")
+        who.bind("<<ListboxSelect>>", show)
+        who.selection_set(0)
+        show()
+        d.show()
+        who.focus_set()
 
     def toggle_cheat(self):
         s = self.current()

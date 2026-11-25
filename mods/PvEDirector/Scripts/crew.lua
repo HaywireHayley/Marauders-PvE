@@ -4,7 +4,7 @@
 -- of them, the gunner, works your ship's turrets while you fly it.
 --
 -- Who they are is hire.lua's: the crewmates you hired and paid for this raid (set looks, voices, levels). Each raid they
--- get a fresh kit of their level's tier; one who dies is gone for good. Bodies only exist while you're on foot somewhere
+-- get a fresh kit of their level's tier (or wear what you gave them, #418); one who dies is gone for good. Bodies only exist while you're on foot somewhere
 -- with a navmesh; the gunner has no body while you fly (it's at the turret), and is back at your side when you leave
 -- the helm. Each wears a nametag (C.tags) so you can tell them from rivals.
 local Out = require("outref") -- releases UE4SS's out-param registry refs (outref.lua)
@@ -79,8 +79,9 @@ local function muster()
         m.id, m.name, m.female, m.level, m.place = r.id, r.name, r.female, r.level, i
         m.voice = X.hire.voice(r)
         m.headPath, m.bodyPath, m.personality = r.head, r.body, r.personality
-        -- their own kit, as they stand in the lobby (fresh ammo and meds each raid)
-        local k = r.kit
+        -- their own kit, as they stand in the lobby, with any gear you gave them from your stash (hire.lua kitOf, #418);
+        -- fresh ammo and meds each raid
+        local k = X.hire.kitOf(r)
         m.kit = { gun = k.gun, helmet = k.helmet, chest = k.chest, bag = k.bag,
             stacks = math.random(RC.AMMO_STACKS[1], RC.AMMO_STACKS[2]), meds = math.random(RC.MEDS[1], RC.MEDS[2]) }
         m.helmet, m.chest, m.backpack = k.helmet ~= nil, k.chest ~= nil, k.bag ~= nil

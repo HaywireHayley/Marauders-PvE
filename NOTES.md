@@ -5439,6 +5439,25 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
 - Tested: tools/test_crew_undo.py (CI), test_pvemode.py, launcher/test_ui.py, test_standin_flow.py. NOT tested in game:
   that hire.lua re-reads crew.lua at each launch (it's loaded per launch, so a relaunch is needed after Undo anyway).
 
+## Crew gear from your stash (#418, 2026-11-25; launcher Crew gear, saves.set_crew_gear, hire.lua kitOf, crew.lua)
+- Discord ask: give a hired crewmate gear from the stash so they don't go in without a helmet. Done: the launcher's
+  CREW GEAR dialog (beside Kits) lists the save's hired crewmates and offers, per slot (gun, helmet, chest, bag), the
+  stash items gear.lua lists for that slot (guns only with an ammo row, no LPOFlamethrower: the botGuns rule, #413).
+- Storage: the item leaves state.json's stash and its row goes on the crewmate's record in the save's crew.lua as
+  r.gear = { gun = row, helmet = row, chest = row, bag = row }. hire.lua H.kitOf(r) lays r.gear over the rolled r.kit
+  (a gun row is looked up in Gear.guns for its ammo); crew.lua muster and the hire menu's kit line use it. A promotion
+  re-rolls r.kit and leaves r.gear alone. Gear is theirs until they die (H.died drops the record) or are dismissed;
+  setting a slot back to "Their own kit" returns the item to the stash (fresh condition: the stash string, condition
+  and attachments, isn't kept on the crewmate). Refused while the save is in play; all or nothing (no room to return
+  an item = nothing changes). Undo last raid stays consistent: state.json and crew.lua roll back together.
+- The launcher reads/writes crew.lua with a small reader for what hire.lua ser() writes (saves._lua_load/_lua_dump);
+  checked against real Lua (lupa) for strings with quotes, backslashes and newlines.
+- A chosen helmet is worn even when it doesn't fit the face (Gear.fits): the player picked it. May clip (#195 look).
+- Tested: launcher/test_ui.py CrewGear (equip, swap, return, refusals, full stash, reader round trip) and the dialog
+  (opens with and without crew, APPLY moves a helmet). NOT tested in game: that a crewmate spawns wearing and holding
+  the chosen gear (rivalbodies equipKit with the rows), and that the mod keeps r.gear through its own saves.
+- Not done from #418: crew roles.
+
 ## Linux launch log, first Proton reports (#161, 2026-11-23)
 - Report (Pöhlbert, CachyOS): `unable to load library steamclient64.dll` at PLAY with GE-Proton 10-34, 11-3, 11-7,
   Proton Experimental, Proton Stable and CachyOS's Proton; the stock game starts. Install output was correct.
