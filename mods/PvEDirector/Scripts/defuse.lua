@@ -203,6 +203,9 @@ end
 local function say(pc, s)
     if hint and not X.valid(hint.host) then hint = nil end
     if not hint then
+        -- made only when there's something to say: it was made at every raid start and sat in the viewport all raid
+        -- (one of the panels looked at for the death-to-lobby crash, #499)
+        if not s then return end
         local h = host(pc)
         if not h then return end
         hint = { host = h, text = text(h.WidgetTree, "", 18) }
@@ -516,7 +519,9 @@ end
 -- R at the helm by a nuclear mine: aboard it goes, quiet and shrunk, into the hold.
 local function tow(pc, ship, mine)
     if held and X.valid(held.mine) then return say(pc, "Your hold already has a nuclear mine in it") end
-    local inside = ship.MyShipInside
+    local inside = X.valid(ship) and ship.MyShipInside
+    -- a pointer kept in a property: checked through valid() (pve_alive) before any call, as pcall can't catch a freed one
+    if not (inside and X.valid(inside)) then return say(pc, "No hold to take it into") end
     local at = holdSpot(inside)
     mine["Active?"] = false
     pcall(function() mine.MineRotation:Stop() end)
