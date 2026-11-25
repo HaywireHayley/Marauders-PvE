@@ -240,6 +240,8 @@ local CFG = {
     POD_TIMEOUT = 12,               -- a pod that hasn't hit by then boards anyway
     BREACH_DELAY = 2.5,             -- after a pod embeds, its rider cuts through this much later
     BREACH_JOINED = 150,            -- a boarder spawn spot counts as inside if a path from inside ends this close to it
+    BREACH_HELM_CLEAR = 600,        -- boarders don't come in this close to your helm (#473)...
+    BREACH_FLOOR_Z = 250,           -- ...or higher/lower than this off the breach point's floor (cockpit roof, #473)
     BREACH_FALLBACK = 800,          -- ...and with no breach point inside, they come in this far around a point that is
     -- You boarding a rival: rival hulls have no interior, so one is spawned when your pod comes near (it brings its own
     -- level and a hull of its own, which is swapped for the rival's).
