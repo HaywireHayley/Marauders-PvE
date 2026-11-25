@@ -71,6 +71,72 @@ end
 
 local function set(r, v)
     if r.i then r.t[r.k][r.i] = v else r.t[r.k] = v end
+    if r.write then r.write(v) end -- a Raid tab row: its own config file, the one the launcher's main page writes
+end
+
+-- The Raid tab: raid length, space gate and the share of women, the settings on the launcher's main page (NEXT RAID,
+-- GAME AND LAUNCHER). They live in their own config files, which the launcher, raidtime.lua and rivals.lua read, so
+-- these rows read and write those files, not ai_tuning.txt: one setting, two places to change it. Not in `rows` (no
+-- presets, no saving with the rest) and not in the launcher's SETTINGS page (it has its own controls for them).
+local LENGTHS = { "default", "15", "30", "45", "60", "90", "120", "none" } -- launcher.pyw RAID_LENGTHS
+local GATES = { "default", "instant", "5", "10", "15" } -- launcher.pyw GATE_TIMES
+local FEMALE_DEFAULT = 35 -- launcher.pyw FEMALE_SHARE_DEFAULT
+
+local function readLine(name)
+    local f = io.open(PROJECT .. "config/" .. name, "r")
+    if not f then return nil end
+    local v = (f:read("l") or ""):lower():gsub("%s", "")
+    f:close()
+    return v
+end
+
+local function writeLine(name, v)
+    local f = io.open(PROJECT .. "config/" .. name, "w")
+    if not f then return X.log("tuning: can't write config/" .. name) end
+    f:write(v, "\n")
+    f:close()
+end
+
+local function stop(list, v) -- a file's value as a slider stop (0-based); unknown values count as the default
+    for i, s in ipairs(list) do if s == v then return i - 1 end end
+    return 0
+end
+
+local function raidTab()
+    local vals = {}
+    local tab = { name = "Raid", gameOnly = true, rows = {} }
+    local function row(k, label, max, step, help, show, write)
+        local r = { t = vals, k = k, label = label, min = 0, max = max, step = step, help = help, show = show,
+            write = write, id = "Raid:" .. k }
+        tab.rows[#tab.rows + 1] = r
+        return r
+    end
+    row("LENGTH", "Raid length", #LENGTHS - 1, 1,
+        "How long a raid lasts. Also on the launcher's main page (NEXT RAID). Takes effect next raid",
+        function(v)
+            local s = LENGTHS[math.floor(v) + 1] or "default"
+            return s == "default" and "the game's (25 min)" or s == "none" and "no limit" or (s .. " min")
+        end,
+        function(v) writeLine("raid_length.txt", LENGTHS[math.floor(v) + 1] or "default") end)
+    row("GATE", "Space gate arrives", #GATES - 1, 1,
+        "When the space gate opens. Also on the launcher's main page (NEXT RAID). Takes effect next raid",
+        function(v)
+            local s = GATES[math.floor(v) + 1] or "default"
+            return s == "default" and "the game's (5 min in)" or s == "instant" and "at once" or (s .. " min in")
+        end,
+        function(v) writeLine("gate_time.txt", GATES[math.floor(v) + 1] or "default") end)
+    row("FEMALE", "Women among enemies and crew (%)", 100, 5,
+        "Also on the launcher's main page. Applies to people made from now on",
+        nil, function(v) writeLine("female_share.txt", string.format("%.0f", v)) end)
+    tab.refresh = function()
+        vals.LENGTH = stop(LENGTHS, readLine("raid_length.txt") or "default")
+        vals.GATE = stop(GATES, readLine("gate_time.txt") or "default")
+        vals.FEMALE = tonumber((readLine("female_share.txt") or ""):match("[%d%.]+") or "") or FEMALE_DEFAULT
+    end
+    tab.refresh()
+    for _, r in ipairs(tab.rows) do r.default = 0 end
+    tab.rows[3].default = FEMALE_DEFAULT
+    return tab
 end
 
 -- Labels and hints are written for anyone: plain words, no jargon. Distances are in centimetres (100 = 1 metre), the
@@ -372,7 +438,14 @@ local function define()
         { "KEEP_PROGRESS_ON_DEATH", "Keep contract progress when you die", 0, 1, 1, "1 = on, 0 = off. A death ends the raid as a disconnect so contracts, campaign and XP count; your gear is still lost. Untested (#361)" },
     })
     tabs[#tabs + 1] = feats
-    tabs[#tabs + 1] = { name = "Saved setups", rows = {}, mine = true }
+    tabs[#tabs + 1] = { name = "My presets", rows = {}, mine = true } -- the launcher's name for them too
+    -- Raid first, then Features: the two players look for most (FOV, hints, minimap, raid length) shouldn't be last.
+    local first = { raidTab() }
+    for i = #tabs, 1, -1 do
+        if tabs[i] == feats then table.remove(tabs, i) end
+    end
+    first[2] = feats
+    for i = #first, 1, -1 do table.insert(tabs, 1, first[i]) end
 end
 
 local function load()
@@ -492,11 +565,13 @@ local function fmt(r, v)
 end
 
 local function caption(r, v)
-    return r.label .. ":  " .. fmt(r, v) .. (v ~= r.default and "   (normally " .. fmt(r, r.default) .. ")" or "")
+    local f = r.show or function(x) return fmt(r, x) end
+    return r.label .. ":  " .. f(v) .. (v ~= r.default and "   (normally " .. f(r.default) .. ")" or "")
 end
 
 local function showTab(i)
     ui.tab, ui.rows = i, {}
+    if tabs[i].refresh then tabs[i].refresh() end -- the launcher may have changed the files since
     ui.scroll:ClearChildren()
     for j, b in ipairs(ui.tabButtons) do b.b:SetBackgroundColor(j == i and { R = 0.9, G = 0.35, B = 0.1, A = 1 } or { R = 0.35, G = 0.35, B = 0.35, A = 1 }) end
     ui.mineButtons = nil
@@ -538,7 +613,7 @@ local function build(pc)
     local bg = make("Border")
     bg:SetBrushColor({ R = 0.03, G = 0.03, B = 0.04, A = 0.93 })
     place(bg, X0, Y0, W, H)
-    place(text("Enemy and crew settings   (F10 to close. Changes work at once and save themselves)", TEXT), X0 + 16, Y0 + 10, W - 32, 26)
+    place(text("PvE settings   (F10 to close; the launcher's PVE SETTINGS too. Changes work at once and save themselves)", TEXT), X0 + 16, Y0 + 10, W - 32, 26)
     -- two rows of tabs (the difficulty buttons sit below them)
     local perRow = math.max(6, math.ceil(#tabs / 2))
     local x, y, each = X0 + 16, Y0 + 42, (W - 32) / perRow
@@ -623,7 +698,7 @@ end
 writeSchema = function()
     local out = { version = 1, tabs = {}, presets = {} }
     for _, tab in ipairs(tabs) do
-        if not tab.mine then
+        if not tab.mine and not tab.gameOnly then -- the Raid tab's settings are on the launcher's main page
             local list = {}
             for _, r in ipairs(tab.rows or {}) do
                 local d = r.default -- (taken before any saved value or raid condition was applied)

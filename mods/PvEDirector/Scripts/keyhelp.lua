@@ -14,7 +14,7 @@ local TEXT_LIGHT = { R = 0.92, G = 0.92, B = 0.9, A = 1 }
 
 M.KEYS = {
     { "F9", "debug menu: god mode, your body, this key list, unstuck, extract, spawn" },
-    { "F10", "AI tuning menu (lobby and raids)" },
+    { "F10", "PvE settings (lobby and raids; also PVE > SETTINGS)" },
     { "F11", "your crew: hire and manage" },
     { "F1-F8", "the game's own voice lines (NPCs hear them)" },
     { "N", "minimap on / off" },
