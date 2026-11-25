@@ -29,6 +29,38 @@ local function comps(actor)
     return out
 end
 
+-- The looks catalog below loads every head and body and its women's version: ~160 synchronous loads, a 6.7 s freeze on
+-- the first space raid of a session (24 Nov report: rivalsUpdate max 6652 ms). The lobby loads them first, one per call
+-- (main.lua, every 0.5 s once the lobby has been up a while), so the raid finds them in memory. Loaded meshes are
+-- rooted, as gearCatalog roots them, and female.lua caches its versions, so gearCatalog then takes milliseconds.
+local preQueue -- nil: not started; a list with .i: in progress; false: done
+function M.preload()
+    if preQueue == false then return true end
+    if not preQueue then
+        preQueue = { i = 0, t0 = os.clock() }
+        for _, list in ipairs({ Gear.heads, Gear.bodies }) do
+            for _, path in ipairs(list) do preQueue[#preQueue + 1] = path end
+        end
+    end
+    preQueue.i = preQueue.i + 1
+    local path = preQueue[preQueue.i]
+    if not path then
+        X.log(("[rivals] looks loaded in the lobby: %d meshes over %.0f s"):format(#preQueue, os.clock() - preQueue.t0))
+        preQueue = false
+        return true
+    end
+    local mesh = lib(path)
+    if not valid(mesh) then
+        pcall(LoadAsset, path)
+        mesh = lib(path)
+    end
+    if valid(mesh) then
+        X.root(mesh)
+        pcall(X.female.version, mesh, true)
+    end
+    return false
+end
+
 local landCatalog -- land raids have no rivals state; your crew (crew.lua) still needs looks there
 local function gearCatalog()
     -- Every head and body in the game, loaded once: a look for each rival.

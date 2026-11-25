@@ -711,6 +711,13 @@ local function onTick(ctx)
         if not oksum and not tick.summaryErr then tick.summaryErr = true log("raid summary: " .. tostring(errsum)) end
         local okv, errv = pcall(Vendors.tick) -- the traders' extra stock (vendors.lua, #384)
         if not okv and not tick.vendorsErr then tick.vendorsErr = true log("vendors: " .. tostring(errv)) end
+        -- the rivals' heads and bodies, one every 0.5 s after 10 s in the lobby, not all at once in the first space raid
+        local nowp = os.clock()
+        if not tick.looksDone and nowp - (tick.menuSince or nowp) >= 10 and nowp >= (tick.looksAt or 0) then
+            tick.looksAt = nowp + 0.5
+            local okp, donep = pcall(require("rivalbodies").preload)
+            if not okp then tick.looksDone = true log("looks preload: " .. tostring(donep)) elseif donep then tick.looksDone = true end
+        end
     end
     if InvQol then
         local okq, errq = pcall(InvQol.tick, ctx:get())
