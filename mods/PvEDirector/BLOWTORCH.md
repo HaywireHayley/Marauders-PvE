@@ -17,7 +17,7 @@ flowchart LR
 
     TORCH --- NATIVE
     NATIVE -. "meant to hit the lock boxes<br/>and call LockDamaged: nothing<br/>reaches them offline" .-x VOL
-    MOD -- "nearest to your aim line:<br/>50 damage a second" --> VOL
+    MOD -- "nearest to your aim line:<br/>100 damage a second" --> VOL
     MOD -- "LockDamaged(name, share 0 to 1)" --> DOOR
     MOD -- "all three at 0:<br/>bIsUnlocked = true" --> DOOR
 ```
@@ -42,9 +42,9 @@ sequenceDiagram
     participant Door as Door_BlowTorch_C
 
     You->>Mod: fire the torch (BurstCounter above 0)
-    loop every 0.1 s, about 6 s per lock
+    loop every 0.1 s, about 3 s per lock
         Mod->>Mod: find the lock nearest your aim line
-        Mod->>Vol: Health minus 5 (of 300)
+        Mod->>Vol: Health minus 10 (of 300)
         Mod->>Door: LockDamaged(TopLock, share left)
         Door->>Door: Health_TopLock follows the share
     end
@@ -55,12 +55,36 @@ sequenceDiagram
     Door->>Door: the vault door opens
 ```
 
-- **Timings from the 2026-11-18 test run.** A lock took about 6 s at 50 damage a second. The latch then started to fall
-  exactly 10 s after its lock reached 0 (Blueprint `Delay(10)`) and finished about 5 s later. The vault door finished opening
-  about 1 s after the last latch. That 10 s wait is the door's own, not the mod's, and it looks like lag after the lock stops
-  glowing.
+- **Timings.** At 100 damage a second a lock takes about 3 s of firing (the first test, on 2026-11-18, ran at 50 and took
+  about 6 s; see "How fast" below). After a lock reaches 0 the door's own Blueprint waits `Delay(10)` and then scales the
+  latch down over about 5 s; the vault door finished opening about 1 s after the last latch. That wait is the door's, not
+  the mod's, and it looks like lag once the lock stops glowing, so the whole door still takes about 15 s after the last
+  lock, however fast you burn.
 - **The share is 0 to 1.** The door stored 0.9667 for a lock at 290 of 300. A percent from 0 to 100 would be wrong.
 - **The mod sets `bIsUnlocked` itself** once all three locks are at 0. That is the flag "F requires blowtorch" checks.
+
+## When the torch counts as firing
+
+The torch fires in bursts: `BurstStartFireEvent` and `BurstStopedFireEvent` alternate about every 0.08 s (a new burst
+about every 0.16 s), and `BurstCounter` is 0 between them even with the trigger held. The mod looks every 0.1 s, and the
+first version burned nothing on a look that landed in a gap and reset its timer, so that time was thrown away: in the
+2026-11-18 log the locks lost 40 to 45 health a second at a set rate of 50.
+
+Now the torch counts as firing for 0.2 s after the last burst the mod saw (`GRACE`), and the whole time between looks is
+credited, so held fire burns the full rate. The credit never runs past that window, so a tap does not burn on after you
+let go.
+
+## How fast
+
+The rate comes from the torch's own data and from testers of the original game, not from the first guess:
+
+- The torch's `WeaponConfig` has Damage 15 and a shot every 0.075 s (about 13 a second), 200 a second raw. The bursts are
+  on about half the time, so about 100 a second lands. The earlier 50 came from guessing that its `DamageDivide` of 4 was
+  applied to locks; nothing showed that, and it is withdrawn.
+- Testers report about 3 s a lock in the original game, which is 100 a second on a 300 health lock.
+- Fuel agrees. It drains about 13 a second while the trigger is held (250 to 0 in about 19 s in the log), and a vault is
+  900 health, so 9 s and about 117 fuel held down. Testers who tap burn a whole vault use 90 to 100 fuel, because fuel
+  only runs while a burst is firing.
 
 ## Which lock burns
 
@@ -80,6 +104,41 @@ flowchart TD
 - **A door's locks are told apart by name,** `RaidLockVolume_Top`, `_Middle`, `_Bottom`, and the owner of each box is its door.
 - **State is per raid** (`raid.torch`), so a new map starts with all locks at full health. The boxes are looked for every
   10 s while firing, and only while firing (a `FindAllOf` walks every object).
+
+## The other blowtorch doors: one bolt instead of three locks
+
+The Spaceport vault is not the only door the torch opens. Reading the cooked Blueprints and the raid maps (2026-11-23) found
+a second door class, and the lock code had to learn it.
+
+| Door class | Where | Lock volumes (`UniquePartName`, Health) | Needs the torch |
+|---|---|---|---|
+| `Door_BlowTorch_C` | Spaceport vault (1 door) | `RaidLockVolume_Top / _Middle / _Bottom` (`TopLock`, `MiddleLock`, `BottomLock`, 300 each) | yes |
+| `Door_BlowTorchReq01_C` | Merchant ship (2 doors: one beside a crate, one under the Chief Engineer's passcode door), Colony Cruiser (1 door, inside the vault) | `RaidLockVolume_DoorBolt` (`DoorBolt`, 500) | yes |
+| `Door_CruiserVault_C` | Colony Cruiser vault entrance | none: an ordinary door (`Base_Door_C`) | no |
+| `Door_LockedCE_C` and the other `Door_Locked*` | Merchant ship, Colony Cruiser, Spaceport | none: opened with an item (`CEPasscode` for the CE door) | no |
+
+```mermaid
+flowchart TD
+    V["A RaidLockVolumeComponent in the level"] --> N{"Name starts with<br/>RaidLockVolume_ ?"}
+    N -- no --> X["Ignored"]
+    N -- yes --> P["Part name: the volume's own UniquePartName<br/>(TopLock, DoorBolt), else by the name's end"]
+    P --> B["Burn: Health down, then the door's<br/>LockDamaged(part name, share 0 to 1)"]
+    B --> L{"Every lock of that door at 0?"}
+    L -- yes --> U["bIsUnlocked = true<br/>(and OnUnlocked for a bolted door)"]
+```
+
+- **What was wrong.** The first version only knew the three vault names. A bolted door's volume is `RaidLockVolume_DoorBolt`,
+  so it was skipped, nothing was burned, and the door kept saying "F requires blowtorch".
+- **The "tag" is `UniquePartName`.** Each lock volume carries it, and it is exactly the name the door's `LockDamaged` switches
+  on (`'TopLock'`, `'MiddleLock'`, `'BottomLock'` on the vault, `'DoorBolt'` on the bolted door). Anything else is ignored by
+  the door, so the lock now takes the name from the volume instead of a fixed table.
+- **A bolted door's own flow** (decompiled): `LockDamaged('DoorBolt', share)` stores the share, the bolt's material glows by it,
+  at 0 the bolt breaks (sound, physics on), 10 s later it shrinks away, and the door swings open. `OnUnlocked` then reveals two
+  broken pieces (`SM_DoorBroken01 / 02`). That event normally runs from the unlock's replication, which never happens offline,
+  so the torch code calls it itself for a door that has those pieces. The vault door is left exactly as it was verified.
+- **Health 500, so 10 s of torch.** At 50 damage a second the bolt takes ten seconds, the vault locks six.
+- Not verified in game yet. `bridge/t_locks.lua` (copy it to `bridge/dir_eval.lua` in a raid) lists every lock volume with its
+  `UniquePartName`, Health and door, to check the Lua side reads the same values as the pak.
 
 ## What it leaves alone: barrels and gas cans
 
@@ -119,5 +178,6 @@ flowchart TD
 ## Trying it
 
 Give yourself the torch from the F9 gun list, stand at a blowtorch door and burn the top, middle and bottom locks one at a
-time: only the lock you aim at should glow and fall. When the last latch has fallen the vault door opens. It needs a raid
-with a blowtorch vault door in it.
+time: only the lock you aim at should glow and fall, each in about 3 s held down. When the last latch has fallen (about
+15 s after the last lock) the vault door opens. A whole vault takes about 117 fuel held down, 90 to 100 tapping. It needs a
+raid with a blowtorch vault door in it.
