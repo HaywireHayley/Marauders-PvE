@@ -9,6 +9,7 @@
 -- with none, it's an unknown/environmental hit (a fall, a mine, fire). The hit zone isn't known this way.
 -- NOT tested in game (2026-11-21).
 local M = {}
+local UI = require("ui")
 local X -- log, valid, lib
 local raid = {}
 
@@ -20,8 +21,6 @@ local CFG = {
     SHOTS_KEPT = 12,
 }
 M.CFG = CFG
-local HOST = "/SIGISPlugin/Widgets/DebugInfo_Widget.DebugInfo_Widget_C"
-local INK = { R = 0.02, G = 0.022, B = 0.028, A = 0.9 }
 local ACCENT = { R = 0.95, G = 0.5, B = 0.12, A = 1 }
 local TEXT_LIGHT = { R = 0.92, G = 0.92, B = 0.9, A = 1 }
 local TEXT_MUTED = { R = 0.6, G = 0.62, B = 0.65, A = 1 }
@@ -123,47 +122,11 @@ local function dealt(h)
     return d > 0 and d or nil
 end
 
--- UMG, built like defuse.lua's board: colours written into the TextBlocks before AddToViewport.
-local function make(tree, cls) return StaticConstructObject(lib("/Script/UMG." .. cls), tree) end
-local function tint(t, col)
-    pcall(function()
-        local c = t.ColorAndOpacity
-        c.SpecifiedColor.R, c.SpecifiedColor.G, c.SpecifiedColor.B, c.SpecifiedColor.A = col.R, col.G, col.B, col.A
-        c.ColorUseRule = 0
-    end)
-end
+-- The panel: ui.lua's card.
 
 local function show(pc, lines)
-    local cls = lib(HOST)
-    if not valid(cls) then pcall(LoadAsset, (HOST:match("^[^.]+"))) cls = lib(HOST) end
-    if not valid(cls) then return end
-    local h = lib("/Script/UMG.Default__WidgetBlueprintLibrary"):Create(pc, cls, pc)
-    if not valid(h) then return end
-    local tree = h.WidgetTree
-    local root = tree.RootWidget
-    root:ClearChildren()
-    local W, ROW = 640, 26
-    local vw = 1600
-    pcall(function()
-        local wll = lib("/Script/UMG.Default__WidgetLayoutLibrary")
-        local vp, sc = wll:GetViewportSize(pc), wll:GetViewportScale(pc)
-        if sc and sc > 0 then vw = vp.X / sc end
-    end)
-    local x0, y0 = math.floor((vw - W) / 2), 120
-    local bg = make(tree, "Border")
-    pcall(function() bg:SetBrushColor(INK) end)
-    local s = root:AddChildToCanvas(bg)
-    s:SetPosition({ X = x0, Y = y0 }) s:SetSize({ X = W, Y = 24 + ROW * #lines })
-    for i, l in ipairs(lines) do
-        local t = make(tree, "TextBlock")
-        t.Font.Size = l.size or 13
-        t:SetText(FText(l.text))
-        tint(t, l.col or TEXT_LIGHT)
-        local ts = root:AddChildToCanvas(t)
-        ts:SetPosition({ X = x0 + 16, Y = y0 + 12 + ROW * (i - 1) }) ts:SetSize({ X = W - 32, Y = ROW })
-    end
-    h:AddToViewport(5010)
-    panel = { host = h, untilAt = os.clock() + CFG.SHOW_SECONDS }
+    local h = UI.card(pc, { w = 640, row = 26, y = 120, col = TEXT_LIGHT, lines = lines })
+    if h then panel = { host = h, untilAt = os.clock() + CFG.SHOW_SECONDS } end
 end
 
 local function died(pc)

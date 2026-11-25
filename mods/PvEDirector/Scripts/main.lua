@@ -1532,6 +1532,7 @@ RegisterKeyBind(Key.R, function() table.insert(pending, function() Defuse.key("R
 DebugActions.init({ log = log, valid = valid, lib = lib, CFG = CFG, RAID_OPTS = RAID_OPTS, aux = Aux, rivals = Rivals,
     bots = Bots, loadout = Loadout, menuClosed = menuClosed })
 Defuse.init({ log = log, valid = valid, lib = lib, menuClosed = menuClosed })
+require("ui").init({ log = log, valid = valid, lib = lib }) -- the panels' shared pieces (ui.lua)
 DeathScreen.init({ log = log, valid = valid, lib = lib })
 require("raidsummary").init({ log = log, valid = valid, lib = lib })
 Vendors.init({ log = log, valid = valid, shopAdd = package.loadlib(PATCH_DLL, "pve_shop_add"),
