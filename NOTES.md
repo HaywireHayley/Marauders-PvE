@@ -5181,6 +5181,12 @@ classes) and the Lua heap / gc cycles. FindAllOf and FindFirstOf are wrapped onc
 - 2026-11-24 update: F1 is the game's Voice01 (F1-F8 are its voice lines, which NPCs react to), so the list opens from
   the F9 menu's "Key list" button instead (debugactions.lua, closes the debug menu). KEYS follows the new layout of the
   key move PR (F9 debug, F10 AI, F11 crew, body in F9). Not tested in game.
+- 2026-11-25, #389 first-use hints: `hints.lua`, called from main.lua's update after `Lobby.tick` (no new main local:
+  `require("hints")` inline). Five hints (lobby, raid on foot, helm via `ShipSpeed.atHelm`, station mine via
+  `Defuse.nearStation()`, crew via `Hire.crewCount()`), queued, one at a time for 8 s in a keyhelp-style panel. Seen ids
+  in `<backend>/saves/<active save>/hints_seen.txt` (same save lookup as rivalcrews' baron_streak), else next to the
+  backend. Switch `HINTS` (features.lua, Features tab). A failed show isn't written, so it retries next world. NOT tested
+  in game: panel position (40,80) over the HUD, that `pc.Pawn` is set on foot in raids, the crew hint firing in the lobby.
 
 ## Death screen (#331)
 - 2026-11-21, #331 first pass: `deathscreen.lua`. Nothing in the mod saw damage to the player (botdamage.lua and

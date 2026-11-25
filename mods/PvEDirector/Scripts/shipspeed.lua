@@ -70,6 +70,7 @@ end
 function M.update(pc)
     lastPc = pc
     local ship = shipOf(pc)
+    M.atHelm = ship ~= nil -- read by hints.lua (#389)
     if not ship then
         boost.on = false
         return
@@ -112,6 +113,7 @@ end
 
 -- A new raid: the next boost is ready at once.
 function M.reset()
+    M.atHelm = false
     boost = { untilT = 0, readyAt = 0, on = false }
     lastPc = nil
     require("gatetaps").reset()

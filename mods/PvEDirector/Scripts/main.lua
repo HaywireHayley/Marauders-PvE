@@ -1003,6 +1003,7 @@ function resetRaid(worldKey)
     Defuse.reset()
     DeathScreen.reset()
     KeyHelp.reset()
+    require("hints").reset()
     ShipSpeed.reset()
     if Rivals then Rivals.reset() end
     if Crew then Crew.reset() end
@@ -1205,6 +1206,8 @@ update = function(pc)
         Female.togglePlayer()
     end
     Lobby.tick(pc, age, worldName:find("/Maps/MainMenu", 1, true) ~= nil) -- the main menu's own work (lobby.lua)
+    pcall(require("hints").update, pc, worldName:find("/Maps/MainMenu", 1, true) ~= nil,
+        space or worldName:find("/Maps/Raids/", 1, true) ~= nil, space) -- first-use hints (hints.lua, #389)
     Launch.update(pc) -- an offline search that's over: the match (launch.lua)
     -- Space maps (where matchmaking puts you, in your ship) get the loadout and extraction; their fights are ship
     -- AI, so no navmesh or soldiers there.
@@ -1519,6 +1522,7 @@ DeathScreen.init({ log = log, valid = valid, lib = lib })
 Vendors.init({ log = log, valid = valid, shopAdd = package.loadlib(PATCH_DLL, "pve_shop_add"),
     shopPrice = package.loadlib(PATCH_DLL, "pve_shop_price") })
 KeyHelp.init({ log = log, valid = valid, lib = lib })
+require("hints").init({ log = log, valid = valid, lib = lib })
 
 math.randomseed(os.time())
 log("loaded")
