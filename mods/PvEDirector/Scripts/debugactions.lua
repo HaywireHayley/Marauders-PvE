@@ -92,6 +92,13 @@ function M.init(ctx)
         { id = "attack", label = "Send a rival crew at me", help = "The nearest crew attacks your ship",
           when = function() return raid.space end, unusable = "Not available here",
           run = function() Rivals.provoke() return "A crew is coming" end },
+        { id = "quickdeploy", label = "Quick deploy to the nearest station", help = "Leave your ship for the nearest station",
+          when = function() return raid.space and Rivals.quickDeployReady() end,
+          unusable = "Stand aboard your ship in space", closes = true,
+          run = function()
+              local name, why = Rivals.quickDeploy()
+              return name and ("Deployed to " .. name) or why
+          end },
         { id = "soldier", label = "Spawn a soldier", help = "Appears 15 m in front of you",
           when = function() return onFootIn("land") end, unusable = "Not available here",
           run = function()
