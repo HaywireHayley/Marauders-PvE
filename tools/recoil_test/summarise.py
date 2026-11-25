@@ -1,5 +1,7 @@
 # python summarise.py bridge/recoil_test.txt : per gun and round, the climb of the view shot by shot (degrees, up is positive).
-import sys, re, collections
+import sys
+import re
+import collections
 path = sys.argv[1]
 cfg = {}; rpm = {}; F = collections.defaultdict(list); SP = collections.defaultdict(list); skipped = []
 for line in open(path, encoding='utf8', errors='replace'):
@@ -16,7 +18,7 @@ def cfgv(g, k):
     m = re.search(r'\b' + k + r'=(\S+)', cfg.get(g, ''))
     return m.group(1) if m else '?'
 guns = []
-for (g, ph) in F:
+for (g, _ph) in F:
     if g not in guns: guns.append(g)
 for ph in ('ads free', 'hip free'):
     print(f'\n{ph.upper()}: view after each shot (pitch degrees from eye level, yaw in brackets)')
