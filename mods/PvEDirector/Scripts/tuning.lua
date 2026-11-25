@@ -295,13 +295,19 @@ local function define()
         { "TURRET_ON_AIM", "How close to on-target before firing (degrees)", 0.5, 10, 0.1, "Lower = gunners wait for a better shot" },
     })
     tabs[#tabs + 1] = guns
-    -- Your guns' recoil (recoil.lua, #371). Read when you next hold a gun, so a change shows at once.
+    -- Your guns' recoil (recoil.lua, #371). Read on every shot, so a change shows at once. With every row left at its default the
+    -- recoil is the game's own. The first four rows are build 36's names (kept so saved settings carry over); the rest are what the
+    -- game leaves out of the weapon data's recoil, and they start off.
     local recoil = { name = "Recoil" }
     add(recoil, require("recoil").CFG, {
-        { "RECOIL_MULT", "Recoil, all guns", 0, 2, 0.05, "1 = the game's own. Lower = less climb on every gun" },
-        { "REF_INTERVAL", "Full recoil up to this fire rate (seconds between shots)", 0.06, 0.2, 0.005, "0.12 = 500 RPM. Faster guns climb less, by how much faster" },
-        { "MIN_SCALE", "Least recoil for the fastest guns", 0.2, 1, 0.05, "1 = fire rate makes no difference" },
-        { "RECOIL_ADS_MULT", "Recoil while aiming down sights", 0, 2, 0.05, "The aim kick only happens in ADS; hip fire is not changed" },
+        { "RECOIL_MULT", "Recoil, all guns", 0, 3, 0.05, "1 = the game's own. 0.5 = half, 2 = double. Aimed shots (the climb and the sideways drift), and the hip when 'Shots at the hip kick the view' is on" },
+        { "RECOIL_ADS_MULT", "Recoil while aiming down sights", 0, 2, 0.05, "On top of the row above, aimed shots only (climb and sideways drift); hip fire is not changed" },
+        { "REF_INTERVAL", "Full recoil up to this fire rate (seconds between shots)", 0.06, 0.2, 0.005, "0.12 = 500 RPM. Faster automatic guns kick less, by how much faster. Only matters when the next row is under 1" },
+        { "MIN_SCALE", "Least recoil for the fastest guns", 0.2, 1, 0.05, "1 = fire rate makes no difference (the game's own). Lower = faster guns kick less, down to this share" },
+        { "RECOIL_FIX", "Recoil settings on", 0, 1, 1, "1 = the rows here work, 0 = the game's own recoil and nothing else" },
+        { "ADS_VALUES", "Aimed shots use each gun's aim down sights value", 0, 1, 1, "0 = the game's own aimed kick (the gun's hip number, VerticalRecoilADS is never read), 1 = VerticalRecoilADS (the Jackhammer kicks 0.3, not 2.0)" },
+        { "HIP_KICK", "Shots at the hip kick the view", 0, 1, 1, "0 = no kick at the hip like the game, 1 = the gun's VerticalRecoil with the crouch, moving and in air modifiers" },
+        { "HIP_SCALE", "Hip recoil on top of that (x)", 0, 3, 0.05, "1 = the gun's own hip number. Only when the row above is on" },
     })
     tabs[#tabs + 1] = recoil
     if X.CREWCFG and X.hire then
@@ -334,6 +340,9 @@ local function define()
         { "HOLE_SECONDS", "How long a bullet hole lasts (seconds)", 10, 300, 5, "Then it fades out" },
         { "MAX_HOLES", "Most bullet holes at once", 0, 500, 10, "The oldest go first. Lower = better frame rate in long firefights" },
         { "HOLE_SIZE", "Bullet hole size (cm, half width)", 2, 12, 0.5, "5 = a 10 cm hole" },
+    })
+    add(fx, require("impactsound").CFG, {
+        { "IMPACT_VOICES", "Impact sounds playing at once", 0, 20, 1, "6 = a shotgun's pellet impacts no longer cut its boom. 0 = the game's own 20 (the boom clips from the second shot at a close wall)" },
     })
     add(fx, require("gatetaps").CFG, {
         { "GATE_TAPS", "Gate superstition: two taps", 0, 1, 1, "1 = tap Space exactly twice just before the space gate and a gold coin lands in your gift box (once or three times: only a remark). 0 = off" },

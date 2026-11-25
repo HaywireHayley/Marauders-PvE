@@ -353,11 +353,11 @@ Cone half angles in degrees (all guesses; the weapon's own spread properties wer
 2.0, Liberator 3.0, Sawed off 4.5, Jackhammer 3.0, Double barrel 1.5, Terminator 3.0, anything else 3.0. The Heavy
 Liberator is not listed and uses 3.0.
 
-The throw. A volley pushes the bots it hits: 900 cm/s, times 1.25 for the sawed off and 1.15 for the Terminator,
+The throw. A volley pushes the bots it hits: 900 cm/s, times 1.15 for the Terminator,
 scaled by the share of the 10 pellets that hit, at full strength when the average hit distance is 200 cm or less and
 falling to nothing at 1000 cm (a push of 20 or less is dropped). The direction is the pellets' average aim with an
 upward lift. It is tried up to 14 times, 0.12 s apart. A dead or ragdolled bot gets the push on all its bodies below the
-pelvis, once. A live one gets a nudge once (30 percent of the push sideways, 120 up). All of it is a guess standing in for
+pelvis, once, and the sawed off's push is times 1.25 there (only a bot it kills, or one already ragdolled, gets the extra). A live one gets a nudge once (30 percent of the push sideways, 120 up). All of it is a guess standing in for
 the knockback the game once applied; the value was not read from the game.
 
 ### Volley damage by armour rating

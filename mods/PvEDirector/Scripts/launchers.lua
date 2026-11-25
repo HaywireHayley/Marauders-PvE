@@ -212,6 +212,12 @@ function M.frame(pc, bots, now)
         end
     end
     for a, at in pairs(quenched) do if now - at > 30 then quenched[a] = nil end end
+    -- Health before the blast is only needed while one of your rounds is in the air: with none (nearly always) the
+    -- per-bot reads are skipped and the table emptied, so it doesn't grow with every bot address seen.
+    if #tracked == 0 and #pending == 0 then
+        if next(prevH) then prevH = {} end
+        return
+    end
     for _, b in ipairs(bots) do
         if X.valid(b.bot) then
             local a = b.bot:GetAddress()

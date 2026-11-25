@@ -26,6 +26,7 @@ local CAPSULE_CHANNELS = { 3, 9, 10, 11, 12, 13, 14, 15 }
 local REFUND_WINDOW = 0.5 -- a health drop counts as your shot's only this long after the gun's clip dropped (seconds)
 local PELLETS, PELLET_DAMAGE = 10, 18 -- a shotgun shot (the Guilds 1.0 notes)
 local PUSH = 900 -- cm/s, the throw of a shotgun volley: a stand in for the knockback the game once applied (not read from the game)
+local KILL_PUSH = { SawedOff = 1.25 } -- extra throw by gun, only for a bot that is dead or ragdolled (a live bot gets the plain throw)
 
 local valid -- main.lua's helpers, from ctx (init)
 local function warn(key, text)
@@ -242,20 +243,23 @@ local function pellets(pc, pawn, gun, volleys, bots)
             end
         end
     end
-    -- The throw: more pellets and a shorter range hit harder; the sawed off and the Terminator throw further.
-    local base = PUSH * (gun:find("SawedOff") and 1.25 or gun:find("Terminator") and 1.15 or 1)
+    -- The throw: more pellets and a shorter range hit harder; the Terminator throws further. The sawed off throws further too, but
+    -- only a bot it kills (the extra is applied in pushStep to a dead or ragdolled bot, a live one gets the plain throw).
+    local base = PUSH * (gun:find("Terminator") and 1.15 or 1)
+    local killMul = 1
+    for key, m in pairs(KILL_PUSH) do if gun:find(key) then killMul = m end end
     for e, p in pairs(push) do
         local len = math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z)
         local fall = math.max(0, math.min(1, (1000 - p.d / p.n) / 800))
         local k = base * (p.n / PELLETS) * fall
         if k > 20 and len > 0 then
-            pushQ[#pushQ + 1] = { bot = e.bot, at = 0, left = 14,
+            pushQ[#pushQ + 1] = { bot = e.bot, at = 0, left = 14, kill = killMul,
                 v = { X = p.x / len * k, Y = p.y / len * k, Z = p.z / len * k * 0.3 + k * 0.25 } }
         end
     end
 end
 
--- A dead or ragdolled bot gets the velocity on all its bodies, a live one a nudge (once). Every 0.12 s, 14 times.
+-- A dead or ragdolled bot gets the velocity (times the gun's kill throw) on all its bodies, a live one a nudge (once). Every 0.12 s, 14 times.
 local function pushStep(now)
     for i = #pushQ, 1, -1 do
         local q = pushQ[i]
@@ -268,7 +272,9 @@ local function pushStep(now)
                 local okS, sim = pcall(function() return mesh:IsSimulatingPhysics(FName("None")) end)
                 local hp = bot.Health
                 if okS and sim then
-                    local v = q.dead or q.v
+                    -- a launcher's throw for a dead bot (q.dead, launchers.lua), else the volley's times the gun's kill throw
+                    local k = q.kill or 1
+                    local v = q.dead or { X = q.v.X * k, Y = q.v.Y * k, Z = q.v.Z * k }
                     local ok = pcall(function() mesh:AddImpulseToAllBodiesBelow(v, FName("pelvis"), true, false) end)
                     if not ok then pcall(function() mesh:AddImpulse(v, FName("None"), true) end) end
                     table.remove(pushQ, i)
