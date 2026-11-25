@@ -2063,6 +2063,11 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
   first raid: pc:GetCash() not readable yet, so spend() failed and everyone "stayed home" (no message is seen, the
   lobby is going). Now an unreadable cash lets them come unpaid, logged "wage N not taken (your cash couldn't be
   read)". Unconfirmed: needs the reporter's first-raid log (crew: ... paid / stays home / comes along). Not tested in game.
+- 2026-11-25 (#391, first part): crew health readout. One more TextBlock on the nametag host (crew.lua buildTags,
+  so no new widget and it dies with the world like the tags), refilled by updateHud from C.tags every 0.25 s and only
+  SetText when the text changes: "Name  87%" per crewmate (body Health / maxHp; m.hp while bodiless), "down" once dead.
+  Position CFG.HUD_X/HUD_Y (24, 320). Switch features CREW_HUD (Tuning > Features). On-foot orders not done yet.
+  Passes luacheck; NOT tested in game (placement may overlap game HUD).
 
 ## Lobby crew hooks found (2026-11-07, 23:18; bridge/t_lobbychars.lua)
 - The hangar has 4 character stands, MM_PlayerChar_C: id 0 = you (isPlayer, at -328,-118,-13) and ids 1-3 inactive beside

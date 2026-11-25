@@ -51,6 +51,8 @@ local CFG = {
     FIRE_KEY = "LeftMouseButton",
     TAG_HEIGHT = 115,               -- nametag this far above a crewmate's middle
     TAG_FAR = 6000,                 -- not drawn beyond this (cm)
+    HUD_X = 24, HUD_Y = 320,        -- the crew health readout's top left (widget units, #391)
+    HUD_EVERY = 0.25,               -- ...refreshed this often (s)
 }
 C.CFG = CFG
 
@@ -618,8 +620,52 @@ local function buildTags(pc)
         for _, w in ipairs({ t, back, fill }) do w:SetVisibility(1) end
         T.rows[i] = { t = t, ts = ts, back = back, bs = bs, fill = fill, fs = fs, on = false }
     end
+    -- The crew health readout (#391): one more TextBlock on the same host, its text set only when it changes.
+    local hud = make("TextBlock")
+    hud.Font.Size = 13
+    pcall(function()
+        local c = hud.ColorAndOpacity.SpecifiedColor
+        c.R, c.G, c.B, c.A = GREEN.R, GREEN.G, GREEN.B, 1
+        hud.ColorAndOpacity.ColorUseRule = 0
+    end)
+    pcall(function() hud:SetShadowOffset({ X = 1, Y = 1 }) end)
+    pcall(function() hud:SetShadowColorAndOpacity({ R = 0, G = 0, B = 0, A = 0.9 }) end)
+    local hs = T.root:AddChildToCanvas(hud)
+    hs:SetAutoSize(true)
+    hs:SetPosition({ X = CFG.HUD_X, Y = CFG.HUD_Y })
+    hud:SetVisibility(1)
+    T.hud = { t = hud, text = nil, at = 0 }
     host:AddToViewport(-2)
     return T
+end
+
+-- The crew health readout (#391): "Name  87%" per crewmate, "down" once dead; hidden with no crew or CREW_HUD off.
+local function updateHud(now)
+    local h = S.tags.hud
+    if not h or now < h.at then return end
+    h.at = now + CFG.HUD_EVERY
+    local lines = {}
+    if require("features").CREW_HUD == 1 then
+        for _, m in ipairs(roster) do
+            local e = m.entry
+            local hp
+            if not m.alive then
+                hp = nil
+            elseif e and valid(e.bot) then
+                hp = e.bot.Health or 0
+            else
+                hp = m.hp or m.maxHp -- no body right now (the gunner at the turrets, in transit)
+            end
+            local pct = hp and math.floor(100 * math.max(0, math.min(1, hp / math.max(1, m.maxHp or 100))) + 0.5)
+            lines[#lines + 1] = ("%s  %s"):format(m.name, (pct and pct > 0) and (pct .. "%") or "down")
+        end
+    end
+    local txt = #lines > 0 and table.concat(lines, string.char(10)) or ""
+    if txt == h.text then return end
+    h.text = txt
+    if txt == "" then h.t:SetVisibility(1) return end
+    h.t:SetText(FText(txt))
+    h.t:SetVisibility(4) -- HitTestInvisible
 end
 
 local function hideTag(row)
@@ -640,6 +686,7 @@ function C.tags(pc)
     -- The class default object lives as long as the game: looked up once, not every frame.
     if not valid(S.tags.wll) then S.tags.wll = X.lib("/Script/UMG.Default__WidgetLayoutLibrary") end
     local wll = S.tags.wll
+    updateHud(os.clock())
     local cam = pc.PlayerCameraManager
     local eye = valid(cam) and cam:GetCameraLocation()
     for i, row in ipairs(S.tags.rows) do
