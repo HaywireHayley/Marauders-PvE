@@ -300,8 +300,13 @@ end
 -- Raids ------------------------------------------------------------------------------------------------------------
 -- At launch: everyone coming along is paid; who can't be paid stays home.
 local unpaid -- this launch: { names = {...}, owed = total wages, cash = what you had } or nil (crew.lua tells you in the raid)
+-- Paid in this lobby visit: H.lobby runs every lobby tick (lobby.lua), and between paying at launch and the map travel
+-- it took the fresh D.raid for "back from a raid", credited everyone a raid and emptied it, so the raid started with
+-- nobody (#411: a report's log shows 3 paid at launch, then "this raid: nobody" on arrival).
+local paidHere = false
 function H.payWages(pc)
     pc = owner(pc)
+    paidHere = true
     D.raid = {}
     unpaid = nil
     if not D.enabled then return end
@@ -366,7 +371,7 @@ end
 function H.lobby(pc)
     pc = owner(pc)
     inLobby = true
-    if not D.raid then return end
+    if not D.raid or paidHere then return end -- (paidHere: this D.raid is the raid about to start, not one just ended)
     local news = {}
     for _, id in ipairs(D.raid) do
         local r = find(D.crew, id)
@@ -390,7 +395,7 @@ function H.lobby(pc)
     if #news > 0 then pcall(function() pc:ClientMessage(table.concat(news, "; "), FName("Event"), 8.0) end) end
 end
 
-function H.leftLobby() inLobby = false end
+function H.leftLobby() inLobby, paidHere = false, false end
 
 -- Menu -------------------------------------------------------------------------------------------------------------
 -- A panel on the left of the lobby (the crew stands stay in view on the right): HIRE lists the recruits, each with a
