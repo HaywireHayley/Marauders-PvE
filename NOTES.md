@@ -5491,3 +5491,10 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   names): 0 Prim then Sec, 1 Pistol, 2 Melee, 4 Head, 5 Bag, 7 Rig (vests and rigs: seed has M1FlakChest in "Rig"),
   9 Chest, 11 Legs. Taken slot: K falls back to the old grid move. J on a worn item: Server_RemoveItem after two presses
   (lobby), Server_DropInHud (raid; #240's tests saw it empty Head).
+
+## Stash SORT veil (#468, 2026-11-24; invqol.lua veilOn/veilTick)
+- While SORT runs, a DebugInfo_Widget host (keyhelp.lua's pattern) with a full-screen black Border and a centred
+  "Sorting..." TextBlock sits at viewport Z 5012, fading in over 0.15 s (SetRenderOpacity). Removed when the sort job
+  ends (done, stopped, failed), after 8 s regardless, and dropped untouched on a world change; never rooted.
+  `features.lua` SORT_FADE (F10 Features) turns it off. Only luacheck run: NOT tested in game (full-screen anchors via
+  SetAnchors/SetOffsets are in a pcall with an 8000 px size as fallback; unverified which one takes).

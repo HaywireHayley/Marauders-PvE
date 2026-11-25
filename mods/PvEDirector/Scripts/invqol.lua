@@ -734,6 +734,69 @@ local function pressed(b)
     return click
 end
 
+-- Sort veil (#468): a black screen with "Sorting..." while a sort runs, so the items don't visibly jump around. Built
+-- like keyhelp.lua's panel (a DebugInfo_Widget host refilled with a Border and a TextBlock), fades in over FADE s, and
+-- goes when the sort ends, after VEIL_MAX s whatever happens, or on a new world (dropped untouched: its widgets belong
+-- to the old world; never rooted). features.lua SORT_FADE = 0 turns it off. NOT tested in game (2026-11-24).
+local VEIL_HOST = "/SIGISPlugin/Widgets/DebugInfo_Widget.DebugInfo_Widget_C"
+local VEIL_MAX, FADE = 8, 0.15
+local veil -- { h, at }
+
+local function veilOff()
+    local v = veil
+    veil = nil
+    if v and X.valid(v.h) then pcall(function() v.h:RemoveFromParent() end) end
+end
+
+local function veilOn(pc)
+    veilOff()
+    if require("features").SORT_FADE ~= 1 or not X.valid(pc) then return end
+    local ok, err = pcall(function()
+        local cls = X.lib(VEIL_HOST)
+        if not X.valid(cls) then pcall(LoadAsset, (VEIL_HOST:match("^[^.]+"))) cls = X.lib(VEIL_HOST) end
+        if not X.valid(cls) then return end
+        local h = X.lib("/Script/UMG.Default__WidgetBlueprintLibrary"):Create(pc, cls, pc)
+        if not X.valid(h) then return end
+        local tree = h.WidgetTree
+        local root = tree.RootWidget
+        if not X.valid(root) then return end
+        root:ClearChildren()
+        local bg = StaticConstructObject(X.lib("/Script/UMG.Border"), tree)
+        pcall(function() bg:SetBrushColor({ R = 0, G = 0, B = 0, A = 1 }) end)
+        local s = root:AddChildToCanvas(bg)
+        s:SetPosition({ X = 0, Y = 0 }) s:SetSize({ X = 8000, Y = 8000 })
+        pcall(function()
+            s:SetAnchors({ Minimum = { X = 0, Y = 0 }, Maximum = { X = 1, Y = 1 } })
+            s:SetOffsets({ Left = 0, Top = 0, Right = 0, Bottom = 0 })
+        end)
+        local t = StaticConstructObject(X.lib("/Script/UMG.TextBlock"), tree)
+        t.Font.Size = 20
+        t:SetText(FText("Sorting..."))
+        local ts = root:AddChildToCanvas(t)
+        ts:SetSize({ X = 200, Y = 32 })
+        pcall(function()
+            ts:SetAnchors({ Minimum = { X = 0.5, Y = 0.5 }, Maximum = { X = 0.5, Y = 0.5 } })
+            ts:SetAlignment({ X = 0.5, Y = 0.5 })
+        end)
+        ts:SetPosition({ X = 0, Y = 0 })
+        pcall(function() h:SetRenderOpacity(0) end)
+        h:AddToViewport(5012)
+        veil = { h = h, at = os.clock() }
+    end)
+    if not ok then X.log("sort veil failed: " .. tostring(err)) end
+end
+
+-- Every frame: the fade in, and the hard timeout.
+local function veilTick()
+    if not veil then return end
+    local age = os.clock() - veil.at
+    if age >= VEIL_MAX or not X.valid(veil.h) then return veilOff() end
+    if age <= FADE + 0.1 then
+        local h = veil.h
+        pcall(function() h:SetRenderOpacity(math.min(1, age / FADE)) end)
+    end
+end
+
 -- Every frame in the lobby (from main.lua's tick, lobby only).
 function Q.tick(ticker)
     -- The class and world are looked up once per ticker (a new map makes a new one), not every frame.
@@ -744,7 +807,9 @@ function Q.tick(ticker)
     end
     local wk = tickSeen.wk
     local lobby = wk ~= nil
-    if wk ~= worldKey then worldKey, ui, job, paths.con, lastQuery = wk, nil, nil, nil, nil end
+    if wk ~= worldKey then worldKey, ui, job, paths.con, lastQuery, veil = wk, nil, nil, nil, nil, nil end
+    veilTick()
+    if veil and not (job and job.kind == "sort") then veilOff() end
     if not lobby then return end
     local con = stashCon()
     local shown = con and con:IsVisible()
@@ -777,6 +842,7 @@ function Q.tick(ticker)
         local plan = mergePlan(items, details(con))
         job = { kind = "sort", phase = "merge", merges = plan, mi = 1, merged = 0, moved = 0 }
         say("Sorting...")
+        veilOn(pc)
     end
     local isShop = shopOpen(con)
     local query = ui.search:GetText():ToString()

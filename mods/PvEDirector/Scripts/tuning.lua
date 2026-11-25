@@ -351,6 +351,7 @@ local function define()
         { "VENDOR_STOCK", "Traders sell more gear", 0, 1, 1, "1 = on, 0 = off. Most guns, armour, helmets and bags, unlocked by faction level (boss gear stays loot). Turning it off needs a restart" },
         { "VENDOR_PRICE", "Trader prices (%)", 50, 400, 25, "100 = the game's prices. Higher makes buying a pricier route than looting; your faction discount still applies" },
         { "BUSY_START", "Busy start: rivals come at you sooner", 0, 1, 1, "1 = on, 0 = off. Rival crews launch within 15 s, the first ship fight comes after 5-15 s, and one crew attacks you after 15 s of flying. On by default: players asked for faster action. Takes effect next raid" },
+        { "SORT_FADE", "Stash SORT: black screen while sorting", 0, 1, 1, "1 = on, 0 = off. Hides the items jumping around while the stash sorts; gone after 8 s at most" },
         { "KEEP_PROGRESS_ON_DEATH", "Keep contract progress when you die", 0, 1, 1, "1 = on, 0 = off. A death ends the raid as a disconnect so contracts, campaign and XP count; your gear is still lost. Untested (#361)" },
     })
     tabs[#tabs + 1] = feats
