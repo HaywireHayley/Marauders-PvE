@@ -89,6 +89,61 @@ class Fonts(unittest.TestCase):
         self.assertEqual(L.pick_family([]), "TkDefaultFont")
 
 
+class Kits(unittest.TestCase):
+    """saves.buy_kit (#385): all or nothing, on throwaway saves in the temporary folder."""
+
+    def setUp(self):
+        self.sid = saves.create(f"Kit {time.time()}", False)
+        self.kit = saves.kits()[0]
+
+    def cash(self):
+        return saves._summary(saves._read(os.path.join(saves.SAVES, self.sid, "state.json")))["cash"]
+
+    def items(self):
+        return len(saves._read(os.path.join(saves.SAVES, self.sid, "state.json"))["storage"]["inventory"])
+
+    def test_every_kit_row_is_a_real_item_and_priced(self):
+        items, prices = saves._read(saves.ITEMS), saves.gear_prices()
+        for k in saves.kits():
+            self.assertGreater(k["price"], 0)
+            for row, _n in k["items"]:
+                self.assertIn(row, items, k["name"])
+                self.assertTrue(row in prices or items[row]["type"] == 18, f"{row} has no gear.lua price")
+
+    def test_enough_cash(self):
+        saves.set_cash(self.sid, self.kit["price"] + 5)
+        before = self.items()
+        self.assertIsNone(saves.buy_kit(self.sid, self.kit))
+        self.assertEqual(self.cash(), 5)
+        self.assertGreater(self.items(), before)
+
+    def test_short_cash(self):
+        saves.set_cash(self.sid, self.kit["price"] - 1)
+        before = self.items()
+        self.assertIn("Not enough cash", saves.buy_kit(self.sid, self.kit))
+        self.assertEqual(self.cash(), self.kit["price"] - 1)
+        self.assertEqual(self.items(), before)
+
+    def test_full_stash(self):
+        while saves.give(self.sid, "9mmAmmo", 600):
+            pass
+        saves.set_cash(self.sid, self.kit["price"] * 2)
+        before = self.items()
+        self.assertIn("room", saves.buy_kit(self.sid, self.kit))
+        self.assertEqual(self.cash(), self.kit["price"] * 2)
+        self.assertEqual(self.items(), before)
+
+    def test_save_in_play(self):
+        saves.set_cash(self.sid, self.kit["price"])
+        with open(saves.ACTIVE, "w") as f:
+            f.write(self.sid)
+        try:
+            self.assertIn("in play", saves.buy_kit(self.sid, self.kit))
+        finally:
+            os.remove(saves.ACTIVE)
+        self.assertEqual(self.cash(), self.kit["price"])
+
+
 @unittest.skipUnless(os.name == "nt", "the launcher window is Windows-only")
 class Window(unittest.TestCase):
     def setUp(self):
@@ -166,7 +221,7 @@ class Window(unittest.TestCase):
         grab(self.app, "ui_main.png")
         opens = {
             "new_save": self.app.new_save, "controls": self.app.show_controls, "rename": self.app.rename,
-            "give_items": self.app.give_items, "import": self.app.import_saves, "report": self.app.report_problem,
+            "give_items": self.app.give_items, "kits": self.app.show_kits, "import": self.app.import_saves, "report": self.app.report_problem,
             "delete": self.app.delete, "coop": self.app.show_coop, "settings": self.app.show_settings,
         }
         for name, open_it in opens.items():

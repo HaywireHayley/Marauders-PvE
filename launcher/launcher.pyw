@@ -592,8 +592,14 @@ class App(tk.Tk):
         self.b_backup.grid(row=0, column=1, sticky="ew")
         row2.columnconfigure(0, weight=2)
         row2.columnconfigure(1, weight=1)
-        self.b_give = Button(self.right, "Give items or cash", self.give_items, size=11, pad=(10, 6))
-        self.b_give.pack(fill="x", pady=(6, 0))
+        row3 = tk.Frame(self.right, bg=PANEL)
+        row3.pack(fill="x", pady=(6, 0))
+        self.b_give = Button(row3, "Give items or cash", self.give_items, size=11, pad=(10, 6))
+        self.b_kits = Button(row3, "Kits", self.show_kits, size=11, pad=(10, 6))
+        self.b_give.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        self.b_kits.grid(row=0, column=1, sticky="ew")
+        row3.columnconfigure(0, weight=2)
+        row3.columnconfigure(1, weight=1)
 
         tk.Frame(self.right, bg=LINE, height=1).pack(fill="x", pady=(10, 6))
         self.cheat_var = tk.BooleanVar()
@@ -782,6 +788,7 @@ class App(tk.Tk):
         self.b_undo.enable(ok and s.get("can_undo"))
         self.b_backup.enable(ok)
         self.b_give.enable(ok)
+        self.b_kits.enable(ok)
         if not s:
             self.d_name.config(text="No saves yet")
             self.d_mode.config(text="")
@@ -1434,6 +1441,76 @@ class App(tk.Tk):
         filter_list()
         d.show()
         search.focus_set()
+
+    def show_kits(self):
+        """Buys a preset kit (config/kits.json) into the selected save's stash for its cash, between sessions (#385).
+        All or nothing: saves.buy_kit refuses when cash or stash room is short. Only while the game is closed."""
+        s = self.current()
+        if not s or s.get("damaged") or self.running:
+            return
+        sid = s["id"]
+        try:
+            kits = saves.kits()
+        except (OSError, ValueError, KeyError) as e:
+            self.say(f"Couldn't read the kits: {e}")
+            return
+        d = Dialog(self, "Kits")
+        tk.Label(d.body, text=f"Into {s['name']}'s stash, paid from its cash (gear prices + "
+                              f"{round((saves.KIT_MARKUP - 1) * 100)} %). Equip it from the stash in game.",
+                 bg=PANEL, fg=MUTED, font=font(11), justify="left", wraplength=wrap(440)).pack(anchor="w")
+        box = tk.Frame(d.body, bg=PANEL)
+        box.pack(fill="x", pady=(6, 0))
+        pick = tk.Listbox(box, bg=INK, fg=TEXT, selectbackground=ORANGE, selectforeground=INK, relief="flat", font=font(12),
+                          height=len(kits), width=22, activestyle="none", highlightthickness=0, exportselection=False)
+        for k in kits:
+            pick.insert("end", f"{k['name']}  {k['price']:,}")
+        pick.pack(side="left", fill="y")
+        info = tk.Label(box, text="", bg=PANEL, fg=TEXT, font=font(11), justify="left", anchor="nw", wraplength=wrap(240))
+        info.pack(side="left", fill="both", expand=True, padx=(10, 0))
+        cash = tk.Label(d.body, text="", bg=PANEL, fg=MUTED, font=font(11))
+        cash.pack(anchor="w", pady=(8, 0))
+        note = tk.Label(d.body, text="", bg=PANEL, fg=ORANGE, font=font(11), justify="left", wraplength=wrap(440))
+        note.pack(anchor="w", pady=(4, 0))
+
+        def chosen():
+            sel = pick.curselection()
+            return kits[sel[0]] if sel else None
+
+        def show(_=None):
+            k = chosen()
+            if k:
+                info.config(text="\n".join(f"{n} x {row}" if n > 1 else row for row, n in k["items"]) + f"\n\nPrice: {k['price']:,}")
+            cur = self.current() or s
+            cash.config(text="Cash: infinite" if s.get("cheat") else f"Cash: {cur['cash']:,}")
+
+        def buy():
+            k = chosen()
+            if not k:
+                note.config(text="Pick a kit first.")
+                return
+            if self.running:
+                note.config(text="Close the game first.")
+                return
+            try:
+                why = saves.buy_kit(sid, k)
+            except (OSError, ValueError, KeyError) as e:
+                why = f"Couldn't buy it: {e}"
+            if why:
+                note.config(text=why)
+                return
+            self.refresh()
+            show()
+            note.config(text=f"Bought {k['name']}: it's in the stash next time you play.")
+
+        r = d.row()
+        Button(r, "BUY KIT", buy, "main", 11, (14, 6)).pack(side="left", padx=(0, 8))
+        Button(r, "Close", d.destroy, size=11, pad=(14, 6)).pack(side="left")
+        pick.bind("<<ListboxSelect>>", show)
+        pick.bind("<Double-Button-1>", lambda e: buy())
+        pick.selection_set(0)
+        show()
+        d.show()
+        pick.focus_set()
 
     def toggle_cheat(self):
         s = self.current()
