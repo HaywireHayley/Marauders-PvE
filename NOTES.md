@@ -5447,6 +5447,10 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   the old keys as history. Tested: launcher test_ui (16 OK), luacheck, ruff. Not tested in game: that F10/F11 reach
   UE4SS's RegisterKeyBind in the game window (F11 isn't a fullscreen toggle in a shipping build, per Input.ini; not seen
   run).
+- 2026-11-25: the stock UE4SS ConsoleEnablerMod (enabled in config/mods.txt) set the game console's key to F10, so F10
+  opened the console as well as the AI settings (log "[ConsoleEnabler] ConsoleKey[1]: F10"). It now uses Tilde (`).
+  Fixed in PvEDirector (tools/ue4ss is the downloaded UE4SS, gitignored): keyhelp.lua consoleKey, every 5 s, puts
+  InputSettings.ConsoleKeys[1] back on Tilde when it reads F10.
 
 ## Vendor stock (#384, 2026-11-24; vendors.lua, pvepatch.c pve_shop_add / pve_shop_price)
 - The faction traders' extra stock is /Game/Blueprints/Factions/DT_FactionShops: one row per faction (United, Republic,

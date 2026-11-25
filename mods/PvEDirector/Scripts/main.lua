@@ -705,6 +705,7 @@ local function onTick(ctx)
         if not oks and not tick.invSyncErr then tick.invSyncErr = true log("inventory sync: " .. tostring(errs)) end
     end
     if LobbyLabel then pcall(LobbyLabel.tick, ctx:get()) end -- START RAID label (lobbylabel.lua)
+    pcall(KeyHelp.consoleKey) -- the console off F10, the AI settings key (keyhelp.lua)
     if tick.menu then
         local okv, errv = pcall(Vendors.tick) -- the traders' extra stock (vendors.lua, #384)
         if not okv and not tick.vendorsErr then tick.vendorsErr = true log("vendors: " .. tostring(errv)) end
