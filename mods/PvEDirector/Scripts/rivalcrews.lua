@@ -54,7 +54,7 @@ local function newCrew(i, used, size)
         aggression = math.random(), -- how readily they attack other players' ships
         diehard = math.random() < CFG.DIEHARD,
         fleeHull = rnd(CFG.FLEE_HULL),
-        launchAt = os.clock() + rnd(CFG.ARRIVAL_SPREAD),
+        launchAt = os.clock() + rnd((require("features").BUSY_START or 0) >= 1 and CFG.BUSY_ARRIVAL or CFG.ARRIVAL_SPREAD),
         stationsLeft = between(CFG.STATIONS_PER_RAID),
         extractRemaining = rnd(CFG.EXTRACT_REMAINING),
         gunnery = rnd(CFG.GUN_SKILL) } -- how well they work their turrets (fireTurrets)

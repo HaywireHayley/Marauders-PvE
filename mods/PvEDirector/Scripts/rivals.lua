@@ -46,6 +46,10 @@ local CFG = {
     BARON_MAX = 0.6,                -- #322: the most that rise can take his chance to (BARON 1 = always)
     IMPOSTOR_CHANCE = 0.25,         -- #319: chance per raid that one ordinary crew's captain dresses as the Red Baron (never with BARON on; 0 = off)
     ARRIVAL_SPREAD = { 5, 60 },     -- crews launch from their spawn points this many seconds after you are aboard
+    -- Busy start (#459, features.lua BUSY_START): rivals come sooner and one crew comes straight for you.
+    BUSY_ARRIVAL = { 0, 15 },       -- ARRIVAL_SPREAD with a busy start
+    BUSY_SKIRMISH_FIRST = { 5, 15 },-- SKIRMISH_FIRST with a busy start
+    BUSY_HUNT_AFTER = 15,           -- seconds of flying your ship before one crew attacks you (a grace to get your bearings)
     STATIONS_PER_RAID = { 2, 4 },   -- each crew raids this many places before extracting
     DOCK_SECONDS = { 200, 450 },    -- time spent inside a station
     SIM_DEATH_PER_MIN = 0.02,       -- simulated: chance per member per minute in a station of dying there
@@ -1245,7 +1249,8 @@ local function skirmishStep(pc, now)
     if (S.skirmishes or 0) >= CFG.SKIRMISH_MAX or not valid(S.playerShip) then return end
     local flying = valid(pc.Pawn) and pc.Pawn:GetAddress() == S.playerShip:GetAddress()
     if not flying then return end
-    S.nextSkirmish = S.nextSkirmish or now + rnd(CFG.SKIRMISH_FIRST)
+    local busy = (require("features").BUSY_START or 0) >= 1
+    S.nextSkirmish = S.nextSkirmish or now + rnd(busy and CFG.BUSY_SKIRMISH_FIRST or CFG.SKIRMISH_FIRST)
     if now < S.nextSkirmish then return end
     for _, o in ipairs(S.crews) do
         if o.ambient and o.state == "attack" and o.target and o.target.crew and o.target.crew.ambient then return end
@@ -1536,6 +1541,8 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
         local ok, err = pcall(Bodies.garrisonStation, pc, place)
         if not ok then X.log("[rivals] garrison failed: " .. tostring(err)) end
     end
+    local okB, errB = pcall(R.busyStep, pc, now)
+    if not okB and not S.busyErr then S.busyErr = true X.log("[rivals] busy start: " .. tostring(errB)) end
     local okS, errS = pcall(skirmishStep, pc, now)
     if not okS then X.log("[rivals] skirmish failed: " .. tostring(errS)) end
     if type(place) == "table" and place.garrisoned then
@@ -1645,6 +1652,18 @@ function R.prepBoard(want)
         end
     end
     if best then Combat.makeInterior(best) end
+end
+
+-- Busy start (#459): once you've flown your ship BUSY_HUNT_AFTER seconds, the nearest crew is sent at you, once per
+-- raid, through the same path as the F9 "Send a rival crew at me" button (R.provoke).
+function R.busyStep(pc, now)
+    if S.busyDone or (require("features").BUSY_START or 0) < 1 or not valid(S.playerShip) then return end
+    if not (valid(pc.Pawn) and pc.Pawn:GetAddress() == S.playerShip:GetAddress()) then return end
+    S.busyAt = S.busyAt or now + CFG.BUSY_HUNT_AFTER
+    if now < S.busyAt then return end
+    S.busyDone = true
+    X.log("[rivals] busy start: sending a crew at you")
+    R.provoke()
 end
 
 -- Debug: F4 sends the nearest flying crew to attack you right away.

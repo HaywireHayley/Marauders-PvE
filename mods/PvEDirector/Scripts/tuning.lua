@@ -263,6 +263,15 @@ local function define()
         { "GUN_RANGE", "Range of their ship guns (cm)", 1000, 20000, 100, "" },
         { "GUN_CONE", "How far off the nose they fire (degrees)", 5, 90, 1, "" },
     })
+    -- Your ship's speed (#207, #459: shipspeed.lua)
+    add(ships, require("shipspeed").CFG, {
+        { "RUSTBUCKET_SPEED", "Your Rustbucket's top speed (x)", 0.5, 3, 0.05, "1 = the game's 1000 cm/s. Very fast ships outrun rival AI and ram hard" },
+        { "RUSTBUCKET_ACCEL", "Your Rustbucket's acceleration (x)", 0.5, 4, 0.1, "1 = the game's" },
+        { "BOOST_SPEED", "Helm boost: top speed (x)", 1, 4, 0.1, "Space at the helm of any frigate" },
+        { "BOOST_ACCEL", "Helm boost: acceleration (x)", 1, 8, 0.5, "" },
+        { "BOOST_SECONDS", "Helm boost: how long (seconds)", 1, 15, 1, "" },
+        { "BOOST_COOLDOWN", "Helm boost: cooldown (seconds)", 0, 60, 1, "Counted from the end of the boost" },
+    })
     tabs[#tabs + 1] = ships
     -- Ship turrets: every crew's gunnery, rivals' and your gunner's (rivals.lua gunAim). Skill 0 = green, 1 = crack.
     local guns = { name = "Ship guns" }
@@ -341,6 +350,7 @@ local function define()
         { "FRAME_LOG", "Frame times in the log", 0, 1, 1, "1 = on, 0 = off. Helps us find stutter: please leave it on if you report one" },
         { "VENDOR_STOCK", "Traders sell more gear", 0, 1, 1, "1 = on, 0 = off. Most guns, armour, helmets and bags, unlocked by faction level (boss gear stays loot). Turning it off needs a restart" },
         { "VENDOR_PRICE", "Trader prices (%)", 50, 400, 25, "100 = the game's prices. Higher makes buying a pricier route than looting; your faction discount still applies" },
+        { "BUSY_START", "Busy start: rivals come at you sooner", 0, 1, 1, "1 = on, 0 = off. Rival crews launch within 15 s, the first ship fight comes after 5-15 s, and one crew attacks you after 15 s of flying. On by default: players asked for faster action. Takes effect next raid" },
         { "KEEP_PROGRESS_ON_DEATH", "Keep contract progress when you die", 0, 1, 1, "1 = on, 0 = off. A death ends the raid as a disconnect so contracts, campaign and XP count; your gear is still lost. Untested (#361)" },
     })
     tabs[#tabs + 1] = feats
