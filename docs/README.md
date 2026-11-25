@@ -16,6 +16,8 @@ probe the same system again.
 | [DAMAGE_REFERENCE.md](internals/DAMAGE_REFERENCE.md) | How a shot becomes damage on a bot: health, hit zones, every vest and helmet rating, base damage per gun, shotguns. |
 | [SPACE_GATE.md](internals/SPACE_GATE.md) | When the space gate arrives, why the on screen countdown disagreed with it, the launcher's Space gate setting, and the test record. |
 | [BULLET_IMPACTS.md](internals/BULLET_IMPACTS.md) | How a shot becomes an impact effect: the pool of impact actors, why no bullet holes appeared offline, how the mod stamps them, surfaces, settings, cost. |
+| [RECOIL.md](internals/RECOIL.md) | How the game kicks the view for every gun, hip and aimed, the measured numbers for the single shot guns and pistols, and how recoil.lua makes every gun kick what its data says. |
+| [IMPACT_SOUNDS.md](internals/IMPACT_SOUNDS.md) | Why a shotgun's boom got cut at a close wall, the shared impact sound limit, the experiments, and the cap that fixes it. |
 
 ## lore/
 
