@@ -1,6 +1,8 @@
 # Reads the tagged property defaults of a cooked UE4.26 blueprint's Default__ object, from its .uasset + .uexp. Read only.
 # usage: ueprops.py <path without extension> [more paths]
-import struct, sys, os
+import struct
+import sys
+import os
 
 def fstr(b, o):
     n = struct.unpack_from('<i', b, o)[0]; o += 4
@@ -95,7 +97,7 @@ def props(names, b, o, end, depth=0):
     return out
 
 def show(items, ind='    '):
-    for n, t, v in items:
+    for n, _t, v in items:
         if isinstance(v, list) and v and isinstance(v[0], tuple):
             print(ind + n + ' (struct):'); show(v, ind + '    ')
         else:
