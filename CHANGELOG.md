@@ -2,6 +2,23 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 25 Nov 2026, build 31 (`public-test-20261125.31`)
+
+Buy a ready-made kit from the launcher, get into fights sooner, and the trader screen shows what it sells. On build 1 of
+17 Nov or later, the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Changes
+- **Kits in the launcher (#385, PR #462):** the new **Kits** button buys a ready-made kit into your stash before you
+  play (Budget SMG, Rifleman, Shotgunner, Heavy / LMG, Medic), at a little above the gear's value. Equip it in LOADOUT.
+- **Busy start (#459, PR #461):** rival crews arrive within seconds, the first ship battle comes sooner, and one crew
+  comes for you after 15 s of flying. On by default; F10 > Features turns it off. F10 > Rival ships also sets your
+  ship's speed, boost and boost cooldown.
+- **Traders show everything they sell (#463, PR #465):** build 29 added more than the trader screen's fixed grid can
+  show, so much of it never appeared. Each trader now adds its most wanted guns, armour and helmets, cut to what
+  fits. A scroll bar for the full list is #464.
+- **Lobby news (#458, PR #460):** the news panel shows this build's highlights and the mod's keys instead of the live
+  game's welcome and a video that can't load.
+
 ## Public test, 24 Nov 2026, build 30 (`public-test-20261124.30`)
 
 Fixes from playtesting build 29. On build 1 of 17 Nov or later, the launcher's orange **!** installs this one for you,
