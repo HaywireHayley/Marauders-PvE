@@ -207,14 +207,10 @@ local function onShot(w)
 end
 
 -- The shot hook goes on from the first frame in a raid, never while the script loads: the weapon class is not there yet at load.
-local function hookShots()
-    if package.loaded["recoil.hook"] then return end
-    package.loaded["recoil.hook"] = true
-    local ok, err = pcall(RegisterHook, "/Script/RaidGame.RaidWeapon:ServerMultiSimulateWeaponFire", function(ctx)
-        pcall(function() onShot(ctx:get()) end)
-    end)
-    if not ok then print("[PvEDirector] recoil: shot hook failed: " .. tostring(err) .. "\n") end
-end
+-- (It used to hook ServerMultiSimulateWeaponFire itself; main.lua's gunfire hook now calls M.onShot for shots that
+-- aren't a bot's, so every bot shot no longer pays for a second hook and a class-name string.)
+local function hookShots() end
+M.onShot = onShot
 
 -- Aimed shots whose window has passed: the game's own kick is the movement of the view over the shot's window, and the shot is topped
 -- up (or cut) to what the weapon data asks for. A window never reaches into the one before it.
