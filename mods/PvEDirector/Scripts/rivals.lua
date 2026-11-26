@@ -1470,6 +1470,13 @@ local function mark(name)
     stepMs[name] = (stepMs[name] or 0) + (t - stepAt) * 1000
     stepAt = t
 end
+-- Steps that don't need every update (R.update runs every CFG.UPDATE_SECONDS, 0.5 s): run this one if `sec` passed (#521).
+local function due(key, sec, now)
+    S.dueAt = S.dueAt or {}
+    if now < (S.dueAt[key] or 0) then return false end
+    S.dueAt[key] = now + sec
+    return true
+end
 local function reportSlow(t0)
     local total = (os.clock() - t0) * 1000
     if total >= UPDATE_SLOW_MS and t0 - slowSaidAt >= 30 then
@@ -1561,7 +1568,10 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
         if not ok then X.log("[rivals] arming: " .. tostring(err)) end
     end
     mark("arm")
-    Combat.simClashes(math.min(5, now - (S.lastUpdate or now)))
+    if due("clashes", 1, now) then  -- dice for docked crews that meet: once a second is plenty
+        Combat.simClashes(math.min(5, now - (S.lastClash or now)))
+        S.lastClash = now
+    end
     S.lastUpdate = now
     mark("simClashes")
     local place, playerLoc = playerPlace()
@@ -1589,10 +1599,12 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
         local okA, errA = pcall(Bodies.sweepStrays, place, now)
         if not okA and not S.strayErr then S.strayErr = true X.log("[rivals] stray sweep failed: " .. tostring(errA)) end
         mark("sweepStrays")
-        local okR, errR = pcall(Bodies.roamGuards, place, now)
+        local okR, errR = true, nil
+        if due("roam", 1, now) then okR, errR = pcall(Bodies.roamGuards, place, now) end
         if not okR and not S.roamErr then S.roamErr = true X.log("[rivals] guard roaming failed: " .. tostring(errR)) end
         mark("roamGuards")
-        local okL, errL = pcall(Bodies.routGuards, place, now, playerLoc)
+        local okL, errL = true, nil
+        if due("rout", 1, now) then okL, errL = pcall(Bodies.routGuards, place, now, playerLoc) end
         if not okL and not S.routErr then S.routErr = true X.log("[rivals] guard rout failed: " .. tostring(errL)) end
         mark("routGuards")
     end
@@ -1600,9 +1612,10 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
     mark("adoptQueued")
     Bodies.topUpStep(pc)
     mark("topUp")
-    Bodies.keepDefendersArmed()
+    if due("armed", 1, now) then Bodies.keepDefendersArmed() end
     mark("keepArmed")
-    local okM, errM = pcall(Bodies.keepShipMoving, now)
+    local okM, errM = true, nil
+    if due("shipMoving", 1, now) then okM, errM = pcall(Bodies.keepShipMoving, now) end
     if not okM and not S.shipMoveErr then S.shipMoveErr = true X.log("[rivals] ship movement check failed: " .. tostring(errM)) end
     mark("keepShipMoving")
     for _, c in ipairs(S.crews) do
@@ -1618,7 +1631,7 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
     end
     finishBuilding(now)
     mark("finishBuilding")
-    damageFxStep()
+    if due("damageFx", 1, now) then damageFxStep() end
     mark("damageFx")
     -- after the crews (their bodies' deaths are noticed there), so the kill stat the game added is still unseen
     local okK, errK = pcall(Kills.update, pc)

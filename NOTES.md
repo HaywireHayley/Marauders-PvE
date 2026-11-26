@@ -5641,6 +5641,12 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
 - R.update now times each step (mark() in rivals.lua) and a frame over 100 ms logs "[rivals] slow update N ms: <top 5
   steps>" at most every 30 s; crews are grouped by state ("crew:wreck"). A GC pause lands in whichever step runs, so the
   same step every time = that step; a different one each time = the collector (see the #336 aim section above).
+- R.update runs every CFG.UPDATE_SECONDS (0.5 s, main.lua), not per frame, so the 5 s hitch is 1 call in 10. Audit of
+  its steps: only femaleShare (a small file read) is on an exact 5 s timer; sweepStrays (8 s) is the only timed
+  FindAllOf. Now on 1 s via due(): simClashes (dt since its own last run), roamGuards, routGuards, keepDefendersArmed,
+  keepShipMoving (it already waits 2 s itself) and damageFxStep (turretdamage.update was already 1 s). Left at 0.5 s:
+  playerPlace, checkStolen, rescueFromVoid (boarding) and the crews. Kills.update stays: it reads the game's
+  InMatchStats diff right after the crews' deaths, and allocates a table per entry (worth a cheaper read later).
 
 ## 40mm round explodes in your hands (#360, 2026-11-25; tested in game)
 - Mini Thumper on Spaceport_01 (bridge `raid`, throwaway cheat save). A post-hook on RaidWeapon:ServerFireProjectile
