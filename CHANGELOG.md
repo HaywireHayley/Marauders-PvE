@@ -2,6 +2,29 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 26 Nov 2026, build 40 (`public-test-20261126.40`)
+
+The stutter every few seconds in space raids is gone, you can swap key cards, and the launcher finds items by the
+names you know. Played in game before release: a Space_Delta raid with 13 bots ran with no frame over 100 ms. On build
+1 of 17 Nov or later, the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Fixes
+- **Stutter every few seconds in space raids (#521, PR #539):** a ~140 ms hitch every 5 s, there since build 38. The
+  turret damage fix looked up all ten turret kinds every 5 s, and a lookup of one that isn't loaded is slow. Tested:
+  no frame over 100 ms in a space raid, where before every 10 s had one or two.
+- **Key cards (#536, PR #540):** you can take your card out of the slot to put another crew's card in, and carry as many
+  looted cards as you like. Your own card only comes back by itself if it's gone for 10 s and you carry no other card.
+- **Give items by name (#538, PR #541):** the launcher's give-items list shows and searches the in-game names (Hard Hat,
+  Mk4, Mk4 Short) next to the game's row names.
+- **Co-op join that never connects (#532, PR #542):** a join to a host that isn't answering is cancelled after 20 s,
+  instead of leaving the menu empty for about 3 minutes.
+- **Smoother lobby (PR #543):** the inventory check reads the mouse 20 times a second instead of every frame, and the
+  lobby stops searching for the login screen every 2 s.
+
+### Known issues
+- **Crash in the lobby after a raid (#499):** still open. It's a garbage-collection crash on a freed widget or
+  inventory object; the investigation is narrowed down but not fixed.
+
 ## Public test, 25 Nov 2026, build 39 (`public-test-20261125.39`)
 
 A frame-time pass over the whole mod: less work every frame, every shot and on timers, so fewer hitches in fights,
