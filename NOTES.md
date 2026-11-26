@@ -6007,3 +6007,12 @@ mounted one test turret of each kind on the Rustbucket and fired each one throug
   and overlap ours (boost, sky hide, god mode last helm rule, Strike interiors). shipspeed.lua and skyhide.lua are ours alone.
 - Related and still open on our side: pod flash, extinguisher damage, why the native impact TakeDamage never lands (turret damage is
   worked around on fix/ship-turrets, see NOTES there).
+
+## Boarders and the helm (#473, 2026-11-26, rivalbodies.lua breachSpots, bots.lua)
+- Verified in game (Space_Delta, starter frigate): the helm lookup finds FrigateHelm; the 7 BreachTransforms are 22-53 m
+  from it. Navmesh (bridge/t_helmnav.lua, K2_ProjectPointToNavigation on a 1 m grid round the helm): the cockpit floor is
+  at the helm component's height, and a separate nav patch sits 2.3-3.1 m up on the cockpit roof, all within 4.1 m of the
+  helm, so BREACH_HELM_CLEAR (600) excludes it. A bot's actor Z is ~90 above its feet: "dz 98" to the helm is the floor.
+- The game starts you on foot in your ship (pc.Pawn is PlayerPawn_C), 16 m from the helm. While you fly it (pc.Pawn is
+  not your body), boarders sent at you (e.alert) now hold where they came in and fight only bots they see; they come
+  for you when you leave the helm. NOT tested while flying: every test run was on foot.

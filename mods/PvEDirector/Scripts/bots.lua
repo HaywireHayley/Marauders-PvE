@@ -947,6 +947,9 @@ local function updateBots(pc)
     local pawn = valid(raid.target) and raid.target or pc.Pawn
     local alive = valid(pawn) and (pawn.Health or 0) > 0
     local playerLoc = alive and pawn:K2_GetActorLocation() or nil
+    -- At the helm (#473): you fly the ship and your body stays at the helm. Boarders sent at you hold where they came in
+    -- (they still fight whoever they see) instead of walking up to the pilot; they come for you once you leave it.
+    local piloting = alive and valid(pc.Pawn) and pc.Pawn:GetAddress() ~= pawn:GetAddress()
     reapDead()
     -- Did something just hurt you? (a taunting Chad that is fighting you takes credit, below)
     local playerHurt = alive and raid.pHp ~= nil and pawn.Health < raid.pHp
@@ -1042,10 +1045,11 @@ local function updateBots(pc)
             -- Size up every hostile body within range: the first spotted (nearest first) is the foe; otherwise
             -- the nearest one heard.
             local spotted, heard
-            if not fighting and not e.alert and not routed then
+            local holding = piloting and e.alert
+            if not fighting and (not e.alert or holding) and not routed then
                 local cands = {}
                 for _, b in ipairs(bodies) do
-                    if b.faction ~= mine then
+                    if b.faction ~= mine and not (holding and b.entry == PLAYER) then
                         local d = dist(here, b.at)
                         if d < CFG.PERCEIVE_RANGE then cands[#cands + 1] = { b = b, d = d } end
                     end
@@ -1068,7 +1072,7 @@ local function updateBots(pc)
                 return o == PLAYER and "the player" or (o.rival and o.rival.name
                     or o.crewmate and ("your " .. o.crewmate.name) or "a soldier")
             end
-            if not fighting and e.alert and alive then
+            if not fighting and e.alert and alive and not piloting then
                 engage(e, pawn, PLAYER)
                 fighting, e.lastSeen, e.alert = true, playerLoc, nil -- boarders know where you are
                 log(who() .. " knows where the player is")
