@@ -3486,6 +3486,14 @@ to the floor at 60230,114665,-1203", inside a wall.
   odd and pc+8 all 0 without a crash. 0.30 us per call, same as IsValid().
 - Not covered: a direct `:IsValid()` or any other method on a kept reference elsewhere (shipnav/cover/killstats ones are
   CDOs or fresh reads). Not reproduced in a raid yet.
+- 2026-11-25 (frame-time audit, perf/native-alive-cache): every check was a VirtualQuery syscall; pve_bot_read made ~8
+  per bot per call. It now keeps a readable-region cache (8 entries) on its own stack for that one call only, so reads
+  into the same actor/component region skip the syscall. Never cached across calls: the reads aren't under SEH (GCC, no
+  __try), so a stale hit on a page freed since would crash; within one game-thread call nothing frees UObject memory.
+  main.lua valid() no longer calls `o:IsValid()` after pve_alive says 1: UE4SS's IsValid is the same InternalIndex ->
+  object array lookup (disassembly above) and pve_alive is stricter (says 0 right after K2_DestroyActor while IsValid
+  still says true). IsValid is still the answer when there's no pvepatch.dll or no address. Built clean with WinLibs GCC
+  (-Wall -Wextra); NOT tested in game, call savings not measured.
 
 ## Your shots at bots: armour, shotguns, meshes (2026-11-18; botdamage.lua, issue #123 follow up to the hit zones)
 - Every number below, and the full per piece tables (all 24 vests, all 30 helmets, damage per zone, base damage per gun, shotgun volleys, how it was measured, what is still unknown), is in docs/internals/DAMAGE_REFERENCE.md at the repo root. Update that file when a rating or a base damage changes.
