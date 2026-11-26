@@ -129,7 +129,7 @@ end
 -- same card back (Server_AddItem with its id and info; verified to open the station side of the airlock again).
 -- A card of another crew in the slot is left alone: that's yours to use on their ship.
 -- check every 2 s; ask the game for a missing card 6 s after boarding, at most 3 times
-local CARD = { CHECK = 2, GRACE = 6, ASKS = 3 }
+local CARD = { CHECK = 2, GRACE = 6, ASKS = 3, SWAP = 10 } -- SWAP: seconds your card may be out before it comes back (#536)
 
 local function playerInventory()
     for _, inv in ipairs(FindAllOf("SIGISInventoryComponent") or {}) do
@@ -155,7 +155,7 @@ local function guardKeyCard(pc)
     cardInventory()
     local inv = raid.cardInv
     if not inv then return end
-    local mine, slotted = false, nil
+    local mine, slotted, other = false, nil, false
     inv.StashedItems:ForEach(function(_, e)
         local it = e:get()
         if valid(it) and it.ItemData:ToString() == "KEYCARD" then
@@ -165,7 +165,8 @@ local function guardKeyCard(pc)
                 log("key card: " .. raid.card.att:gsub("^[^!]*!", ""))
             end
             if raid.card and guid == raid.card.guid then mine = true end
-            if it.MotherItemGUID:ToString() == "KeyCard" then slotted = guid end
+            if it.MotherItemGUID:ToString() == "KeyCard" then slotted = guid
+            elseif not (raid.card and guid == raid.card.guid) then other = true end -- another card in your bags
         end
     end)
     local k = raid.card
@@ -178,11 +179,23 @@ local function guardKeyCard(pc)
         log(("key card: none %ds after boarding; asked the game for one (%d)"):format(CARD.GRACE, raid.cardAsked))
         return
     end
-    if not k or mine then return end
+    if not k or mine then raid.cardGoneAt = nil return end
     if slotted then
         if raid.cardNote ~= slotted then raid.cardNote = slotted log("key card: yours is gone, another crew's is in the slot") end
         return
     end
+    -- Swapping cards (#536): you take yours out of the slot to put another crew's in. While you carry another card,
+    -- or for CARD.SWAP seconds after yours went, yours stays out; it only comes back if it's still gone after that with
+    -- no other card on you (the shut-out case it's for: #33, #311).
+    if other then
+        if raid.cardNote ~= "other" then raid.cardNote = "other" log("key card: yours is out and you carry another crew's: left as it is") end
+        raid.cardGoneAt = nil
+        return
+    end
+    local now = os.clock()
+    raid.cardGoneAt = raid.cardGoneAt or now
+    if now - raid.cardGoneAt < CARD.SWAP then return end
+    raid.cardGoneAt = nil
     inv:Server_AddItem(FName("KEYCARD"), 1, k.cond, "KeyCard", { X = 0, Y = 0 }, false, k.guid, 0, k.att, 0)
     log("key card: it was gone from your inventory; put it back")
 end
