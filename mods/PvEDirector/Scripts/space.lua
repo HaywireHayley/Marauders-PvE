@@ -138,9 +138,21 @@ local function playerInventory()
     end
 end
 
+-- Your inventory, found once per raid. Not found (a joiner, or no controller yet): look again on each call three
+-- times, then every 20 s; each look is a FindAllOf, a hitch.
+local function cardInventory()
+    if raid.cardInv and valid(raid.cardInv) then return raid.cardInv end
+    local now = os.clock()
+    if now < (raid.cardInvAt or 0) then return nil end
+    raid.cardInv = playerInventory()
+    raid.cardInvMiss = raid.cardInv and 0 or (raid.cardInvMiss or 0) + 1
+    raid.cardInvAt = raid.cardInvMiss >= 3 and now + 20 or 0
+    return raid.cardInv
+end
+
 local function guardKeyCard(pc)
     -- found once per raid: FindAllOf walks every object in the game, a hitch every time it ran
-    if not (raid.cardInv and valid(raid.cardInv)) then raid.cardInv = playerInventory() end
+    cardInventory()
     local inv = raid.cardInv
     if not inv then return end
     local mine, slotted = false, nil
@@ -194,7 +206,7 @@ end
 
 local function cardForShip(inside, shipName, row)
     if not valid(inside) then return log("key card: the taken ship has no interior") end
-    if not (raid.cardInv and valid(raid.cardInv)) then raid.cardInv = playerInventory() end
+    if not cardInventory() then raid.cardInv = playerInventory() end -- a one-off: look now even while backing off
     local inv = raid.cardInv
     if not inv then return log("key card: no inventory for the taken ship's card") end
     local att = shipCardAtt(inside, shipName, row)

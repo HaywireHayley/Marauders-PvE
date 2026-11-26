@@ -403,7 +403,9 @@ local function gates()
     for _, g in ipairs(FindAllOf("EscapeZoneSpaceGate_C") or {}) do
         if valid(g) then r[#r + 1] = copy(g:K2_GetActorLocation()) end
     end
-    S.gatesAt = now + (#r > 0 and CFG.GATE_RESCAN * 6 or CFG.GATE_RESCAN)
+    -- a FindAllOf is a ~75 ms hitch: after 3 empty looks (no gate on this map, or a joiner's timer) look every 2 minutes
+    S.gateMisses = #r > 0 and 0 or (S.gateMisses or 0) + 1
+    S.gatesAt = now + ((#r > 0 or S.gateMisses >= 3) and CFG.GATE_RESCAN * 6 or CFG.GATE_RESCAN)
     return r
 end
 

@@ -48,8 +48,12 @@ local function toggleGodMode()
 end
 
 -- The debug menu's buttons (they used to be F4-F9). when() says whether one can be used where you are.
+-- refresh() asks every button at once: one FindFirstOf (it walks every object) serves them all for a second
+local footPc, footPcAt = nil, -math.huge
 local function onFootIn(kind)
-    local pc = FindFirstOf("PlayerController")
+    local now = os.clock()
+    if now - footPcAt > 1 or not valid(footPc) then footPc, footPcAt = FindFirstOf("PlayerController"), now end
+    local pc = footPc
     return valid(pc) and valid(pc.Pawn) and (kind == "land" and raid.navReady or kind == "any")
 end
 
