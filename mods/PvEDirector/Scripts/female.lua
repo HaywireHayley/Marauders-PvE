@@ -156,12 +156,21 @@ local function refitMaterials(part)
     end
 end
 
+local ownerClass = {} -- owner's class address -> its name (the string is built once per class, not per mesh change)
 local function afterSetMesh(ctx)
     M.hookCalls = M.hookCalls + 1
     local part = ctx:get()
     if not X.valid(part) then return end
     local owner = part:GetOwner()
-    local cls = owner and X.valid(owner) and owner:GetClass():GetFName():ToString()
+    local cls
+    if owner and X.valid(owner) then
+        local c = owner:GetClass()
+        if X.valid(c) then
+            local a = c:GetAddress()
+            cls = ownerClass[a]
+            if not cls then cls = c:GetFName():ToString() ownerClass[a] = cls end
+        end
+    end
     if cls and BOT_CLASSES[cls] and X.valid(part.SkeletalMesh) then pcall(refitMaterials, part) end
     if busy then return end
     if not (cls and PLAYER_CLASSES[cls]) then return end

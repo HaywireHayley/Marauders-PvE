@@ -19,7 +19,9 @@ local REACH = 90           -- an obstacle this close to a point's centre, in a d
 local LOW_Z, HIGH_Z = 100, 160 -- above the navmesh point: crouched eye, standing eye
 local SIDE = 120           -- corner test: this far to the side (main.lua PEEK_STEPS go to 140)...
 local SEE_PAST = 200       -- ...a standing eye must see this far forward unblocked
-local BUDGET = 0.002       -- seconds of baking per frame
+local BUDGET = 0.001       -- seconds of baking per frame
+local SLOW_FRAME = 0.025   -- a gap this long since the last step means the game is struggling: skip baking this frame
+local SAVE_CELLS, SAVE_EVERY = 8, 5 -- baked cells are appended to the file in batches: this many, or after this long (s)
 local EMPTY_RETRY = 60     -- a cell that baked to nothing (sublevel not loaded yet?) is baked again after this long
 
 local DIRS = {}
@@ -109,15 +111,28 @@ local function newJob(cx, cy, cz)
     return { cx = cx, cy = cy, cz = cz, grid = grid, i = 1, points = {}, seen = {}, started = os.clock() }
 end
 
-local function save(cell, key)
-    if not S.file or #cell.points == 0 then return end
+-- Baked cells wait in S.pending and are appended in one open/close (flush), not one file open per cell.
+local function flush()
+    local pend = S.pending
+    if not pend or #pend == 0 then return end
+    S.pending, S.savedAt = {}, os.clock()
+    if not S.file then return end
     local f = io.open(S.file, "a")
     if not f then return end
-    f:write("C ", key, "\n")
-    for _, p in ipairs(cell.points) do
-        f:write(("%d %d %d %d %d %d\n"):format(math.floor(p.X), math.floor(p.Y), math.floor(p.Z), p.full, p.low, p.corner))
+    for _, e in ipairs(pend) do
+        f:write("C ", e.key, "\n")
+        for _, p in ipairs(e.cell.points) do
+            f:write(("%d %d %d %d %d %d\n"):format(math.floor(p.X), math.floor(p.Y), math.floor(p.Z), p.full, p.low, p.corner))
+        end
     end
     f:close()
+end
+M.flush = flush
+
+local function save(cell, key)
+    if not S.file or #cell.points == 0 then return end
+    table.insert(S.pending, { key = key, cell = cell })
+    if #S.pending >= SAVE_CELLS or os.clock() - (S.savedAt or 0) > SAVE_EVERY then flush() end
 end
 
 local function load(file)
@@ -144,8 +159,10 @@ end
 
 -- New world: forget the old map's cells and load this one's.
 function M.reset(world, navData)
+    flush() -- the old map's batch goes to the old map's file before S is replaced
     local name = world and world:GetFName():ToString() or "none"
-    S = { key = name, cells = {}, queue = {}, job = nil, navData = navData, traces = 0, baked = 0, bakeTime = 0 }
+    S = { key = name, cells = {}, queue = {}, job = nil, navData = navData, traces = 0, baked = 0, bakeTime = 0,
+        pending = {}, savedAt = os.clock() }
     S.file = PROJECT .. "cover/" .. name .. ".txt"
     local n = load(S.file)
     if n > 0 then log(("%s: %d cells loaded"):format(name, n)) end
@@ -177,6 +194,10 @@ end
 function M.step(ctx)
     if not S.cells or not S.navData then return end
     local t0 = os.clock()
+    local gap = S.lastStep and t0 - S.lastStep
+    S.lastStep = t0
+    if #S.pending > 0 and t0 - (S.savedAt or 0) > SAVE_EVERY then flush() end
+    if gap and gap > SLOW_FRAME then return end -- the last frame was slow: don't add to it
     while os.clock() - t0 < BUDGET do
         local job = S.job
         if not job then
