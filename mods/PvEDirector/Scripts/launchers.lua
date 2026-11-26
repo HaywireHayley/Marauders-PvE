@@ -43,26 +43,36 @@ local prevH = {} -- bot address -> { cur = health last frame, old = the frame be
 local rounds = {} -- every projectile the pools have built (dead ones dropped as they're met)
 local logged = false
 
+-- Runs after every projectile shot from any gun, bots' included, so it stays cheap: rounds that don't explode are
+-- dropped from the list the first time they're met (a pooled round keeps its kind), and a gun is checked for being
+-- yours once per shot through its pawn's controller, not a FindFirstOf per round.
 local function afterFire(ctx)
     local w = ctx:get()
-    if not X.valid(w) then return end
+    if not X.valid(w) or #rounds == 0 then return end
     local pawn = w.MyPawn
     local wAddr = w:GetAddress()
+    local mine -- nil: not worked out yet this shot
     for i = #rounds, 1, -1 do
         local p = rounds[i]
-        if not X.valid(p) then
+        if not X.valid(p) or not p.bDoesExplode then
             table.remove(rounds, i)
-        elseif p.bDoesExplode and not p.bExploded then
+        elseif not p.bExploded then
             local owner = p.MyWeaponOwner
             if X.valid(owner) and owner:GetAddress() == wAddr then
                 local c = p.CollisionComp
                 if X.valid(c) then
-                    local okC, cls = pcall(function() return w:GetClass():GetFName():ToString() end)
-                    local pc = FindFirstOf("MainPlayerController_C")
-                    if okC and DIRECT[cls] and X.valid(pc) and X.valid(pc.Pawn) and X.valid(pawn) and pc.Pawn:GetAddress() == pawn:GetAddress() then
+                    if mine == nil then
+                        mine = false
+                        local okC, cls = pcall(function() return w:GetClass():GetFName():ToString() end)
+                        if okC and DIRECT[cls] and X.valid(pawn) then
+                            local ctrl = pawn.Controller
+                            if X.valid(ctrl) and ctrl:IsPlayerController() then mine = cls end
+                        end
+                    end
+                    if mine then
                         local have = false
                         for _, t in ipairs(tracked) do if t.p == p then have = true end end
-                        if not have then tracked[#tracked + 1] = { p = p, cls = cls, at = os.clock() } end
+                        if not have then tracked[#tracked + 1] = { p = p, cls = mine, at = os.clock() } end
                     end
                     c:IgnoreActorWhenMoving(w, true)
                     if X.valid(pawn) then c:IgnoreActorWhenMoving(pawn, true) end
