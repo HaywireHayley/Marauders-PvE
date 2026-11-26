@@ -2,6 +2,18 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 26 Nov 2026, build 41 (`public-test-20261126.41`)
+
+**The crash in the lobby after a raid is fixed.** On build 1 of 17 Nov or later, the launcher's orange **!** installs this
+one for you, keeping your saves.
+
+### Fixes
+- **Crash in the lobby after a raid (#499, PR #545):** 7 to 75 seconds after landing back in the lobby, often while you
+  pressed START RAID, the game could crash. The raid summary panel was made with the lobby's menu widget in the place of
+  your player, which crashed the engine's clean-up of unused objects. Found by reproducing it in game (it crashed every
+  time) and switching parts of the mod off one at a time. Tested: three raids back to back and no crash, with the
+  summary shown as before.
+
 ## Public test, 26 Nov 2026, build 40 (`public-test-20261126.40`)
 
 The stutter every few seconds in space raids is gone, you can swap key cards, and the launcher finds items by the
