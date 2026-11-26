@@ -1406,19 +1406,33 @@ end
 -- which spawns the muzzle flash and plays the shot sound, returns early for Authority weapons. pvepatch.dll removes
 -- that check (then bots get the real effects and this stays out of the way); without it, play the weapon's assets.
 -- The same function runs once per shot for the player's gun too, so every shot is also a noise bots can hear (ai.lua).
+-- It runs for every shot from every gun, so it does the least it can: the owner is checked once, a shooter makes at
+-- most one noise per NOISE_GAP (bots can't tell a burst from one shot; a noise lasts 3 s), and recoil.lua's work for
+-- your shots is called from here instead of a second hook on the same function.
 local botClass
+local NOISE_GAP, lastNoise = 0.2, {} -- shooter address -> time of its last gunshot noise
 RegisterHook("/Script/RaidGame.RaidWeapon:ServerMultiSimulateWeaponFire", function(ctx)
     local w = ctx:get()
     local owner = w.MyPawn
     botClass = botClass or lib("/Script/RaidGame.RaidBot")
-    local isBot = valid(owner) and owner:IsA(botClass)
-    if valid(owner) then
-        local range = AI.gunshotRadius(w, CFG.GUNSHOT_RANGE * (isBot and CFG.BOT_GUNSHOT_SCALE or 1),
-            CFG.CALIBRE_EFFECT, CFG.SUPPRESSED_GUNSHOT)
-        local ok, err = pcall(AI.noise, owner:K2_GetActorLocation(), range, "gunshot", owner:GetAddress())
-        if not ok then log("gunshot noise failed: " .. tostring(err)) end
+    local hasOwner = valid(owner)
+    local isBot = hasOwner and owner:IsA(botClass)
+    if hasOwner then
+        local now, addr = os.clock(), owner:GetAddress()
+        if now - (lastNoise[addr] or -1) >= NOISE_GAP then
+            if lastNoise.n and lastNoise.n > 256 then lastNoise = {} end -- dead shooters' entries
+            lastNoise.n = (lastNoise.n or 0) + (lastNoise[addr] and 0 or 1)
+            lastNoise[addr] = now
+            local range = AI.gunshotRadius(w, CFG.GUNSHOT_RANGE * (isBot and CFG.BOT_GUNSHOT_SCALE or 1),
+                CFG.CALIBRE_EFFECT, CFG.SUPPRESSED_GUNSHOT)
+            local ok, err = pcall(AI.noise, owner:K2_GetActorLocation(), range, "gunshot", addr)
+            if not ok then log("gunshot noise failed: " .. tostring(err)) end
+        end
+        if not isBot then
+            raid.playerShotAt = now -- (civilians.lua: they run from gunfire)
+            pcall(Recoil.onShot, w)
+        end
     end
-    if valid(owner) and not isBot then raid.playerShotAt = os.clock() end -- (civilians.lua: they run from gunfire)
     if isBot then
         pcall(DeathScreen.botShot, w, owner)
         local okr, errr = pcall(Bots.botShot, w, owner)

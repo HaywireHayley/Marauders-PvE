@@ -177,13 +177,20 @@ end
 
 -- Radius (cm at hearing 1.0) of one gunshot: base x calibre (blended in by strength, 0 = the old flat range) x the
 -- suppressed multiplier when the muzzle holds a suppressor.
+local gunMul, gunMulN = {}, 0 -- gun address -> calibre x machine-gun multiplier (a gun's class and BulletType don't change)
 function AI.gunshotRadius(gun, base, strength, suppMul)
     local mul = 1
     local ok, err = pcall(function()
-        local m = CALIBRE_MUL[tonumber(gun.BulletType) or -1] or 1
-        local cls = gun:GetClass():GetFName():ToString()
-        for _, n in ipairs(MG_NAMES) do
-            if cls:find(n, 1, true) then m = MG_MUL break end
+        local key = gun:GetAddress()
+        local m = gunMul[key]
+        if not m then
+            m = CALIBRE_MUL[tonumber(gun.BulletType) or -1] or 1
+            local cls = gun:GetClass():GetFName():ToString()
+            for _, n in ipairs(MG_NAMES) do
+                if cls:find(n, 1, true) then m = MG_MUL break end
+            end
+            if gunMulN >= 512 then gunMul, gunMulN = {}, 0 end -- freed guns' addresses get reused: start over now and then
+            gunMul[key], gunMulN = m, gunMulN + 1
         end
         mul = 1 + (strength or 0) * (m - 1)
         if suppMul and suppMul ~= 1 and suppressed(gun) then mul = mul * suppMul end
