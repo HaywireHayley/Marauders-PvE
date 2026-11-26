@@ -5705,6 +5705,14 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   playerPlace, checkStolen, rescueFromVoid (boarding) and the crews. Kills.update stays: it reads the game's
   InMatchStats diff right after the crews' deaths, and allocates a table per entry (worth a cheaper read later).
 
+## Item display names (#538, 2026-11-26)
+- The launcher's give-items picker listed row IDs only, so "Hard Hat" (SafetyHelmet) and "Mk4" (SterlingRifle,
+  "Mk4 Short" SterlingRifle_Short) couldn't be found. The names are the row struct's ItemName FText at +0x30
+  (FInventoryDatASIGISInventoryItemStruct, listed with ForEachProperty on /Script/SIGISPlugin.InventoryDatASIGISInventoryItemStruct;
+  DataTable:ForEachRow isn't in this UE4SS). The FText's data object holds the display FString pointer at +8.
+- tools/offline-audit/itemnames.py <DataTable hex> writes assets/saves/item_names.json (408 of 433 rows; the rest
+  are test rows). The picker shows "Name  (Row)" and searches both. launcher/test_ui.py ItemNames checks it.
+
 ## Frame-time audit: how often things run (2026-11-25, from #521; NOT tested in game)
 - onTick runs every frame (MainPlayerController_C / MM_CoreMissions_C ReceiveTick); update() every 0.5 s; interaction
   checks every 0.1 s. Read-only audit of every per-frame, per-tick and per-shot path, by what a player could notice.

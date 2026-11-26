@@ -26,6 +26,7 @@ CREW = os.path.join(BACKEND, "crew.lua")
 CREW_RAID_COPY = os.path.join(BACKEND, "crew.before-last-raid.lua")
 SLOT_CREW, SLOT_CREW_UNDO = "crew.lua", "before-last-raid-crew.lua"
 ITEMS = os.path.join(ROOT, "assets", "saves", "items.json")
+ITEM_NAMES = os.path.join(ROOT, "assets", "saves", "item_names.json")  # row -> in-game name (tools/offline-audit/itemnames.py)
 
 # A new save starts as a brand-new live account did: on its first login the game itself gives 65,000 credits and its
 # 34-item starter kit (two Klobb SMGs, three Mat49s, helmets, armour, bags, ammo, bandages, a supply drop). It does
@@ -418,6 +419,16 @@ def set_cheat(sid, on):
 def item_rows():
     """Every item row a stash can hold, for the give-items picker (the game's test rows left out)."""
     return sorted((r for r in _read(ITEMS) if not r.lower().startswith("test")), key=str.lower)
+
+
+def item_names():
+    """Row -> the name the game shows ("SafetyHelmet" -> "Hard Hat"), for the give-items picker (#538). Empty if the
+    file is missing: the picker then shows row names only."""
+    try:
+        with open(ITEM_NAMES, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
 
 
 def give(sid, row, count):
