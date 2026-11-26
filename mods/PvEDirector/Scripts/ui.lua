@@ -19,8 +19,16 @@ M.INK = { R = 0.02, G = 0.022, B = 0.028, A = 0.9 }
 
 function M.init(ctx) X = ctx end
 
+-- pc must be a real PlayerController: WidgetBlueprintLibrary:Create takes it as the panel's owning player. The director's
+-- tick also runs for the lobby widget MM_CoreMissions_C, and a panel made with that widget as its "player" kept a
+-- widget where the engine expects a controller: the garbage collector later walked it with the wrong layout and the
+-- game crashed in the lobby (#499, reproduced and bisected to the raid summary's panel 2026-11-26).
+local PC_CLASS
 function M.host(pc)
     if not X.valid(pc) then return nil end
+    PC_CLASS = (PC_CLASS and X.valid(PC_CLASS)) and PC_CLASS or X.lib("/Script/Engine.PlayerController")
+    local okPc, isPc = pcall(function() return pc:IsA(PC_CLASS) end)
+    if not (okPc and isPc) then return nil end
     local cls = X.lib(HOST)
     if not X.valid(cls) then
         pcall(LoadAsset, (HOST:match("^[^.]+")))

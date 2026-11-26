@@ -714,7 +714,9 @@ local function onTick(ctx)
     if LobbyLabel then pcall(LobbyLabel.tick, ctx:get()) end -- START RAID label (lobbylabel.lua)
     pcall(KeyHelp.consoleKey) -- the console off F10, the AI settings key (keyhelp.lua)
     if tick.menu then
-        local oksum, errsum = pcall(require("raidsummary").lobby, ctx:get(), os.clock() - (tick.menuSince or 0)) -- #390
+        -- The raid summary's panel is made for the lobby's player controller, never for whatever ticks here: in the lobby
+        -- that's the MM_CoreMissions_C widget, and a panel "owned" by a widget crashed the game's GC (#499)
+        local oksum, errsum = pcall(require("raidsummary").lobby, require("cache").menuPc(), os.clock() - (tick.menuSince or 0)) -- #390
         if not oksum and not tick.summaryErr then tick.summaryErr = true log("raid summary: " .. tostring(errsum)) end
         local okv, errv = pcall(Vendors.tick) -- the traders' extra stock (vendors.lua, #384)
         if not okv and not tick.vendorsErr then tick.vendorsErr = true log("vendors: " .. tostring(errv)) end

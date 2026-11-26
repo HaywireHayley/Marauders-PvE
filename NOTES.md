@@ -5740,6 +5740,21 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   rivalsUpdate max ~150 -> ~30 ms. The first update of a raid still takes ~190 ms (under the raid start).
 - Rule: never StaticFindObject something that may not be loaded on a timer; keep what you found.
 
+## Lobby crash after a raid (#499): the raid summary's panel was owned by a widget (2026-11-26; fixed, tested in game)
+- Crash: EXCEPTION_ACCESS_VIOLATION reading 0, hash 03C1C3FF..., on a GC worker thread (TFastReferenceCollector
+  ProcessObjectArray at +1be1b67): a GC token for a TArray<UObject*> at +0xF8 read on memory that wasn't one. In the
+  loaded classes only UWidget.NativeBindings and SIGISInventoryComponent.ShipItems are such arrays at 0xF8.
+- Reproduced from the bridge alone: press the captain's launch button (Crew_LaunchToMatchBtn_SubWidget_C's
+  BndEvt__Btn_Main_..._OnButtonPressedEvent, no params), bridge/debug_cmd "extract", repeat; crashed 2 of 2 runs, in
+  the lobby within seconds of the first or second return. Bisected with Features switches (config/ai_tuning.txt
+  Features:X=0): RAID_SUMMARY off -> survives; snapshot off -> still crashes; lobby panel off -> survives.
+- Cause: main.lua called RaidSummary.lobby(ctx:get()) in the lobby, and there only the MM_CoreMissions_C widget's tick
+  reaches that line (the controller's returns earlier). So ui.lua made the panel with
+  WidgetBlueprintLibrary:Create(widget, cls, widget): a widget as the owning PlayerController.
+- Fix: the summary gets cache.menuPc(); ui.lua host() refuses anything that isn't a PlayerController (every panel).
+  Tested: 3 raids and returns with everything on, no crash; the panel showed, owned by MenuPlayerController_C.
+- Rule: anything driven from onTick gets `ctx:get()`, which in the lobby can be a widget, not a controller.
+
 ## Frame-time audit: how often things run (2026-11-25, from #521; NOT tested in game)
 - onTick runs every frame (MainPlayerController_C / MM_CoreMissions_C ReceiveTick); update() every 0.5 s; interaction
   checks every 0.1 s. Read-only audit of every per-frame, per-tick and per-shot path, by what a player could notice.
