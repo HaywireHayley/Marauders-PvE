@@ -1729,6 +1729,16 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
   Guide_Widget) is closed by lobbylabel.lua with ForceCloseTheGuideWidget if it shows within 60 s of the session's
   first lobby (it opened ~15 s in). Tested on a fresh save: "lobby: closed the new-player guide", clean lobby.
 
+## Key card swap (#536, 2026-11-26; tested in game)
+- guardKeyCard put your card back the moment the KeyCard slot was empty, so taking it out to slot another crew's card
+  was undone at once (spacedork_, build 39: "put it back" 8 times in 4 minutes). Now yours stays out while you carry
+  any other KEYCARD (bags, pockets, or the slot), and otherwise comes back only after CARD.SWAP (10 s) with the slot
+  still empty. Any number of looted cards is fine while yours is in the slot (it always was).
+- Tested on Space_Delta through the bridge (Server_RemoveItem / Server_AddItem on the player's SIGISInventoryComponent):
+  your card out, nothing else -> back after 11 s; a second card in PocketLeft, your card out -> left out (36 s watched),
+  log "yours is out and you carry another crew's: left as it is".
+- Trade-off: if your own card vanished by itself while you carried a looted one, it isn't put back.
+
 ## Space_Solo_02 stations, Rebel Base lid, key card guard (2026-11-07, later)
 - User report: big black cube in the sky at Rebel Base, rivals leaving/gone right at the start, poor loot at Rebel Base, locked out of own ship (captain's ID gone).
 - Stations: Space_Solo_02's interiors (Rebel Base, Penal Colony, Mini Mine, Asteroid, Moon Base, Capital Ship) have no Navy/Spaceport airlock names and no anchors, so rivals.lua survey named none: "stations: none", every crew "nowhere to go" and extracted at once; with no station no garrison either, so the only enemies were the base's own native NPCs (native loot). Fix: unnamed nav volumes are named after the LevelStreamingVolume around them (CFG.VOLUME_NAMES) and matched to Node_* RaidDockingComponents by key5 (rebel, penal, minim, capit). Two nav volumes in one streaming volume: the bigger wins. No airlock (Mini Mine): entries are RaidAINodeStart spots. Verified: "Penal Colony (5 entries, 4 berths), Mini Mine (7, 1)" and on another run "Rebel Base (6 entries, 4 berths)"; crews head for them. Fights and loot there not watched.
@@ -5712,6 +5722,16 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   DataTable:ForEachRow isn't in this UE4SS). The FText's data object holds the display FString pointer at +8.
 - tools/offline-audit/itemnames.py <DataTable hex> writes assets/saves/item_names.json (408 of 433 rows; the rest
   are test rows). The picker shows "Name  (Row)" and searches both. launcher/test_ui.py ItemNames checks it.
+
+## The hitch every ~5 s was turretdamage's class lookup (#521, 2026-11-26; tested in game)
+- Build 39's step timing named damageFx (98 % of every slow rivals update, 146-320 ms). Timed from the bridge on
+  Space_Delta: StaticFindObject of the 10 turret classes took 140 ms with 5 of them unloaded. A missing object's
+  lookup falls back to a search of every object (~28 ms each), and turretdamage.update's CDO check did all 10 every
+  5 s (since #513, build 38).
+- Now a found class is kept (checked with valid()), and at most one missing class is looked up per pass, in turn.
+  Tested, same save and map, before -> after: frames over 100 ms per 10 s 1-2 -> 0, worst gap 155-161 -> 38-66 ms,
+  rivalsUpdate max ~150 -> ~30 ms. The first update of a raid still takes ~190 ms (under the raid start).
+- Rule: never StaticFindObject something that may not be loaded on a timer; keep what you found.
 
 ## Frame-time audit: how often things run (2026-11-25, from #521; NOT tested in game)
 - onTick runs every frame (MainPlayerController_C / MM_CoreMissions_C ReceiveTick); update() every 0.5 s; interaction
