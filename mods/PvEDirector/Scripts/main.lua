@@ -29,9 +29,11 @@ local CFG = {
     POINT_BLANK = 300,       -- a noise this close starts a fight at once
     PERCEIVE_RANGE = 7000,   -- bots size up hostile bodies (you, other factions) within this range
     ANIM_FAR = 6000,         -- bots farther than this from the camera animate the engine's cheap way (not drawn = no pose)
-    ANIM_HZ_LOW = 60,        -- every bot, near or far, runs animate() this many times a second...
-    ANIM_HZ_HIGH = 120,      -- ...or this many while the game runs faster than ANIM_HI_FPS (never more: 120 is the ceiling)
-    ANIM_HI_FPS = 120,
+    ANIM_HZ = 30,            -- animate() calls a second for a bot within ANIM_FAR of the camera (we set rates and targets;
+                             -- the engine animates between our writes, so 30 doesn't snap)...
+    ANIM_HZ_FAR = 15,        -- ...and past ANIM_FAR (not posed anyway: see bots.lua animFar)
+    AIM_HZ = 20,             -- aim upkeep of a fighting bot (the controller keeps its focus between calls)
+    REAP_HZ = 5,             -- dead/destroyed bots leave raid.bots this often (a pawn is destroyed ~3 s after death)
     ANIM_BUDGET = 14,        -- most animate() calls in one frame; bots over it wait for the next frame (a crowd can't stall one)
     ANIM_PEACE_HZ = 15,      -- aim upkeep of a bot at peace (nothing changes until it has a target, which is caught at once)
     -- Parking (bots.lua, parked): a guard or soldier at peace farther than PARK_RANGE from you is frozen and skipped until you

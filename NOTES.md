@@ -2904,6 +2904,15 @@ Space_Charlie after a bridge launch; the relaunch was fine.
   nothing is freed mid-frame): four engine calls per bot per frame fewer. Parked bots are skipped in both.
 - updateBots reads each bot's location once per update (o.updAt) for the perception list, Aux.parked and its own
   loop; it used to read it three times (each read is a new table).
+- 2026-11-25 (perf/bot-anim-rate, frame-time audit): animate() ran at 60 Hz (120 above 120 fps) for every bot. Now
+  CFG.ANIM_HZ 30 within ANIM_FAR of the camera, CFG.ANIM_HZ_FAR 15 past it (e.animFar); the fps measurement that only
+  chose 60/120 is gone. Fighting aim upkeep (IsTargeting, K2_SetFocus, K2_GetActorLocation) runs at CFG.AIM_HZ 20
+  (peace stays ANIM_PEACE_HZ 15; a change of want is still caught at once). reapDead runs at CFG.REAP_HZ 5, not every
+  frame: safe because a dead pawn is destroyed ~3 s after death, so it's reaped well before it can be freed; a dead
+  bot may get up to 0.2 s more animate/aim calls on its still-valid pawn. animate() writes only rates and targets
+  (GlobalAnimRateScale, already smoothed by elapsed time; MaxWalkSpeed; crouch; montage play rate), no positions.
+  Verified: luacheck only. NOT tested in game: look for smooth walk/run/crouch gaits and aim tracking, and bots
+  leaving the list cleanly on death.
 - Test: Space_Solo_01, Fortress, 14-16 guards and 8 crews, everyone's senses off (ai.lua PROFILES sight 1, hearing 0,
   from bridge/dir_eval.lua) so both runs are at peace; master's scripts vs this branch's, 120 s in the station.
   Per 10 s: rivals frame 554 -> 134 ms, aim 276 -> 233 ms, director total ~1000 -> ~550 ms, allocated 16.6 -> 11.3 MB.

@@ -185,7 +185,7 @@ end
 -- A dead bot's pawn is destroyed ~3 s after its death (pve_bodies) and freed by the next garbage collection, up to
 -- a minute later. Its entry used to stay in raid.bots with fighting/cover set from its last fight, and the per-frame
 -- peek/hide code kept reading the pawn: once freed, that read crashed inside UE4SS (AV at 0xffffffffffffffff in the
--- UObject __index, walking a garbage class chain; even IsValid reads the object's memory). So each frame, before
+-- UObject __index, walking a garbage class chain; even IsValid reads the object's memory). So CFG.REAP_HZ times a second, before
 -- anything else touches the bots, a dead or destroyed bot's entry drops its object references (other modules see
 -- valid(e.bot) == false: rivals marks the member killed) and leaves the list.
 local function reapDead()
@@ -1356,22 +1356,22 @@ end
 
 local function trackTargets()
     if not raid.spawned then return end
-    reapDead()
-    -- Every bot animates ANIM_HZ_LOW times a second, ANIM_HZ_HIGH while the game runs faster than ANIM_HI_FPS: the
-    -- pose follows the director's inputs (gait, speed, posture) as often as it can be told apart. The frame rate is
-    -- measured here (smoothed, with a margin so it doesn't flip between the two). A call is ~a dozen engine reads and
-    -- writes (~1.2 ms a frame and 3 MB of garbage a second for 20 bots every frame, profile.txt 2026-11-14), so at
-    -- most ANIM_BUDGET run in one frame, starting where the last frame stopped so no bot starves.
-    -- reapDead has just checked every bot in raid.bots is valid and alive and dropped the rest, and nothing is freed
-    -- before the frame ends: the loops below don't ask the engine again (two calls per bot per loop, every frame).
+    -- reapDead at REAP_HZ, not every frame: it's two engine reads per bot. Safe because a dead pawn is
+    -- destroyed ~3 s after its death (pve_bodies) and freed later still, so a bot is reaped long before its pawn can
+    -- be freed; the loops below still don't ask the engine whether each bot is valid.
     local now = os.clock()
-    local dt = now - (raid.trackAt or now)
-    raid.trackAt = now
-    if dt > 0 and dt < 0.25 then raid.fps = raid.fps and (raid.fps + (1 / dt - raid.fps) * 0.05) or 1 / dt end
-    local fps, hz = raid.fps or 60, raid.animHz or CFG.ANIM_HZ_LOW
-    if fps > CFG.ANIM_HI_FPS + 5 then hz = CFG.ANIM_HZ_HIGH elseif fps < CFG.ANIM_HI_FPS - 5 then hz = CFG.ANIM_HZ_LOW end
-    raid.animHz = hz
-    local bots, step = raid.bots, 1 / hz
+    if now >= (raid.reapNext or 0) then
+        raid.reapNext = now + 1 / CFG.REAP_HZ
+        reapDead()
+    end
+    -- Each bot animates ANIM_HZ times a second within ANIM_FAR of the camera, ANIM_HZ_FAR past it (e.animFar). A call
+    -- is ~a dozen engine reads and writes (~1.2 ms a frame and 3 MB of garbage a second for 20 bots at every frame,
+    -- profile.txt 2026-11-14). Everything it writes is a rate or a target the engine animates towards between calls
+    -- (GlobalAnimRateScale, smoothed by elapsed time; MaxWalkSpeed; crouch; montage play rate), never a per-frame
+    -- position, so 30 Hz doesn't show. At most ANIM_BUDGET run in one frame, starting where the last frame stopped
+    -- so no bot starves. (It used to be 60, or 120 above 120 fps.)
+    local hz = CFG.ANIM_HZ
+    local bots = raid.bots
     local n, left, from = #bots, CFG.ANIM_BUDGET, raid.animFrom or 0
     local nextFrom = from + 1
     for k = 1, n do
@@ -1381,6 +1381,7 @@ local function trackTargets()
             if left <= 0 then nextFrom = from + k - 1 break end
             left = left - 1
             -- on a grid of 1/hz (not now + 1/hz), so a rate near the frame rate isn't halved by rounding up to a frame
+            local step = 1 / (e.animFar and CFG.ANIM_HZ_FAR or hz)
             e.animNext = due > now - step and due + step or now + step
             animate(e, now)
         end
@@ -1406,14 +1407,14 @@ local function trackTargets()
             local pawn = foeOf(e)
             if e.inCombat and pawn and state ~= "hiding" and not sprinting then setEnemy(e, pawn) end
         end
-        -- Aim upkeep, hz a second (focus is kept by the controller between calls), or at once when what the bot
+        -- Aim upkeep, AIM_HZ a second (focus is kept by the controller between calls), or at once when what the bot
         -- should be doing changes. Only the aiming pose follows the aim up and down, and only it plays the arms' firing
         -- montage. The native shooting code turns it on now and then: from the hip a bot shoots at you with its gun
         -- level or pointing down.
         local want = (e.fighting and not sprinting and state ~= "hiding") and true or false
         if alive and (now >= (e.aimNext or 0) or want ~= e.aimWant) then
             -- (at peace: ANIM_PEACE_HZ; nothing changes until want does, which is caught at once)
-            e.aimNext, e.aimWant = now + 1 / ((want or e.fighting) and hz or CFG.ANIM_PEACE_HZ), want
+            e.aimNext, e.aimWant = now + 1 / ((want or e.fighting) and CFG.AIM_HZ or CFG.ANIM_PEACE_HZ), want
             local pawn = foeOf(e)
             local aiming = (want and pawn) and true or false
             if e.bot:IsTargeting() ~= aiming then e.bot:ServerSetTargeting(aiming) end
