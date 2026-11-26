@@ -5705,6 +5705,13 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   playerPlace, checkStolen, rescueFromVoid (boarding) and the crews. Kills.update stays: it reads the game's
   InMatchStats diff right after the crews' deaths, and allocates a table per entry (worth a cheaper read later).
 
+## Co-op join to a host that doesn't answer (#532, 2026-11-26; tested in game)
+- A join (config/coop_join.txt, launcher JOIN) to a host not in a raid left the menu empty ~3 minutes: the engine's own
+  connect timeout. launch.lua now cancels the pending connection with the console command `cancel` if the menu is still
+  up JOIN_GIVE_UP (20) s after the join, and logs why.
+- Tested: join to 10.255.255.1:7777 (no host), "join cancelled" 23 s later, the lobby's tabs were added 1 s after and the
+  stand-in saw the menu's account calls. Not tested: a join that connects slowly but within 20 s (a real host far away).
+
 ## Frame-time audit: how often things run (2026-11-25, from #521; NOT tested in game)
 - onTick runs every frame (MainPlayerController_C / MM_CoreMissions_C ReceiveTick); update() every 0.5 s; interaction
   checks every 0.1 s. Read-only audit of every per-frame, per-tick and per-shot path, by what a player could notice.
