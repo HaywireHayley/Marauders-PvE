@@ -177,6 +177,19 @@ return {
 '''
 
 
+class ItemNames(unittest.TestCase):
+    """The give-items picker finds items by the names players know (#538): Hard Hat, Mk4."""
+
+    def test_names(self):
+        names = saves.item_names()
+        self.assertEqual(names.get("SafetyHelmet"), "Hard Hat")
+        self.assertEqual(names.get("SterlingRifle"), "Mk4")
+        self.assertEqual(names.get("SterlingRifle_Short"), "Mk4 Short")
+        sid = saves.create(f"Names {time.time()}", False)
+        for row in ("SafetyHelmet", "SterlingRifle", "SterlingRifle_Short"):
+            self.assertEqual(saves.give(sid, row, 1), 1)
+
+
 class CrewGear(unittest.TestCase):
     """saves.crew_gear / set_crew_gear (#418): stash items moved onto a hired crewmate and back, all or nothing."""
 
