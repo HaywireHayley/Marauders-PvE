@@ -5705,6 +5705,16 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   playerPlace, checkStolen, rescueFromVoid (boarding) and the crews. Kills.update stays: it reads the game's
   InMatchStats diff right after the crews' deaths, and allocates a table per entry (worth a cheaper read later).
 
+## The hitch every ~5 s was turretdamage's class lookup (#521, 2026-11-26; tested in game)
+- Build 39's step timing named damageFx (98 % of every slow rivals update, 146-320 ms). Timed from the bridge on
+  Space_Delta: StaticFindObject of the 10 turret classes took 140 ms with 5 of them unloaded. A missing object's
+  lookup falls back to a search of every object (~28 ms each), and turretdamage.update's CDO check did all 10 every
+  5 s (since #513, build 38).
+- Now a found class is kept (checked with valid()), and at most one missing class is looked up per pass, in turn.
+  Tested, same save and map, before -> after: frames over 100 ms per 10 s 1-2 -> 0, worst gap 155-161 -> 38-66 ms,
+  rivalsUpdate max ~150 -> ~30 ms. The first update of a raid still takes ~190 ms (under the raid start).
+- Rule: never StaticFindObject something that may not be loaded on a timer; keep what you found.
+
 ## Frame-time audit: how often things run (2026-11-25, from #521; NOT tested in game)
 - onTick runs every frame (MainPlayerController_C / MM_CoreMissions_C ReceiveTick); update() every 0.5 s; interaction
   checks every 0.1 s. Read-only audit of every per-frame, per-tick and per-shot path, by what a player could notice.
