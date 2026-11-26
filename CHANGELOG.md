@@ -2,6 +2,20 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 26 Nov 2026, build 42 (`public-test-20261126.42`)
+
+Boarders wait while you fly the ship, and the log says who downed a crewmate. On build 1 of 17 Nov or later, the
+launcher's orange **!** installs this one for you, keeping your saves.
+
+### Fixes
+- **Boarders and the helm (#473, PR #548):** a boarding crew sent at you holds where it came in while you fly the ship,
+  still fighting any bot it sees, and comes for you once you leave the helm. The boarders the report showed standing on
+  the cockpit were on a walkable patch of its roof, which build 39 already keeps them from arriving on. Tested: boarders
+  behave as before while you're on foot; the hold while flying was **not** tested in game.
+- **Who downed a crewmate (#537, PR #547):** when one of your crew goes down, the log names the bots that were fighting
+  them, nearest first, or says nobody was (the player, a turret, a fall or a hazard), so reports like "Odette died out
+  of nowhere" can be traced.
+
 ## Public test, 26 Nov 2026, build 41 (`public-test-20261126.41`)
 
 **The crash in the lobby after a raid is fixed.** On build 1 of 17 Nov or later, the launcher's orange **!** installs this
