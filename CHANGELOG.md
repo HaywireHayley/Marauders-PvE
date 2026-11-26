@@ -2,6 +2,34 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 25 Nov 2026, build 39 (`public-test-20261125.39`)
+
+A frame-time pass over the whole mod: less work every frame, every shot and on timers, so fewer hitches in fights,
+in space and in the lobby. Plus a crash fix and crew mates who stop shooting when the fight is over. On build 1 of
+17 Nov or later, the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Fixes
+- **Crash boarding or meeting the Red Baron's strike frigate (#522, PR #523):** the fatal "Could not find SuperStruct
+  FrigateInside_Strike_C" error. The frigate interiors other ships build on are now loaded in the lobby.
+- **Crew mate stuck firing after a fight (#518, PR #534):** when a fight ends (the boarders are dead, they're called
+  back to you, they rejoin you), your crew now let go of the trigger.
+
+### Fewer hitches (#336, #521)
+- **Bots (PR #530):** soldiers animate 30 times a second near you and 15 far away (was 60 to 120), and their aim
+  is kept up 20 times a second while fighting.
+- **Gunfire (PRs #525, #527):** each shot does less work: one hook instead of two, a gun's sound range worked out
+  once, at most one gunshot noise per shooter every 0.2 s, and the launcher hook no longer searches the game per round.
+- **Timers that kept searching the whole game (PR #526):** the minimap's space gate search (a ~75 ms hitch every 20 s
+  on some maps), the debug menu (~0.8 s when it opened), bullet-hole materials, the key card guard.
+- **Space raids (PR #524):** six rival-crew steps run once a second instead of twice, and a slow rivals update now
+  logs which step it was, to track down the remaining hitch every ~5 s.
+- **Bullet holes (PR #529), cover (PR #533):** impacts are checked every 0.1 s only while shots are landing; cover
+  baking takes half the time per frame, skips frames that are already slow, and saves in batches.
+- **Lobby (PR #528):** the stash tools read their buttons and search box 4 times a second instead of every frame,
+  and the inventory check after you move items runs at most once a second.
+- **Under the hood (PRs #531, #533):** fewer system calls in the native object checks (pvepatch.dll rebuilt); bot
+  damage and the women's body meshes keep class names instead of building them every frame.
+
 ## Public test, 25 Nov 2026, build 38 (`public-test-20261125.38`)
 
 sp0rrk's launcher, recoil, blowtorch and ship turret work, smoother lobbies and space raids, and the launcher and game
