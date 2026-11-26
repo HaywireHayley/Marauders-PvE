@@ -750,9 +750,32 @@ __declspec(dllexport) int pve_hit_capsule(void *L) {
 #define UNREACHABLE     (1 << 28)
 
 
-static int objectAlive(char *obj) {
+/* Readable-region cache for one exported call (frame-time audit). pve_readable is a VirtualQuery syscall, and
+   pve_bot_read made ~8 of them per bot per call, mostly into the same few regions (an actor and its fields, a component
+   and its fields). The cache lives on the caller's stack and dies when the call returns, never across calls: these reads
+   are not under SEH (GCC, no __try), so a stale hit on a page freed since would fault natively. Inside one call on the
+   game thread (every export is called from Lua there) nothing frees UObject memory between two reads, so a region seen
+   readable stays readable; that's the same window the plain VirtualQuery-then-read already relies on. */
+typedef struct { int n; struct { const char *lo, *hi; } r[8]; } Regions;
+
+static int readableC(Regions *c, const void *p, size_t n) {
+    const char *a = (const char *)p, *b = a + n;
+    if (!c) return pve_readable(p, n);
+    for (int i = 0; i < c->n; i++) if (a >= c->r[i].lo && b <= c->r[i].hi) return 1;
+    MEMORY_BASIC_INFORMATION mbi;
+    if (!VirtualQuery(p, &mbi, sizeof mbi) || mbi.State != MEM_COMMIT) return 0;
+    if (mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD)) return 0;
+    if (!(mbi.Protect & (PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE |
+          PAGE_EXECUTE_WRITECOPY))) return 0;
+    const char *lo = (const char *)mbi.BaseAddress, *hi = lo + mbi.RegionSize;
+    if (b > hi) return 0;
+    if (c->n < (int)PVE_COUNT(c->r)) { c->r[c->n].lo = lo; c->r[c->n].hi = hi; c->n++; }
+    return 1;
+}
+
+static int objectAliveC(Regions *c, char *obj) {
     if ((ULONG_PTR)obj < 0x10000 || ((ULONG_PTR)obj & 7)) return 0; /* null page or misaligned: not an object */
-    if (!pve_readable(obj + OBJECT_INDEX, 4)) return 0;
+    if (!readableC(c, obj + OBJECT_INDEX, 4)) return 0;
     int index = *(int *)(obj + OBJECT_INDEX);
     char *arr = (char *)g_base + OBJECT_CHUNKS;
     char **chunks = *(char ***)arr;
@@ -763,6 +786,8 @@ static int objectAlive(char *obj) {
     if (*(char **)item != obj) return 0;
     return !(*(int *)(item + OBJECT_ITEM_FLAGS) & (PENDING_KILL | UNREACHABLE));
 }
+
+static int objectAlive(char *obj) { return objectAliveC(NULL, obj); }
 
 /* Pushes one integer as the C function's result (lua_pushinteger; a C function always has LUA_MINSTACK free slots). */
 static int pushInt(void *L, long long v) {
@@ -787,17 +812,18 @@ __declspec(dllexport) int pve_bot_read(void *L) {
     enum { N = 6 };
     char *bot = (char *)intArg(L, 1, N), *mesh = (char *)intArg(L, 2, N);
     long long oRoot = intArg(L, 3, N), oVel = intArg(L, 4, N), oLoc = intArg(L, 5, N), oAnim = intArg(L, 6, N);
-    if (!oRoot || !oVel || !oLoc || !oAnim || !objectAlive(bot) || !objectAlive(mesh)) return 0;
-    if (!pve_readable(bot + oRoot, 8)) return 0;
+    Regions c = { 0 };
+    if (!oRoot || !oVel || !oLoc || !oAnim || !objectAliveC(&c, bot) || !objectAliveC(&c, mesh)) return 0;
+    if (!readableC(&c, bot + oRoot, 8)) return 0;
     char *root = *(char **)(bot + oRoot);
-    if (!objectAlive(root) || !pve_readable(root + oVel, 12) || !pve_readable(root + oLoc, 12)) return 0;
-    if (!pve_readable(mesh + oAnim, 8)) return 0;
+    if (!objectAliveC(&c, root) || !readableC(&c, root + oVel, 12) || !readableC(&c, root + oLoc, 12)) return 0;
+    if (!readableC(&c, mesh + oAnim, 8)) return 0;
     float *v = (float *)(root + oVel), *at = (float *)(root + oLoc);
     char *anim = *(char **)(mesh + oAnim);
     pushInt(L, (long long)(v[0] * 100.0f));
     pushInt(L, (long long)(v[1] * 100.0f));
     pushInt(L, (long long)(at[0] * 100.0f));
     pushInt(L, (long long)(at[1] * 100.0f));
-    pushInt(L, objectAlive(anim) ? (long long)anim : 0);
+    pushInt(L, objectAliveC(&c, anim) ? (long long)anim : 0);
     return 5;
 }

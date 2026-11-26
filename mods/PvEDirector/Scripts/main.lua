@@ -205,7 +205,7 @@ do
         if alive then
             local ok, at = pcall(address, o)
             at = ok and math.tointeger(at)
-            if at and alive(at) ~= 1 then return false end
+            if at then return alive(at) == 1 end -- same object-array slot + PendingKill/Unreachable check IsValid does, stricter (NOTES #53)
         end
         return o:IsValid()
     end
