@@ -75,10 +75,33 @@ function M.update(ship)
     end
     -- the game unloads a turret class nothing is using and loads it again fresh later, which puts its default back: look
     -- at the classes that are loaded now and set any that read wrong
+    -- StaticFindObject is cheap for a loaded class but ~28 ms for one that isn't (it searches every object): five
+    -- unloaded turret classes made this a ~140 ms hitch every 5 s (#521, timed in game 2026-11-26). So a class found is
+    -- kept and only checked for validity, and at most one class that isn't kept is looked up per pass.
     if now >= st.nextCdo then
         st.nextCdo = now + 5
-        for name, total in pairs(TOTAL) do
-            local cls = st.done[name] and findClass(name)
+        st.cls = st.cls or {}
+        if not st.names then
+            st.names = {}
+            for name in pairs(TOTAL) do st.names[#st.names + 1] = name end
+            table.sort(st.names)
+            st.rr = 0
+        end
+        -- the one missing class looked up this pass: the next in turn, so one that stays unloaded doesn't starve the rest
+        local want
+        for k = 1, #st.names do
+            local name = st.names[(st.rr + k - 1) % #st.names + 1]
+            local kept = st.cls[name]
+            if st.done[name] and not (kept and valid and valid(kept)) then want = name st.rr = st.rr + k break end
+        end
+        for _, name in ipairs(st.names) do
+            local total = TOTAL[name]
+            local cls = st.cls[name]
+            if cls and not (valid and valid(cls)) then cls = nil st.cls[name] = nil end
+            if not cls and name == want then
+                cls = findClass(name)
+                st.cls[name] = cls
+            end
             if cls then
                 pcall(function()
                     local cdo = cls:GetCDO()
