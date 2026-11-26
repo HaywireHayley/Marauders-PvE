@@ -120,10 +120,15 @@ end
 -- walking the whole inventory (#369, Walmarx's report: once-a-second stalls right after dragging a backpack on).
 local LMB, wasDown, dueAt -- the left mouse button's key, its last state, a check asked for by a drag ending
 local CLICK_GAP, lastClickRun = 1.0, -math.huge -- click-triggered checks at most once a second (perf: rapid clicks)
+-- The button is read 20 times a second, not every frame: IsInputKeyDown through UE4SS cost ~0.9 ms a frame in the lobby
+-- (invsync 780 ms of every 10 s, 2026-11-26). An item drag lasts far longer than 50 ms; a click too short to be seen is
+-- still covered by the EVERY check.
+local MOUSE_EVERY, mouseAt = 0.05, 0
 
 function S.tick(pc)
     local now = os.clock()
-    if pc and X.valid(pc) then
+    if now >= mouseAt and pc and X.valid(pc) then
+        mouseAt = now + MOUSE_EVERY
         LMB = LMB or { KeyName = FName("LeftMouseButton") }
         local ok, down = pcall(function() return pc:IsInputKeyDown(LMB) end)
         if ok then
