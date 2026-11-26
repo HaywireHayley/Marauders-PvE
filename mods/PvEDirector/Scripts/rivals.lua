@@ -260,6 +260,10 @@ local CFG = {
     -- sync load of the parent itself makes the engine finish it first. Hull pawns all derive from Base_Frigate_Ship,
     -- which your own ship has always loaded.
     INSIDE_PARENTS = { ["Scout_Insides/"] = "FrigateInside_DefaultScout", ["Capital/"] = "FrigateInside_Capital" },
+    -- Every interior Blueprint that others derive from, loaded in the lobby before any raid (rivalbodies.preload). The
+    -- game itself loads FrigateInside_Strike_Ai_C (the map's Red Baron frigate) on its own, and a crash showed the same
+    -- race as #192 with that pair: "Could not find SuperStruct FrigateInside_Strike_C" (#522).
+    INSIDE_BASES = { "FrigateInside_DefaultScout", "FrigateInside_Capital", "FrigateInside_Strike" },
     SHIP_STOLEN_FILE = require("pvebackend") .. "ship_stolen.txt",
     -- Only the ship your pod is flying AT gets an interior (every ship within reach used to: three interiors for one
     -- flight, and after PLAYER_BOARD_MAX of them no ship could be boarded for the rest of the raid).

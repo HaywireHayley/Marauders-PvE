@@ -38,6 +38,8 @@ function M.preload()
     if preQueue == false then return true end
     if not preQueue then
         preQueue = { i = 0, t0 = os.clock() }
+        -- parent interiors first, so no raid's async loader finds one half loaded under its child (#192, #522)
+        for _, name in ipairs(CFG.INSIDE_BASES) do preQueue[#preQueue + 1] = { inside = CFG.INSIDES .. name } end
         for _, list in ipairs({ Gear.heads, Gear.bodies }) do
             for _, path in ipairs(list) do preQueue[#preQueue + 1] = path end
         end
@@ -45,9 +47,14 @@ function M.preload()
     preQueue.i = preQueue.i + 1
     local path = preQueue[preQueue.i]
     if not path then
-        X.log(("[rivals] looks loaded in the lobby: %d meshes over %.0f s"):format(#preQueue, os.clock() - preQueue.t0))
+        X.log(("[rivals] looks loaded in the lobby: %d meshes and interiors over %.0f s"):format(#preQueue, os.clock() - preQueue.t0))
         preQueue = false
         return true
+    end
+    if type(path) == "table" then
+        local cls = loadClass(path.inside)
+        if cls then X.root(cls) else X.log("[rivals] interior class not loaded in the lobby: " .. path.inside) end
+        return false
     end
     local mesh = lib(path)
     if not valid(mesh) then
