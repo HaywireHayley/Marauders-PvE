@@ -28,7 +28,12 @@ local CFG = {
 }
 M.CFG = CFG
 
-local EVERY = 0.1     -- seconds between looks at the pool (500 flag reads each; a hole shows within a tenth of a second)
+local EVERY = 0.1     -- seconds between looks at the pool while shooting (500 flag reads each; a hole shows within a tenth of a second)
+local IDLE = 0.5      -- seconds between looks when no new impact for BUSY seconds: the first hole of a quiet spell is up to 0.5 s late.
+                      -- Nothing is missed: offline an actor is never handed back (ReturnToPoolTime is client code), so a new impact
+                      -- is either a never-used actor turning bInUse on or a used one moving, and both stay visible until the next look
+                      -- (an actor would have to be reused twice in 0.5 s, 500 impacts in the pool's round robin).
+local BUSY = 2        -- seconds after the last new impact that the pool is looked at every EVERY
 local REFRESH = 10    -- seconds between re-reading the pool's list
 local PER_PASS = 12   -- most holes in one look; the rest are picked up on the next
 local MOVED = 2       -- cm: an actor already in use that moved this far is a new impact (reused before it was returned)
@@ -156,7 +161,7 @@ function M.frame(pc)
     if not S or S.addr ~= addr then S = fresh(addr) end
     local s = S
     if now < s.nextAt then return end
-    s.nextAt = now + EVERY
+    s.nextAt = now + ((now < (s.busyUntil or 0)) and EVERY or IDLE)
     readPool(pc, s, now)
     if not s.mats and #s.pool > 0 then loadMaterials(s, now) end -- on the first quiet pass, not on the first shot
     local budget = PER_PASS
@@ -176,6 +181,8 @@ function M.frame(pc)
                     fire = true
                 end
                 if fire then
+                    s.busyUntil = now + BUSY
+                    s.nextAt = now + EVERY
                     if budget <= 0 then break end -- the rest next pass: their state is left as it was
                     budget = budget - 1
                     kml = kml or StaticFindObject("/Script/Engine.Default__KismetMathLibrary")
@@ -190,7 +197,7 @@ function M.frame(pc)
                         X.log("bullet holes: first " .. sfc .. " impact: " .. res)
                     end
                 end
-                s.at[key] = { X = p.X, Y = p.Y, Z = p.Z }
+                if old then old.X, old.Y, old.Z = p.X, p.Y, p.Z else s.at[key] = { X = p.X, Y = p.Y, Z = p.Z } end
             else
                 s.at[key] = nil
             end
