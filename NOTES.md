@@ -1777,6 +1777,9 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
 ## Seamless female body (2026-11-07, later)
 - User: the body visibly switched to female after each menu click (the lobby pass ran every 3 s after the game's own re-dress). female.lua now post-hooks /Script/Engine.SkinnedMeshComponent:SetSkeletalMesh (native hook): when the owner is MM_PlayerChar_C or PlayerPawn_C, the mesh is replaced by M.version(mesh, playerOn()) inside the same call (re-entry guarded), and R_* fields are kept in step. Applies both ways: with the setting off it enforces the male version. The timed passes stay as a fallback.
 - Verified (bridge t_lobbydress.lua, t_pawndress.lua): the lobby character's "PGOS RefreshCrewApperance" and a direct SetSkeletalMesh(male) both leave BodieF on; in a raid head, body, vest and bag stay female after setting the male meshes. Not watched by eye while clicking menus.
+- 2026-11-25 (perf audit, luacheck only, NOT tested in game): afterSetMesh (post-hook on every SetSkeletalMesh) caches
+  the owner's class name by class address, so the name string is built once per class. To check: women's bodies and
+  gear still get their meshes, bot material refits still happen.
 
 ## Flying stutter and the minimap in new-map stations (2026-11-07, later)
 - Measured on Space_Beta with bridge/profile_on (profile.txt now also counts gaps between frames, the whole game's hitches): every FindAllOf costs 40-50 ms on these maps. While flying, rivals.lua ran FindAllOf(InGame_BowGun_50Cal_C) to find guns it had summoned (about every second while crews launched) and FindAllOf(RaidCharacterTurrent) per ship fitted: pairs of them = the 100-159 ms freezes. Fixed: bow guns spawned with SpawnActor (CFG.GUN_PATH, GUNS_PER_STEP 2) and handed over directly; a hull's own turrets read from ARaidFrigate.SpawnedTurretArray. The PgosOverlay sweep now stops once the loading veil lifts on space maps. The key card guard keeps its inventory component (raid.cardInv). After: director never over 10 ms after boarding, no scans during the flight; frame gaps 0 at rest. Flying was tested by teleport steps (bridge/t_step.lua), which add their own ~50 ms gaps.
@@ -2483,6 +2486,11 @@ Replaces the free random crew above: crewmates are now hired, persistent and opt
 - Open: 7 "move ended short" (baked spot maybe unreachable/other floor: filter by path?); minimap.lua:135 errors every
   frame on raid maps (valid(home) with home = false, pre-existing). Next steps from the plan: exposure-scored routes,
   cover-to-cover advancing (the "open unseen" approach samples), reactive peeks (read your aim, keep aim between peeks).
+- 2026-11-25 (perf audit, luacheck only, NOT tested in game): M.step's budget 2 ms -> 1 ms per frame, and a frame is
+  skipped when more than 25 ms passed since the last step (os.clock gap: the game is struggling). Baked cells now wait in
+  S.pending and are appended with one file open per 8 cells or 5 s (flush; also called by M.reset before the next map's
+  S replaces it, and from step once 5 s pass). load() and the file format are unchanged. Not verified: cells baked in the
+  last few seconds before quitting the game are lost (no quit hook); they are simply re-baked next time.
 
 ## Stutter found: PGOS friends refresh; mid-flight freeze: pilot names ran out (2026-11-13, ~19:30, live in the user's raid)
 - First clean measurement (game in front, no WoW/Roblox, 10 GB RAM free, ~85 fps): 10-13 frame gaps of 50-100 ms per
@@ -3518,6 +3526,10 @@ to the floor at 60230,114665,-1203", inside a wall.
 - Still unknown: why a bare head takes the multiplier twice; the soldier's leg multiplier (0.5 in the dump, 0.25 on the raider dummies); the guard head multiplier from the dump; each shotgun's real pellet count, damage and spread (10 x 18 is from the Guilds 1.0 notes for all of them); range falloff for guns other than the SPP1; base damage of the Heavy MG42 and Heavy Thompson (they use their base gun's family number); explosions, fire and melee against armour. This code has not run in game on build 8 yet.
 - Tested: the ratings, the zone coverage and the shotgun armour above were measured in game on a test install of an earlier build with the same logic as this file. This file is that logic without the test code, rebuilt on build 8's modules, and has passed scripts/luacheck.py and a stubbed load only. Not yet run in game on build 8: the first things to look at are a rifle hit on a helmeted soldier (the refund), shotguns counting twice, looting a body, and a helmet shot doing zone damage.
 - Left out on purpose (a second pass): launchers and grenades (the 40mm shell explodes at the muzzle offline), mines, melee, shields, the blow torch, the fire extinguisher, and damage to the player from bots.
+- 2026-11-25 (perf audit, luacheck only, NOT tested in game): B.frame caches the gun's class name by weapon address
+  (was GetClass():GetFName():ToString() every frame), skips the Health read for parked bots unless you just fired
+  (dmgH cleared so a stale value can't feed a refund), and calls launchers.frame through a hoisted function instead of
+  a new closure each frame. To check: shotgun pellets/refunds and launcher blasts unchanged.
 
 ## Crew gunner reach, swing and click (issue 88; rivals.lua GUNNER_*, crew.lua ORDER_CONE)
 - Reports: a level 3 and a level 4 gunner "only kept shooting ahead and not turning the turret", clicking a target didn't

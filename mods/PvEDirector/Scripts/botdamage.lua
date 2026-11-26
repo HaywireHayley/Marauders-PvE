@@ -337,6 +337,9 @@ local function meshes(now, bots)
 end
 
 local last = {} -- the gun and its clip as of the last frame, and when the clip last dropped
+local gunClass = {} -- weapon address -> its class name (built once per gun, not every frame)
+local frameArgs = {} -- launchers.frame's arguments, so the pcall below needs no new closure each frame
+local function launchersFrame() require("launchers").frame(frameArgs.pc, frameArgs.bots, frameArgs.now) end
 
 -- Every frame, from the director's tick, with the player's controller.
 function B.frame(pc)
@@ -347,7 +350,12 @@ function B.frame(pc)
     local gun, clip
     if valid(pawn) then
         local g = pawn.CurrentWeapon
-        if valid(g) then gun, clip = g:GetClass():GetFName():ToString(), g.CurrentAmmoInClip end
+        if valid(g) then
+            local a = g:GetAddress()
+            gun = gunClass[a]
+            if not gun then gun = g:GetClass():GetFName():ToString() gunClass[a] = gun end
+            clip = g.CurrentAmmoInClip
+        end
     end
     if #pushQ > 0 then pushStep(now) end
     if clip and last.clip and gun == last.gun and clip < last.clip then
@@ -361,7 +369,9 @@ function B.frame(pc)
     local shot = gun and last.shotAt and now - last.shotAt < REFUND_WINDOW
     for _, e in ipairs(bots) do
         local bot = e.bot
-        if valid(bot) then
+        if e.parked and not shot then
+            e.dmgH = nil -- parked (far off, bots.lua): no Health read; a stale value must not feed a later refund
+        elseif valid(bot) then
             local h = bot.Health
             if shot and type(h) == "number" and e.dmgH and h < e.dmgH - 0.001 then
                 local ok, back = pcall(refund, e, e.dmgH - h, gun)
@@ -371,7 +381,9 @@ function B.frame(pc)
         end
     end
     if now >= nextMeshes then meshes(now, bots) end
-    local okL, err = pcall(function() require("launchers").frame(pc, bots, now) end)
+    frameArgs.pc, frameArgs.bots, frameArgs.now = pc, bots, now
+    local okL, err = pcall(launchersFrame)
+    frameArgs.pc, frameArgs.bots = nil, nil
     if not okL then warn("launchers", "the launcher blast failed: " .. tostring(err)) end
 end
 
