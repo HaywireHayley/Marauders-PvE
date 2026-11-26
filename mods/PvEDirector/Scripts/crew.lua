@@ -235,6 +235,32 @@ local function finishBuilding()
     end
 end
 
+-- Who was fighting a crewmate when they went down (#537): "dropped dead out of combat" was soldiers shooting from
+-- out of the player's sight, but the log only said "is down". Names every live bot locked on them, nearest first.
+local function logKiller(m, e)
+    local here = valid(e.bot) and e.bot:K2_GetActorLocation()
+    local foes = {}
+    for _, b in ipairs(X.raid().bots or {}) do
+        if b ~= e and b.foeEntry == e and valid(b.bot) and (b.bot.Health or 0) > 0 then
+            local d
+            if here then
+                local p = b.bot:K2_GetActorLocation()
+                d = math.sqrt((p.X - here.X) ^ 2 + (p.Y - here.Y) ^ 2 + (p.Z - here.Z) ^ 2) / 100
+            end
+            local who = b.rival and b.rival.name or b.crewmate and ("your " .. b.crewmate.name)
+                or b.bot:GetFName():ToString()
+            foes[#foes + 1] = { who = who, d = d or 1e9 }
+        end
+    end
+    table.sort(foes, function(a, b) return a.d < b.d end)
+    local parts = {}
+    for i = 1, math.min(#foes, 3) do
+        parts[i] = foes[i].d < 1e9 and ("%s at %.0f m"):format(foes[i].who, foes[i].d) or foes[i].who
+    end
+    X.log(("[crew] %s went down; fighting them: %s"):format(m.name, #parts > 0 and table.concat(parts, ", ")
+        or "nobody (not shot by a bot: the player, a turret, a fall or a hazard)"))
+end
+
 local function bodyOf(m)
     local e = m.entry
     if e and valid(e.bot) and (e.bot.Health or 0) > 0 then return e end
@@ -243,6 +269,7 @@ local function bodyOf(m)
         if m.alive and (e.dead or not valid(e.bot) or (e.bot.Health or 0) <= 0) then
             m.alive = false
             say(m.name .. " is down")
+            pcall(logKiller, m, e)
             pcall(X.hire.died, m.id)
         end
     end
