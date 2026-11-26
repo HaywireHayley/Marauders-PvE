@@ -5640,6 +5640,20 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   "aim: native bot reads on" (off: the old UE4SS reads). To check in game: the frames line's gc count and 100 ms gaps in
   a fight with 10+ bots, before and after.
 
+## rivalsUpdate hitch every ~5 s: step timing (#521, 2026-11-25; NOT tested in game)
+- Player report 20261125-2320 (build 38, merchant/fortress space map): from 02:52 to the end of the raid nearly every
+  10 s line had "over 200 ms: 2" with rivalsUpdate max 230-270 ms, often with "scans 0", so not a timed FindAllOf.
+  Same in a station, on your ship or in space; crews docked 1-2, travel 1-2, wreck 8. gc 5-9 per 10 s.
+- R.update now times each step (mark() in rivals.lua) and a frame over 100 ms logs "[rivals] slow update N ms: <top 5
+  steps>" at most every 30 s; crews are grouped by state ("crew:wreck"). A GC pause lands in whichever step runs, so the
+  same step every time = that step; a different one each time = the collector (see the #336 aim section above).
+- R.update runs every CFG.UPDATE_SECONDS (0.5 s, main.lua), not per frame, so the 5 s hitch is 1 call in 10. Audit of
+  its steps: only femaleShare (a small file read) is on an exact 5 s timer; sweepStrays (8 s) is the only timed
+  FindAllOf. Now on 1 s via due(): simClashes (dt since its own last run), roamGuards, routGuards, keepDefendersArmed,
+  keepShipMoving (it already waits 2 s itself) and damageFxStep (turretdamage.update was already 1 s). Left at 0.5 s:
+  playerPlace, checkStolen, rescueFromVoid (boarding) and the crews. Kills.update stays: it reads the game's
+  InMatchStats diff right after the crews' deaths, and allocates a table per entry (worth a cheaper read later).
+
 ## Frame-time audit: how often things run (2026-11-25, from #521; NOT tested in game)
 - onTick runs every frame (MainPlayerController_C / MM_CoreMissions_C ReceiveTick); update() every 0.5 s; interaction
   checks every 0.1 s. Read-only audit of every per-frame, per-tick and per-shot path, by what a player could notice.
