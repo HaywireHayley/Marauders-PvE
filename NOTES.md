@@ -4965,6 +4965,10 @@ Setup: host on a throwaway save (stand-in started first with `--dir backend\join
   after a swap it likely walked the whole inventory every second all raid. Now: skipped unless the controller's
   bShowMouseCursor is on (a menu open), and timed as section "invsync" in the frames line. Cause inferred from the log,
   NOT reproduced; next report's frames line will show invsync's share.
+- Perf (2026-11-25, perf/lobby-inventory): click-triggered checks are coalesced: at most one per second (CLICK_GAP);
+  a release while one is pending or within the gap schedules it at the gap's end, so the last move of a burst is still
+  checked. The 10 s periodic check is unchanged. No cheap "drag in progress" state was found to gate on (in the lobby
+  the stash grid is always shown). Only luacheck run: NOT tested in game (check that moving items still clears stale cells).
 
 ## Places you board with a pod had no guards handling (#187, #42; 2026-11-20; rivals.lua pointsOfInterest)
 - A station (S.stations) needs a named interior AND docking nodes under its name, or an AI frigate. The Capital Ship on
@@ -5607,6 +5611,10 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   ends (done, stopped, failed), after 8 s regardless, and dropped untouched on a world change; never rooted.
   `features.lua` SORT_FADE (F10 Features) turns it off. Only luacheck run: NOT tested in game (full-screen anchors via
   SetAnchors/SetOffsets are in a pcall with an 8000 px size as fallback; unverified which one takes).
+- Perf (2026-11-25, perf/lobby-inventory): Q.tick keeps the inventory component between frames (re-found when invalid
+  or on a world change); shop state and search text are read every 0.25 s (and at once when a job starts/ends), and
+  SELL SHOWN's SetIsEnabled is called only on change. IsPressed polling (pressed) stays per frame for clicks. Only
+  luacheck run: NOT tested in game (check SORT / SELL SHOWN buttons, search box, shop open/close).
 
 ## Field of view (#328)
 - 2026-11-25, NOT tested in game. Features tab: FOV (0 = the game's own, 70-120) and ADS_ZOOM (1 = the game's aim zoom,

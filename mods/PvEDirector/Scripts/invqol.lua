@@ -67,13 +67,17 @@ local function stashCon()
 end
 
 -- The menu player's inventory component (the one the stash belongs to).
+-- Kept between frames (perf: the component lookup builds an array and wrappers); found again only when it goes invalid.
+local invKeep = {}
 local function inventory()
     local pc = require("cache").menuPc()
     if not X.valid(pc) then return nil end
+    if invKeep.pc == pc and invKeep.c and X.valid(invKeep.c) then return invKeep.c, pc end
+    invKeep.pc, invKeep.c = nil, nil
     local comps = pc:K2_GetComponentsByClass(X.lib("/Script/SIGISPlugin.SIGISInventoryComponent"))
     for i = 1, #comps do
         local c = comps[i]:get()
-        if X.valid(c) then return c, pc end
+        if X.valid(c) then invKeep.pc, invKeep.c = pc, c return c, pc end
     end
 end
 
@@ -807,7 +811,10 @@ function Q.tick(ticker)
     end
     local wk = tickSeen.wk
     local lobby = wk ~= nil
-    if wk ~= worldKey then worldKey, ui, job, paths.con, lastQuery, veil = wk, nil, nil, nil, nil, nil end
+    if wk ~= worldKey then
+        worldKey, ui, job, paths.con, lastQuery, veil = wk, nil, nil, nil, nil, nil
+        invKeep.pc, invKeep.c = nil, nil
+    end
     veilTick()
     if veil and not (job and job.kind == "sort") then veilOff() end
     if not lobby then return end
@@ -844,11 +851,17 @@ function Q.tick(ticker)
         say("Sorting...")
         veilOn(pc)
     end
-    local isShop = shopOpen(con)
-    local query = ui.search:GetText():ToString()
-    ui.sell.b:SetIsEnabled(isShop and not job and query:match("%S") ~= nil)
+    -- Shop state and the search text are read four times a second, not every frame; the button's enabled state is set
+    -- only when it changes. Button presses (pressed: IsPressed edges) stay per frame so clicks aren't missed.
+    if not ui.readAt or now >= ui.readAt or ui.wasJob ~= (job ~= nil) then
+        ui.readAt, ui.wasJob = now + 0.25, job ~= nil
+        ui.isShop = shopOpen(con)
+        ui.query = ui.search:GetText():ToString()
+        local en = ui.isShop and not job and ui.query:match("%S") ~= nil
+        if en ~= ui.sellEnabled then ui.sellEnabled = en ui.sell.b:SetIsEnabled(en) end
+    end
     if pressed(ui.sell) and not job then
-        local list = matching(con, query)
+        local list = matching(con, ui.search:GetText():ToString())
         if #list == 0 then say("Nothing in the stash matches the search")
         elseif ui.sellArmed and now < ui.sellArmed and ui.sellCount == #list then
             ui.sellArmed = nil

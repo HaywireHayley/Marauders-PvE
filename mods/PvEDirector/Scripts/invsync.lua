@@ -119,6 +119,7 @@ end
 -- after a bag or armour swap the check ran on such a copy every second for the rest of the raid: ~175 ms each time,
 -- walking the whole inventory (#369, Walmarx's report: once-a-second stalls right after dragging a backpack on).
 local LMB, wasDown, dueAt -- the left mouse button's key, its last state, a check asked for by a drag ending
+local CLICK_GAP, lastClickRun = 1.0, -math.huge -- click-triggered checks at most once a second (perf: rapid clicks)
 
 function S.tick(pc)
     local now = os.clock()
@@ -126,11 +127,16 @@ function S.tick(pc)
         LMB = LMB or { KeyName = FName("LeftMouseButton") }
         local ok, down = pcall(function() return pc:IsInputKeyDown(LMB) end)
         if ok then
-            if wasDown and not down then dueAt = now + AFTER_DRAG end
+            -- Coalesced: at most one click-triggered check per CLICK_GAP; a release during the gap moves the check to the
+            -- gap's end (so the last move of a burst is still checked) instead of adding another.
+            if wasDown and not down and not dueAt then
+                dueAt = math.max(now + AFTER_DRAG, lastClickRun + CLICK_GAP)
+            end
             wasDown = down
         end
     end
     if now < nextRun and not (dueAt and now >= dueAt) then return end
+    if dueAt and now >= dueAt then lastClickRun = now end
     dueAt = nil
     nextRun = now + EVERY
     local cursor = true
