@@ -1360,8 +1360,11 @@ class App(tk.Tk):
             return
         sid = s["id"]
         rows = saves.item_rows()
+        names = saves.item_names()  # players know items by these ("Hard Hat", "Mk4"), not by row (#538)
+        label = {r: f"{names[r]}  ({r})" if names.get(r) and names[r] != r else r for r in rows}
+        rows = sorted(rows, key=lambda r: label[r].lower())
         d = Dialog(self, "Give items or cash")
-        tk.Label(d.body, text=f"Into {s['name']}'s stash. Type to search the item list.", bg=PANEL, fg=MUTED,
+        tk.Label(d.body, text=f"Into {s['name']}'s stash. Type to search by name (Hard Hat, Mk4) or row.", bg=PANEL, fg=MUTED,
                  font=font(11)).pack(anchor="w")
         search = entry(d.body, 13)
         search.pack(fill="x", ipady=4, pady=(4, 6))
@@ -1377,10 +1380,10 @@ class App(tk.Tk):
 
         def filter_list(_=None):
             text = search.get().strip().lower()
-            shown[:] = [r for r in rows if text in r.lower()]
+            shown[:] = [r for r in rows if text in label[r].lower()]
             pick.delete(0, "end")
             for r in shown:
-                pick.insert("end", r)
+                pick.insert("end", label[r])
             if shown:
                 pick.selection_set(0)
 
@@ -1420,8 +1423,10 @@ class App(tk.Tk):
                 note.config(text=f"Couldn't add it: {e}")
                 return
             self.refresh()
-            note.config(text=f"Added {got} {row}." if got == n else
-                        f"Added {got} of {n} {row}: the stash is full." if got else "No room in the stash for that.")
+            what = label[row]
+            note.config(text=f"Added {got} {what}." if got == n else
+                        f"Added {got} of {n} {what}: the stash is full." if got else
+                        "No room in the stash for that: make space in the game, or start a save without the gear.")
 
         def set_money():
             try:

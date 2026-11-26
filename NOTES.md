@@ -5715,6 +5715,14 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   playerPlace, checkStolen, rescueFromVoid (boarding) and the crews. Kills.update stays: it reads the game's
   InMatchStats diff right after the crews' deaths, and allocates a table per entry (worth a cheaper read later).
 
+## Item display names (#538, 2026-11-26)
+- The launcher's give-items picker listed row IDs only, so "Hard Hat" (SafetyHelmet) and "Mk4" (SterlingRifle,
+  "Mk4 Short" SterlingRifle_Short) couldn't be found. The names are the row struct's ItemName FText at +0x30
+  (FInventoryDatASIGISInventoryItemStruct, listed with ForEachProperty on /Script/SIGISPlugin.InventoryDatASIGISInventoryItemStruct;
+  DataTable:ForEachRow isn't in this UE4SS). The FText's data object holds the display FString pointer at +8.
+- tools/offline-audit/itemnames.py <DataTable hex> writes assets/saves/item_names.json (408 of 433 rows; the rest
+  are test rows). The picker shows "Name  (Row)" and searches both. launcher/test_ui.py ItemNames checks it.
+
 ## The hitch every ~5 s was turretdamage's class lookup (#521, 2026-11-26; tested in game)
 - Build 39's step timing named damageFx (98 % of every slow rivals update, 146-320 ms). Timed from the bridge on
   Space_Delta: StaticFindObject of the 10 turret classes took 140 ms with 5 of them unloaded. A missing object's
