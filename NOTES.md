@@ -4001,6 +4001,13 @@ reference with flowcharts: [docs/internals/SALVAGE_CHAIN.md](docs/internals/SALV
 - Open: Tinplate, snow and ground impacts (no map tried; the log names any surface that has no hole once); whether the game's own
   marks double up with ours on some surface (none reported); some shotgun gunshot sounds are silent from one spot (the weapon's
   own sound, not looked at); the F3 Effects tab and the main.lua wiring are only checked by luacheck until the next restart.
+- Adaptive poll (2026-11-25, perf/bulletholes-poll, frame-time audit): the pool was read every 0.1 s all raid (500 `bInUse`
+  reads plus a `K2_GetActorLocation`, about 4 ms for 500, and a fresh table for every in-use actor, and offline the actors are
+  never handed back so in-use only grows). Now every 0.1 s for 2 s after the last new impact, else every 0.5 s; the last location
+  table is updated in place. Why 0.5 s can't skip an impact: offline `ReturnToPoolTime` never runs (IMPACT_SOUNDS.md), so a new
+  impact is a never-used actor turning in use or a used one moving, and both persist until looked at; skipping one needs the same
+  actor reused twice inside 0.5 s (500 impacts). Checked by luacheck only, NOT tested in game: holes on every surface, and the first
+  shot after a quiet spell (hole up to 0.5 s late, not missing).
 
 ## Co-op join: the login never creates a player (2026-11-18; native/pvetrace.dll, tools/profile/dump_image.py)
 
