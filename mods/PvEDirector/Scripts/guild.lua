@@ -68,6 +68,7 @@ local nextFind, nextLogin, hookAt, findEvery = 0, 0, 0, nil
 local dressed = {} -- page path -> true once its rows are built
 local opened = {}  -- page path -> true once the game has opened it (GUILD_Widget_OPENED)
 local loggedIn = false
+local loginWidget -- the transient SIGIS_LoginWidget_C, kept once found
 local OPENED = "/SIGISPlugin/Widgets/MainMenu/Guild_Widget.Guild_Widget_C:GUILD_Widget_OPENED"
 
 local function configFile() return X.project .. "config/guild.txt" end
@@ -344,9 +345,15 @@ function G.tick()
         if now < nextLogin then return end
         nextLogin = now + 2
         loggedIn = true
-        for _, w in ipairs(FindAllOf("SIGIS_LoginWidget_C") or {}) do
-            if w:GetFullName():find("Transient", 1, true) and w:IsVisible() then loggedIn = false end
+        -- the login widget, found once and kept: a FindAllOf every 2 s ran for the whole lobby whenever the widget still
+        -- reported itself visible behind the menu (5 scans per 10 s in every lobby log, 2026-11-26)
+        if not X.valid(loginWidget) then
+            loginWidget = nil
+            for _, w in ipairs(FindAllOf("SIGIS_LoginWidget_C") or {}) do
+                if w:GetFullName():find("Transient", 1, true) then loginWidget = w break end
+            end
         end
+        if loginWidget and loginWidget:IsVisible() then loggedIn = false end
         if not loggedIn then return end
     end
     keepGuild()
