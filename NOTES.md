@@ -1445,6 +1445,12 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
   entry first (and falls back to your interior class if the parent won't load). Tested: fresh game, Space_Alpha,
   bridge/rivals_prep -> "interior for the Rusty Mule (Assault Scout) loading" and "ready", no crash. The race itself
   was not reproduced, so this is the fix by reasoning, not a before/after.
+- Strike pair (2026-11-25, #522): a player crash, same hash 5EB5779D..., read "Could not find SuperStruct
+  FrigateInside_Strike_C to create FrigateInside_Strike_Ai_C". The mod never loads Strike_Ai (the map's Red Baron AI
+  frigate brings it), so the per-interior fix above couldn't cover it. Now rivalbodies.preload loads and roots every
+  parent interior (CFG.INSIDE_BASES: DefaultScout, Capital, Strike) in the lobby before the looks, so no raid map's
+  async loader can find a parent half loaded. Rooting a class is safe (its outer is its package, not a world).
+  The crash session's log wasn't in the zip, so what loaded the child that time is unknown; not tested in game.
 
 ## Keeping a stolen ship (2026-11-06)
 - Works, by the game's own path: extracting at the gate while piloting a stolen hull goes through Client_GetOutWithLootAndShip, and the lobby (after the return to the menu) PUTs an inventory item:
