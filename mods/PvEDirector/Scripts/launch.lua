@@ -90,7 +90,9 @@ end
 local COOP_HOST = PROJECT .. "config/coop_host.txt"
 local COOP_JOIN = PROJECT .. "config/coop_join.txt"
 local JOIN_AFTER = 4 -- seconds at the menu first: the stand-in login and the menu's own setup
+local JOIN_GIVE_UP = 20 -- seconds a join may take to connect before it's cancelled (the engine's own wait is ~3 min, #532)
 local joinSeenAt -- os.clock() the menu was first seen with a join pending
+local joining -- { at = os.clock(), addr } while a join is connecting
 
 local function firstLine(path)
     local f = io.open(path, "r")
@@ -130,7 +132,18 @@ end
 -- From M.update at the main menu: the pending join, once it's due.
 local function joinPending(pc)
     local w = pc:GetWorld()
-    if not (valid(w) and w:GetFullName():find("/Maps/MainMenu", 1, true)) then joinSeenAt = nil return end
+    if not (valid(w) and w:GetFullName():find("/Maps/MainMenu", 1, true)) then joinSeenAt, joining = nil, nil return end
+    -- A join to a host that doesn't answer (not hosting, wrong address, a firewall) left the menu empty for ~3 minutes
+    -- while the engine waited (#532). Still at the menu JOIN_GIVE_UP s later: cancel the pending connection.
+    if joining then
+        if os.clock() - joining.at >= JOIN_GIVE_UP then
+            log(("co-op: %s didn't answer in %d s; join cancelled (is the host in a raid with Host on?)")
+                :format(joining.addr, JOIN_GIVE_UP))
+            joining = nil
+            StaticFindObject("/Script/Engine.Default__KismetSystemLibrary"):ExecuteConsoleCommand(pc, "cancel", pc)
+        end
+        return
+    end
     local addr = firstLine(COOP_JOIN)
     if not addr or addr == "" then joinSeenAt = nil return end
     joinSeenAt = joinSeenAt or os.clock()
@@ -147,6 +160,7 @@ local function joinPending(pc)
     local cmd = "open " .. addr .. "?PID=offline-" .. id .. "?PNAME=" .. base64(nick) .. "?CREW=" .. crew
         .. "?CPT=0?NUM=1?EOS=offline-" .. id .. "?UPN=offline-" .. id
     log(("co-op: joining %s as %s"):format(addr, nick))
+    joining = { at = os.clock(), addr = addr }
     StaticFindObject("/Script/Engine.Default__KismetSystemLibrary"):ExecuteConsoleCommand(pc, cmd, pc)
 end
 
