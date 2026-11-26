@@ -512,10 +512,14 @@ releaseCover = function(e, why)
     e.cover = nil
 end
 
--- The tree shoots at its Enemy regardless of sight, and the controller at MyEnemy: clear both to hold fire.
+-- The tree shoots at its Enemy regardless of sight, and the controller at MyEnemy: clear both to hold fire. And let go
+-- of the trigger: a shoot task cut off mid-burst (its target died, the crew mate was called back) left the gun firing
+-- at wherever the bot faced, for good (#518). The tree presses it again when it has an Enemy.
 local function holdFire(e)
     e.ctrl.BlackboardComp:ClearValue(FName("Enemy"))
     e.ctrl.MyEnemy = nil
+    local gun = valid(e.bot) and e.bot.CurrentWeapon
+    if gun and valid(gun) then pcall(function() gun:ServerStopFire() end) end
 end
 
 -- Pity (#417): when you call out on F7 or F8 (the game's voice lines), a soldier fighting you nearby now and then holds
@@ -1472,6 +1476,7 @@ end
 
 M.PLAYER = PLAYER
 M.arm, M.engage, M.spawnBot, M.spawnRaidBots = arm, engage, spawnBot, spawnRaidBots
+M.holdFire = holdFire -- crew.lua, when it ends a fight itself (#518)
 M.updateBots, M.trackTargets, M.spawnGarrison, M.spawnQueued = updateBots, trackTargets, spawnGarrison, spawnQueued
 
 return M

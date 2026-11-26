@@ -302,6 +302,7 @@ local function rejoin(e, foot)
     local to = reachable(foot:K2_GetActorLocation(), CFG.REJOIN_AWAY, 200)
     if not to then return false end
     e.inCombat, e.foeEntry, e.cover, e.investigate = false, nil, nil, nil
+    pcall(require("bots").holdFire, e) -- out of the fight: stop shooting too (#518)
     pcall(function() e.ctrl:StopMovement() end)
     e.bot:K2_TeleportTo({ X = to.X, Y = to.Y, Z = to.Z + 100 }, foot:K2_GetActorRotation())
     e.followTo = nil
@@ -352,6 +353,7 @@ local function bringIn(e, foot, lock)
         x, y = b.c.X + lx * c - ly * sn, b.c.Y + lx * sn + ly * c
     end
     e.inCombat, e.foeEntry, e.cover, e.investigate = false, nil, nil, nil
+    pcall(require("bots").holdFire, e) -- out of the fight: stop shooting too (#518)
     pcall(function() e.ctrl:StopMovement() end)
     e.bot:K2_TeleportTo({ X = x, Y = y, Z = lock.floor.Z + 100 }, foot:K2_GetActorRotation())
     e.followTo, e.stuckPos, e.stuckSince = nil, nil, nil
@@ -405,6 +407,7 @@ local function updateBodies(now)
             elseif d > CFG.REJOIN then if not cycling then rejoin(e, foot) end
             elseif e.inCombat and d > CFG.LEASH then
                 e.inCombat, e.foeEntry = false, nil -- too far from you: back to following
+                pcall(require("bots").holdFire, e) -- and stop shooting (#518)
             elseif not e.inCombat and now >= (e.nextDefend or 0) then
                 e.nextDefend = now + 0.5
                 defend(e, foot)

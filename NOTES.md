@@ -2071,6 +2071,13 @@ Co-op joining is blocked (see above), so teammates are AI stand-ins.
   position: "update failed: main.lua:1479: attempt to perform arithmetic on a table value (field 'stuckAt')", which
   ended that whole update() pass (seen 3 times in a player's log, 16 Nov, Space_Beta). crew.lua's is e.stuckPos now.
 
+- Stop firing (2026-11-25, #518; NOT tested in game): a crew mate kept shooting where it faced after the boarders it
+  fought were killed (komrade_ax3, build 38; the report zip held only a lobby session). holdFire only cleared the
+  blackboard Enemy and MyEnemy, never the trigger, so a shoot task cut off mid-burst left the gun firing. holdFire now
+  also calls CurrentWeapon:ServerStopFire() (the tree presses it again when it has an Enemy), and crew.lua's own
+  fight exits (rejoin, the lock-bring teleport, the leash) call Bots.holdFire: they cleared inCombat, which also
+  switched off bots.lua's "foe gone" cleanup, so the blackboard Enemy stayed set.
+
 ## Hiring your crew, nametags (2026-11-07, late night; hire.lua, crew.lua)
 Replaces the free random crew above: crewmates are now hired, persistent and optional.
 - hire.lua: pool of 8 recruits, each a set person: name (by sex), voice set (voicelines key), head + body mesh paths (gear.lua),
