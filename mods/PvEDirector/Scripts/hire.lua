@@ -729,7 +729,7 @@ function H.tick(pc)
     tickPc = pc
     local now = os.clock()
     if now >= nextCmd then
-        nextCmd = now + 0.5
+        nextCmd = now + 2 -- a testing hook (bridge/crew_cmd): no need to open it twice a second
         local f = io.open(CMD_FILE, "r")
         if f then
             local lines = {}
