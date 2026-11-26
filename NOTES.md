@@ -1445,6 +1445,12 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
   entry first (and falls back to your interior class if the parent won't load). Tested: fresh game, Space_Alpha,
   bridge/rivals_prep -> "interior for the Rusty Mule (Assault Scout) loading" and "ready", no crash. The race itself
   was not reproduced, so this is the fix by reasoning, not a before/after.
+- Strike pair (2026-11-25, #522): a player crash, same hash 5EB5779D..., read "Could not find SuperStruct
+  FrigateInside_Strike_C to create FrigateInside_Strike_Ai_C". The mod never loads Strike_Ai (the map's Red Baron AI
+  frigate brings it), so the per-interior fix above couldn't cover it. Now rivalbodies.preload loads and roots every
+  parent interior (CFG.INSIDE_BASES: DefaultScout, Capital, Strike) in the lobby before the looks, so no raid map's
+  async loader can find a parent half loaded. Rooting a class is safe (its outer is its package, not a world).
+  The crash session's log wasn't in the zip, so what loaded the child that time is unknown; not tested in game.
 
 ## Keeping a stolen ship (2026-11-06)
 - Works, by the game's own path: extracting at the gate while piloting a stolen hull goes through Client_GetOutWithLootAndShip, and the lobby (after the return to the menu) PUTs an inventory item:
@@ -5647,6 +5653,22 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   keepShipMoving (it already waits 2 s itself) and damageFxStep (turretdamage.update was already 1 s). Left at 0.5 s:
   playerPlace, checkStolen, rescueFromVoid (boarding) and the crews. Kills.update stays: it reads the game's
   InMatchStats diff right after the crews' deaths, and allocates a table per entry (worth a cheaper read later).
+
+## Frame-time audit: how often things run (2026-11-25, from #521; NOT tested in game)
+- onTick runs every frame (MainPlayerController_C / MM_CoreMissions_C ReceiveTick); update() every 0.5 s; interaction
+  checks every 0.1 s. Read-only audit of every per-frame, per-tick and per-shot path, by what a player could notice.
+- Fixed in perf/polling-throttles: minimap gates() FindAllOf (the ~75 ms every ~20 s) backs off to 2 min after 3
+  empty looks; debug menu buttons share one FindFirstOf("PlayerController") per second (was ~11 per menu refresh,
+  ~800 ms); bullet-hole material FindAllOf stops after 5 scans; hire's bridge/crew_cmd file every 2 s (was 0.5 s);
+  key card inventory FindAllOf backs off to 20 s after 3 misses (cardForShip still looks at once). Launchers per-shot
+  hook: PR #525. Rivals update steps: #521.
+- Left, ranked (bigger, or they change what players see): bot animate at ANIM_HZ 60-120 per bot (main.lua:32) and aim
+  upkeep while fighting; bullet holes poll ~500 pool flags every 0.1 s (could follow the shot hooks); two per-shot
+  hooks on ServerMultiSimulateWeaponFire (main.lua, recoil.lua) to merge, gunshot radius per weapon cached, bot noise
+  per shooter capped; valid()/pve_bot_read do a VirtualQuery per object (cache the region in C); InvQol widget reads
+  every lobby frame; invsync's full check on every lobby left-click release; cover baking 2 ms a frame; BotDamage.frame
+  gun class string every frame; female.lua's SetSkeletalMesh hook builds a class string per mesh; minimap/census
+  survey every 5 s until found; bridge polling (0.25 s Lua, 0.2 s native thread).
 
 ## 40mm round explodes in your hands (#360, 2026-11-25; tested in game)
 - Mini Thumper on Spaceport_01 (bridge `raid`, throwaway cheat save). A post-hook on RaidWeapon:ServerFireProjectile

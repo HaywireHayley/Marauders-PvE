@@ -52,8 +52,9 @@ end
 -- Every BulletImpactDecal material the game has loaded, by family. One scan of the material instances, then cached
 -- (a FindAllOf walks every object): rescanned at most every 30 s while a family is missing.
 local function loadMaterials(s, now)
-    if s.mats and now < s.matsAt then return end
+    if s.mats and (now < s.matsAt or (s.matTries or 0) >= 5) then return end -- a family still missing after 5 scans won't come
     s.matsAt = now + 30
+    s.matTries = (s.matTries or 0) + 1
     local mats = {}
     local n = 0
     for _, m in ipairs(FindAllOf("MaterialInstanceConstant") or {}) do
