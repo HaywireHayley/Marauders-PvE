@@ -1461,13 +1461,39 @@ local function damageFxStep()
 end
 
 local easeNodeTurrets -- (below, with the station turrets)
+-- Step timing inside R.update (#521): a steady ~240 ms hitch every ~5 s came from this function with no scan to blame.
+-- Each step's time is kept for the frame; a frame over UPDATE_SLOW_MS logs its slowest steps (at most every 30 s).
+local UPDATE_SLOW_MS = 100
+local stepMs, stepAt, slowSaidAt = {}, 0, -math.huge
+local function mark(name)
+    local t = os.clock()
+    stepMs[name] = (stepMs[name] or 0) + (t - stepAt) * 1000
+    stepAt = t
+end
+local function reportSlow(t0)
+    local total = (os.clock() - t0) * 1000
+    if total >= UPDATE_SLOW_MS and t0 - slowSaidAt >= 30 then
+        slowSaidAt = t0
+        local list = {}
+        for k, v in pairs(stepMs) do list[#list + 1] = { k, v } end
+        table.sort(list, function(a, b) return a[2] > b[2] end)
+        local parts = {}
+        for i = 1, math.min(5, #list) do parts[i] = ("%s %.0f"):format(list[i][1], list[i][2]) end
+        X.log(("[rivals] slow update %.0f ms: %s"):format(total, table.concat(parts, ", ")))
+    end
+    for k in pairs(stepMs) do stepMs[k] = nil end
+end
+
 function R.update(pc, worldKey, worldName, foot, homeInside)
     local now = os.clock()
+    stepAt = now
     R.femaleShare()
+    mark("femaleShare")
     if S and S.key == worldKey and S.stations then
         local ok, err = pcall(easeNodeTurrets, now)
         if not ok and not S.turretEaseErr then S.turretEaseErr = true X.log("[rivals] station turret aim: " .. tostring(err)) end
     end
+    mark("nodeTurrets")
     if not S or S.key ~= worldKey then
         S = { key = worldKey, building = {}, pods = {}, startedAt = now }
         shareState()
@@ -1516,6 +1542,7 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
         X.log(("[rivals] %s map, %d player slots: %d rival crews, %d ship spawn points"):format(kind, slots,
             #S.crews, #S.shipSpawns))
     end
+    mark("newMap")
     S.pc = pc
     S.foot = foot
     -- on foot = your character is the pawn (not the helm, a turret seat or a pod): R.frame slows the ships' work
@@ -1533,36 +1560,51 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
         local ok, err = pcall(Ships.armShips, pc, now)
         if not ok then X.log("[rivals] arming: " .. tostring(err)) end
     end
+    mark("arm")
     Combat.simClashes(math.min(5, now - (S.lastUpdate or now)))
     S.lastUpdate = now
+    mark("simClashes")
     local place, playerLoc = playerPlace()
+    mark("playerPlace")
     pcall(Combat.checkStolen)
+    mark("checkStolen")
     local okV, errV = pcall(Combat.rescueFromVoid, os.clock())
     if not okV and not S.voidErr then S.voidErr = true X.log("[rivals] void rescue failed: " .. tostring(errV)) end
+    mark("voidRescue")
     -- First time you walk into a station this raid: it gets its soldiers (the director's garrison).
     if type(place) == "table" and not place.garrisoned then
         place.garrisoned = true
         local ok, err = pcall(Bodies.garrisonStation, pc, place)
         if not ok then X.log("[rivals] garrison failed: " .. tostring(err)) end
     end
+    mark("garrison")
     local okB, errB = pcall(R.busyStep, pc, now)
     if not okB and not S.busyErr then S.busyErr = true X.log("[rivals] busy start: " .. tostring(errB)) end
+    mark("busyStep")
     local okS, errS = pcall(skirmishStep, pc, now)
     if not okS then X.log("[rivals] skirmish failed: " .. tostring(errS)) end
+    mark("skirmish")
     if type(place) == "table" and place.garrisoned then
         S.adoptQueue = S.adoptQueue or {}
         local okA, errA = pcall(Bodies.sweepStrays, place, now)
         if not okA and not S.strayErr then S.strayErr = true X.log("[rivals] stray sweep failed: " .. tostring(errA)) end
+        mark("sweepStrays")
         local okR, errR = pcall(Bodies.roamGuards, place, now)
         if not okR and not S.roamErr then S.roamErr = true X.log("[rivals] guard roaming failed: " .. tostring(errR)) end
+        mark("roamGuards")
         local okL, errL = pcall(Bodies.routGuards, place, now, playerLoc)
         if not okL and not S.routErr then S.routErr = true X.log("[rivals] guard rout failed: " .. tostring(errL)) end
+        mark("routGuards")
     end
     Bodies.adoptQueued()
+    mark("adoptQueued")
     Bodies.topUpStep(pc)
+    mark("topUp")
     Bodies.keepDefendersArmed()
+    mark("keepArmed")
     local okM, errM = pcall(Bodies.keepShipMoving, now)
     if not okM and not S.shipMoveErr then S.shipMoveErr = true X.log("[rivals] ship movement check failed: " .. tostring(errM)) end
+    mark("keepShipMoving")
     for _, c in ipairs(S.crews) do
         local ok, err = xpcall(updateCrew, function(e) return { e = e, tb = debug.traceback() } end, c, now, place, playerLoc)
         if not ok then
@@ -1572,12 +1614,16 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
             c.errors = (c.errors or 0) + 1
             if c.errors > 20 then Bodies.dematerialize(c) c.state = "gone" end
         end
+        mark("crew:" .. tostring(c.state))
     end
     finishBuilding(now)
+    mark("finishBuilding")
     damageFxStep()
+    mark("damageFx")
     -- after the crews (their bodies' deaths are noticed there), so the kill stat the game added is still unseen
     local okK, errK = pcall(Kills.update, pc)
     if not okK and not S.killsErr then S.killsErr = true X.log("[kills] " .. tostring(errK)) end
+    mark("kills")
     if now - (S.lastReport or 0) >= 15 then
         S.lastReport = now
         local counts = {}
@@ -1590,6 +1636,7 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
             or type(place) == "table" and (" | you: in " .. place.name) or " | you: in space")
             .. " | turret shots " .. (S.turretShots or 0) .. Ships.turretWhy() .. " | steering: " .. Nav.report() .. ", breakaways " .. (S.seps or 0))
     end
+    reportSlow(now)
 end
 
 -- Your active ship: the raid spawns it from the travel URL's ?SHIP= (the table row), hull and interior, as the live server
