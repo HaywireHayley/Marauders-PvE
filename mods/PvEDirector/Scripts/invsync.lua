@@ -74,43 +74,80 @@ local function truth(comp)
     return at
 end
 
-local function check(w, at)
-    local id = w.ContainerID:ToString()
-    -- your own containers only: a bag's, rig's or box's grid is named after that item, which is in your inventory
-    if not (OWN[id] or at[id]) then return 0 end
-    local n, rows, memo = 0, {}, {}
-    w.InventorySlots:ForEach(function(_, e)
-        local slot = e:get()
-        local it = slot and X.valid(slot) and slot.Item
-        -- (an empty cell reads as a wrapper around a null pointer, which Lua counts as true: address 0 is empty)
-        if it and it:GetAddress() ~= 0 then
-            local stale = not X.valid(it)
-            local row
-            if not stale then
-                -- an item covers several cells: its GUID and row are read once per check, by address
-                local a = it:GetAddress()
-                local m = memo[a]
-                if not m then
-                    m = { g = it.UniqueItemGUID:ToString(), row = it.ItemData:ToString() }
-                    memo[a] = m
-                end
-                stale = at[m.g] ~= id
-                row = m.row
-            end
-            if stale then
-                slot.Item = nil
-                n = n + 1
-                rows[row or "a removed item"] = true
-            end
+-- One cell of the walk below. walk.memo: item address -> its GUID and row (an item covers several cells). Returns the
+-- row of a stale item it cleared, or nil.
+local function checkSlot(walk, slot, id)
+    local memo = walk.memo
+    local it = slot and X.valid(slot) and slot.Item
+    -- (an empty cell reads as a wrapper around a null pointer, which Lua counts as true: address 0 is empty)
+    if not (it and it:GetAddress() ~= 0) then return nil end
+    local stale, row = not X.valid(it), nil
+    if not stale then
+        local a = it:GetAddress()
+        local m = memo[a]
+        if not m then
+            m = { g = it.UniqueItemGUID:ToString(), row = it.ItemData:ToString() }
+            memo[a] = m
         end
-    end)
-    if n > 0 then
-        local names = {}
-        for r in pairs(rows) do names[#names + 1] = r end
-        X.log(("inventory: %d stale cell(s) in %s cleared (they still pointed at %s)"):format(n, id,
-            table.concat(names, ", ")))
+        stale = walk.at[m.g] ~= id
+        row = m.row
+        -- The walk is spread over frames, so its truth may be older than a move made since: read it again (once this
+        -- frame) before clearing anything. No inventory to read: clear nothing.
+        if stale and walk.atStep ~= walk.step then
+            if not X.valid(walk.comp) then return nil end
+            walk.at, walk.atStep = truth(walk.comp), walk.step
+            stale = walk.at[m.g] ~= id
+        end
     end
-    return n
+    if not stale then return nil end
+    slot.Item = nil
+    return row or "a removed item"
+end
+
+-- The walk over the shown grids, a slice a frame: a big stash is over a thousand cells and each read goes through
+-- UE4SS, so one walk in one frame was up to ~1 s (invsync max 987 ms in players' frames: lines, build 40, #336).
+local BUDGET = 0.002 -- seconds of walking per frame
+local walk -- { grids = { {w, id, n} }, g, i, at, memo, rows = {}, n }
+
+local function startWalk(comp, ws)
+    local at = truth(comp)
+    walk = { grids = {}, g = 1, i = 1, at = at, comp = comp, step = 0, atStep = 0, memo = {}, rows = {}, n = 0 }
+    for _, w in ipairs(ws) do
+        local id = w.ContainerID:ToString()
+        -- your own containers only: a bag's, rig's or box's grid is named after that item, which is in your inventory
+        if OWN[id] or at[id] then
+            walk.grids[#walk.grids + 1] = { w = w, id = id, n = w.InventorySlots:GetArrayNum() }
+        end
+    end
+end
+
+local function stepWalk()
+    local t0 = os.clock()
+    walk.step = walk.step + 1 -- (the truth read at the start counts as step 0's: the first slice re-reads before clearing)
+    local k = 0
+    while walk.g <= #walk.grids do
+        local gr = walk.grids[walk.g]
+        if not X.valid(gr.w) then walk = nil return end
+        if walk.i > gr.n then
+            walk.g, walk.i = walk.g + 1, 1
+        else
+            local row = checkSlot(walk, gr.w.InventorySlots[walk.i], gr.id)
+            if row then
+                walk.n = walk.n + 1
+                walk.rows[gr.id .. ": " .. row] = true
+            end
+            walk.i = walk.i + 1
+            k = k + 1
+            if k % 16 == 0 and os.clock() - t0 >= BUDGET then return end
+        end
+    end
+    if walk.n > 0 then
+        local names = {}
+        for r in pairs(walk.rows) do names[#names + 1] = r end
+        X.log(("inventory: %d stale cell(s) cleared (they still pointed at %s)"):format(walk.n, table.concat(names, ", ")))
+        cleared = cleared + walk.n
+    end
+    walk = nil
 end
 
 -- Every frame (main.lua onTick, lobby and raid), with the ticking player controller.
@@ -140,6 +177,11 @@ function S.tick(pc)
             wasDown = down
         end
     end
+    if walk then
+        local ok, err = pcall(stepWalk)
+        if not ok then walk = nil X.log("inventory check: " .. tostring(err)) end
+        if walk then return end
+    end
     if now < nextRun and not (dueAt and now >= dueAt) then return end
     if dueAt and now >= dueAt then lastClickRun = now end
     dueAt = nil
@@ -154,14 +196,13 @@ function S.tick(pc)
         comp = live(inv)
         if not comp then return end
     end
-    local at
+    local ws = {}
     for _, p in ipairs(paths) do
         local w = live(p)
-        if w and shown(w) then
-            at = at or truth(comp)
-            cleared = cleared + check(w, at)
-        end
+        if w and shown(w) then ws[#ws + 1] = w end
     end
+    if #ws == 0 then return end
+    startWalk(comp, ws)
 end
 
 -- Tests: how many cells have been cleared this session.

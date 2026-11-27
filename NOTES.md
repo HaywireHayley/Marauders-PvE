@@ -6033,3 +6033,8 @@ mounted one test turret of each kind on the Rustbucket and fired each one throug
   (no walk into a station this run), the cached controller in co-op.
 - Left: invsync up to ~1 s per check in the lobby (players' logs), blowtorch's RaidLockedDoor FindAllOf every 30 s
   (~80 ms), mine and ship-interior FindAllOfs (bounded, but each ~50-70 ms), garrisonStation ~120 ms on entering a station.
+- 2026-11-27, invsync (PR after #550): the stale-cell check walked every cell of every shown grid in one frame (424
+  cells in the lobby, each read through UE4SS): up to ~1 s (invsync max 987 ms in players' logs). It now walks a 2 ms
+  slice a frame (`InventorySlots[i]` returns the slot itself: no `:get()`), and since the inventory may change between
+  slices, it re-reads the truth once before clearing a cell that looks stale. Tested in the lobby: invsync max 2-4 ms a
+  frame over several minutes, no errors. NOT tested: an actual stale cell being cleared (the test save had no items).
