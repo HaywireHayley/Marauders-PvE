@@ -369,13 +369,13 @@ local CFG = {
     ITEM_TABLE = "/SIGISPlugin/ExampleBlueprints/SIGIS_ExampleItemData.SIGIS_ExampleItemData",
     AMMO_STACKS = { 1, 3 }, -- full stacks of the gun's ammo on the body
     AMMO_STACK = 60,
-    MEDS = { 0, 2 },
+    MEDS = { 1, 3 },        -- meds on a rival (marauder) body: at least one (#558, was 0-2)
     -- Station guards keep what they wear; their bags and pockets are rolled (rollCarried): ammo for each gun they hold,
     -- meds, and other items from gear.lua's loot / boxes / parts, priced up to a share of what they wear. Without a bag a bot
     -- has one pocket slot.
     CARRY_AMMO = { 20, 60 },
     CARRY_BAG = { 2, 5 },           -- other items in a bag, after the ammo and meds (the bag's grid takes what fits)
-    POCKET_AMMO = 0.5, POCKET_MED = 0.2, -- no bag: the one pocket item is ammo, a med, or else loot / a part
+    POCKET_AMMO = 0.45, POCKET_MED = 0.3, -- (#558, med was 0.2) no bag: the one pocket item is ammo, a med, or else loot / a part
     CARRY_CAP_MIN = 1500, CARRY_CAP_SHARE = 1.5, CARRY_JACKPOT = 0.05,
     CARRY_BOX = 0.06, CARRY_PART = 0.12, -- chance a pick is a sealed loot box (bags only) / a gun attachment
     BODY_LOOT = 1,          -- (#325) multiplier, 0-3, on the meds and other-item picks in a body's bag and the chance its
