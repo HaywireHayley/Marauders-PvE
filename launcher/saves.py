@@ -258,6 +258,16 @@ def settle():
     os.remove(ACTIVE)
 
 
+def rows_in_use(state, items=None):
+    """How many stash rows the items in a save reach (0 for an empty stash), from their footprints."""
+    grid = Grid(state, _read(ITEMS) if items is None else items)
+    return max((line for _, line in grid.used), default=-1) + 1
+
+
+def _size_for(needed):
+    return max(STASH_H, min(STASH_MAX, needed))
+
+
 def stash_rows(meta):
     """The stash height a save was made with. Saves from before the typed size had a double-stash switch."""
     rows = int(meta.get("stash_rows") or (STASH_H * 2 if meta.get("double_stash") else STASH_H))
@@ -297,11 +307,45 @@ def _rebuild_meta(sid):
     folder = os.path.join(SAVES, sid)
     when = os.path.getmtime(os.path.join(folder, "state.json"))
     meta = {"name": sid.replace("-", " "), "cheat": False, "created": when, "played": when}
+    try:  # (#565) the stash keeps the size its items need: a rebuilt save used to fall back to 15 rows
+        meta["stash_rows"] = _size_for(rows_in_use(_read(os.path.join(folder, "state.json"))))
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        pass
     try:
         _write(os.path.join(folder, "meta.json"), meta)
     except OSError:
         pass
     return meta
+
+
+def _repair_rows(sid, meta):
+    """A save with no stash size on record gets the size its items need (at least the default)."""
+    try:
+        needed = rows_in_use(_read(os.path.join(SAVES, sid, "state.json")))
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return meta
+    meta = dict(meta, stash_rows=_size_for(needed))  # (written once, so the list doesn't read it again)
+    try:
+        _write(os.path.join(SAVES, sid, "meta.json"), meta)
+    except OSError:
+        pass
+    return meta
+
+
+def set_stash_rows(sid, rows):
+    """Changes an existing save's stash height (#565). Larger is always safe; smaller is refused while items sit in
+    the rows that would go. Takes effect the next time the save is played."""
+    rows = int(rows)
+    if not STASH_MIN <= rows <= STASH_MAX:
+        raise ValueError(f"the stash can be {STASH_MIN} to {STASH_MAX} rows")
+    needed = rows_in_use(_read(os.path.join(SAVES, sid, "state.json")))
+    if rows < needed:
+        raise ValueError(f"items reach row {needed}: move them up in the game first, or keep {needed} rows or more")
+    meta = _meta(sid)
+    meta["stash_rows"] = rows
+    meta.pop("double_stash", None)
+    _write(os.path.join(SAVES, sid, "meta.json"), meta)
+    return rows
 
 
 def listing():
@@ -322,6 +366,8 @@ def listing():
             info, damaged = {"cash": 0, "xp": 0, "items": 0}, True
         if not damaged and not meta:
             meta = _rebuild_meta(sid)  # (#555) only meta.json was lost: the game itself is fine
+        elif not damaged and "stash_rows" not in meta and not meta.get("double_stash"):
+            meta = _repair_rows(sid, meta)  # (#565) a meta.json rebuilt by build 45 has no size
         if damaged:
             meta = {"name": meta.get("name") or sid, "played": meta.get("played") or os.path.getmtime(folder)}
             # (#555) the copy taken when the last raid started is a way back: Undo last raid restores it

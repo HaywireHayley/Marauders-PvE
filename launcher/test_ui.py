@@ -502,6 +502,31 @@ class Window(unittest.TestCase):
             out.extend(self._all(c))
         return out
 
+    def test_stash_rows_kept_and_changed(self):
+        """#565: a rebuilt or size-less meta.json takes the rows its items reach; the size can be changed later, but
+        not below an item."""
+        sid = saves.create("Rows", True, False, 20)  # a packed stash fills all 20 rows
+        folder = os.path.join(saves.SAVES, sid)
+        need = saves.rows_in_use(saves._read(os.path.join(folder, "state.json")))
+        self.assertGreater(need, saves.STASH_H)
+        os.remove(os.path.join(folder, "meta.json"))  # lost (#555): rebuilt with the size the items need
+        row = next(x for x in saves.listing() if x["id"] == sid)
+        self.assertEqual(row["stash_rows"], max(saves.STASH_H, need))
+        meta = saves._meta(sid)
+        meta.pop("stash_rows")  # rebuilt by build 45 (no size): repaired when listed
+        saves._write(os.path.join(folder, "meta.json"), meta)
+        row = next(x for x in saves.listing() if x["id"] == sid)
+        self.assertEqual(row["stash_rows"], max(saves.STASH_H, need))
+        self.assertEqual(saves.set_stash_rows(sid, 25), 25)
+        with self.assertRaises(ValueError):
+            saves.set_stash_rows(sid, need - 1)
+        with self.assertRaises(ValueError):
+            saves.set_stash_rows(sid, 99)
+        self.assertEqual(saves._meta(sid)["stash_rows"], 25)
+        import shutil
+        shutil.rmtree(folder)
+        self.app.refresh()
+
     def test_layout_fits(self):
         self.app.update_idletasks()
         bottom = self.app.status.winfo_y() + self.app.status.winfo_height()
