@@ -99,12 +99,18 @@ function M.card(pc, spec)
         local lx = l.x or 0
         M.place(root, t, x0 + pad + 4 + lx, y0 + pad + ROW * (i - 1), l.w or (W - 2 * (pad + 4) - lx), ROW)
     end
+    -- HitTestInvisible: a card shows text only. Its host's canvas covers the whole screen, so at the default visibility it
+    -- took every click while it was up: the raid summary blocked the lobby (#567)
+    pcall(function() h:SetVisibility(4) end)
     h:AddToViewport(spec.z or 5010)
     return h
 end
 
 function M.remove(h)
-    if h and X.valid(h) then pcall(function() h:RemoveFromParent() end) end
+    if h and X.valid(h) then
+        pcall(function() h:SetVisibility(1) end) -- (collapsed first: gone from view even if the removal doesn't take)
+        pcall(function() h:RemoveFromParent() end)
+    end
 end
 
 return M

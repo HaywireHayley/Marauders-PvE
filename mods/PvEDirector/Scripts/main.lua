@@ -1543,7 +1543,10 @@ local function toggleDebug()
     Tuning.close(pc) Hire.close(pc)
     Debug.toggle(pc)
 end
-RegisterKeyBind(Key.ESCAPE, function() table.insert(pending, function() if KeyHelp.isOpen() then KeyHelp.close() end end) end)
+RegisterKeyBind(Key.ESCAPE, function() table.insert(pending, function()
+    if KeyHelp.isOpen() then KeyHelp.close() end
+    pcall(require("raidsummary").close) -- (#567: polling Esc on the menu's controller never saw it)
+end) end)
 RegisterKeyBind(Key.F10, function() table.insert(pending, toggleTuning) end)
 -- (the menus' toggles, shared with the lobby's PVE tab, pvemenu.lua #388: kept in its table, not as more locals)
 require("pvemenu").setActions({ ai = toggleTuning, debug = toggleDebug, crew = function()

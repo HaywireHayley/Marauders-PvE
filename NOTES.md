@@ -6052,3 +6052,11 @@ so a recovered save fell back to 15 rows (reported: 20 -> 15, build 45).
   "Give items, cash or levels" dialog. Takes effect at the next play (activate writes config/stash_rows.txt).
 - Tested: launcher/test_ui.py (31 OK, new test_stash_rows_kept_and_changed). Not tested: the game showing the new size.
 
+## Raid summary blocked the lobby (2026-11-27, #567; NOT run in game)
+Reported (build 45): the Raid summary panel stayed on the lobby screen, nothing behind it could be clicked, Esc did
+nothing. `ui.lua M.card` (raidsummary, deathscreen, hints, keyhelp) added its full-screen DebugInfo_Widget host at the
+default visibility, so it took every click. Now: `SetVisibility(4)` (HitTestInvisible) before AddToViewport;
+`M.remove` collapses (1) before RemoveFromParent. Esc closes the summary from main.lua's ESCAPE key bind
+(`raidsummary.close`); the `IsInputKeyDown` poll on the menu controller is left as a fallback. Why the 12 s timeout
+didn't remove it is not known: it now can't block even if it stays. Longer term: #485 (the game's own end screen).
+
