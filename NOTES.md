@@ -1171,6 +1171,7 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
   way: never run trailer/front.ps1 for a capture, use the console's `HighResShot 1`
   (%LOCALAPPDATA%/RaidGame/Saved/Screenshots/WindowsNoEditor), which needs no focus.
 
+**Meds on rival bodies raised (2026-11-27, #558).** Players asked for more healing items on marauders. `rivals.lua` CFG: `MEDS` 0-2 -> 1-3 (every rival body carries at least one med) and the bagless pocket roll `POCKET_MED` 0.2 -> 0.3 (`POCKET_AMMO` 0.5 -> 0.45). Station guards' bags use the same `MEDS` range, scaled by `BODY_LOOT`. Checked with luacheck only, not in game.
 ## Giant shapes in the space sky (2026-11-06)
 - Cause: raid interiors are always-loaded sublevels at their real coordinates, each wrapped in a black shell of thin Cube
   meshes (M_FullyBlack, ~200 m), plus fog cubes and large light panels. Their small props cull with distance, these big
@@ -1730,6 +1731,7 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
   first lobby (it opened ~15 s in). Tested on a fresh save: "lobby: closed the new-player guide", clean lobby.
 
 **Levels in the launcher (2026-11-27, #561).** The Give items dialog also sets player level and trader XP, so a lost save can be rebuilt. lobby.lua writes the game's XP table (`GetXPForLevel(1..)`, comma list) to `config/xp_levels.txt` the first time it reads the level in the menu; the launcher turns a level into XP with it (level n = XP >= table[n], new player is level 0), or edits raw XP until that file exists. `factions` is `a-b-c-d-e` faction XP; the trader order shown (United, Republic, Kingdom, Pirate, Guild, from DT_FactionShops) is **assumed, not checked**, and the faction XP needed per trader level is unknown (MAX writes 999999 each). Tested with a scratch script and test_ui.py; not in game.
+**Damaged saves (2026-11-27, #555).** `saves.listing()` called a save DAMAGED when only meta.json was missing or broken; it now writes a plain meta.json (name from the folder, cheat off) and lists the save normally. When state.json itself doesn't read but the slot's `before-last-raid.json` does, Undo last raid stays enabled and restores it; the broken state.json is kept as `state.damaged.json` for diagnosis. Tested with a scratch script (meta missing, state truncated with and without a before-raid copy) and `launcher/test_ui.py` (30 ok). What actually damaged spacedork_'s save is still unknown (needs their folder).
 ## Key card swap (#536, 2026-11-26; tested in game)
 - guardKeyCard put your card back the moment the KeyCard slot was empty, so taking it out to slot another crew's card
   was undone at once (spacedork_, build 39: "put it back" 8 times in 4 minutes). Now yours stays out while you carry
