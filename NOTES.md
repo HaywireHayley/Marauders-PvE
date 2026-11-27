@@ -6041,3 +6041,12 @@ mounted one test turret of each kind on the Rustbucket and fired each one throug
   slice a frame (`InventorySlots[i]` returns the slot itself: no `:get()`), and since the inventory may change between
   slices, it re-reads the truth once before clearing a cell that looks stale. Tested in the lobby: invsync max 2-4 ms a
   frame over several minutes, no errors. NOT tested: an actual stale cell being cleared (the test save had no items).
+
+## Raid summary blocked the lobby (2026-11-27, #567; NOT run in game)
+Reported (build 45): the Raid summary panel stayed on the lobby screen, nothing behind it could be clicked, Esc did
+nothing. `ui.lua M.card` (raidsummary, deathscreen, hints, keyhelp) added its full-screen DebugInfo_Widget host at the
+default visibility, so it took every click. Now: `SetVisibility(4)` (HitTestInvisible) before AddToViewport;
+`M.remove` collapses (1) before RemoveFromParent. Esc closes the summary from main.lua's ESCAPE key bind
+(`raidsummary.close`); the `IsInputKeyDown` poll on the menu controller is left as a fallback. Why the 12 s timeout
+didn't remove it is not known: it now can't block even if it stays. Longer term: #485 (the game's own end screen).
+

@@ -177,6 +177,9 @@ local function hide()
     UI.remove(h)
 end
 
+-- Esc (main.lua's key bind, #567).
+function M.close() if panel then hide() end end
+
 -- Each lobby frame, with the lobby's player controller and how long the lobby has been up.
 function M.lobby(pc, age)
     if T then M.finish() end
