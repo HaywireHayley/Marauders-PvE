@@ -43,7 +43,7 @@ local AMMO = {
 local gi, ai = 1, 1
 
 local function controller()
-    local pc = FindFirstOf("MainPlayerController_C")
+    local pc = require("cache").raidPc()
     if not (pc and pc:IsValid()) then return nil end
     local pawn = pc.Pawn
     if not (pawn and pawn:IsValid() and pawn:GetClass():GetFName():ToString() == "PlayerPawn_C") then return nil end

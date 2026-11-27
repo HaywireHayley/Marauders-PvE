@@ -486,6 +486,13 @@ end
 local function growSpots(st, n)
     st.spots = st.spots or {}
     local pool = st.spots
+    -- Each try is a navmesh query. roamGuards and every spreadPoint grew the pool, so a second with several guards due
+    -- made dozens, and a station whose pool can't fill (points taken, off the station) kept trying forever: roamGuards
+    -- was a 150-220 ms hitch every few seconds in players' logs (build 40, #336). Now at most once per 0.25 s, and a
+    -- station stops growing after GROW_MISSES failed tries in a row.
+    local now = os.clock()
+    if st.growDone or now < (st.growAt or 0) then return end
+    st.growAt = now + 0.25
     -- (again in 10 s if hardly any landed on the navmesh: the station's may not have streamed in yet)
     if st.box and os.clock() >= (st.seedAt or 0) and not st.seeded then
         local ok, got, of = pcall(seedSpots, st)
@@ -507,7 +514,17 @@ local function growSpots(st, n)
             end
             p = reachableNear(o, CFG.SPREAD_STEP)
         end
-        if p and nearStation(st, p) and not spotTaken(pool, p) then table.insert(pool, { X = p.X, Y = p.Y, Z = p.Z }) end
+        if p and nearStation(st, p) and not spotTaken(pool, p) then
+            table.insert(pool, { X = p.X, Y = p.Y, Z = p.Z })
+            st.growMisses = 0
+        else
+            st.growMisses = (st.growMisses or 0) + 1
+            if st.growMisses >= 24 and st.seeded then
+                st.growDone = true
+                X.log(("[rivals] %s: spread pool stopped at %d points (24 misses in a row)"):format(st.name, #pool))
+                return
+            end
+        end
     end
 end
 

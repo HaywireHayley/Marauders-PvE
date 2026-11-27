@@ -211,7 +211,7 @@ local function shipCardAtt(inside, shipName, row)
     if inside and valid(inside) then pcall(function() uuid = inside.KeyCardUUID end) end
     local captain = "Captain"
     pcall(function()
-        local n = FindFirstOf("MainPlayerController_C").PlayerState.PlayerNamePrivate:ToString()
+        local n = require("cache").raidPc().PlayerState.PlayerNamePrivate:ToString()
         if n ~= "" then captain = n end
     end)
     return ("%s!%s!%s!%s"):format(captain, shipName or "Ship", tostring(uuid), row or "")
@@ -410,6 +410,7 @@ local function updateSpace(pc, worldName)
     raid.spawned = true -- aim tracking runs for rivals' bodies
     local P, t0 = _G.PVE_PROF, os.clock()
     Rivals.update(pc, raid.world, worldName, foot, raid.home)
+    raid.rivalsUp = true -- the loading screen waits for this (launch.lua veilUntilAboard)
     if P then
         local ms = (os.clock() - t0) * 1000
         P.rivalsUpdate = (P.rivalsUpdate or 0) + ms

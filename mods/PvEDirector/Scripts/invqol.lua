@@ -624,7 +624,7 @@ end
 function Q.hotkey(what)
     if Q.typing() then return end
     if not (ui and ui.search) then
-        local w = FindFirstOf("MainPlayerController_C")
+        local w = require("cache").raidPc()
         if X.valid(w) then raidHotkey(what) end -- in a raid (#209)
         return
     end
