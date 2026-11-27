@@ -5545,6 +5545,22 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   death with a finished contract has been watched), nor whether DISCONNECT pays a finished contract's cash. It cuts the
   death screen short. NOT tested in game: check the log line "KEEP_PROGRESS_ON_DEATH" and playerstats after a death.
 
+## Forced extraction and quitting vs contract progress (#361 first pass, 2026-11-27, NOT tested in game)
+- F9 "Extract now" (debugactions.lua `extract` -> loadout.extractNow) calls the inventory's Client_GetOutWithLoot; the hook
+  sets raid.extractedAt and writes ship_lost; loadout.returnAfterExtract then calls
+  ClientReturnToMainMenuWithTextReason(FText("ESCAPED")) after CFG.EXTRACT_SECONDS: the same path as a gate extraction.
+  So the code path was already right.
+- One gap closed: main.lua's update called returnAfterExtract after `if not valid(pawn) then return end`, so an extraction
+  whose pawn was already gone (pod / ship hand-off) never reached ESCAPED and fell back to nothing until a pawn existed.
+  It now runs before the pawn check (next to keepProgressAfterDeath). Not reproduced; a plausible cause of "0 missions
+  completed" after a debug extract, not a proven one. Other candidates left unchecked: LastMatchResult not set when the
+  open-map fallback is used (ESCAPED call failing), mission progress not yet flushed.
+- Quit Game (quit.lua) already ends a raid as DISCONNECT first (section above), which writes contracts like ESCAPED.
+  An explicit "extract and quit" choice was NOT added: it would need a second button/confirm and would pay out loot
+  the player did not extract (ExtractedLoot) and skip the ship-lost rules; whether DISCONNECT pays a *finished*
+  contract's cash/XP is still unverified, so the first step is to test that with a finished contract. Alt+F4/crash
+  still lose progress; handing progress over during the raid remains an option.
+
 ## Crew kept per save, and Undo last raid restores it (2026-11-23, Discord report on build 24)
 - Report (spacedork_): crewmates stayed dead after the launcher's "Undo last raid". Cause: the mod's crew (hire.lua
   SAVE_FILE, backend/crew.lua: hired crewmates, pool, deaths) lives outside state.json, and save slots only ever
