@@ -420,6 +420,7 @@ local function define()
     add(feats, require("features"), {
         { "DEATH_SCREEN", "Death screen: who killed you", 0, 1, 1, "1 = on, 0 = off. After a death: who shot you, with what, from how far" },
         { "RAID_SUMMARY", "Raid summary in the lobby", 0, 1, 1, "1 = on, 0 = off. After a raid: kills, crew, contract events" },
+        { "END_SCREEN", "Raid facts on the game's end screen", 0, 1, 1, "1 = on, 0 = off. Death details and the raid summary go on the game's own results screen; the mod's panels only show if it can't be found (#485)" },
         { "LORE_LOADING", "Lore line on the loading screen", 0, 1, 1, "1 = on, 0 = off" },
         { "LORE_ARRIVAL", "Lore line when you reach a place", 0, 1, 1, "1 = on, 0 = off. Shown on the minimap for a few seconds" },
         { "MAP_KILLS", "Minimap: where your kills fell", 0, 1, 1, "1 = on, 0 = off" },
