@@ -6076,3 +6076,22 @@ default visibility, so it took every click. Now: `SetVisibility(4)` (HitTestInvi
 (`raidsummary.close`); the `IsInputKeyDown` poll on the menu controller is left as a fallback. Why the 12 s timeout
 didn't remove it is not known: it now can't block even if it stays. Longer term: #485 (the game's own end screen).
 
+
+## The game's own end screen gets the raid facts (2026-11-27, #485; first pass, NOT tested in game)
+Maintainer direction: improve the game's results widget (SIGIS_EndMatch: kills, XP, missions) instead of separate mod
+panels. New `endscreen.lua` (feature `END_SCREEN`, F10 Features tab). raidsummary's `finish` hands it the summary
+lines (`setSummary`: outcome/map/time, kills by kind, crew, loot value, contract events) and deathscreen's `died` hands
+it the death lines (`setDeath`: killer, weapon, distance, hits taken; also `deathscreen.lines()`). `poll()` (raidsummary's
+lobby frame, deathscreen's raid frame; once a second, only while something waits) looks for `FindAllOf("SIGIS_EndMatch_C")`
+(then `"SIGIS_EndMatch"`) whose full name contains "Transient", reads `WidgetTree`, `ScrollBox_Kills`,
+`ScrollBox_Missions` (property reads, `valid()` first) and `AddChild`s `UI.text` rows (outer = the widget's own tree).
+Kills/crew/death rows go to the kills box, loot/events to the missions box. Rows are added once (the data is consumed).
+A death's rows join the lobby summary when the raid ended in death and the end screen only came up after the map change.
+- Panels: while rows are pending the raid-summary panel (lobby) and the death panel (raid, held back) wait; "done" drops
+  them, 8 s without an end screen (`WAIT_SECONDS`) shows them as before. END_SCREEN = 0 changes nothing.
+- Kills by rival crew are not separate: rival kills are already filed under K_Human ("Marauders") by killstats.
+- Verify in game (log lines `end screen: found <path>`, `rows added`, `not filled`): (1) the class name and the
+  property names exist; (2) whether AddChild rows show and look right (font, colour, scroll); (3) whether the end screen
+  appears offline at all after death/extraction, and in the raid or in the lobby (decides if the death panel is ever
+  suppressed); (4) that `FindAllOf` for a missing class returns nil without a fault; (5) no GC crash after returning to
+  the lobby (nothing rooted, no references kept).

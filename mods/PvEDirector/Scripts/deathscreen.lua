@@ -30,6 +30,7 @@ local hits = {}    -- recent hits on you: { who, side, gun, dist, dmg, at, addr 
 local seenHp = {}  -- bot address -> highest Health seen while it was shooting (for "damage you dealt")
 local pawnAddr, lastHp, dead, lastPawn
 local panel        -- { host, untilAt }
+local deferred     -- { lines }: the panel waits for endscreen.lua to put these on the game's end screen (#485)
 
 local valid, lib -- main.lua's helpers, from ctx (init)
 function M.init(ctx) X = ctx valid, lib = ctx.valid, ctx.lib end
@@ -38,6 +39,7 @@ function M.setRaid(r) raid = r or {} end
 -- New world: forget everything. The old panel's widgets belonged to the old world: dropped, never touched again.
 function M.reset()
     shots, hits, seenHp, pawnAddr, lastHp, dead, panel, lastPawn = {}, {}, {}, nil, nil, nil, nil, nil
+    deferred = nil
 end
 
 
@@ -158,6 +160,29 @@ local function died(pc)
     if d then lines[#lines + 1] = { text = ("You did ~%.0f damage to %s"):format(d, k.who) } end
     X.log("death: " .. top .. (" (%.0f damage in %d hits over the last %d s)"):format(total, n, CFG.TOTAL_SECONDS) .. "; last hits: " .. (#recent > 0 and table.concat(recent, " | ") or "none")
         .. (d and ("; dealt ~%.0f to killer"):format(d) or ""))
+    -- #485: plain strings for the game's end screen; our own panel only if that doesn't take them
+    local plain = { top }
+    if n > 1 then plain[#plain + 1] = ("Took %.0f in %d hits over %.1f s"):format(total, n, hits[1].at - first) end
+    for i, r in ipairs(recent) do plain[#plain + 1] = ("-%d  %s"):format(i, r) end
+    if d then plain[#plain + 1] = ("You did ~%.0f damage to %s"):format(d, k.who) end
+    M.lastLines = plain
+    pcall(require("endscreen").setDeath, plain)
+    if require("endscreen").state("death") == "wait" then deferred = { lines = lines } return end
+    local ok, err = pcall(show, pc, lines)
+    if not ok then X.log("death screen failed: " .. tostring(err)) end
+end
+
+-- The death's details as plain strings (nil if none yet), for endscreen.lua and anything else that shows them.
+function M.lines() return M.lastLines end
+
+-- The panel held back for the game's end screen: dropped if the rows went there, shown if they did not.
+local function settle(pc)
+    pcall(require("endscreen").poll)
+    local st = require("endscreen").state("death")
+    if st == "wait" then return end
+    local lines = deferred.lines
+    deferred = nil
+    if st == "done" then return end
     local ok, err = pcall(show, pc, lines)
     if not ok then X.log("death screen failed: " .. tostring(err)) end
 end
@@ -166,6 +191,7 @@ end
 function M.frame(pc)
     if require("features").DEATH_SCREEN ~= 1 then return end
     local now = os.clock()
+    if deferred then settle(pc) end
     if panel and now > panel.untilAt then
         local h = panel.host
         panel = nil

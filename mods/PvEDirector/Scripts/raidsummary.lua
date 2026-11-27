@@ -156,6 +156,8 @@ function M.finish()
         end
     end
     log(("raid summary: %s; %s; %s; %s%s"):format(head, kills, crew, prog, loot and ("; " .. loot) or ""))
+    -- #485: the same lines for the game's own end screen (endscreen.lua); the panel below waits for its answer
+    pcall(require("endscreen").setSummary, { head = head, kills = kills, crew = crew, loot = loot, prog = prog }, t.outcome == "Died")
     ready = { lines = {
         { text = "Raid summary: " .. head, size = 18, col = ACCENT },
         { text = kills }, { text = crew }, { text = prog, col = TEXT_MUTED },
@@ -183,6 +185,7 @@ function M.close() if panel then hide() end end
 -- Each lobby frame, with the lobby's player controller and how long the lobby has been up.
 function M.lobby(pc, age)
     if T then M.finish() end
+    pcall(require("endscreen").poll)
     if panel then
         local esc = false
         pcall(function() esc = pc:IsInputKeyDown({ KeyName = FName("Escape") }) end)
@@ -190,6 +193,10 @@ function M.lobby(pc, age)
         return
     end
     if not ready or (age or 0) < CFG.LOBBY_DELAY then return end
+    -- #485: the game's own end screen takes these lines when it can; wait for it, drop the panel once it has them
+    local es = require("endscreen").state("sum")
+    if es == "wait" then return end
+    if es == "done" then ready = nil return end
     local lines = ready.lines
     ready = nil
     if not on() or not valid(pc) then return end

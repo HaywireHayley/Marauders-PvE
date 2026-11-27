@@ -5,6 +5,7 @@
 return {
     DEATH_SCREEN = 1,   -- deathscreen.lua: who killed you, after a death (#331)
     RAID_SUMMARY = 1,   -- raidsummary.lua: kills, crew and progress in the lobby after a raid (#390; untested)
+    END_SCREEN = 1,     -- endscreen.lua: the death and raid summary lines go on the game's own end screen (SIGIS_EndMatch) instead of mod panels, which stay as the fallback (#485; untested)
     LORE_LOADING = 1,   -- loading.lua: a line of lore under the raid loading screen's bar (#272)
     LORE_ARRIVAL = 1,   -- minimap.lua: a line of lore the first time you reach a place (#272)
     MAP_KILLS = 1,      -- minimap.lua: an X where enemies you killed fell (#326)
