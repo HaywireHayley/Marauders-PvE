@@ -2,6 +2,32 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 27 Nov 2026, build 46 (`public-test-20261127.46`)
+
+The raid summary no longer gets stuck over the lobby, and it moves onto the game's own end-of-raid screen together
+with how you died. A recovered save keeps its stash size, and any save's stash size can now be changed in the
+launcher. On build 1 of 17 Nov or later, the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Fixes
+
+- **Raid summary stuck over the lobby (#567, PR #568, thanks spacedork_ for the report):** the summary panel could
+  stay on the lobby screen and block every click, and Esc did nothing. The mod's text panels never take clicks now,
+  and Esc closes the summary.
+- **Stash size after a recovery (#565, PR #566, thanks spacedork_):** a save recovered by build 45 fell back to 15
+  stash rows. It now gets back the rows its items need, by itself, the first time the launcher lists it.
+- **Contract progress on extraction (#361, PR #569):** an extraction whose character was already gone (a pod or a
+  ship hand-off) could skip the step that pays out finished contracts. It no longer does.
+
+### Changes
+
+- **Change a save's stash size (#565, PR #566):** **Give items, cash or levels** has a **Stash rows** box: 10 to 25,
+  never below the rows your items use. It applies the next time you play that save.
+- **Summary on the game's end screen (#485, PR #570):** the raid summary (kills by kind, crew, loot, contract events)
+  and how you died are added to the game's own end-of-raid screen. When that works, the separate panels stay away;
+  if the end screen can't be found, they show as before. Features > End screen turns it off.
+- **A full crew (#359, #386, PR #571):** with every crew slot filled, the crew menu now says where to dismiss someone
+  or keep them home, and the launcher's crew gear dialog has a **Comes on raids** box per crewmate.
+
 ## Public test, 27 Nov 2026, build 45 (`public-test-20261127.45`)
 
 More meds on marauders, and two ways back from a lost or damaged save. On build 1 of 17 Nov or later, the launcher's
