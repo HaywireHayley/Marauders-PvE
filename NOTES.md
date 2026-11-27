@@ -6041,3 +6041,14 @@ mounted one test turret of each kind on the Rustbucket and fired each one throug
   slice a frame (`InventorySlots[i]` returns the slot itself: no `:get()`), and since the inventory may change between
   slices, it re-reads the truth once before clearing a cell that looks stale. Tested in the lobby: invsync max 2-4 ms a
   frame over several minutes, no errors. NOT tested: an actual stale cell being cleared (the test save had no items).
+
+## Stash size of an existing save (2026-11-27, #565; launcher tested headless, NOT in game)
+A save's stash height lives only in its meta.json (`stash_rows`). #555's `_rebuild_meta` wrote a meta.json without it,
+so a recovered save fell back to 15 rows (reported: 20 -> 15, build 45).
+- `saves.rows_in_use(state)`: the rows the stash items reach (Grid footprints). `_rebuild_meta` and, for a meta.json
+  with no size (already rebuilt by build 45), `_repair_rows` in `listing()` set `stash_rows` to max(15, that), capped at
+  STASH_MAX; written once.
+- `saves.set_stash_rows(sid, rows)`: 10-25, refused below the rows in use. Launcher: "Stash rows" + SET ROWS in the
+  "Give items, cash or levels" dialog. Takes effect at the next play (activate writes config/stash_rows.txt).
+- Tested: launcher/test_ui.py (31 OK, new test_stash_rows_kept_and_changed). Not tested: the game showing the new size.
+
