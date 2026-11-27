@@ -788,7 +788,7 @@ class App(tk.Tk):
         for b in (self.b_rename, self.b_copy, self.play):
             b.enable(ok)
         self.b_delete.enable(live)
-        self.b_undo.enable(ok and s.get("can_undo"))
+        self.b_undo.enable(live and bool(s.get("can_undo")))  # a damaged save too: back to its copy from before the raid
         self.b_backup.enable(ok)
         self.b_give.enable(ok)
         self.b_kits.enable(ok)
@@ -801,8 +801,11 @@ class App(tk.Tk):
         self.d_name.config(text=s["name"])
         if s.get("damaged"):
             self.d_mode.config(text="Can't read this save")
-            self.d_info.config(text=f"Its files in backend\\saves\\{s['id']}\nare missing or damaged. Share them on the\n"
-                                    "Discord if you'd like help, or delete it.")
+            self.d_info.config(text=(f"Its files in backend\\saves\\{s['id']}\nare missing or damaged. Undo last raid brings\n"
+                                     "back its copy from when the last raid started."
+                                     if s.get("can_undo") else
+                                     f"Its files in backend\\saves\\{s['id']}\nare missing or damaged. Share them on the\n"
+                                     "Discord if you'd like help, or delete it."))
             self.cheat_var.set(False)
             return
         self.d_mode.config(text="Infinite money is on" if s.get("cheat") else "Normal save")
