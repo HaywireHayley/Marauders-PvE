@@ -516,6 +516,59 @@ def set_cash(sid, amount):
     _write(path, state)
 
 
+# Levels (#561): a way back after a lost save. The player's level comes from playerstats xp through the game's own XP
+# table, which the mod writes to config/xp_levels.txt in the menu (lobby.lua: XP needed for level 1, 2, ...). Trader
+# standing is playerstats factions, "a-b-c-d-e": faction XP per trader. The order is assumed to be DT_FactionShops' row
+# order (United, Republic, Kingdom, Pirate, Guild); not yet checked in game.
+XP_LEVELS = os.path.join(ROOT, "config", "xp_levels.txt")
+FACTIONS = ("United Allies", "Republic", "Kingdom Alliance", "Pirates", "Guild")
+FACTION_XP_MAX = 999999
+
+
+def xp_table():
+    """XP needed for level 1, 2, ... (index 0 is level 1), or [] before the game has been to the menu once."""
+    try:
+        with open(XP_LEVELS, encoding="utf-8") as f:
+            return [int(x) for x in f.read().strip().split(",") if x.strip()]
+    except (OSError, ValueError):
+        return []
+
+
+def level_for(xp, table):
+    return sum(1 for need in table if xp >= need)
+
+
+def _stat_value(state, key, default="0"):
+    try:
+        return json.loads(state["storage"]["playerstats"][key]["value"]).get("value", default)
+    except (KeyError, ValueError, AttributeError):
+        return default
+
+
+def levels(sid):
+    """{"xp": int, "factions": [int x5]} for a save."""
+    state = _read(os.path.join(SAVES, sid, "state.json"))
+    parts = str(_stat_value(state, "factions", "0-0-0-0-0")).split("-")
+    fac = [int(p) if p.strip().lstrip("-").isdigit() else 0 for p in parts] + [0] * len(FACTIONS)
+    return {"xp": int(_stat_value(state, "xp") or 0), "factions": fac[:max(len(FACTIONS), len(parts))]}
+
+
+def set_levels(sid, xp=None, factions=None):
+    """Sets a save's XP and/or faction XP (the game must be closed: it works on backend/state.json)."""
+    path = os.path.join(SAVES, sid, "state.json")
+    state = _read(path)
+    stats = state["storage"]["playerstats"]
+    template = next(iter(stats.values()))
+    for key in ("xp", "factions"):
+        if key not in stats:
+            stats[key] = dict(template)  # (the value is set below, or stays the template's until then)
+    if xp is not None:
+        _stat(state, "xp", max(0, int(xp)))
+    if factions is not None:
+        _stat(state, "factions", "-".join(str(max(0, min(FACTION_XP_MAX, int(v)))) for v in factions))
+    _write(path, state)
+
+
 def undo_last_raid(sid):
     """Back to the moment the last raid started: for a raid that ended without an extraction you wanted."""
     folder = os.path.join(SAVES, sid)

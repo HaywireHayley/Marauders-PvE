@@ -36,12 +36,16 @@ function M.tick(pc, age, inMenu)
                 local lvl = pc:GetPlayersLevel() + 1
                 if not raid.levelMax then
                     raid.levelMax = 0
-                    local prev = -1
+                    local prev, table_ = -1, {}
                     for n = 1, 200 do
                         local xp = pc:GetXPForLevel(n)
                         if type(xp) ~= "number" or xp <= prev then break end
                         prev, raid.levelMax = xp, n
+                        table_[n] = string.format("%d", xp)
                     end
+                    -- (#561) the launcher's Levels dialog turns a level into XP with the game's own table
+                    local f = #table_ > 0 and io.open(PROJECT .. "config/xp_levels.txt", "w")
+                    if f then f:write(table.concat(table_, ","), "\n") f:close() end
                 end
                 local max = raid.levelMax >= 2 and raid.levelMax < 200 and raid.levelMax or nil
                 if GearScale.setLevel(lvl, max) then

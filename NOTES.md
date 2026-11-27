@@ -1729,6 +1729,7 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
   Guide_Widget) is closed by lobbylabel.lua with ForceCloseTheGuideWidget if it shows within 60 s of the session's
   first lobby (it opened ~15 s in). Tested on a fresh save: "lobby: closed the new-player guide", clean lobby.
 
+**Levels in the launcher (2026-11-27, #561).** The Give items dialog also sets player level and trader XP, so a lost save can be rebuilt. lobby.lua writes the game's XP table (`GetXPForLevel(1..)`, comma list) to `config/xp_levels.txt` the first time it reads the level in the menu; the launcher turns a level into XP with it (level n = XP >= table[n], new player is level 0), or edits raw XP until that file exists. `factions` is `a-b-c-d-e` faction XP; the trader order shown (United, Republic, Kingdom, Pirate, Guild, from DT_FactionShops) is **assumed, not checked**, and the faction XP needed per trader level is unknown (MAX writes 999999 each). Tested with a scratch script and test_ui.py; not in game.
 ## Key card swap (#536, 2026-11-26; tested in game)
 - guardKeyCard put your card back the moment the KeyCard slot was empty, so taking it out to slot another crew's card
   was undone at once (spacedork_, build 39: "put it back" 8 times in 4 minutes). Now yours stays out while you carry
