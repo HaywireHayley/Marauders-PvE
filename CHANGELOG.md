@@ -2,6 +2,25 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 27 Nov 2026, build 45 (`public-test-20261127.45`)
+
+More meds on marauders, and two ways back from a lost or damaged save. On build 1 of 17 Nov or later, the launcher's
+orange **!** installs this one for you, keeping your saves.
+
+### Fixes
+- **Saves shown as DAMAGED (#555, PR #562):** a save whose small `meta.json` was lost was called damaged even though
+  the game itself was fine; the launcher now rebuilds it. When the save's game data is what broke, **Undo last raid**
+  now restores the copy taken when your last raid started (the broken file is kept as `state.damaged.json`). Tested
+  with damaged test saves; not on a player's save.
+
+### Changes
+- **More healing items on marauder bodies (#558, PR #560):** every rival body carries 1-3 meds (it was 0-2), and a
+  guard without a bag has a better chance of a med in their pocket. Not tested in game.
+- **Set your level and trader XP in the launcher (#561, PR #563):** the **Give items, cash or levels** dialog can put
+  back your player level (after you've reached the main menu once on this build; raw XP before that) and each trader's
+  XP, with **MAX** for all traders. The trader order is a best guess and not tested in game yet: tell us on Discord if
+  the wrong trader goes up.
+
 ## Public test, 27 Nov 2026, build 44 (`public-test-20261127.44`)
 
 No more long freezes from the inventory check. On build 1 of 17 Nov or later, the launcher's orange **!** installs this
