@@ -5545,6 +5545,22 @@ Stacked on the Lua hot-paths branch (PR #377). Behaviour meant to be unchanged.
   death with a finished contract has been watched), nor whether DISCONNECT pays a finished contract's cash. It cuts the
   death screen short. NOT tested in game: check the log line "KEEP_PROGRESS_ON_DEATH" and playerstats after a death.
 
+## Forced extraction and quitting vs contract progress (#361 first pass, 2026-11-27, NOT tested in game)
+- F9 "Extract now" (debugactions.lua `extract` -> loadout.extractNow) calls the inventory's Client_GetOutWithLoot; the hook
+  sets raid.extractedAt and writes ship_lost; loadout.returnAfterExtract then calls
+  ClientReturnToMainMenuWithTextReason(FText("ESCAPED")) after CFG.EXTRACT_SECONDS: the same path as a gate extraction.
+  So the code path was already right.
+- One gap closed: main.lua's update called returnAfterExtract after `if not valid(pawn) then return end`, so an extraction
+  whose pawn was already gone (pod / ship hand-off) never reached ESCAPED and fell back to nothing until a pawn existed.
+  It now runs before the pawn check (next to keepProgressAfterDeath). Not reproduced; a plausible cause of "0 missions
+  completed" after a debug extract, not a proven one. Other candidates left unchecked: LastMatchResult not set when the
+  open-map fallback is used (ESCAPED call failing), mission progress not yet flushed.
+- Quit Game (quit.lua) already ends a raid as DISCONNECT first (section above), which writes contracts like ESCAPED.
+  An explicit "extract and quit" choice was NOT added: it would need a second button/confirm and would pay out loot
+  the player did not extract (ExtractedLoot) and skip the ship-lost rules; whether DISCONNECT pays a *finished*
+  contract's cash/XP is still unverified, so the first step is to test that with a finished contract. Alt+F4/crash
+  still lose progress; handing progress over during the raid remains an option.
+
 ## Crew kept per save, and Undo last raid restores it (2026-11-23, Discord report on build 24)
 - Report (spacedork_): crewmates stayed dead after the launcher's "Undo last raid". Cause: the mod's crew (hire.lua
   SAVE_FILE, backend/crew.lua: hired crewmates, pool, deaths) lives outside state.json, and save slots only ever
@@ -6060,6 +6076,25 @@ default visibility, so it took every click. Now: `SetVisibility(4)` (HitTestInvi
 (`raidsummary.close`); the `IsInputKeyDown` poll on the menu controller is left as a fallback. Why the 12 s timeout
 didn't remove it is not known: it now can't block even if it stays. Longer term: #485 (the game's own end screen).
 
+
+## The game's own end screen gets the raid facts (2026-11-27, #485; first pass, NOT tested in game)
+Maintainer direction: improve the game's results widget (SIGIS_EndMatch: kills, XP, missions) instead of separate mod
+panels. New `endscreen.lua` (feature `END_SCREEN`, F10 Features tab). raidsummary's `finish` hands it the summary
+lines (`setSummary`: outcome/map/time, kills by kind, crew, loot value, contract events) and deathscreen's `died` hands
+it the death lines (`setDeath`: killer, weapon, distance, hits taken; also `deathscreen.lines()`). `poll()` (raidsummary's
+lobby frame, deathscreen's raid frame; once a second, only while something waits) looks for `FindAllOf("SIGIS_EndMatch_C")`
+(then `"SIGIS_EndMatch"`) whose full name contains "Transient", reads `WidgetTree`, `ScrollBox_Kills`,
+`ScrollBox_Missions` (property reads, `valid()` first) and `AddChild`s `UI.text` rows (outer = the widget's own tree).
+Kills/crew/death rows go to the kills box, loot/events to the missions box. Rows are added once (the data is consumed).
+A death's rows join the lobby summary when the raid ended in death and the end screen only came up after the map change.
+- Panels: while rows are pending the raid-summary panel (lobby) and the death panel (raid, held back) wait; "done" drops
+  them, 8 s without an end screen (`WAIT_SECONDS`) shows them as before. END_SCREEN = 0 changes nothing.
+- Kills by rival crew are not separate: rival kills are already filed under K_Human ("Marauders") by killstats.
+- Verify in game (log lines `end screen: found <path>`, `rows added`, `not filled`): (1) the class name and the
+  property names exist; (2) whether AddChild rows show and look right (font, colour, scroll); (3) whether the end screen
+  appears offline at all after death/extraction, and in the raid or in the lobby (decides if the death panel is ever
+  suppressed); (4) that `FindAllOf` for a missing class returns nil without a fault; (5) no GC crash after returning to
+  the lobby (nothing rooted, no references kept).
 
 ## Full crew: dismiss and "comes on raids" (#359, 2026-11-27; hire.lua, launcher Crew gear; NOT tested in game)
 - Report (Discord, spacedork_): with a full crew there seems to be no way to dismiss anyone or keep them out of a raid.

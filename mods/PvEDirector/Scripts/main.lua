@@ -1034,6 +1034,7 @@ function resetRaid(worldKey)
     DeathScreen.reset()
     require("player").reset()
     require("raidsummary").reset()
+    require("endscreen").reset()
     KeyHelp.reset()
     require("hints").reset()
     ShipSpeed.reset()
@@ -1311,6 +1312,8 @@ update = function(pc)
         if line and line ~= "" then Debug.command(pc, line) else Debug.toggle(pc) end
     end
     if Loadout.keepProgressAfterDeath(pc) then return end -- died, KEEP_PROGRESS_ON_DEATH (loadout.lua, #361)
+    -- Before the pawn check: an extraction whose pawn is already gone (pod, ship) must still end as ESCAPED (#361)
+    if Loadout.returnAfterExtract(pc) then return end -- extracted (loadout.lua)
     local pawn = pc.Pawn
     raid.pawn = pawn
     if not valid(pawn) then return end
@@ -1326,7 +1329,6 @@ update = function(pc)
 
     if not raid.loadout and Loadout.ensureHud(pc) then raid.loadout = os.clock() Loadout.applyLoadout(pc) end
     if raid.ownOverlay then Loadout.ensureHud(pc) end -- collapses ours once the game's own overlay appears
-    if Loadout.returnAfterExtract(pc) then return end -- extracted (loadout.lua)
     if space then
         local onFoot = pawn:GetClass():GetFName():ToString() == "PlayerPawn_C"
         -- In a breaching or escape pod your body waits hidden, but the guns it carries stayed visible and rode on the pod
@@ -1590,6 +1592,7 @@ Defuse.init({ log = log, valid = valid, lib = lib, menuClosed = menuClosed })
 require("ui").init({ log = log, valid = valid, lib = lib }) -- the panels' shared pieces (ui.lua)
 DeathScreen.init({ log = log, valid = valid, lib = lib })
 require("raidsummary").init({ log = log, valid = valid, lib = lib })
+require("endscreen").init({ log = log, valid = valid, lib = lib }) -- the game's own end screen gets the facts (#485)
 require("player").init({ valid = valid, lib = lib }) -- your controller and inventory, kept (player.lua)
 Vendors.init({ log = log, valid = valid, shopAdd = package.loadlib(PATCH_DLL, "pve_shop_add"),
     shopPrice = package.loadlib(PATCH_DLL, "pve_shop_price") })
