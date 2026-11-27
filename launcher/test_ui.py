@@ -235,6 +235,15 @@ class CrewGear(unittest.TestCase):
         self.assertEqual(self.stash(), before)
         self.assertNotIn("gear", saves._read_crew(self.sid)["crew"][1])
 
+    def test_comes_on_raids_toggle(self):
+        """#359: the launcher's COMES ALONG / STAYS HOME, written to the same crew.lua the mod reads."""
+        was = saves.crew_gear(self.sid)["crew"][0]["bring"]
+        self.assertIsNone(saves.set_crew_bring(self.sid, 3, not was))
+        self.assertEqual(saves.crew_gear(self.sid)["crew"][0]["bring"], not was)
+        self.assertEqual(saves._read_crew(self.sid)["crew"][1]["bring"], not was)
+        self.assertEqual(saves._read_crew(self.sid)["pool"][1]["name"], "Kip", "the rest of the file is kept")
+        self.assertIn("isn't in", saves.set_crew_bring(self.sid, 99, True))
+
     def test_swapping_returns_the_old_piece(self):
         saves.give(self.sid, "Mat49Rifle", 1)
         guns = saves.crew_gear(self.sid)["stash"]["gun"]

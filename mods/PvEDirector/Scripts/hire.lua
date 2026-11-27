@@ -249,7 +249,7 @@ local inLobby = false
 local function hire(pc, key)
     local r, i = find(D.pool, key)
     if not r then return "No such recruit" end
-    if #D.crew >= CFG.MAX_CREW then return ("Your crew is full (%d)"):format(CFG.MAX_CREW) end
+    if #D.crew >= CFG.MAX_CREW then return ("Your crew is full (%d): dismiss someone on YOUR CREW first"):format(CFG.MAX_CREW) end
     local fee = CFG.FEE[r.level]
     local ok, cash = spend(pc, fee)
     if not ok then return ("%s wants %s to sign on; you have %s"):format(r.name, money(fee), cash and money(cash) or "?") end
@@ -539,6 +539,8 @@ local function build(pc)
         ui.pool[i] = row
         y = y + RH
     end
+    -- (a full crew's cards end at PY + 104 + MAX_CREW * CH = 650 of the panel's 896: every card, with its COMES ALONG /
+    -- DISMISS buttons, is on screen at any size the crew can be; a bigger MAX_CREW would need a scroll or a second page)
     y = PY + 104
     for i = 1, CFG.MAX_CREW do
         local x = PX + 16
@@ -560,6 +562,9 @@ local function build(pc)
         ui.crew[i] = card
         y = y + CH
     end
+    -- a full crew has no free "+" slot to click, and the HIRE buttons grey out: say where the way to make room is (#359)
+    ui.full = text(" ", 11, C_ACCENT)
+    place(ui.full, PX + 20, PY + 88, PW - 40, 16)
     ui.empty = text("Nobody hired yet. Recruits are on the HIRE tab.", 14, C_DIM)
     place(ui.empty, PX + 24, PY + 120, 600, 24)
     ui.status = text(" ", 12, C_DIM)
@@ -618,6 +623,12 @@ local function refresh(pc)
         end
     end
     show(ui.empty, not hiring and #D.crew == 0)
+    local full = #D.crew >= CFG.MAX_CREW
+    show(ui.full, full)
+    if full then
+        ui.full:SetText(FText(hiring and "Crew full: dismiss someone on YOUR CREW to hire another"
+            or "Crew full: DISMISS makes room to hire; STAYS HOME keeps one off raids"))
+    end
 end
 
 function H.isOpen() return ui ~= nil and ui.open == true end

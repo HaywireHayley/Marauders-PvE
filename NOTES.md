@@ -6060,3 +6060,19 @@ default visibility, so it took every click. Now: `SetVisibility(4)` (HitTestInvi
 (`raidsummary.close`); the `IsInputKeyDown` poll on the menu controller is left as a fallback. Why the 12 s timeout
 didn't remove it is not known: it now can't block even if it stays. Longer term: #485 (the game's own end screen).
 
+
+## Full crew: dismiss and "comes on raids" (#359, 2026-11-27; hire.lua, launcher Crew gear; NOT tested in game)
+- Report (Discord, spacedork_): with a full crew there seems to be no way to dismiss anyone or keep them out of a raid.
+- Read, not reproduced: the controls never depend on a free slot. hire.lua's YOUR CREW tab builds one card per
+  `CFG.MAX_CREW` (hire.lua:543) with COMES ALONG / STAYS HOME, MAKE GUNNER and DISMISS (:556-558), all shown whenever
+  the crewmate exists (refresh, :600) and handled in H.tick's card loop (:777-785) with no free-slot test; only
+  `hire()` (:252) and the HIRE buttons (:592) need room. The cards end at y 650 of the 896 px panel, so nothing is off
+  screen. What a full crew did lose was the way in: no free "+" lobby slot to click, and the HIRE tab just greyed out
+  (the same finding as the issue's closing comment; #386 asks for a proper page). The lobby's CREW tab (pvemenu.lua),
+  F11 and a click on a filled slot all open YOUR CREW.
+- Changes: a line under the tabs when the crew is full ("Crew full: dismiss someone on YOUR CREW to hire another" on
+  HIRE; "DISMISS makes room to hire; STAYS HOME keeps one off raids" on YOUR CREW), and hire()'s refusal now says
+  where to dismiss. Launcher Crew gear dialog: a "Comes on raids" checkbox per crewmate (saves.set_crew_bring writes
+  `bring` in the save's crew.lua, same field the mod reads; saves.crew_gear returns it). test_ui.py CrewGear covers it.
+- Checked: luacheck hire.lua (124 locals spare), py_compile, ruff, launcher/test_ui.py (32 ok). Not run in game: the
+  new line's placement (PY+88, between the tabs and the first row) and a click through full-crew dismiss.

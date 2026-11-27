@@ -809,7 +809,7 @@ def crew_gear(sid):
     for r in _lua_list(data.get("crew")):
         g = r.get("gear") if isinstance(r.get("gear"), dict) else {}
         crew.append({"id": r.get("id"), "name": r.get("name", "?"), "level": r.get("level", 1),
-                     "gear": {s: g[s] for s in CREW_SLOTS if g.get(s)}})
+                     "bring": bool(r.get("bring")), "gear": {s: g[s] for s in CREW_SLOTS if g.get(s)}})
     rows = crew_gear_rows()
     stash = {s: [] for s in CREW_SLOTS}
     entries = _stash_entries(_read(os.path.join(SAVES, sid, "state.json")))
@@ -818,6 +818,20 @@ def crew_gear(sid):
             if row in rows[s]:
                 stash[s].append((key, row))
     return {"crew": crew, "stash": stash}
+
+
+def set_crew_bring(sid, crew_id, bring):
+    """Whether a hired crewmate comes on raids (the in-game COMES ALONG / STAYS HOME button, #359). Returns None when
+    done, or why not."""
+    if active() == sid:
+        return "That save is in play: close the game first."
+    data = _read_crew(sid)
+    r = next((c for c in _lua_list(data and data.get("crew")) if c.get("id") == crew_id), None)
+    if r is None:
+        return "That crewmate isn't in this save's crew any more."
+    r["bring"] = bool(bring)
+    _write_crew(sid, data)
+    return None
 
 
 def set_crew_gear(sid, crew_id, picks):
