@@ -1636,6 +1636,10 @@ class App(tk.Tk):
                                                                                            pady=2)
             holders[slot] = tk.Frame(slots, bg=PANEL)
             holders[slot].grid(row=i, column=1, sticky="w", padx=(8, 0), pady=2)
+        bring = tk.BooleanVar()
+        tk.Checkbutton(d.body, text="Comes on raids (off: stays home, keeps their gear)", variable=bring, bg=PANEL,
+                       fg=TEXT, selectcolor=INK, activebackground=PANEL, activeforeground=TEXT, font=font(11),
+                       highlightthickness=0, bd=0).pack(anchor="w", pady=(8, 0))
         note.pack(anchor="w", pady=(8, 0))
         r = d.row()
 
@@ -1647,6 +1651,7 @@ class App(tk.Tk):
             c = chosen()
             if not c:
                 return
+            bring.set(c["bring"])
             for slot in saves.CREW_SLOTS:
                 for w in holders[slot].winfo_children():
                     w.destroy()
@@ -1679,11 +1684,13 @@ class App(tk.Tk):
                 if key == "keep" or (key is None and not c["gear"].get(slot)):
                     continue
                 change[slot] = key
-            if not change:
+            if not change and bring.get() == c["bring"]:
                 note.config(text="Nothing to change.")
                 return
             try:
-                why = saves.set_crew_gear(sid, c["id"], change)
+                why = saves.set_crew_bring(sid, c["id"], bring.get()) if bring.get() != c["bring"] else None
+                if not why and change:
+                    why = saves.set_crew_gear(sid, c["id"], change)
             except (OSError, ValueError, KeyError, IndexError) as e:
                 why = f"Couldn't change it: {e}"
             if why:
@@ -1696,7 +1703,7 @@ class App(tk.Tk):
             who.selection_set(min(at, len(crew) - 1))
             show()
             self.refresh()
-            note.config(text=f"{c['name']} is kitted out: it's on them next raid.")
+            note.config(text=f"{c['name']} is updated: it applies next raid.")
 
         for c in crew:
             who.insert("end", f"{c['name']}  (Lv {c['level']})")
