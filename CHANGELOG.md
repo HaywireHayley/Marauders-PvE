@@ -2,6 +2,21 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 26 Nov 2026, build 43 (`public-test-20261126.43`)
+
+Fewer hitches in space raids. On build 1 of 17 Nov or later, the launcher's orange **!** installs this one for you,
+keeping your saves.
+
+### Fixes
+- **Freeze just after a space raid appears (#336, PR #550):** a 0.3 to 7 second freeze a couple of seconds after the
+  loading screen lifted, every space raid (longest when you start a raid soon after the game opens). The rival crews'
+  setup now finishes under the loading screen, so it can stay up a few seconds longer. Tested in game: the setup ran
+  before the screen lifted, and frames afterwards stayed under 40 ms.
+- **Hitches inside stations (#336, PR #550):** guards picking new places to walk to made a 150-220 ms hitch every few
+  seconds; that work now has a budget. Not tested inside a station.
+- **Small hitches when pressing F, R, K or J (#336, PR #550):** a slow look-up of your controller on each press is now
+  kept.
+
 ## Public test, 26 Nov 2026, build 42 (`public-test-20261126.42`)
 
 Boarders wait while you fly the ship, and the log says who downed a crewmate. On build 1 of 17 Nov or later, the
