@@ -1419,6 +1419,13 @@ class App(tk.Tk):
         fac = entry(fac_line, 13, 28)
         fac.pack(side="left", ipady=3, padx=(8, 8))
         fac.insert(0, "  ".join(str(v) for v in lv["factions"]))
+        # Stash size (#565): change an existing save's stash rows. Larger is always fine; smaller only above its items.
+        rows_line = tk.Frame(d.body, bg=PANEL)
+        rows_line.pack(fill="x", pady=(6, 0))
+        tk.Label(rows_line, text="Stash rows", bg=PANEL, fg=MUTED, font=font(11)).pack(side="left")
+        rows_box = entry(rows_line, 13, 6)
+        rows_box.pack(side="left", ipady=3, padx=(8, 8))
+        rows_box.insert(0, str(s["stash_rows"]))
         tk.Label(d.body, text=("Trader XP is one number per trader: " + ", ".join(saves.FACTIONS) + "."
                                + ("" if table else "  Play once to the main menu to set the level by number instead of XP.")),
                  bg=PANEL, fg=MUTED, font=font(10), justify="left", wraplength=wrap(400)).pack(anchor="w", pady=(4, 0))
@@ -1446,6 +1453,20 @@ class App(tk.Tk):
                 fac.delete(0, "end")
                 fac.insert(0, "  ".join(str(v) for v in vals))
             note.config(text=f"Set: {'level ' + str(n) if table else str(xp) + ' XP'}, traders {' / '.join(map(str, vals))}.")
+
+        def set_rows():
+            try:
+                n = int(rows_box.get().strip())
+            except ValueError:
+                n = 0
+            try:
+                got = saves.set_stash_rows(sid, n)
+            except (OSError, ValueError) as e:
+                note.config(text=f"Stash rows: {e}.")
+                rows_box.focus_set()
+                return
+            self.refresh()
+            note.config(text=f"Stash set to {got} rows. It takes effect the next time you play this save.")
 
         def add():
             sel = pick.curselection()
@@ -1489,6 +1510,8 @@ class App(tk.Tk):
         Button(cash_line, "SET CASH", set_money, "main", 11, (12, 4)).pack(side="left")
         Button(lvl_line, "SET LEVELS", set_levels, "main", 11, (12, 4)).pack(side="left")
         Button(fac_line, "MAX", lambda: set_levels(True), size=11, pad=(10, 4)).pack(side="left")
+        Button(rows_line, "SET ROWS", set_rows, "main", 11, (12, 4)).pack(side="left")
+        rows_box.bind("<Return>", lambda e: set_rows())
         r = d.row()
         Button(r, "Close", d.destroy, size=11, pad=(14, 6)).pack(side="left")
         search.bind("<KeyRelease>", filter_list)
