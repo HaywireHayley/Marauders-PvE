@@ -258,7 +258,11 @@ local function veilUntilAboard(pc, world)
         end
         pcall(Loading.stage, "ready", 1)
     end
-    if (raid.readyAt and now - raid.readyAt >= CFG.REVEAL_DELAY) or now - raid.veiledAt >= CFG.VEIL_MAX then
+    -- Also wait for the rival crews' first update (space.lua): it loads every look not loaded in the lobby yet and
+    -- surveys the stations, a 0.3-6 s freeze that came just after the world was shown (players' logs, build 40, #336).
+    -- A joiner runs no rivals of its own.
+    local crewsUp = joiner or raid.rivalsUp
+    if (raid.readyAt and crewsUp and now - raid.readyAt >= CFG.REVEAL_DELAY) or now - raid.veiledAt >= CFG.VEIL_MAX then
         raid.revealed = true
         if not joiner then setLoadSpeed(pc, 1) end
         pcall(Loading.finish)

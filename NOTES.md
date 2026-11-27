@@ -6016,3 +6016,20 @@ mounted one test turret of each kind on the Rustbucket and fired each one throug
 - The game starts you on foot in your ship (pc.Pawn is PlayerPawn_C), 16 m from the helm. While you fly it (pc.Pawn is
   not your body), boarders sent at you (e.alert) now hold where they came in and fight only bots they see; they come
   for you when you leave the helm. NOT tested while flying: every test run was on foot.
+
+## Raid hitches from players' frames: lines (#336, 2026-11-26; partly tested in game)
+- Read the `frames:` lines in nine player report zips (builds 38-40) and profiled a Space_Delta raid. Ranked by what a
+  player feels: (1) rivals `newMap` 0.3-6.8 s once a raid, ~2 s AFTER the loading screen lifted (the looks catalog loads
+  every head/body the lobby preload hadn't reached: a quick START RAID; then the station survey); (2) rivals `roamGuards`
+  150-220 ms every few seconds inside a station (growSpots ran from roamGuards and every spreadPoint, navmesh queries
+  with no budget, forever when a pool couldn't fill); (3) FindFirstOf MainPlayerController_C / the game instance,
+  30-60 ms each, several a minute.
+- Fixes: launch.lua's veil also waits for `raid.rivalsUp` (set in space.lua after the first Rivals.update; joiners don't
+  wait; VEIL_MAX still caps it). growSpots runs at most every 0.25 s per station and stops after 24 misses in a row once
+  seeded. cache.lua `raidPc()` / `gameInstance()` replace the direct finds (defuse F/R key, invqol K/J in raids,
+  key-card captain name, debuggive, missions).
+- Tested in game: quick START RAID, `newMap 6526` ran and "aboard after 28s" was logged right after it (the freeze is
+  under the loading screen now); frames afterwards worst gap 36 ms. NOT tested: the roamGuards budget inside a station
+  (no walk into a station this run), the cached controller in co-op.
+- Left: invsync up to ~1 s per check in the lobby (players' logs), blowtorch's RaidLockedDoor FindAllOf every 30 s
+  (~80 ms), mine and ship-interior FindAllOfs (bounded, but each ~50-70 ms), garrisonStation ~120 ms on entering a station.

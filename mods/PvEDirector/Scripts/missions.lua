@@ -113,7 +113,7 @@ local function destroyTags(pc)
     end
     for _, e in ipairs(pc:GetAllMissionsForRaid() or {}) do add(e:get()) end
     pcall(function()
-        local gi = FindFirstOf("SIGIS_ExampleGameInstance_C") -- (pc:GetGameInstance() throws from Lua)
+        local gi = require("cache").gameInstance() -- (pc:GetGameInstance() throws from Lua)
         local c = gi.PrologueChapter
         local rows = pc:GetAllMissionsForChapters(c.Chapter:ToString())
         local e = rows and rows[c.ChapterStage + 1]
@@ -369,7 +369,7 @@ function M.version() return S and S.ver or 0 end
 -- event (sent need - progress times); Guard (6) counts 1 a second while bInChapterVolume is set, so the flag is set and
 -- one event starts its timer; Inspect (5) only counts while Use is held at the object, so it isn't skipped here.
 local function chapterStep(pc)
-    local gi = FindFirstOf("SIGIS_ExampleGameInstance_C") -- (pc:GetGameInstance() throws from Lua)
+    local gi = require("cache").gameInstance() -- (pc:GetGameInstance() throws from Lua)
     if not valid(gi) then return nil end
     local c = gi.PrologueChapter
     local chapter, stage, progress = c.Chapter:ToString(), c.ChapterStage, c.Progress

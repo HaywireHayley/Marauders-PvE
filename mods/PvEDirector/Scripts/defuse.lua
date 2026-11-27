@@ -601,7 +601,7 @@ function M.key(letter)
     letter = letter or "F"
     if board or not armed(nearKind, near) then return end
     if (nearKind == "space") ~= (letter == "R") then return end
-    local pc = FindFirstOf("MainPlayerController_C")
+    local pc = require("cache").raidPc()
     if context(pc) ~= where(nearKind) then return end
     if nearKind == "space" and isNuclear(near) then return tow(pc, pc.Pawn, near) end
     if not carried().tool then return X.log("defuse: no ToolKit") end

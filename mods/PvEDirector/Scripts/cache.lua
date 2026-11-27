@@ -25,4 +25,10 @@ function M.menuPc() return find("MenuPlayerController_C") end
 
 function M.world() return find("World") end
 
+-- Your raid controller and the game instance (a FindFirstOf of either was 30-60 ms, several times a minute: players'
+-- frames: lines, build 40, #336).
+function M.raidPc() return find("MainPlayerController_C") end
+
+function M.gameInstance() return find("SIGIS_ExampleGameInstance_C") end
+
 return M
