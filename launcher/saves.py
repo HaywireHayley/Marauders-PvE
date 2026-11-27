@@ -283,6 +283,27 @@ def activate(sid):
         f.write(sid)
 
 
+def _readable(path):
+    """A save state that loads and has the parts the launcher and the stand-in read."""
+    try:
+        _summary(_read(path))
+        return True
+    except (OSError, ValueError, AttributeError, KeyError, TypeError):
+        return False
+
+
+def _rebuild_meta(sid):
+    """meta.json is gone or broken but state.json is fine (#555): write a plain one instead of calling the save damaged."""
+    folder = os.path.join(SAVES, sid)
+    when = os.path.getmtime(os.path.join(folder, "state.json"))
+    meta = {"name": sid.replace("-", " "), "cheat": False, "created": when, "played": when}
+    try:
+        _write(os.path.join(folder, "meta.json"), meta)
+    except OSError:
+        pass
+    return meta
+
+
 def listing():
     """Every save, newest first. One whose files can't be read is listed as damaged (it used to vanish from the list)."""
     out = []
@@ -296,12 +317,16 @@ def listing():
             meta = {}
         try:
             info = _summary(_read(os.path.join(folder, "state.json")))
-            damaged = not meta
+            damaged = False
         except (OSError, ValueError, AttributeError, KeyError, TypeError):
             info, damaged = {"cash": 0, "xp": 0, "items": 0}, True
+        if not damaged and not meta:
+            meta = _rebuild_meta(sid)  # (#555) only meta.json was lost: the game itself is fine
         if damaged:
             meta = {"name": meta.get("name") or sid, "played": meta.get("played") or os.path.getmtime(folder)}
-            out.append({"id": sid, **meta, **info, "stash_rows": STASH_H, "can_undo": False, "damaged": True})
+            # (#555) the copy taken when the last raid started is a way back: Undo last raid restores it
+            can_undo = _readable(os.path.join(folder, "before-last-raid.json"))
+            out.append({"id": sid, **meta, **info, "stash_rows": STASH_H, "can_undo": can_undo, "damaged": True})
             continue
         out.append({"id": sid, **meta, **info, "stash_rows": stash_rows(meta),
                     "can_undo": os.path.exists(os.path.join(folder, "before-last-raid.json"))})
@@ -519,7 +544,10 @@ def set_cash(sid, amount):
 def undo_last_raid(sid):
     """Back to the moment the last raid started: for a raid that ended without an extraction you wanted."""
     folder = os.path.join(SAVES, sid)
-    _copy(os.path.join(folder, "before-last-raid.json"), os.path.join(folder, "state.json"))
+    state = os.path.join(folder, "state.json")
+    if os.path.exists(state) and not _readable(state):  # (#555) keep the broken file to work out what broke it
+        _copy(state, os.path.join(folder, "state.damaged.json"))
+    _copy(os.path.join(folder, "before-last-raid.json"), state)
     os.remove(os.path.join(folder, "before-last-raid.json"))
     undo_crew = os.path.join(folder, SLOT_CREW_UNDO)
     if os.path.exists(undo_crew):  # crewmates lost in that raid come back

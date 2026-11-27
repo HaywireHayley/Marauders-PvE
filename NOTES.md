@@ -1730,6 +1730,7 @@ Measured live in a Navy Outpost raid, with WoW in front for all of it, so frame 
   Guide_Widget) is closed by lobbylabel.lua with ForceCloseTheGuideWidget if it shows within 60 s of the session's
   first lobby (it opened ~15 s in). Tested on a fresh save: "lobby: closed the new-player guide", clean lobby.
 
+**Damaged saves (2026-11-27, #555).** `saves.listing()` called a save DAMAGED when only meta.json was missing or broken; it now writes a plain meta.json (name from the folder, cheat off) and lists the save normally. When state.json itself doesn't read but the slot's `before-last-raid.json` does, Undo last raid stays enabled and restores it; the broken state.json is kept as `state.damaged.json` for diagnosis. Tested with a scratch script (meta missing, state truncated with and without a before-raid copy) and `launcher/test_ui.py` (30 ok). What actually damaged spacedork_'s save is still unknown (needs their folder).
 ## Key card swap (#536, 2026-11-26; tested in game)
 - guardKeyCard put your card back the moment the KeyCard slot was empty, so taking it out to slot another crew's card
   was undone at once (spacedork_, build 39: "put it back" 8 times in 4 minutes). Now yours stays out while you carry
