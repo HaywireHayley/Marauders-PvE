@@ -83,3 +83,4 @@ config/coop_host.txt
 config/coop_join.txt
 config/coop_last.txt
 config/my_raid_conditions.txt
+config/xp_levels.txt

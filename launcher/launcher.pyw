@@ -1366,7 +1366,7 @@ class App(tk.Tk):
         names = saves.item_names()  # players know items by these ("Hard Hat", "Mk4"), not by row (#538)
         label = {r: f"{names[r]}  ({r})" if names.get(r) and names[r] != r else r for r in rows}
         rows = sorted(rows, key=lambda r: label[r].lower())
-        d = Dialog(self, "Give items or cash")
+        d = Dialog(self, "Give items, cash or levels")
         tk.Label(d.body, text=f"Into {s['name']}'s stash. Type to search by name (Hard Hat, Mk4) or row.", bg=PANEL, fg=MUTED,
                  font=font(11)).pack(anchor="w")
         search = entry(d.body, 13)
@@ -1403,8 +1403,49 @@ class App(tk.Tk):
         cash = entry(cash_line, 13, 12)
         cash.pack(side="left", ipady=3, padx=(8, 8))
         cash.insert(0, str(s["cash"]))
+        # Levels (#561): put back a lost save's player level and trader standing.
+        tk.Frame(d.body, bg=LINE, height=1).pack(fill="x", pady=(12, 10))
+        lv = saves.levels(sid)
+        table = saves.xp_table()
+        lvl_line = tk.Frame(d.body, bg=PANEL)
+        lvl_line.pack(fill="x")
+        tk.Label(lvl_line, text="Player level" if table else "Player XP", bg=PANEL, fg=MUTED, font=font(11)).pack(side="left")
+        level = entry(lvl_line, 13, 8)
+        level.pack(side="left", ipady=3, padx=(8, 8))
+        level.insert(0, str(saves.level_for(lv["xp"], table) if table else lv["xp"]))
+        fac_line = tk.Frame(d.body, bg=PANEL)
+        fac_line.pack(fill="x", pady=(6, 0))
+        tk.Label(fac_line, text="Trader XP", bg=PANEL, fg=MUTED, font=font(11)).pack(side="left")
+        fac = entry(fac_line, 13, 28)
+        fac.pack(side="left", ipady=3, padx=(8, 8))
+        fac.insert(0, "  ".join(str(v) for v in lv["factions"]))
+        tk.Label(d.body, text=("Trader XP is one number per trader: " + ", ".join(saves.FACTIONS) + "."
+                               + ("" if table else "  Play once to the main menu to set the level by number instead of XP.")),
+                 bg=PANEL, fg=MUTED, font=font(10), justify="left", wraplength=wrap(400)).pack(anchor="w", pady=(4, 0))
         note = tk.Label(d.body, text="", bg=PANEL, fg=ORANGE, font=font(11), justify="left", wraplength=wrap(400))
         note.pack(anchor="w", pady=(10, 0))
+
+        def set_levels(max_traders=False):
+            try:
+                n = int(level.get().strip().replace(",", ""))
+                vals = [saves.FACTION_XP_MAX] * len(lv["factions"]) if max_traders else \
+                    [int(v) for v in fac.get().replace(",", " ").split()]
+            except ValueError:
+                note.config(text="Levels: enter whole numbers only.")
+                return
+            if table and not 0 <= n <= len(table):
+                note.config(text=f"Player level: enter a number from 0 to {len(table)}.")
+                return
+            if len(vals) != len(lv["factions"]):
+                note.config(text=f"Trader XP: enter {len(lv['factions'])} numbers, one per trader.")
+                return
+            xp = (table[n - 1] if n else 0) if table else n
+            saves.set_levels(sid, xp=xp, factions=vals)
+            self.refresh()
+            if max_traders:
+                fac.delete(0, "end")
+                fac.insert(0, "  ".join(str(v) for v in vals))
+            note.config(text=f"Set: {'level ' + str(n) if table else str(xp) + ' XP'}, traders {' / '.join(map(str, vals))}.")
 
         def add():
             sel = pick.curselection()
@@ -1446,6 +1487,8 @@ class App(tk.Tk):
 
         Button(line, "ADD TO STASH", add, "main", 11, (12, 4)).pack(side="left")
         Button(cash_line, "SET CASH", set_money, "main", 11, (12, 4)).pack(side="left")
+        Button(lvl_line, "SET LEVELS", set_levels, "main", 11, (12, 4)).pack(side="left")
+        Button(fac_line, "MAX", lambda: set_levels(True), size=11, pad=(10, 4)).pack(side="left")
         r = d.row()
         Button(r, "Close", d.destroy, size=11, pad=(14, 6)).pack(side="left")
         search.bind("<KeyRelease>", filter_list)
