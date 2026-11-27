@@ -2,6 +2,16 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 27 Nov 2026, build 44 (`public-test-20261127.44`)
+
+No more long freezes from the inventory check. On build 1 of 17 Nov or later, the launcher's orange **!** installs this
+one for you, keeping your saves.
+
+### Fixes
+- **Freezes of up to a second in the lobby and after moving items (#336, PR #552):** the check that clears stuck
+  inventory cells read every cell of the stash and your gear in one frame. It now does a little each frame. Tested in
+  the lobby: at most 4 ms a frame (players' logs showed up to 987 ms). Not tested: a stuck cell actually being cleared.
+
 ## Public test, 26 Nov 2026, build 43 (`public-test-20261126.43`)
 
 Fewer hitches in space raids. On build 1 of 17 Nov or later, the launcher's orange **!** installs this one for you,
