@@ -1171,6 +1171,7 @@ tools/offline-audit/ (live read-only; name pool at RVA 0x58ceb40, GUObjectArray 
   way: never run trailer/front.ps1 for a capture, use the console's `HighResShot 1`
   (%LOCALAPPDATA%/RaidGame/Saved/Screenshots/WindowsNoEditor), which needs no focus.
 
+**Meds on rival bodies raised (2026-11-27, #558).** Players asked for more healing items on marauders. `rivals.lua` CFG: `MEDS` 0-2 -> 1-3 (every rival body carries at least one med) and the bagless pocket roll `POCKET_MED` 0.2 -> 0.3 (`POCKET_AMMO` 0.5 -> 0.45). Station guards' bags use the same `MEDS` range, scaled by `BODY_LOOT`. Checked with luacheck only, not in game.
 ## Giant shapes in the space sky (2026-11-06)
 - Cause: raid interiors are always-loaded sublevels at their real coordinates, each wrapped in a black shell of thin Cube
   meshes (M_FullyBlack, ~200 m), plus fog cubes and large light panels. Their small props cull with distance, these big
