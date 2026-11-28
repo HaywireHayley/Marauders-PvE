@@ -6153,6 +6153,27 @@ A death's rows join the lobby summary when the raid ended in death and the end s
   garrison soldiers' kits are not touched. AI accuracy not changed.
 - Switch: features.lua LOCATION_TIERS (F10 Features). Luacheck only; untested in game.
 
+## Retake squads (#581, 2026-11-28)
+- Players said Spaceport's SAS fight like prisoners and asked for squads that come in to retake a station. Chosen over
+  the smaller alternative (tier-5 kits for Spaceport) because the top-up queue already does the hard, crash-prone part.
+- rivalbodies.lua `retakeStep(pc, st, now)`, called from rivals.lua's update only while you're in a garrisoned station.
+  Guards are counted per station by `e.guardOf` (set on adopted placed defenders and their top-ups; `st.guardsSeen`
+  is the running total). Once the station has had RETAKE_MIN_GUARDS (4) or more, its adoption queue and top-ups are
+  done, and RETAKE_ALIVE_FRAC (25 %) or fewer are alive, a squad of RETAKE_COUNT[tier] (tiers.lua: 0/2/3/4/6 for tiers
+  1-5; tier 3 with LOCATION_TIERS off) is scheduled RETAKE_DELAY (60-120 s) later. `st.retake` makes it once per
+  station a raid. Logged as `[retake]` on schedule and arrival; the arrival also shows "Reinforcements are coming to
+  retake the <station>" (ClientMessage, as rivals.lua `say`).
+- The squad is a normal S.topUps job with `retake = true`: one spawn per update, capped by AWAKE_MAX at arrival time,
+  the station's own guards' looks (`st.templates`), but kits rolled by GearScale.roll(RETAKE_GEAR_BIAS 0.25 + tier
+  bias). Spawn point: the station entry (`st.entries`) furthest from you, if at least SPAWN_AWAY off, via
+  reachableNear; else defenderSpot. Hunting: `e.roamSt = false` keeps roamGuards off them, and every
+  RETAKE_HUNT_EVERY s their patrol centre (`e.home`) is set to where you are, with RETAKE_PATROL radius; bots.lua's
+  normal perception takes over once they see or hear you.
+- Not covered: stations with no placed defenders (bots.lua X.garrison soldiers aren't tagged, so they never trigger
+  it); a station whose templates are empty falls back to X.garrison soldiers, which don't hunt. routGuards may count
+  the squad as the station's group. If you leave before the delay ends, the squad waits until you're back inside.
+- Switch: features.lua RETAKE_SQUADS (F10 Features). Luacheck only; untested in game.
+
 ## Handler briefings on the contracts page (#333 / #272 option 7, 2026-11-21)
 - briefings.lua holds 9 briefings (docs/lore/contracts.md, the 3 fan-theory ones left out) and `briefingFor(row, text)`
   (by row prefix Spaceport / Merchant / Fortress (= Navy Outpost, a guess), else a place name in the text).
