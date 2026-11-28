@@ -550,10 +550,16 @@ local function spreadPoint(st, self, mates, visited, awayFrom)
     for _, d in ipairs(S.pendingDefenders or {}) do
         if valid(d.body) then others[#others + 1] = d.body:K2_GetActorLocation() end
     end
+    local now, cold = os.clock(), {}
+    for _, f in ipairs(X.raid().fights or {}) do
+        if now - f.time < CFG.FIGHT_COOL then cold[#cold + 1] = f.at end
+    end
     local best, bestScore
     for _ = 1, CFG.SPREAD_TRIES do
         local p = pool[math.random(#pool)]
-        if not awayFrom or dist(p, awayFrom) >= CFG.SPAWN_AWAY then
+        local hot = false -- #557: not where bots just died (nil if every try is hot: callers fall back to stationPoint)
+        for _, f in ipairs(cold) do if dist(p, f) < CFG.FIGHT_AVOID then hot = true end end
+        if not hot and (not awayFrom or dist(p, awayFrom) >= CFG.SPAWN_AWAY) then
             local score = math.huge
             for _, q in ipairs(others) do score = math.min(score, dist(p, q)) end
             if not bestScore or score > bestScore then best, bestScore = p, score end

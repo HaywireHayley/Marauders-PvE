@@ -188,10 +188,32 @@ end
 -- UObject __index, walking a garbage class chain; even IsValid reads the object's memory). So CFG.REAP_HZ times a second, before
 -- anything else touches the bots, a dead or destroyed bot's entry drops its object references (other modules see
 -- valid(e.bot) == false: rivals marks the member killed) and leaves the list.
+-- Where bots died lately (#557): the emptiest part of a station is where everyone just got killed, so spread picks and
+-- noise investigations took the next bots straight back to the bodies. raid.fights is a short list of {at, time, n}.
+function M.noteFight(at)
+    local now, list = os.clock(), raid.fights or {}
+    raid.fights = list
+    local avoid = Rivals.CFG.FIGHT_AVOID
+    for _, f in ipairs(list) do
+        if dist(f.at, at) < avoid then f.time, f.n = now, f.n + 1 return end
+    end
+    table.insert(list, { at = at, time = now, n = 1 })
+    if #list > 12 then table.remove(list, 1) end
+end
+
+function M.recentFight(at, minBodies)
+    local cool, avoid = Rivals.CFG.FIGHT_COOL, Rivals.CFG.FIGHT_AVOID
+    local now = os.clock()
+    for _, f in ipairs(raid.fights or {}) do
+        if now - f.time < cool and f.n >= (minBodies or 1) and dist(f.at, at) < avoid then return f end
+    end
+end
+
 local function reapDead()
     for i = #raid.bots, 1, -1 do
         local e = raid.bots[i]
         if not valid(e.bot) or (e.bot.Health or 0) <= 0 then
+            if valid(e.bot) then M.noteFight(e.bot:K2_GetActorLocation()) end
             e.dead, e.bot, e.ctrl, e.hand, e.mesh, e.move = true, nil, nil, nil, nil, nil
             e.fighting, e.inCombat, e.cover, e.investigate, e.holdUntil = false, false, nil, nil, nil
             table.remove(raid.bots, i)
@@ -329,6 +351,8 @@ local function investigate(e, now)
         if p.sneaky and not e.bot.bIsCrouched then e.bot:Crouch(false) end
         if now < inv["until"] then return end
         if not p.search then return endInvestigation(e) end
+        -- a spot where several bots just died is not worth another body (#557)
+        if M.recentFight(inv.at, 2) then return endInvestigation(e) end
         local dest = reachableNear(e, inv.at, 250)
         if not dest then return endInvestigation(e) end
         inv.state, inv.dest, inv.run = "go", dest, math.random() < p.sprintSearch

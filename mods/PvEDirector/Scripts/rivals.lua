@@ -232,6 +232,8 @@ local CFG = {
     SPREAD_GAP = 600,               -- pooled points keep this far apart (without it 112 of Asteroid Mine's 160 sat in a
                                     -- few rooms, each within 5 m of a guard, 2026-11-14)
     SPREAD_SEEDS = { "SIGISLootSingleSpawner", "RaidAINodeStart", "SIGISContractActor" }, -- the pool starts at these
+    FIGHT_COOL = 240,               -- a place where bots died stays off limits to spreadPoint picks and noise investigations this long (#557)
+    FIGHT_AVOID = 3000,             -- ...within this distance of it
     GUARD_FIRST_ROAM = 10,          -- guards leave their posts within this many seconds of being taken over...
     GUARD_ROAM = { 60, 150 },       -- ...then move on to another part of the station this often
     ROAM_PATROL = 1200,             -- walking about within this radius of it in between
