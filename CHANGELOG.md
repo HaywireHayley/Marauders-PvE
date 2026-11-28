@@ -2,6 +2,29 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 27 Nov 2026, build 47 (`public-test-20261127.47`)
+
+Crew health shows below the minimap again, bots stop crowding the bodies of your last fight, and shotguns lose damage
+at range. A mid-flight crash after a rival ship sank nearby gets a set of safety checks. On build 1 of 17 Nov or
+later, the launcher's orange **!** installs this one for you, keeping your saves.
+
+### Fixes
+
+- **Crew health hidden by the minimap (#573, PR #578, thanks spacedork_ for the report):** the crew health readout
+  now sits below the minimap panel.
+- **Bots converging on a fight's bodies (#557, PR #582):** new bots, guard roams and noise checks keep away from
+  spots where bots died in the last 4 minutes, so the bodies can be looted.
+- **Crash after a rival ship sinks (#584, PR #585, thanks Taki for the report):** a sunk ship's gun and aim are
+  dropped, and other crews forget it as a target. The exact crash isn't confirmed fixed yet: send a report if it
+  happens again.
+
+### Changes
+
+- **Shotgun range falloff (#556, PR #583):** your shotgun pellets do full damage to 15 m, falling to 30% at 40 m and
+  beyond. Bot shotguns are unchanged.
+- **Fewer lobby hitches (#336, PR #586):** crew portraits and the guide popup check no longer search the whole game
+  each time.
+
 ## Public test, 27 Nov 2026, build 46 (`public-test-20261127.46`)
 
 The raid summary no longer gets stuck over the lobby, and it moves onto the game's own end-of-raid screen together
