@@ -6111,3 +6111,15 @@ A death's rows join the lobby summary when the raid ended in death and the end s
   `bring` in the save's crew.lua, same field the mod reads; saves.crew_gear returns it). test_ui.py CrewGear covers it.
 - Checked: luacheck hire.lua (124 locals spare), py_compile, ruff, launcher/test_ui.py (32 ok). Not run in game: the
   new line's placement (PY+88, between the tabs and the first row) and a click through full-crew dismiss.
+
+## Bots piling onto the first fight's bodies (2026-11-27, #557)
+- Report (Discord, no zip): on some maps more bots keep heading to the spot of the first fight, so its bodies can't be looted.
+- Cause (from reading the code; no capture): spreadPoint picks the pooled point furthest from every *living* bot, and dead
+  bots leave the list, so the place everyone just died is the emptiest part of the station: roamGuards, top-up spawns and
+  crews' new search areas all chose it. Separately, a noise heard at peace sent each bot to look at the same gunfire.
+- Change: bots.lua `noteFight` records where a bot died (raid.fights, max 12, merged within FIGHT_AVOID 30 m, refreshed by
+  each new death). spreadPoint skips pooled points within FIGHT_AVOID of a fight younger than FIGHT_COOL 240 s (nil if all
+  16 tries are hot: callers already fall back to stationPoint). investigate() ends the "go" step when the noise is within
+  FIGHT_AVOID of a fight with 2+ deaths in the last FIGHT_COOL (they still freeze and watch). Constants in rivals.lua CFG.
+- Not in game yet. luacheck only. Check: after a first fight, guards' roam targets and new top-ups/crews stay 30 m off
+  the bodies for 4 minutes. Charging personalities and anyone who sees you still engage as before.
