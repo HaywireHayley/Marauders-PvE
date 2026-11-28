@@ -51,7 +51,7 @@ local CFG = {
     FIRE_KEY = "LeftMouseButton",
     TAG_HEIGHT = 115,               -- nametag this far above a crewmate's middle
     TAG_FAR = 6000,                 -- not drawn beyond this (cm)
-    HUD_X = 24, HUD_Y = 320,        -- the crew health readout's top left (widget units, #391)
+    HUD_X = 24, HUD_Y = 470,        -- the crew health readout's top left (widget units, #391); below the minimap panel (y 34-452, #573)
     HUD_EVERY = 0.25,               -- ...refreshed this often (s)
 }
 C.CFG = CFG
