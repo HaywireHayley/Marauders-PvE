@@ -2,6 +2,22 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 28 Nov 2026, build 48 (`public-test-20261128.48`)
+
+Stations now have difficulty tiers: the mines get fewer guards, and the Navy Outpost, Capital Ship, Planet Killer and
+Fortress get more. On build 1 of 17 Nov or later, the launcher's orange **!** installs this one for you, keeping your
+saves.
+
+### Changes
+
+- **Location difficulty tiers (#579, PR #588, thanks spacedork_ and HeartCoded for the tier list):** every station
+  is rated 1 to 5. The extra guards the mod adds scale from x0.7 (Mini Mine, Asteroid Mine) to x1.4 (Fortress), and
+  Penal Colony gets x1.3 more for its numbers. Mid-tier stations (Moon Base, Colony Cruiser, Merchant) are unchanged.
+  Backup guard kits lean cheaper or better by tier. Features > Location difficulty tiers turns it off; the log names
+  each station's tier.
+- **Handler briefings, groundwork (#333, PR #356):** contract briefings in the handlers' voice are written and wired
+  in behind a switch. Nothing shows yet: the lobby's contract widget still has to be found in game.
+
 ## Public test, 27 Nov 2026, build 47 (`public-test-20261127.47`)
 
 Crew health shows below the minimap again, bots stop crowding the bodies of your last fight, and shotguns lose damage
