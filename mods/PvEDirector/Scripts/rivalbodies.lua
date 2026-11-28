@@ -1123,7 +1123,13 @@ local function garrisonStation(pc, st)
     for _, b in ipairs(list) do table.insert(S.adoptQueue, { bot = b, st = st }) end
     -- MIN_DEFENDERS is for a mid-size station: a small one gets as few as half, a big one up to DEFENDERS_MAX_SCALE x.
     local scale = math.max(0.5, math.min(CFG.DEFENDERS_MAX_SCALE, (st.area or CFG.STATION_AREA_MID) / CFG.STATION_AREA_MID))
-    local extra = math.max(0, math.floor(CFG.MIN_DEFENDERS * scale + 0.5) - #list)
+    local Tiers = require("tiers") -- location tiers (#579): x1 / bias 0 at tier 3 or with LOCATION_TIERS off
+    local tf = Tiers.countFactor(st.name)
+    local extra = math.max(0, math.floor(CFG.MIN_DEFENDERS * scale * tf + 0.5) - #list)
+    if Tiers.on() then
+        X.log(("tiers: %s tier %d: %d guards (x%.2f), gear bias %+.1f"):format(st.name, Tiers.tierOf(st.name),
+            #list + extra, tf, Tiers.gearBias(st.name)))
+    end
     if CFG.AWAKE_MAX > 0 then
         local room = math.max(0, CFG.AWAKE_MAX - R.awakeCount() - #list)
         if room < extra then
@@ -1176,6 +1182,8 @@ local function topUpKit(job, tpl)
     local r = tpl.rows or {}
     if not (r.gun or r.pistol or r.helmet or r.chest or r.bag) then
         local tier = CFG.TIERS[2]
+        local bias = require("tiers").gearBias(job.st and job.st.name)
+        if bias ~= 0 then tier = GearScale.spec(math.max(0, math.min(1, GearScale.roll(bias)))) end
         return rollKit(tier, math.random() < tier.helmet, math.random() < tier.chest, math.random() < tier.backpack)
     end
     local gun = #job.guns > 0 and job.guns[math.random(#job.guns)] or r.gun

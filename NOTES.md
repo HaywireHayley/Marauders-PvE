@@ -6139,3 +6139,16 @@ A death's rows join the lobby summary when the raid ended in death and the end s
     crews' `target.crew`, `shotBy` and `fireAt` pointing at it are cleared.
   - shipnav.lua blocked(): ignore-list entries checked with `i:IsValid()`, now X.valid(i).
 - Not verified in game; luacheck only. If it recurs, look outside the rival modules (salvage airlock scan, node turrets).
+
+## Location tiers (#579, 2026-11-28)
+- `tiers.lua` rates stations 1 (easy) to 5 by the names rivals.lua's survey gives (`st.name`): Mini Mine, Asteroid
+  Mine 1; Penal Colony, Spaceport 2; Moon Base/Terraformer, Colony Cruiser, Merchant Ship 3; Navy Outpost, Capital Ship,
+  Planet Killer 4; Fortress, Red Baron 5 (the Red Baron name is a guess; no station by that name was seen). Rebel Base
+  is left out (neutral). Unknown stations are tier 3, and tier 3 is exactly the old behaviour.
+- Guard count: rivalbodies.lua `garrisonStation` multiplies MIN_DEFENDERS x size scale by COUNT {0.7, 0.85, 1, 1.2, 1.4}
+  (Penal Colony x1.3 more); AWAKE_MAX still caps it. The station's own placed NPCs are never removed, so a low tier only
+  means fewer top-ups. One `tiers:` log line per station.
+- Gear: only the rolled fallback kit in `topUpKit` (template rows unreadable) and nothing else: top-ups normally copy the
+  station's own guards' gear, which is the level's. There GEAR {-0.2..+0.2} shifts the gearscale.lua grade. bots.lua
+  garrison soldiers' kits are not touched. AI accuracy not changed.
+- Switch: features.lua LOCATION_TIERS (F10 Features). Luacheck only; untested in game.
