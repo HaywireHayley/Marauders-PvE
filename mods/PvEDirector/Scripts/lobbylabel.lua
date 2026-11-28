@@ -15,7 +15,7 @@ local paths, nextCheck, nextFind = nil, 0, 0
 -- popup of its own on the game instance, not the lobby's embedded Guide_Widget), and its YouTube video can't load
 -- offline. For GUIDE_WATCH s after the session's first lobby, that popup is closed (ForceCloseTheGuideWidget). One
 -- you open yourself later (the pause menu's GUIDE) is left alone.
-local GUIDE_WATCH, GUIDE_EVERY = 60, 2 -- (it opened ~15 s after the lobby in testing)
+local GUIDE_WATCH, GUIDE_EVERY = 60, 5 -- (it opened ~15 s after the lobby in testing; each look is a ~30 ms FindAllOf)
 local guideUntil, nextGuide = nil, 0
 -- Gear put on or taken off on LOADOUT didn't show on your character until you switched tabs (issue #29). While
 -- LOADOUT is the selected tab, the equipped items are compared each check, and on a change LOADOUT is "pressed" again

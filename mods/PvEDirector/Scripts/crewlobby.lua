@@ -249,7 +249,7 @@ local function photoStep(now)
             -- outer, the whole lobby world outlived the raid; the game marks a dead world's actors for kill, so the
             -- leaked level's WorldSettings went null, and loading the main menu again picked that world back up and
             -- crashed reading WorldSettings->DefaultGameMode (issue #133: on extraction, death or quit to menu).
-            local gi = FindFirstOf("GameInstance")
+            local gi = require("cache").gameInstance() -- (kept: a FindFirstOf here cost ~27 ms per portrait)
             if not valid(gi) then return end
             rt = krl:CreateRenderTarget2D(gi, CFG.PORTRAIT, CFG.PORTRAIT, 2, { R = 0.02, G = 0.02, B = 0.025, A = 1 }, false)
             if not valid(rt) then return end
