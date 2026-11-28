@@ -2,6 +2,18 @@
 
 Public test builds are on [GitHub Releases](https://github.com/HaywireHayley/Marauders-PvE/releases).
 
+## Public test, 28 Nov 2026, build 49 (`public-test-20261128.49`)
+
+Clearing a guarded station can now bring a retake squad. On build 1 of 17 Nov or later, the launcher's orange **!**
+installs this one for you, keeping your saves.
+
+### Changes
+
+- **Retake squads (#581, PR #590, thanks the Discord tier thread):** when you take down most of a station's guards
+  (25% or fewer left, of at least 4), a better-kitted squad arrives 1 to 2 minutes later and hunts you down. Squad size
+  follows the station's tier (none at the mines, up to 6 at the Fortress). A message tells you they're coming.
+  Features > Retake squads turns it off; the log shows `[retake]` lines. Not yet tested in game.
+
 ## Public test, 28 Nov 2026, build 48 (`public-test-20261128.48`)
 
 Stations now have difficulty tiers: the mines get fewer guards, and the Navy Outpost, Capital Ship, Planet Killer and
