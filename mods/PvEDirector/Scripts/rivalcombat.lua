@@ -453,7 +453,7 @@ local function fireControl(now, dt)
         if want ~= (c.firing or false) then
             c.firing = want
             if want then c.bursts = (c.bursts or 0) + 1 end
-            pcall(function() if want then c.gun:ServerStartFire() else c.gun:ServerStopFire() end end)
+            if valid(c.gun) then pcall(function() if want then c.gun:ServerStartFire() else c.gun:ServerStopFire() end end) end
         end
     end
 end

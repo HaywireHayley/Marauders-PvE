@@ -849,6 +849,17 @@ local function updateCrew(c, now, place, playerLoc)
             #kept > 0 and (" (alive in the wreck: " .. table.concat(kept, ", ") .. ")") or ""))
         c.state = valid(c.ship) and "wreck" or "gone"
         if c.state == "wreck" then pcall(Ships.stillTurrets, c) end
+        -- (#584) Nothing keeps aiming from or at the sunk hull: its gun and aim are dropped (fireControl stopped it on
+        -- a kept gun pointer), and other crews' fire, targets and shot-by marks on it go too.
+        if c.firing and valid(c.gun) then pcall(function() c.gun:ServerStopFire() end) end
+        c.gun, c.firing, c.fireAt, c.target, c.aim = nil, false, nil, nil, nil
+        for _, o in ipairs(S.crews) do
+            if o ~= c then
+                if o.target and o.target.crew == c then o.target = nil end
+                if o.shotBy == c then o.shotBy = nil end
+                if c.ship and o.fireAt == c.ship then o.fireAt = nil end
+            end
+        end
         return
     end
     local shipLoc = Ships.shipOk(c) and c.ship:K2_GetActorLocation() or nil

@@ -6125,3 +6125,17 @@ A death's rows join the lobby summary when the raid ended in death and the end s
   FIGHT_AVOID of a fight with 2+ deaths in the last FIGHT_COOL (they still freeze and watch). Constants in rivals.lua CFG.
 - Not in game yet. luacheck only. Check: after a first fight, guards' roam targets and new top-ups/crews stay 30 m off
   the bodies for 4 minutes. Charging personalities and anyone who sees you still engage as before.
+
+## Crash after a rival ship sinks (#584, 2026-11-27)
+- Build 46, Space_Beta: a rival sank in a 1v1 ("went down with their ship"), the winner broke off and extracted, and the
+  game crashed 1-2 s later with the #191 hash (freed UObject read from Lua, onTick).
+- Audit of what still held the wreck's actors. Already guarded: shipOk, hullThere, stillTurrets, disengage, fireTurrets
+  (valid(t.actor)), swingAimed (AIMED entries), navIgnore, hostileShips/pickShip/shipInPlay (flyingShip), gunnerFire
+  (valid(S.gunTarget)), glideShips, playerBoarding/rescueFromVoid (hullThere).
+- Fixed (no single clear culprit found):
+  - rivalcombat.lua fireControl called `c.gun:ServerStartFire/StopFire` on the kept gun with no valid() (only pcall,
+    which can't catch a native fault); a sunk crew with `c.firing` set hit it. Now valid(c.gun) first.
+  - rivals.lua, when a ship sinks: its gun is stopped (if valid) and dropped, with c.firing/fireAt/target/aim; other
+    crews' `target.crew`, `shotBy` and `fireAt` pointing at it are cleared.
+  - shipnav.lua blocked(): ignore-list entries checked with `i:IsValid()`, now X.valid(i).
+- Not verified in game; luacheck only. If it recurs, look outside the rival modules (salvage airlock scan, node turrets).

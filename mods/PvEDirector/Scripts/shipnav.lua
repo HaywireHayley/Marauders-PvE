@@ -83,7 +83,7 @@ local function blocked(ship, from, to, radius, ignore)
     if ok2 and a and a:IsValid() then
         local addr = a:GetAddress()
         for _, i in ipairs(ignore or {}) do
-            if i:IsValid() and i:GetAddress() == addr then return false end
+            if X.valid(i) and i:GetAddress() == addr then return false end
         end
     end
     if hit.bStartPenetrating and hit.Normal then
