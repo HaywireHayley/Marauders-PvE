@@ -198,11 +198,19 @@ local ZONE = { [1] = 3.5, [2] = 1, [3] = 1, [4] = 1, [5] = 0.5, [6] = 0.5 } -- A
 local pushQ = {} -- { bot, v, at, left, nudged }: a volley's throw, applied over the next moments
 
 -- One bot's share of a volley: damage ApplyDamage with the armour off and the zone multiplier on (area is nil for a hit on a mesh).
-local function pelletHit(ctx, e, area)
+-- Range falloff (#556): full damage to 15 m, then down to 30 % at 40 m and beyond (cm; balance numbers, not the game's).
+local FALL_NEAR, FALL_FAR, FALL_MIN = 1500, 4000, 0.3
+local function falloff(d)
+    if not d or d <= FALL_NEAR then return 1 end
+    if d >= FALL_FAR then return FALL_MIN end
+    return 1 - (1 - FALL_MIN) * (d - FALL_NEAR) / (FALL_FAR - FALL_NEAR)
+end
+
+local function pelletHit(ctx, e, area, d)
     local a = armour(e)
     -- (the vest covers the body and the arms, the helmet the head, nothing covers the legs: measured with every piece)
     local rating = (area == 1) and a.head or ((area == 2 or area == 3 or area == 4) and a.body or 0)
-    local dmg = math.max(0, PELLET_DAMAGE - rating) * (ZONE[area] or 1)
+    local dmg = math.max(0, PELLET_DAMAGE * falloff(d) - rating) * (ZONE[area] or 1)
     return pcall(function() ctx.gs:ApplyDamage(e.bot, dmg, ctx.pc, ctx.weapon, ctx.dtype) end)
 end
 
@@ -234,7 +242,7 @@ local function pellets(pc, pawn, gun, volleys, bots)
                         local ok, v = pcall(function() return comp.AreaHitType end)
                         if ok and type(v) == "number" then area = v end
                     end
-                    local ok, err = pelletHit(ctx, e, area)
+                    local ok, err = pelletHit(ctx, e, area, out.Distance)
                     if not ok then warn("pellet", "a shotgun pellet's damage failed: " .. tostring(err)) end
                     local p = push[e]
                     if not p then p = { n = 0, x = 0, y = 0, z = 0, d = 0 } push[e] = p end
