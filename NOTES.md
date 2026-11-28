@@ -6152,3 +6152,21 @@ A death's rows join the lobby summary when the raid ended in death and the end s
   station's own guards' gear, which is the level's. There GEAR {-0.2..+0.2} shifts the gearscale.lua grade. bots.lua
   garrison soldiers' kits are not touched. AI accuracy not changed.
 - Switch: features.lua LOCATION_TIERS (F10 Features). Luacheck only; untested in game.
+
+## Handler briefings on the contracts page (#333 / #272 option 7, 2026-11-21)
+- briefings.lua holds 9 briefings (docs/lore/contracts.md, the 3 fan-theory ones left out) and `briefingFor(row, text)`
+  (by row prefix Spaceport / Merchant / Fortress (= Navy Outpost, a guess), else a place name in the text).
+  `apply(tb, row)` appends the briefing below the TextBlock's own text (`Text` property read, `SetText(FText)`).
+  Switch: features.lua BRIEFINGS (F3 > Features). lobbylabel.lua calls `PveBriefings.tick` each check, but only
+  once `PveBriefings.TARGETS` has an entry (it is empty): the contracts page's widgets are NOT known from the code or
+  these notes (nothing names a contract card class or its text fields). Not tested in game (luacheck only).
+- The probe that is needed (lobby open, contracts tab showing, `scripts/send.sh "lua ..."`, read bridge/out.txt):
+  1. List widget classes: `for _,w in ipairs(FindAllOf("UserWidget") or {}) do local n=w:GetFullName(); if n:find("Contract") or n:find("Mission") or n:find("Task") then print(n) end end`
+     (look for Transient instances; FindAllOf("Contract...") once a class name shows up).
+  2. For the contract card class, read plain properties only (no UFunction FString returns): its TextBlock children's
+     `.Text:ToString()` via StaticFindObject(<card path>..".WidgetTree.TextBlock_N"), to find the description block and
+     whether a property (FName/FString/struct) holds the row name (Spaceport_C2...).
+  3. Put { class, desc = "WidgetTree.TextBlock_N", row = "<property>" } into briefings.lua TARGETS. Also check which
+     row prefixes the 134 rows use (bridge/contracts_table.txt) to map the other places in BY_PREFIX.
+- Unverified: that the text survives the page's own refresh (apply is repeated each second, idempotent), that the
+  description box is tall enough for the extra lines.

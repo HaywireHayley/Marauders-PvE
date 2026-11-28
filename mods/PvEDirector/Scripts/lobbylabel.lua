@@ -179,6 +179,11 @@ function L.tick(ticker)
         local okGuild, errGuild = pcall(PveGuild.tick)
         if not okGuild and not gear.guildErr then gear.guildErr = true X.log("lobby: offline guild failed: " .. tostring(errGuild)) end
     end
+    local PveBriefings = require("briefings")
+    if #PveBriefings.TARGETS > 0 then -- (handler briefings on the contracts page, briefings.lua)
+        local okBrief, errBrief = pcall(PveBriefings.tick)
+        if not okBrief and not gear.briefErr then gear.briefErr = true X.log("lobby: briefings failed: " .. tostring(errBrief)) end
+    end
     local okGear, errGear = pcall(gearTick)
     if not okGear and not gear.err then gear.err = true X.log("lobby: gear refresh failed: " .. tostring(errGear)) end
     -- (the Guide's class loads with the lobby; hooked once it exists, for the session: the pause menu's GUIDE too)
