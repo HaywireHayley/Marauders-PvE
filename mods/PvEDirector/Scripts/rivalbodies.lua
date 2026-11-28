@@ -1175,11 +1175,32 @@ local function defenderSpot(st)
         :format(st.name, found, near, #(st.entries or {}), #(st.posts or {}), S.offRejects or 0))
 end
 
+-- Retake squad (#581): they come in from an entry point (airlock / arrival point), the one furthest from you, so you
+-- hear them coming rather than see them appear; the usual spread point when none is walkable.
+local function retakeSpot(st)
+    local you = valid(S.foot) and S.foot:K2_GetActorLocation() or nil
+    local best, far = nil, -1
+    for _, q in ipairs(st.entries or {}) do
+        local d = you and dist(q, you) or 0
+        if d > far then best, far = q, d end
+    end
+    if best and (not you or far >= CFG.SPAWN_AWAY) then
+        local p = reachableNear(best, 400)
+        if p then return p end
+    end
+    return defenderSpot(st)
+end
+
 -- A top-up's kit: the template guard's own helmet, chest armour, bag and sidearm rows (so it looks like them), and a gun
 -- one of the station's own guards carries (the station's gear pool, not your level). A template whose rows couldn't be
 -- read falls back to a rolled kit.
 local function topUpKit(job, tpl)
     local r = tpl.rows or {}
+    if job.retake then -- retake squad (#581): a rolled kit graded above the station's own
+        local g = GearScale.roll(CFG.RETAKE_GEAR_BIAS + require("tiers").gearBias(job.st and job.st.name))
+        local tier = GearScale.spec(math.max(0, math.min(1, g)))
+        return rollKit(tier, math.random() < tier.helmet, math.random() < tier.chest, math.random() < tier.backpack)
+    end
     if not (r.gun or r.pistol or r.helmet or r.chest or r.bag) then
         local tier = CFG.TIERS[2]
         local bias = require("tiers").gearBias(job.st and job.st.name)
@@ -1193,7 +1214,7 @@ end
 
 local function startTopUp(pc, job)
     local tpl = job.templates[math.random(#job.templates)]
-    local at = defenderSpot(job.st)
+    local at = job.retake and retakeSpot(job.st) or defenderSpot(job.st)
     if not at then return "no free spot in the station" end
     local body = spawnBody(pc, at)
     if not body then return "spawn refused" end
@@ -1206,7 +1227,7 @@ local function startTopUp(pc, job)
     body.Health = tpl.maxHp or body.Health
     S.pendingDefenders = S.pendingDefenders or {}
     table.insert(S.pendingDefenders, { body = body, st = job.st, profile = tpl.profile, startedAt = os.clock(), female = female,
-        look = tpl.gear })
+        look = tpl.gear, retake = job.retake })
     equipKit(body, topUpKit(job, tpl))
 end
 
@@ -1231,6 +1252,14 @@ local function finishTopUp(p)
     AI.tuneBody(e)
     pcall(holdGun, e)
     local ok, carried = pcall(rollCarried, body)
+    e.guardOf = p.st -- retakeStep counts the station's guards by this
+    if p.retake then
+        e.retake, e.roamSt = true, false -- roamGuards leaves them be: retakeStep sends them after you
+        e.patrolRadius = CFG.RETAKE_PATROL
+        if valid(S.foot) then e.home, e.nextPatrol = S.foot:K2_GetActorLocation(), os.clock() end
+    else
+        p.st.guardsSeen = (p.st.guardsSeen or 0) + 1
+    end
     table.insert(X.raid().bots, e)
     S.adopted = S.adopted or {}
     table.insert(S.adopted, e)
@@ -1264,6 +1293,68 @@ local function topUpStep(pc)
     if job.left <= 0 then table.remove(jobs, 1) end
 end
 
+-- Retake squads (#581). While you're in a station that has had RETAKE_MIN_GUARDS or more guards (adopted and topped
+-- up, counted by e.guardOf), once RETAKE_ALIVE_FRAC or fewer are alive a squad is called; RETAKE_DELAY s later it joins
+-- the top-up queue (so AWAKE_MAX and one spawn per update still hold) as a job with rolled, better kits and the station's
+-- own guards' looks. Once per station a raid (st.retake). Then every RETAKE_HUNT_EVERY s its members' patrol centre
+-- moves to where you are. Untested in game.
+local function retakeStep(pc, st, now)
+    if (require("features").RETAKE_SQUADS or 0) < 1 then return end
+    local r = st.retake
+    if r == nil then
+        local total = st.guardsSeen or 0
+        if total < CFG.RETAKE_MIN_GUARDS or (S.adoptQueue and #S.adoptQueue > 0) then return end
+        for _, job in ipairs(S.topUps or {}) do if job.st == st then return end end
+        local alive = 0
+        for _, e in ipairs(X.raid().bots) do
+            if e.guardOf == st and not e.retake and not e.dead and e.bot and valid(e.bot) and hpOf(e.bot) > 0 then
+                alive = alive + 1
+            end
+        end
+        if alive > total * CFG.RETAKE_ALIVE_FRAC then return end
+        local tier = require("tiers").tierOf(st.name)
+        local n = CFG.RETAKE_COUNT[tier] or 0
+        if n <= 0 then
+            st.retake = false
+            X.log(("[retake] %s: guards cleared (%d of %d alive), tier %d: no squad"):format(st.name, alive, total, tier))
+            return
+        end
+        local delay = math.random(CFG.RETAKE_DELAY[1], CFG.RETAKE_DELAY[2])
+        st.retake = { at = now + delay, n = n }
+        X.log(("[retake] %s: guards cleared (%d of %d alive), tier %d: %d soldiers in %d s"):format(st.name, alive,
+            total, tier, n, delay))
+        return
+    end
+    if not r then return end
+    if not r.sent and now >= r.at then
+        r.sent = true
+        local n = r.n
+        if CFG.AWAKE_MAX > 0 then n = math.min(n, math.max(0, CFG.AWAKE_MAX - R.awakeCount())) end
+        X.log(("[retake] %s: squad arriving, %d of %d (AWAKE_MAX)"):format(st.name, n, r.n))
+        if n <= 0 then return end
+        local tpls, guns = {}, {}
+        for _, t in ipairs(st.templates or {}) do
+            tpls[#tpls + 1] = t
+            if t.rows and t.rows.gun then guns[#guns + 1] = t.rows.gun end
+        end
+        S.topUps = S.topUps or {}
+        table.insert(S.topUps, { st = st, left = n, templates = tpls, guns = guns, retake = true })
+        if valid(pc) then
+            pcall(function()
+                pc:ClientMessage("Reinforcements are coming to retake the " .. st.name, FName("Event"), 5.0)
+            end)
+        end
+        r.nextHunt = now
+    end
+    if r.sent and now >= (r.nextHunt or 0) and valid(S.foot) then
+        r.nextHunt = now + CFG.RETAKE_HUNT_EVERY
+        local you = S.foot:K2_GetActorLocation()
+        for _, e in ipairs(X.raid().bots) do
+            if e.retake and e.guardOf == st and not e.dead and e.bot and valid(e.bot) then e.home = you end
+        end
+    end
+end
+
 local function adoptQueued()
     local q = S.adoptQueue
     if not q or #q == 0 then return end
@@ -1277,6 +1368,10 @@ local function adoptQueued()
         local b = e.bot
         local look = e.look or { head = b.Mesh.SkeletalMesh, gear = {} }
         local tpl = { head = look.head, gear = look.gear, rows = e.rows, profile = profile, maxHp = b.Health }
+        e.guardOf = job.st
+        job.st.guardsSeen = (job.st.guardsSeen or 0) + 1
+        job.st.templates = job.st.templates or {} -- the retake squad (#581) looks like them
+        table.insert(job.st.templates, tpl)
         for _, t in ipairs(S.topUps or {}) do
             if t.st == job.st then
                 table.insert(t.templates, tpl)
@@ -1380,6 +1475,6 @@ M.giveShipCard = giveShipCard
 M.removeEntry, M.roamGuards, M.rollKit, M.setWatch = removeEntry, roamGuards, rollKit, setWatch
 M.spreadPoint, M.startBody, M.stationSpawnSpots = spreadPoint, startBody, stationSpawnSpots
 M.routGuards, M.sweepStrays, M.topUpStep = routGuards, sweepStrays, topUpStep
-M.routPoint = routPoint
+M.routPoint, M.retakeStep = routPoint, retakeStep
 
 return M

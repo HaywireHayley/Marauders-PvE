@@ -330,6 +330,15 @@ local CFG = {
                                     -- frame (at the helm, in a turret seat or a pod: every frame). 0 = always every frame
     AWAKE_MAX = 16,                 -- bodies awake around you (guards, soldiers, rivals; parked ones don't count) before
                                     -- another crew waits aboard and station top-ups stop; 0 = no cap (F10 How many)
+    -- Retake squads (#581; features.lua RETAKE_SQUADS): once you've cleared most of a station's guards while inside it, a
+    -- squad comes in through an entry point after a delay, in better kits, and hunts you. Once per station a raid.
+    RETAKE_ALIVE_FRAC = 0.25,       -- squad called when this share (or less) of the station's guards is still alive
+    RETAKE_MIN_GUARDS = 4,          -- stations with fewer guards than this never call one
+    RETAKE_DELAY = { 60, 120 },     -- seconds from the call to the squad arriving
+    RETAKE_COUNT = { 0, 2, 3, 4, 6 }, -- squad size by location tier (tiers.lua; tier 3 when LOCATION_TIERS is off)
+    RETAKE_GEAR_BIAS = 0.25,        -- gear grade shift for their rolled kits (gearscale.lua), on top of the tier's
+    RETAKE_PATROL = 1500,           -- they walk about this close to where you were last (refreshed every few seconds)
+    RETAKE_HUNT_EVERY = 5,          -- seconds between those refreshes
     INSIDE_AREA_PER_CREW = 10000,   -- crews walking a station at once: one per this many m2 (at least INSIDE_MIN).
     INSIDE_MIN = 2,                 -- The rest wait aboard and come in through an airlock as a place frees up: 11 crews
                                     -- docked at Colony Cruiser (30k m2, the map's only station) all appeared inside at
@@ -1624,6 +1633,9 @@ function R.update(pc, worldKey, worldName, foot, homeInside)
         if due("rout", 1, now) then okL, errL = pcall(Bodies.routGuards, place, now, playerLoc) end
         if not okL and not S.routErr then S.routErr = true X.log("[rivals] guard rout failed: " .. tostring(errL)) end
         mark("routGuards")
+        local okT, errT = pcall(Bodies.retakeStep, pc, place, now)
+        if not okT and not S.retakeErr then S.retakeErr = true X.log("[retake] failed: " .. tostring(errT)) end
+        mark("retake")
     end
     Bodies.adoptQueued()
     mark("adoptQueued")
