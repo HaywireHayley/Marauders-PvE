@@ -431,6 +431,7 @@ local function define()
         { "VENDOR_STOCK", "Traders sell more gear", 0, 1, 1, "1 = on, 0 = off. Most guns, armour, helmets and bags, unlocked by faction level (boss gear stays loot). Turning it off needs a restart" },
         { "VENDOR_PRICE", "Trader prices (%)", 50, 400, 25, "100 = the game's prices. Higher makes buying a pricier route than looting; your faction discount still applies" },
         { "BUSY_START", "Busy start: rivals come at you sooner", 0, 1, 1, "1 = on, 0 = off. Rival crews launch within 15 s, the first ship fight comes after 5-15 s, and one crew attacks you after 15 s of flying. On by default: players asked for faster action. Takes effect next raid" },
+        { "LOCATION_TIERS", "Location difficulty tiers", 0, 1, 1, "1 = on, 0 = off. Mines get fewer guards; the Navy Outpost, Capital Ship, Planet Killer and Fortress more and better kitted; mid stations unchanged. Takes effect at the next station you visit. Untested (#579)" },
         { "CREW_HUD", "Crew health readout in raids", 0, 1, 1, "1 = on, 0 = off. Each crewmate's name and health % (or down) at the left of the screen while you have crew in the raid" },
         { "SORT_FADE", "Stash SORT: black screen while sorting", 0, 1, 1, "1 = on, 0 = off. Hides the items jumping around while the stash sorts; gone after 8 s at most" },
         { "FOV", "Field of view (degrees)", 0, 120, 1, "0 = the game's own. 70-120 widens or narrows the view (values under 70 count as 70). Untested (#328)" },

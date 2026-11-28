@@ -16,6 +16,7 @@ return {
     VENDOR_STOCK = 1,   -- vendors.lua: the four traders sell most guns, armour, helmets and bags by faction level (#384)
     VENDOR_PRICE = 100, -- vendors.lua: trader prices, % of the game's (the faction discount still applies) (#384)
     BUSY_START = 1,     -- rivals.lua: crews launch within 15 s, first ship fight in 5-15 s, one crew attacks you after 15 s of flying (#459; on: players asked for faster action)
+    LOCATION_TIERS = 1, -- tiers.lua: stations rated 1-5; easy ones get fewer guards and cheaper rolled kits, hard ones more and better; tier 3 as before (#579; untested)
     CREW_HUD = 1,       -- crew.lua: your crewmates' names and health % at the left of the screen in a raid (#391)
     SORT_FADE = 1,      -- invqol.lua: the screen goes black with "Sorting..." while the stash SORT runs (#468)
     FOV = 0,            -- fov.lua: field of view in degrees, 0 = the game's own (#328; untested)
